@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.6.6';
+const APP_VERSION = '1.7.0';
 
 const providers = [
   {id:'jma',name:'JMA MSM',kind:'openmeteo',endpoint:'https://api.open-meteo.com/v1/jma',model:'jma_msm',forecastDays:4,vars:['temperature_2m','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_direction_10m']},
@@ -501,6 +501,14 @@ async function fetchMetNoFallback(point){
   const payload=await fetchMetNoPayload(point);
   return payload?extractMetNoRow(payload,point):null;
 }
+async function fetchNoaaGfsFallback(point){
+  if(daysAhead(point.date)>16)return null;
+  const q=new URLSearchParams({lat:String(point.lat),lon:String(point.lon),date:point.date,time:point.time});
+  const r=await fetch(`/api/noaa-gfs?${q}`,{headers:{Accept:'application/json'}});
+  const payload=await r.json().catch(()=>null);
+  if(!r.ok)throw new Error(payload?.error||`NOAA GFS HTTP ${r.status}`);
+  return payload?.row||null;
+}
 
 async function analyzePointsBatch(points){
   const buckets=points.map(()=>({rows:[],errors:[]}));
@@ -520,28 +528,34 @@ async function analyzePointsBatch(points){
   // If a point has no Open-Meteo result and the eligible model calls were
   // rate-limited, fall back to MET Norway Locationforecast so the plan can
   // still be evaluated. This is a single-source fallback, not a 4-model vote.
-  const fallbackProvider={id:'metno',name:'MET Norway（予備）',kind:'fallback'};
+  const metnoProvider={id:'metno',name:'MET Norway（予備）',kind:'fallback'};
+  const noaaProvider={id:'noaa-gfs',name:'NOAA GFS（直取得）',kind:'fallback'};
   for(let index=0;index<points.length;index++){
     const bucket=buckets[index];
     if(bucket.rows.length)continue;
     const rateLimited=bucket.errors.some(x=>x.includes('HTTP 429'));
     if(!rateLimited)continue;
-    setStatus(`Open-Meteoが混雑中：${points[index].name} を予備APIで取得しています…`);
+    setStatus(`Open-Meteoが混雑中：${points[index].name} を予備データで取得しています…`);
     try{
       const row=await fetchMetNoFallback(points[index]);
       if(row){
-        bucket.rows.push({provider:fallbackProvider,row});
-        bucket.errors.push('Open-Meteo: HTTP 429 → MET Norway予備APIへ切替');
-      }else{
-        bucket.errors.push('MET Norway: 指定時刻の予報なし（約9日先まで）');
-      }
+        bucket.rows.push({provider:metnoProvider,row});
+        bucket.errors.push('Open-Meteo: HTTP 429 → MET Norway予備へ切替');
+      }else bucket.errors.push('MET Norway: 指定時刻の予報なし（約9日先まで）');
     }catch(e){bucket.errors.push(e?.message||'MET Norway取得失敗');}
+    try{
+      const row=await fetchNoaaGfsFallback(points[index]);
+      if(row){
+        bucket.rows.push({provider:noaaProvider,row});
+        bucket.errors.push('NOAA GFS: NOMADS GRIB2を直接取得');
+      }else bucket.errors.push('NOAA GFS: 指定時刻の予報なし（約16日先まで）');
+    }catch(e){bucket.errors.push(e?.message||'NOAA GFS取得失敗');}
   }
   return points.map((point,index)=>{
     const rows=buckets[index].rows, errors=buckets[index].errors;
     if(!rows.length)throw new Error(`${point.name}: 予報データを取得できませんでした。 ${errors.join(' / ')||'対応モデルがありません'}`);
     const avg=averageRows(rows.map(x=>x.row));
-    return {point,providerRows:rows,errors,...avg,grade:assessGrade(avg),confidence:(rows.length===1&&rows[0].provider?.id==='metno'?'FALLBACK':assessConfidence(rows.map(x=>x.row))),thunder:thunderLevel(avg)};
+    return {point,providerRows:rows,errors,...avg,grade:assessGrade(avg),confidence:(rows.length===1&&rows[0].provider?.kind==='fallback'?'FALLBACK':assessConfidence(rows.map(x=>x.row))),thunder:thunderLevel(avg)};
   });
 }
 

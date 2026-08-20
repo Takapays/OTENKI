@@ -18,13 +18,15 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import tempfile
+from datetime import datetime, timezone, timedelta
 from collections import OrderedDict
 from typing import Any
 
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.6"
+APP_VERSION = "1.7.0"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -71,13 +73,20 @@ OVERPASS_ENDPOINTS = [
 
 UA = os.environ.get(
     "UPSTREAM_USER_AGENT",
-    "TraverseWeatherDecision/1.6.6",
+    "TraverseWeatherDecision/1.7.0",
 )
 
 METNO_USER_AGENT = os.environ.get(
     "METNO_USER_AGENT",
-    "JUUSOUTENKI/1.6.6 https://juusoutenki.onrender.com",
+    "JUUSOUTENKI/1.7.0 https://juusoutenki.onrender.com",
 )
+
+NOAA_GFS_FILTER = os.environ.get(
+    "NOAA_GFS_FILTER",
+    "https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl",
+)
+NOAA_GFS_TIMEOUT = int(os.environ.get("NOAA_GFS_TIMEOUT", "35"))
+NOAA_GFS_CACHE_TTL = int(os.environ.get("NOAA_GFS_CACHE_TTL", "1800"))
 
 app = Flask(__name__, static_folder=None)
 app.config["MAX_CONTENT_LENGTH"] = MAX_OVERPASS_BYTES
@@ -372,6 +381,165 @@ def _request_url(url: str, timeout: int = UPSTREAM_TIMEOUT):
     raise RuntimeError("upstream request failed")
 
 
+
+def _noaa_cycle_candidates(now_utc: datetime) -> list[datetime]:
+    """Recent GFS cycles, newest first, with a publication-delay cushion."""
+    base = now_utc.replace(minute=0, second=0, microsecond=0)
+    # Keep at least ~5h behind wall-clock time so the selected cycle is normally complete.
+    base -= timedelta(hours=5)
+    cycle_hour = (base.hour // 6) * 6
+    first = base.replace(hour=cycle_hour)
+    return [first - timedelta(hours=6 * i) for i in range(4)]
+
+
+def _noaa_forecast_hour(cycle: datetime, target_utc: datetime) -> int | None:
+    hours = (target_utc - cycle).total_seconds() / 3600.0
+    if hours < 0 or hours > 384:
+        return None
+    # GFS files are available hourly through 120 h and every 3 h afterwards.
+    step = 1 if hours <= 120 else 3
+    fh = int(round(hours / step) * step)
+    return max(0, min(384, fh))
+
+
+def _noaa_filter_url(cycle: datetime, fh: int, lat: float, lon: float) -> str:
+    # NOMADS uses east-positive longitudes; Japan already falls in 0..180.
+    lon360 = lon % 360.0
+    pad = 0.35
+    params = {
+        "file": f"gfs.t{cycle.hour:02d}z.pgrb2.0p25.f{fh:03d}",
+        "lev_2_m_above_ground": "on",
+        "lev_10_m_above_ground": "on",
+        "lev_surface": "on",
+        "lev_entire_atmosphere": "on",
+        "var_TMP": "on",
+        "var_RH": "on",
+        "var_UGRD": "on",
+        "var_VGRD": "on",
+        "var_GUST": "on",
+        "var_PRATE": "on",
+        "var_TCDC": "on",
+        "subregion": "",
+        "leftlon": f"{lon360-pad:.2f}",
+        "rightlon": f"{lon360+pad:.2f}",
+        "toplat": f"{lat+pad:.2f}",
+        "bottomlat": f"{lat-pad:.2f}",
+        "dir": f"/gfs.{cycle:%Y%m%d}/{cycle.hour:02d}/atmos",
+    }
+    return NOAA_GFS_FILTER + "?" + urllib.parse.urlencode(params)
+
+
+def _grib_nearest_value(gid, lat: float, lon: float) -> float | None:
+    from eccodes import codes_grib_find_nearest
+    try:
+        found = codes_grib_find_nearest(gid, lat, lon % 360.0)
+        if isinstance(found, dict):
+            return float(found.get("value"))
+        if found:
+            return float(found[0].get("value"))
+    except Exception:
+        return None
+    return None
+
+
+def _parse_noaa_grib(path: str, lat: float, lon: float) -> dict[str, Any]:
+    from eccodes import codes_get, codes_grib_new_from_file, codes_release
+    values: dict[str, float] = {}
+    with open(path, "rb") as fh:
+        while True:
+            gid = codes_grib_new_from_file(fh)
+            if gid is None:
+                break
+            try:
+                short = str(codes_get(gid, "shortName"))
+                level_type = str(codes_get(gid, "typeOfLevel"))
+                try:
+                    level = float(codes_get(gid, "level"))
+                except Exception:
+                    level = float("nan")
+                val = _grib_nearest_value(gid, lat, lon)
+                if val is None or not math.isfinite(val):
+                    continue
+                if short in {"2t", "t"} and (level_type == "heightAboveGround" and level == 2):
+                    values["temp"] = val - 273.15 if val > 150 else val
+                elif short in {"2r", "r"} and (level_type == "heightAboveGround" and level == 2):
+                    values["rh"] = val
+                elif short in {"10u", "u"} and (level_type == "heightAboveGround" and level == 10):
+                    values["u"] = val
+                elif short in {"10v", "v"} and (level_type == "heightAboveGround" and level == 10):
+                    values["v"] = val
+                elif short in {"gust", "10fg"}:
+                    values["gust"] = val
+                elif short in {"prate"}:
+                    values["rain"] = max(0.0, val * 3600.0)  # kg m-2 s-1 == mm/s
+                elif short in {"tcc", "tcdc"}:
+                    values["cloud"] = val * 100.0 if 0.0 <= val <= 1.01 else val
+            finally:
+                codes_release(gid)
+    if "u" in values and "v" in values:
+        u, v = values["u"], values["v"]
+        values["wind"] = math.hypot(u, v)
+        values["windDir"] = (math.degrees(math.atan2(-u, -v)) + 360.0) % 360.0
+    return values
+
+
+def _fetch_noaa_gfs(lat: float, lon: float, target_utc: datetime) -> dict[str, Any]:
+    errors: list[str] = []
+    for cycle in _noaa_cycle_candidates(datetime.now(timezone.utc)):
+        fh = _noaa_forecast_hour(cycle, target_utc)
+        if fh is None:
+            continue
+        url = _noaa_filter_url(cycle, fh, lat, lon)
+        cache_key = "noaa-gfs:" + url
+        cached = _cache_get(cache_key)
+        if cached:
+            _, _, body = cached
+        else:
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/octet-stream"})
+                with urllib.request.urlopen(req, timeout=NOAA_GFS_TIMEOUT) as resp:
+                    body = resp.read()
+                if not body.startswith(b"GRIB"):
+                    errors.append(f"{cycle:%Y%m%d%H} f{fh:03d}: GRIBなし")
+                    continue
+                _cache_put(cache_key, 200, "application/x-grib2", body, ttl=NOAA_GFS_CACHE_TTL)
+            except Exception as exc:
+                errors.append(f"{cycle:%Y%m%d%H} f{fh:03d}: {exc}")
+                continue
+        tmp_path = None
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".grib2", delete=False) as tmp:
+                tmp.write(body)
+                tmp_path = tmp.name
+            vals = _parse_noaa_grib(tmp_path, lat, lon)
+            if "temp" not in vals and "wind" not in vals:
+                errors.append(f"{cycle:%Y%m%d%H} f{fh:03d}: 必要変数なし")
+                continue
+            valid = cycle + timedelta(hours=fh)
+            return {
+                "ok": True,
+                "source": "NOAA GFS direct GRIB2",
+                "model_run": cycle.isoformat().replace("+00:00", "Z"),
+                "forecast_hour": fh,
+                "valid_time": valid.isoformat().replace("+00:00", "Z"),
+                "row": {
+                    "time": valid.isoformat().replace("+00:00", "Z"),
+                    "temp": vals.get("temp"), "rh": vals.get("rh"),
+                    "rain": vals.get("rain"), "cloud": vals.get("cloud"),
+                    "wind": vals.get("wind"), "gust": vals.get("gust"),
+                    "windDir": vals.get("windDir"),
+                    "cape": None, "visibility": None, "freezing": None,
+                },
+            }
+        finally:
+            if tmp_path:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+    raise RuntimeError(" / ".join(errors[-4:]) or "利用可能なGFSサイクルがありません")
+
+
 def _request_overpass(endpoint: str, query: str, timeout: int = OVERPASS_TIMEOUT):
     data = urllib.parse.urlencode({"data": query}).encode("utf-8")
     req = urllib.request.Request(
@@ -479,6 +647,33 @@ def trail_route():
     response.headers["X-Trail-Source"] = "MISS"
     return response, 404
 
+
+
+
+@app.get("/api/noaa-gfs")
+def noaa_gfs():
+    try:
+        lat = float(request.args["lat"])
+        lon = float(request.args["lon"])
+        date_text = request.args["date"]
+        time_text = request.args.get("time", "12:00")
+        # Input date/time is the app's Japan local time.
+        local = datetime.fromisoformat(f"{date_text}T{time_text}:00+09:00")
+        target_utc = local.astimezone(timezone.utc)
+        if target_utc < datetime.now(timezone.utc) - timedelta(hours=2):
+            return jsonify(error="NOAA GFS: 過去日時は対象外です"), 400
+        if target_utc > datetime.now(timezone.utc) + timedelta(hours=384):
+            return jsonify(error="NOAA GFS: 約16日先までです"), 400
+        data = _fetch_noaa_gfs(lat, lon, target_utc)
+        response = jsonify(data)
+        response.headers["Cache-Control"] = "public, max-age=900"
+        return response
+    except ImportError as exc:
+        return jsonify(error=f"NOAA GFS解析ライブラリがありません: {exc}"), 503
+    except (KeyError, ValueError) as exc:
+        return jsonify(error=f"NOAA GFS入力エラー: {exc}"), 400
+    except Exception as exc:
+        return jsonify(error=f"NOAA GFS取得失敗: {exc}"), 502
 
 
 @app.get("/api/proxy")

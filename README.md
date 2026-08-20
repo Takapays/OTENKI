@@ -1,7 +1,7 @@
-# 縦走山行判断ツール V1.6.6
+# 縦走山行判断ツール V1.7.0
 
 
-## V1.6.6
+## V1.7.0
 
 - 通過地点だけでなく、宿泊地点の夜間分析も Open-Meteo が HTTP 429 の場合は MET Norway Locationforecast へ自動切替。
 - 予備モードでも、夜間最低気温・体感温度の目安・風・突風・降水・雲量・ガスリスク・天の川スコアを継続表示。
@@ -9,7 +9,7 @@
 - 宿泊カードに `MET Norway（予備）` / `Open-Meteo` の取得元を表示。
 - MET Norway の時刻表示は日本時間（Asia/Tokyo）へ変換。
 - Open-Meteoのモデル別・全地点一括取得、15分キャッシュ、429再試行は継続。
-- 画面・JavaScript・サーバーのバージョン表示を V1.6.6 に統一。
+- 画面・JavaScript・サーバーのバージョン表示を V1.7.0 に統一。
 
 ## V1.6.3
 
@@ -94,3 +94,11 @@ Start Command:
 - Open-Meteo 各モデルに forecast_days を明示し、7日超の予定日でも対応モデルが取得できるよう修正。
 - 宿泊分析にも forecast_days=16 を指定。
 - 全モデル失敗時にモデル別エラー理由を画面表示。
+
+
+## V1.7.0
+
+- NOAA GFS 0.25° を NOAA/NCEP NOMADS の GRIB2 から直接取得する予備系を追加。Open-Meteo APIを経由しません。
+- Open-MeteoがHTTP 429で利用できない場合、MET NorwayとNOAA GFS直取得を併用し、取得できた予報を結果比較に利用。
+- NOAA GFSは約16日先までを対象とし、最新の利用可能なGFSサイクルを自動選択。
+- GRIB2解析にECMWF ecCodes Python bindingsを使用。
