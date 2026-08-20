@@ -24,7 +24,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.5"
+APP_VERSION = "1.6.6"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -71,12 +71,12 @@ OVERPASS_ENDPOINTS = [
 
 UA = os.environ.get(
     "UPSTREAM_USER_AGENT",
-    "TraverseWeatherDecision/1.6.5",
+    "TraverseWeatherDecision/1.6.6",
 )
 
 METNO_USER_AGENT = os.environ.get(
     "METNO_USER_AGENT",
-    "JUUSOUTENKI/1.6.5 https://juusoutenki.onrender.com",
+    "JUUSOUTENKI/1.6.6 https://juusoutenki.onrender.com",
 )
 
 app = Flask(__name__, static_folder=None)

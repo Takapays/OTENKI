@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.6.5';
+const APP_VERSION = '1.6.6';
 
 const providers = [
   {id:'jma',name:'JMA MSM',kind:'openmeteo',endpoint:'https://api.open-meteo.com/v1/jma',model:'jma_msm',forecastDays:4,vars:['temperature_2m','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_direction_10m']},
@@ -484,7 +484,7 @@ function extractMetNoRow(payload,point){
     cape:NaN,visibility:NaN,freezing:NaN
   };
 }
-async function fetchMetNoFallback(point){
+async function fetchMetNoPayload(point){
   // Locationforecast currently covers roughly nine days. It is used only
   // when Open-Meteo has returned HTTP 429 for this point.
   if(daysAhead(point.date)>9)return null;
@@ -495,7 +495,11 @@ async function fetchMetNoFallback(point){
   if(Number.isFinite(Number(point.elevation))&&Number(point.elevation)>0)q.set('altitude',String(Math.round(Number(point.elevation))));
   const r=await proxyFetch(`https://api.met.no/weatherapi/locationforecast/2.0/compact?${q}`);
   if(!r.ok)throw new Error(`MET Norway HTTP ${r.status}`);
-  return extractMetNoRow(await r.json(),point);
+  return await r.json();
+}
+async function fetchMetNoFallback(point){
+  const payload=await fetchMetNoPayload(point);
+  return payload?extractMetNoRow(payload,point):null;
 }
 
 async function analyzePointsBatch(points){
@@ -578,6 +582,63 @@ function analyzeOvernightJson(point,nightNo,j){
   const score=best?milkyScore(best,moon):0;
   return {nightNo,point,sunset,sunrise,sunsetView,sunriseView,minTemp,minApp,maxWind,maxGust,maxRain,avgCloud,maxRh,minVis,fogRisk,moon,best,score,milkyLabel:score>=75?'期待大':score>=55?'見える可能性あり':score>=35?'条件次第':'厳しい'};
 }
+function metNoRows(payload){
+  const ts=payload?.properties?.timeseries;
+  if(!Array.isArray(ts))return [];
+  return ts.map(item=>{
+    const d=item?.data?.instant?.details||{}, n1=item?.data?.next_1_hours?.details||{}, n6=item?.data?.next_6_hours?.details||{};
+    const temp=numberOrNaN(d.air_temperature), wind=numberOrNaN(d.wind_speed), rh=numberOrNaN(d.relative_humidity);
+    let rain=numberOrNaN(n1.precipitation_amount);
+    if(!Number.isFinite(rain)){const r6=numberOrNaN(n6.precipitation_amount); rain=Number.isFinite(r6)?r6/6:NaN;}
+    return {time:item.time,temp,apparent:apparentTempApprox(temp,wind),rh,rain,cloud:numberOrNaN(d.cloud_area_fraction),wind,gust:numberOrNaN(d.wind_speed_of_gust),visibility:NaN};
+  }).filter(x=>x.time);
+}
+function apparentTempApprox(temp,wind){
+  if(!Number.isFinite(temp))return NaN;
+  if(!Number.isFinite(wind)||wind<1.34||temp>10)return temp;
+  const v=Math.max(4.8,wind*3.6), p=Math.pow(v,0.16);
+  return 13.12+0.6215*temp-11.37*p+0.3965*temp*p;
+}
+function solarTimeApprox(date,lat,lon,isSunrise){
+  const base=new Date(`${date}T12:00:00+09:00`), start=new Date(base.getFullYear(),0,0), n=Math.floor((base-start)/86400000);
+  const rad=Math.PI/180, lngHour=lon/15, t=n+(((isSunrise?6:18)-lngHour)/24);
+  const M=(0.9856*t)-3.289;
+  let L=M+1.916*Math.sin(M*rad)+0.020*Math.sin(2*M*rad)+282.634; L=(L+360)%360;
+  let RA=Math.atan(0.91764*Math.tan(L*rad))/rad; RA=(RA+360)%360;
+  const Lq=Math.floor(L/90)*90, RAq=Math.floor(RA/90)*90; RA=(RA+(Lq-RAq))/15;
+  const sinDec=0.39782*Math.sin(L*rad), cosDec=Math.cos(Math.asin(sinDec));
+  const cosH=(Math.cos(90.833*rad)-(sinDec*Math.sin(lat*rad)))/(cosDec*Math.cos(lat*rad));
+  if(cosH>1||cosH<-1)return `${date}T${isSunrise?'05:00':'18:00'}:00+09:00`;
+  let H=(isSunrise?(360-Math.acos(cosH)/rad):(Math.acos(cosH)/rad))/15;
+  const T=H+RA-(0.06571*t)-6.622, UT=(T-lngHour+24)%24, jst=(UT+9)%24;
+  const hh=Math.floor(jst), mm=Math.round((jst-hh)*60)%60, h2=(hh+(Math.round((jst-hh)*60)>=60?1:0))%24;
+  return `${date}T${String(h2).padStart(2,'0')}:${String(mm).padStart(2,'0')}:00+09:00`;
+}
+function analyzeOvernightMetNo(point,nightNo,payload){
+  const next=addDays(point.date,1), allRows=metNoRows(payload);
+  const startMs=new Date(`${point.date}T${point.time}:00+09:00`).getTime(), endMs=new Date(`${next}T08:00:00+09:00`).getTime();
+  const rows=allRows.filter(x=>{const t=new Date(x.time).getTime();return t>=startMs&&t<=endMs;});
+  if(!rows.length)throw new Error('MET Norway: 宿泊時間帯の予報なし');
+  const sunset=solarTimeApprox(point.date,Number(point.lat),Number(point.lon),false), sunrise=solarTimeApprox(next,Number(point.lat),Number(point.lon),true);
+  const sunsetRow=allRows[nearestTimeIndex(allRows.map(x=>x.time),sunset)]||null, sunriseRow=allRows[nearestTimeIndex(allRows.map(x=>x.time),sunrise)]||null;
+  const sunsetView=horizonVisibility(sunsetRow), sunriseView=horizonVisibility(sunriseRow);
+  const darkStart=new Date(sunset).getTime()+90*60000, darkEnd=new Date(sunrise).getTime()-90*60000;
+  const darkRows=rows.filter(x=>{const t=new Date(x.time).getTime();return t>=darkStart&&t<=darkEnd;}), astroRows=darkRows.length?darkRows:rows;
+  const moon=moonInfo(point.date), best=astroRows.slice().sort((a,b)=>milkyScore(b,moon)-milkyScore(a,moon))[0]||null;
+  const minTemp=minFinite(rows.map(x=>x.temp)), minApp=minFinite(rows.map(x=>x.apparent)), maxWind=max(rows.map(x=>x.wind)), maxGust=max(rows.map(x=>x.gust)), maxRain=max(rows.map(x=>x.rain)), avgCloud=mean(rows.map(x=>x.cloud)), maxRh=max(rows.map(x=>x.rh));
+  const fogRisk=(maxRh>=97&&avgCloud>=85)?'高':(maxRh>=92||avgCloud>=75)?'中':'低', score=best?milkyScore(best,moon):0;
+  return {nightNo,point,sunset,sunrise,sunsetView,sunriseView,minTemp,minApp,maxWind,maxGust,maxRain,avgCloud,maxRh,minVis:NaN,fogRisk,moon,best,score,milkyLabel:score>=75?'期待大':score>=55?'見える可能性あり':score>=35?'条件次第':'厳しい',source:'MET Norway（予備）'};
+}
+async function analyzeOvernightsMetNo(points){
+  const out=[];
+  for(let i=0;i<points.length;i++){
+    setStatus(`宿泊分析：Open-Meteo 429 → ${i+1}/${points.length}泊目をMET Norwayで取得中…`);
+    const payload=await fetchMetNoPayload(points[i]);
+    if(!payload)throw new Error('MET Norway: 宿泊予報は約9日先までです');
+    out.push(analyzeOvernightMetNo(points[i],i+1,payload));
+  }
+  return out;
+}
 async function analyzeOvernightsBatch(points){
   if(!points.length)return [];
   const vars=['temperature_2m','apparent_temperature','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_gusts_10m','visibility'];
@@ -586,14 +647,26 @@ async function analyzeOvernightsBatch(points){
     latitude:points.map(p=>p.lat).join(','),longitude:points.map(p=>p.lon).join(','),elevation:points.map(p=>Number(p.elevation)||'nan').join(','),
     hourly:vars.join(','),daily:'sunrise,sunset',timezone:'Asia/Tokyo',start_date:starts[0],end_date:ends[ends.length-1],wind_speed_unit:'ms'
   });
-  const r=await proxyFetch(`https://api.open-meteo.com/v1/forecast?${q}`); if(!r.ok)throw new Error(`宿泊予報 HTTP ${r.status}`);
+  const r=await proxyFetch(`https://api.open-meteo.com/v1/forecast?${q}`);
+  if(!r.ok){
+    if(r.status===429)return await analyzeOvernightsMetNo(points);
+    throw new Error(`宿泊予報 HTTP ${r.status}`);
+  }
   const raw=await r.json(), locations=Array.isArray(raw)?raw:[raw];
   if(locations.length!==points.length)throw new Error(`宿泊予報の地点数不一致 (${locations.length}/${points.length})`);
-  return points.map((p,i)=>analyzeOvernightJson(p,i+1,locations[i]));
+  return points.map((p,i)=>({...analyzeOvernightJson(p,i+1,locations[i]),source:'Open-Meteo'}));
 }
 function addDays(date,n){const d=new Date(`${date}T12:00:00`);d.setDate(d.getDate()+n);return d.toISOString().slice(0,10);}
 function minFinite(v){const x=v.filter(Number.isFinite);return x.length?Math.min(...x):NaN;}
-function timeOnly(s){return s?String(s).slice(11,16):'–';}
+function timeOnly(s){
+  if(!s)return '–';
+  const str=String(s);
+  if(/Z$|[+-]\d\d:\d\d$/.test(str)){
+    const d=new Date(str);
+    if(Number.isFinite(d.getTime()))return new Intl.DateTimeFormat('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit',hour12:false}).format(d);
+  }
+  return str.slice(11,16);
+}
 function horizonVisibility(row){
   if(!row) return {label:'判定不可',mark:'–',score:0};
   let s=100;
@@ -628,7 +701,7 @@ function renderOvernights(items){
   const section=$('overnightSection');
   if(!items.length){section.classList.add('hidden');$('overnightCards').innerHTML='';return;}
   section.classList.remove('hidden');
-  $('overnightCards').innerHTML=items.map(o=>`<article class="overnight-card"><div class="overnight-head"><div><span class="night-badge">${o.nightNo}泊目</span><h3>${esc(o.point.name)}</h3><small>${o.point.date} / ${Math.round(o.point.elevation||0)}m</small></div></div><div class="astro-cards"><div class="astro-card sunset-card"><small>🌇 日の入り</small><b>${timeOnly(o.sunset)}</b><span>${o.sunsetView.mark} ${o.sunsetView.label}</span></div><div class="astro-card milky-card"><small>🌌 天の川</small><b>${o.milkyLabel}</b><span>${Math.round(o.score)} / 100${o.best?` ・ ${timeOnly(o.best.time)}頃`:''}</span></div><div class="astro-card sunrise-card"><small>🌄 日の出</small><b>${timeOnly(o.sunrise)}</b><span>${o.sunriseView.mark} ${o.sunriseView.label}</span></div></div><div class="overnight-metrics"><span>最低気温<b>${num(o.minTemp)}℃</b></span><span>最低体感<b>${num(o.minApp)}℃</b></span><span>最大風<b>${num(o.maxWind)}m/s</b></span><span>最大突風<b>${num(o.maxGust)}m/s</b></span><span>夜間降水<b>${num(o.maxRain)}mm/h</b></span><span>平均雲量<b>${num(o.avgCloud,0)}%</b></span><span>ガス・霧<b>${o.fogRisk}</b></span><span>月明かり<b>${o.moon.phase} ${Math.round(o.moon.illum)}%</b></span></div><p class="night-note">天の川スコアは、夜間の雲量・降水・視程・湿度と月明かりから算出した目安です。地形による空の開け方や局地的な雲は反映しません。</p></article>`).join('');
+  $('overnightCards').innerHTML=items.map(o=>`<article class="overnight-card"><div class="overnight-head"><div><span class="night-badge">${o.nightNo}泊目</span><h3>${esc(o.point.name)}</h3><small>${o.point.date} / ${Math.round(o.point.elevation||0)}m${o.source?` ・ ${esc(o.source)}`:''}</small></div></div><div class="astro-cards"><div class="astro-card sunset-card"><small>🌇 日の入り</small><b>${timeOnly(o.sunset)}</b><span>${o.sunsetView.mark} ${o.sunsetView.label}</span></div><div class="astro-card milky-card"><small>🌌 天の川</small><b>${o.milkyLabel}</b><span>${Math.round(o.score)} / 100${o.best?` ・ ${timeOnly(o.best.time)}頃`:''}</span></div><div class="astro-card sunrise-card"><small>🌄 日の出</small><b>${timeOnly(o.sunrise)}</b><span>${o.sunriseView.mark} ${o.sunriseView.label}</span></div></div><div class="overnight-metrics"><span>最低気温<b>${num(o.minTemp)}℃</b></span><span>最低体感<b>${num(o.minApp)}℃</b></span><span>最大風<b>${num(o.maxWind)}m/s</b></span><span>最大突風<b>${num(o.maxGust)}m/s</b></span><span>夜間降水<b>${num(o.maxRain)}mm/h</b></span><span>平均雲量<b>${num(o.avgCloud,0)}%</b></span><span>ガス・霧<b>${o.fogRisk}</b></span><span>月明かり<b>${o.moon.phase} ${Math.round(o.moon.illum)}%</b></span></div><p class="night-note">天の川スコアは、夜間の雲量・降水・視程・湿度と月明かりから算出した目安です。地形による空の開け方や局地的な雲は反映しません。</p></article>`).join('');
 }
 
 function nearestTimeIndex(times,target){const t=new Date(target).getTime();let best=-1,d=Infinity;times.forEach((s,i)=>{const x=Math.abs(new Date(s).getTime()-t);if(x<d){d=x;best=i;}});return best;}
