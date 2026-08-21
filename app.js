@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.10.1';
+const APP_VERSION = '1.10.2';
 
 const providers = [
   {id:'jma',name:'JMA MSM',kind:'openmeteo',endpoint:'https://api.open-meteo.com/v1/jma',model:'jma_msm',forecastDays:4,vars:['temperature_2m','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_direction_10m']},
@@ -978,20 +978,24 @@ function curatedHintRows(mountain){
   ];
 }
 async function resolveCuratedCandidates(mountain,center){
+  const cacheKey=`curated:${mountainCacheKey(mountain)}`;
+  const cached=routeCacheGet(cacheKey,30*24*60*60*1000);
+  if(Array.isArray(cached))return cached;
   const hints=curatedHintRows(mountain);
-  const out=[];
-  for(const h of hints){
+  const jobs=hints.map(async h=>{
     try{
       const url=`https://nominatim.openstreetmap.org/search?format=jsonv2&countrycodes=jp&limit=4&addressdetails=1&q=${encodeURIComponent(h.search)}`;
       const res=await proxyFetch(url);
-      if(!res.ok)continue;
+      if(!res.ok)return null;
       const rows=await res.json();
-      const candidates=(Array.isArray(rows)?rows:[]).map(r=>({r,lat:Number(r.lat),lon:Number(r.lon)})).filter(x=>Number.isFinite(x.lat)&&Number.isFinite(x.lon));
-      candidates.sort((a,b)=>haversineMeters(center.latitude,center.longitude,a.lat,a.lon)-haversineMeters(center.latitude,center.longitude,b.lat,b.lon));
-      const best=candidates.find(x=>haversineMeters(center.latitude,center.longitude,x.lat,x.lon)<=70000);
-      if(best)out.push({id:`curated-${h.type}-${mountain}-${h.hintIndex}-${Math.abs(Math.round(best.lat*1e5))}`,type:h.type,name:h.name,lat:best.lat,lon:best.lon,elevation:'',source:'手登録候補'});
-    }catch(_){ }
-  }
+      const found=(Array.isArray(rows)?rows:[]).map(r=>({r,lat:Number(r.lat),lon:Number(r.lon)})).filter(x=>Number.isFinite(x.lat)&&Number.isFinite(x.lon));
+      found.sort((a,b)=>haversineMeters(center.latitude,center.longitude,a.lat,a.lon)-haversineMeters(center.latitude,center.longitude,b.lat,b.lon));
+      const best=found.find(x=>haversineMeters(center.latitude,center.longitude,x.lat,x.lon)<=70000);
+      return best?{id:`curated-${h.type}-${mountain}-${h.hintIndex}-${Math.abs(Math.round(best.lat*1e5))}`,type:h.type,name:h.name,lat:best.lat,lon:best.lon,elevation:'',source:'手登録候補'}:null;
+    }catch(_){return null;}
+  });
+  const out=(await Promise.all(jobs)).filter(Boolean);
+  routeCachePut(cacheKey,out);
   return out;
 }
 
@@ -1148,9 +1152,71 @@ function updateLoadButtonAppearance(loaded){
   btn.classList.toggle('route-load-needed',hasMountain&&!loaded);
 }
 
+const ROUTE_CACHE_PREFIX='traverse-route-v1102:';
+function routeCacheGet(key,maxAgeMs=7*24*60*60*1000){
+  try{
+    const raw=localStorage.getItem(ROUTE_CACHE_PREFIX+key);
+    if(!raw)return null;
+    const parsed=JSON.parse(raw);
+    if(!parsed||!parsed.savedAt||Date.now()-parsed.savedAt>maxAgeMs){localStorage.removeItem(ROUTE_CACHE_PREFIX+key);return null;}
+    return parsed.value;
+  }catch(_){return null;}
+}
+function routeCachePut(key,value){
+  try{localStorage.setItem(ROUTE_CACHE_PREFIX+key,JSON.stringify({savedAt:Date.now(),value}));}catch(_){ }
+}
+function mountainCacheKey(label){return canonicalMountainName(label).replace(/\s+/g,'_');}
+function refreshPointCandidateOptions(){
+  [...document.querySelectorAll('.point-row')].forEach(row=>{
+    const type=row.querySelector('.point-type')?.value;
+    const sel=row.querySelector('.point-select');
+    if(!type||!sel)return;
+    const current=sel.value;
+    sel.innerHTML=candidateOptions(type,current);
+    if(current&&[...sel.options].some(o=>o.value===current))sel.value=current;
+    updateMeta(row);
+  });
+}
+function dedupeCandidateList(base){
+  const seen=new Set();
+  return base.filter(Boolean).filter(p=>{
+    if(!Object.prototype.hasOwnProperty.call(TYPE_LABEL,p.type))return false;
+    const lat=Number(p.lat),lon=Number(p.lon);
+    const coord=Number.isFinite(lat)&&Number.isFinite(lon)?`${lat.toFixed(4)}|${lon.toFixed(4)}`:`unresolved|${p.name}`;
+    const k=`${p.type}|${p.name}|${coord}`;
+    if(seen.has(k))return false;seen.add(k);return true;
+  });
+}
+function ensureCenterPeak(list,label,center){
+  const peakName=label.replace(/（神奈川）|（鳥取）|（群馬）|（新潟・富山）|（長野）|（岐阜）|（福井）|（栃木）|（奈良）/g,'');
+  if(!list.some(p=>p.type==='peak'&&Number.isFinite(Number(p.lat))&&Number.isFinite(Number(p.lon))&&haversineMeters(center.latitude,center.longitude,p.lat,p.lon)<2500)){
+    list.unshift({id:'center-peak',type:'peak',name:peakName,lat:center.latitude,lon:center.longitude,elevation:'',distance:0,source:'山頂'});
+  }
+  return list;
+}
+function renderCandidateRows(label,center,{resetPoints=false}={}){
+  candidates=ensureCenterPeak(dedupeCandidateList(candidates),label,center);
+  refreshPointCandidateOptions();
+  if(resetPoints){
+    $('points').innerHTML=''; pointSeq=0;
+    const hasTrail=candidates.some(p=>p.type==='trailhead'), hasHut=candidates.some(p=>p.type==='hut');
+    if(hasTrail)addPointRow('trailhead','','登山口');
+    addPointRow('peak','','山頂');
+    if(hasHut)addPointRow('hut','','山小屋・避難小屋');
+    if(hasTrail)addPointRow('trailhead','','下山口');
+    updateForecastHorizon();
+  }
+}
+
 async function resolveMountainCenter(label){
   const canonical=canonicalMountainName(label);
   if(MOUNTAIN_PRESETS[canonical])return MOUNTAIN_PRESETS[canonical];
+  const cacheKey=`center:${mountainCacheKey(label)}`;
+  const cached=routeCacheGet(cacheKey,30*24*60*60*1000);
+  if(cached&&Number.isFinite(Number(cached.latitude))&&Number.isFinite(Number(cached.longitude))){
+    MOUNTAIN_PRESETS[canonical]=cached;
+    return cached;
+  }
   const q=mountainSearchQuery(label);
   const url=`https://nominatim.openstreetmap.org/search?format=jsonv2&countrycodes=jp&limit=8&addressdetails=1&q=${encodeURIComponent(q+' 山 日本')}`;
   const res=await proxyFetch(url);
@@ -1158,7 +1224,9 @@ async function resolveMountainCenter(label){
   const rows=await res.json();
   const best=rows.find(x=>x.type==='peak'||x.category==='natural'||x.class==='natural')||rows[0];
   if(!best)throw new Error('山頂座標が見つかりませんでした');
-  return {latitude:Number(best.lat),longitude:Number(best.lon)};
+  const center={latitude:Number(best.lat),longitude:Number(best.lon)};
+  routeCachePut(cacheKey,center);
+  return center;
 }
 function overpassPoint(el){
   const lat=Number(el.lat ?? el.center?.lat), lon=Number(el.lon ?? el.center?.lon);
@@ -1196,6 +1264,9 @@ function classifyNamedOsmPoint(el){
 }
 async function discoverNearbyCandidates(center,radius=24000){
   const lat=Number(center.latitude), lon=Number(center.longitude);
+  const cacheKey=`nearby:${lat.toFixed(4)},${lon.toFixed(4)}:${radius}`;
+  const cached=routeCacheGet(cacheKey,7*24*60*60*1000);
+  if(Array.isArray(cached))return cached;
   const peakRadius=Math.min(radius,22000);
   const query=`[out:json][timeout:40];(
     nwr(around:${radius},${lat},${lon})["tourism"="alpine_hut"];
@@ -1218,7 +1289,9 @@ async function discoverNearbyCandidates(center,radius=24000){
     const trail=all.filter(x=>x.type==='trailhead').slice(0,radius>30000?30:18);
     const huts=all.filter(x=>x.type==='hut').slice(0,24);
     const peaks=all.filter(x=>x.type==='peak').slice(0,18);
-    return [...trail,...huts,...peaks];
+    const result=[...trail,...huts,...peaks];
+    routeCachePut(cacheKey,result);
+    return result;
   }catch(_){return [];}
 }
 
@@ -1234,6 +1307,9 @@ function nominatimTrailheadPoint(row,center,label,idx){
   return {id:`nominatim-trail-${idx}-${Math.abs(Math.round(lat*100000))}`,type:'trailhead',name:first,lat,lon,elevation:'',source:'OpenStreetMap検索'};
 }
 async function discoverTrailheadsByName(label,center){
+  const cacheKey=`trailname:${mountainCacheKey(label)}`;
+  const cached=routeCacheGet(cacheKey,30*24*60*60*1000);
+  if(Array.isArray(cached))return cached;
   const queries=[`${label} 登山口 日本`,`${label} 登山道入口 日本`,`${label} ロープウェイ 日本`];
   const rows=[];
   for(const q of queries){
@@ -1245,7 +1321,9 @@ async function discoverTrailheadsByName(label,center){
       if(Array.isArray(data))rows.push(...data);
     }catch(_){ }
   }
-  return dedupeDiscovered(rows.map((r,i)=>nominatimTrailheadPoint(r,center,label,i)),center.latitude,center.longitude).filter(x=>x.type==='trailhead').slice(0,12);
+  const result=dedupeDiscovered(rows.map((r,i)=>nominatimTrailheadPoint(r,center,label,i)),center.latitude,center.longitude).filter(x=>x.type==='trailhead').slice(0,12);
+  routeCachePut(cacheKey,result);
+  return result;
 }
 async function loadCandidates(){
   const label=$('mountainPreset').value.trim();
@@ -1257,47 +1335,62 @@ async function loadCandidates(){
   const mountain=canonicalMountainName(label);
   const btn=$('loadPoiBtn');
   const before=btn.textContent;
-  btn.disabled=true; btn.textContent='候補を検索中…';
+  btn.disabled=true; btn.textContent='基本候補を表示中…';
   try{
     const center=await resolveMountainCenter(label);
     if(!MOUNTAIN_PRESETS[mountain])MOUNTAIN_PRESETS[mountain]=center;
-    const curated=await resolveCuratedCandidates(mountain,center);
-    const staticBase=[...(BUILTIN_ROUTE_CATALOG[mountain]||[]),...(TRAVERSE_CATALOG[mountain]||[]),...regionalCandidates(mountain),...curated].filter(p=>Object.prototype.hasOwnProperty.call(TYPE_LABEL,p.type));
-    // V1.10.0: 全国の手登録名称候補を優先し、その後に段階探索で補完。
-    const dynamicPrimary=await discoverNearbyCandidates(center,24000);
+
+    const staticBase=[...(BUILTIN_ROUTE_CATALOG[mountain]||[]),...(TRAVERSE_CATALOG[mountain]||[]),...regionalCandidates(mountain)].filter(p=>Object.prototype.hasOwnProperty.call(TYPE_LABEL,p.type));
+    const fullCacheKey=`full:${mountainCacheKey(mountain)}`;
+    const cachedFull=routeCacheGet(fullCacheKey,7*24*60*60*1000);
+
+    if(Array.isArray(cachedFull)&&cachedFull.length){
+      candidates=[...staticBase,...cachedFull];
+      renderCandidateRows(label,center,{resetPoints:true});
+      const trailCount=candidates.filter(p=>p.type==='trailhead').length, hutCount=candidates.filter(p=>p.type==='hut').length, peakCount=candidates.filter(p=>p.type==='peak').length;
+      $('candidateState').textContent=`${label}：登山口 ${trailCount} / 山小屋・避難小屋 ${hutCount} / 山頂・周辺ピーク ${peakCount}（キャッシュから高速表示）`;
+      updateLoadButtonAppearance(true);
+      logEvent('route_candidates_loaded',{success:true,metadata:{mountain:label,candidate_count:candidates.length,cache_hit:true}});
+      return;
+    }
+
+    // まずローカル固定データだけで即表示。外部検索待ちでUIを止めない。
+    candidates=[...staticBase];
+    renderCandidateRows(label,center,{resetPoints:true});
+    const initialCount=candidates.length;
+    $('candidateState').textContent=`${label}：基本候補 ${initialCount}件を表示済み。登山口・山小屋を追加探索中…`;
+    updateLoadButtonAppearance(true);
+    btn.textContent='追加候補を検索中…';
+
+    // 手登録名称の座標解決と24km探索を並行化。
+    const [curated,dynamicPrimary]=await Promise.all([
+      resolveCuratedCandidates(mountain,center),
+      discoverNearbyCandidates(center,24000)
+    ]);
     let dynamic=[...dynamicPrimary];
     let trailSearchStage='24km';
     const hasTrailIn=(arr)=>arr.some(p=>p.type==='trailhead');
-    if(!hasTrailIn([...staticBase,...dynamic])){
+    if(!hasTrailIn([...staticBase,...curated,...dynamic])){
       const extended=await discoverNearbyCandidates(center,45000);
       dynamic=[...dynamic,...extended];
       trailSearchStage='45km';
     }
-    if(!hasTrailIn([...staticBase,...dynamic])){
+    if(!hasTrailIn([...staticBase,...curated,...dynamic])){
       const named=await discoverTrailheadsByName(label,center);
       dynamic=[...dynamic,...named];
       trailSearchStage='山名検索';
     }
-    const base=[...staticBase,...dynamic];
-    const seen=new Set();
-    candidates=base.filter(p=>{const k=`${p.type}|${p.name}|${Number(p.lat).toFixed(4)}|${Number(p.lon).toFixed(4)}`;if(seen.has(k))return false;seen.add(k);return true;});
-    const peakName=label.replace(/（神奈川）|（鳥取）|（群馬）|（新潟・富山）|（長野）|（岐阜）|（福井）|（栃木）|（奈良）/g,'');
-    if(!candidates.some(p=>p.type==='peak'&&haversineMeters(center.latitude,center.longitude,p.lat,p.lon)<2500)){
-      candidates.unshift({id:'center-peak',type:'peak',name:peakName,lat:center.latitude,lon:center.longitude,elevation:'',distance:0});
-    }
+
+    candidates=[...staticBase,...curated,...dynamic];
+    renderCandidateRows(label,center,{resetPoints:false});
+    routeCachePut(fullCacheKey,[...curated,...dynamic]);
+
     const trailCount=candidates.filter(p=>p.type==='trailhead').length, hutCount=candidates.filter(p=>p.type==='hut').length, peakCount=candidates.filter(p=>p.type==='peak').length;
     const trailNote=trailCount?`登山口探索 ${trailSearchStage}`:'登山口候補を検出できませんでした';
-    $('candidateState').textContent=`${label}：登山口 ${trailCount} / 山小屋・避難小屋 ${hutCount} / 山頂・周辺ピーク ${peakCount}（手登録 ${curated.length}件 / ${trailNote}）`;
-    if(!trailCount)setStatus(`${label} の登山口を自動検出できませんでした。次版の手登録補強対象として扱います。`,true);
+    $('candidateState').textContent=`${label}：登山口 ${trailCount} / 山小屋・避難小屋 ${hutCount} / 山頂・周辺ピーク ${peakCount}（追加探索完了 / 手登録 ${curated.length}件 / ${trailNote}）`;
+    if(!trailCount)setStatus(`${label} の登山口を自動検出できませんでした。手登録補強対象として扱います。`,true);
     updateLoadButtonAppearance(true);
-    $('points').innerHTML=''; pointSeq=0;
-    const hasTrail=candidates.some(p=>p.type==='trailhead'), hasHut=candidates.some(p=>p.type==='hut');
-    if(hasTrail)addPointRow('trailhead','','登山口');
-    addPointRow('peak','','山頂');
-    if(hasHut)addPointRow('hut','','山小屋・避難小屋');
-    if(hasTrail)addPointRow('trailhead','','下山口');
-    updateForecastHorizon();
-    logEvent('route_candidates_loaded',{success:true,metadata:{mountain:label,candidate_count:candidates.length,dynamic_count:dynamic.length,curated_count:curated.length}});
+    logEvent('route_candidates_loaded',{success:true,metadata:{mountain:label,candidate_count:candidates.length,dynamic_count:dynamic.length,curated_count:curated.length,cache_hit:false}});
   }catch(e){
     $('candidateState').textContent=`${label}：候補を読み込めませんでした（${e.message||e}）`;
     setStatus(`山頂座標の取得に失敗しました：${e.message||e}`,true);
