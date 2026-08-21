@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.12.18';
+const APP_VERSION = '1.12.30';
 
 const providers = [
   {id:'jma',name:'JMA MSM',kind:'openmeteo',endpoint:'https://api.open-meteo.com/v1/jma',model:'jma_msm',forecastDays:4,vars:['temperature_2m','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_direction_10m']},
@@ -29,7 +29,7 @@ const MOUNTAIN_PRESETS = {
   '甲斐駒ヶ岳': {latitude:35.7578, longitude:138.2368},
   '仙丈ヶ岳': {latitude:35.7201, longitude:138.1836},
   '富士山': {latitude:35.3606, longitude:138.7274},
-  '赤岳': {latitude:35.9708, longitude:138.3701},
+  '赤岳': {latitude:35.970833, longitude:138.370000},
   '谷川岳': {latitude:36.8370, longitude:138.9300},
   '木曽駒ヶ岳': {latitude:35.7895, longitude:137.8047},
   '御嶽山': {latitude:35.8929, longitude:137.4803},
@@ -53,12 +53,12 @@ const MOUNTAIN_PRESETS = {
   '奥大日岳': {latitude:36.5986, longitude:137.5831},
   // V1.10.0 南アルプス・八ヶ岳の縦走主要ピーク
   '鳳凰山': {latitude:35.7017, longitude:138.3047},
-  '横岳（八ヶ岳）': {latitude:35.9845, longitude:138.3729},
-  '硫黄岳（八ヶ岳）': {latitude:36.0016, longitude:138.3700},
-  '阿弥陀岳': {latitude:35.9732, longitude:138.3582},
-  '権現岳': {latitude:35.9497, longitude:138.3586},
-  '編笠山': {latitude:35.9422, longitude:138.3450},
-  '北横岳': {latitude:36.0870, longitude:138.3200},
+  '横岳（八ヶ岳）': {latitude:35.984722, longitude:138.373611},
+  '硫黄岳（八ヶ岳）': {latitude:35.998611, longitude:138.370000},
+  '阿弥陀岳': {latitude:35.972222, longitude:138.358889},
+  '権現岳': {latitude:35.949722, longitude:138.359722},
+  '編笠山': {latitude:35.941667, longitude:138.345000},
+  '北横岳': {latitude:36.087500, longitude:138.320000},
   // V1.10.3: geocoder依存を避ける代表的な山頂座標
   '筑波山': {latitude:36.225393, longitude:140.106982},
   '八経ヶ岳': {latitude:34.173611, longitude:135.907500},
@@ -1763,6 +1763,152 @@ const MOUNTAIN_REGION = {
 };
 // typo-safe alias for the ura-ginza key used above.
 MOUNTAIN_REGION['鷲羽岳']='ushiroginza';
+
+// V1.12.22: 関東・上信越32座の山頂・代表登山口を公開座標で固定。
+Object.assign(MOUNTAIN_PRESETS, {
+  '八溝山':{latitude:36.930151,longitude:140.272988},
+  '筑波山':{latitude:36.225359,longitude:140.106942},
+  '三本槍岳':{latitude:37.150142,longitude:139.961414},
+  '男鹿岳':{latitude:37.085312,longitude:139.822082},
+  '景鶴山':{latitude:36.956884,longitude:139.210582},
+  '至仏山':{latitude:36.903474,longitude:139.173248},
+  '釈迦ヶ岳（栃木）':{latitude:36.899965,longitude:139.776761},
+  '女峰山':{latitude:36.811457,longitude:139.536492},
+  '男体山':{latitude:36.764951,longitude:139.490684},
+  '太郎山':{latitude:36.817874,longitude:139.482780},
+  '奥白根山':{latitude:36.798602,longitude:139.375921},
+  '皇海山':{latitude:36.689863,longitude:139.336965},
+  '袈裟丸山':{latitude:36.649389,longitude:139.327503},
+  '武尊山':{latitude:36.805189,longitude:139.132601},
+  '赤城山（黒檜山）':{latitude:36.560367,longitude:139.193270},
+  '草津白根山':{latitude:36.643948,longitude:138.527727},
+  '浅間隠山':{latitude:36.453704,longitude:138.652493},
+  '榛名山（榛名富士）':{latitude:36.476933,longitude:138.878280},
+  '妙義山（相馬岳）':{latitude:36.298645,longitude:138.748852},
+  '荒船山':{latitude:36.203993,longitude:138.637127},
+  '諏訪山':{latitude:36.040050,longitude:138.729580},
+  '巻機山':{latitude:36.978551,longitude:138.964448},
+  '朝日岳（群馬）':{latitude:36.880662,longitude:138.972624},
+  '谷川岳':{latitude:36.837115,longitude:138.930157},
+  '仙ノ倉山':{latitude:36.817468,longitude:138.839518},
+  '白砂山':{latitude:36.738071,longitude:138.693474},
+  '横手山':{latitude:36.668919,longitude:138.525913},
+  '岩菅山':{latitude:36.742041,longitude:138.559524},
+  '笠ヶ岳（長野）':{latitude:36.676633,longitude:138.481478},
+  '四阿山':{latitude:36.541764,longitude:138.412969},
+  '浅間山':{latitude:36.406526,longitude:138.522963},
+  '御座山':{latitude:36.034105,longitude:138.606775}
+});
+
+const V1222_KANTO_JOSHINETSU_FIXED = {
+  '八溝山':[
+    {id:'v1222-yamizo-peak',type:'peak',name:'八溝山',lat:36.930151,lon:140.272988,elevation:1022,source:'固定候補'},
+    {id:'v1222-yamizo-nichirinji',type:'trailhead',name:'日輪寺・八溝山登山口',lat:36.920763,lon:140.273636,elevation:820,source:'固定候補'}],
+  '筑波山':[
+    {id:'v1222-tsukuba-peak',type:'peak',name:'筑波山（女体山）',lat:36.225359,lon:140.106942,elevation:877,source:'固定候補'},
+    {id:'v1222-tsukuba-tsutsujigaoka',type:'trailhead',name:'つつじヶ丘登山口',lat:36.2201631,lon:140.1194898,elevation:530,source:'固定候補'}],
+  '三本槍岳':[
+    {id:'v1222-sanbonyari-peak',type:'peak',name:'三本槍岳',lat:37.150142,lon:139.961414,elevation:1917,source:'固定候補'},
+    {id:'v1222-sanbonyari-toge',type:'trailhead',name:'峠の茶屋・那須岳登山口',lat:37.125389,lon:139.979722,elevation:1462,source:'固定候補'}],
+  '男鹿岳':[
+    {id:'v1222-ojika-peak',type:'peak',name:'男鹿岳',lat:37.085312,lon:139.822082,elevation:1777,source:'固定候補'},
+    {id:'v1222-ojika-miyama',type:'trailhead',name:'深山園地・塩那道路ゲート',lat:37.069713,lon:139.894165,elevation:1096,source:'固定候補'}],
+  '景鶴山':[
+    {id:'v1222-keizuru-peak',type:'peak',name:'景鶴山',lat:36.956884,lon:139.210582,elevation:2004,source:'固定候補'},
+    {id:'v1222-keizuru-hatomachi',type:'trailhead',name:'鳩待峠（尾瀬側起点）',lat:36.888750,lon:139.201027,elevation:1585,source:'固定候補'}],
+  '至仏山':[
+    {id:'v1222-shibutsu-peak',type:'peak',name:'至仏山',lat:36.903474,lon:139.173248,elevation:2228,source:'固定候補'},
+    {id:'v1222-shibutsu-hatomachi',type:'trailhead',name:'鳩待峠',lat:36.888750,lon:139.201027,elevation:1585,source:'固定候補'}],
+  '釈迦ヶ岳（栃木）':[
+    {id:'v1222-takahara-shaka-peak',type:'peak',name:'高原山・釈迦ヶ岳',lat:36.899965,lon:139.776761,elevation:1795,source:'固定候補'},
+    {id:'v1222-takahara-omama',type:'trailhead',name:'八方ヶ原・大間々台登山口',lat:36.900510,lon:139.817691,elevation:1278,source:'固定候補'}],
+  '女峰山':[
+    {id:'v1222-nyoho-peak',type:'peak',name:'女峰山',lat:36.811457,lon:139.536492,elevation:2483,source:'固定候補'},
+    {id:'v1222-nyoho-takino',type:'trailhead',name:'滝尾神社登山口',lat:36.765000,lon:139.593944,elevation:726,source:'固定候補'}],
+  '男体山':[
+    {id:'v1222-nantai-peak',type:'peak',name:'男体山',lat:36.764951,lon:139.490684,elevation:2486,source:'固定候補'},
+    {id:'v1222-nantai-futarasan',type:'trailhead',name:'二荒山神社中宮祠登山口',lat:36.741944,lon:139.487806,elevation:1280,source:'固定候補'}],
+  '太郎山':[
+    {id:'v1222-taro-peak',type:'peak',name:'太郎山',lat:36.817874,lon:139.482780,elevation:2368,source:'固定候補'},
+    {id:'v1222-taro-sanno',type:'trailhead',name:'山王峠・太郎山登山口',lat:36.812879,lon:139.454325,elevation:1720,source:'固定候補'}],
+  '奥白根山':[
+    {id:'v1222-nikkoshirane-peak',type:'peak',name:'奥白根山（日光白根山）',lat:36.798602,lon:139.375921,elevation:2578,source:'固定候補'},
+    {id:'v1222-nikkoshirane-rw',type:'trailhead',name:'丸沼高原・日光白根山ロープウェイ',lat:36.814806,lon:139.329444,elevation:1380,source:'固定候補'}],
+  '皇海山':[
+    {id:'v1222-sukai-peak',type:'peak',name:'皇海山',lat:36.689863,lon:139.336965,elevation:2144,source:'固定候補'},
+    {id:'v1222-sukai-ginzandaira',type:'trailhead',name:'銀山平・皇海山登山者駐車場',lat:36.655699,lon:139.407127,elevation:835,source:'固定候補'},
+    {id:'v1222-sukai-koshin',type:'hut',name:'庚申山荘（避難小屋）',lat:36.669690,lon:139.368080,elevation:1495,source:'固定候補'}],
+  '袈裟丸山':[
+    {id:'v1222-kesamaru-peak',type:'peak',name:'袈裟丸山',lat:36.649389,lon:139.327503,elevation:1961,source:'固定候補'},
+    {id:'v1222-kesamaru-oriba',type:'trailhead',name:'折場登山口',lat:36.601892,lon:139.340946,elevation:1190,source:'固定候補'}],
+  '武尊山':[
+    {id:'v1222-hotaka-peak',type:'peak',name:'武尊山',lat:36.805189,lon:139.132601,elevation:2158,source:'固定候補'},
+    {id:'v1222-hotaka-kawaba',type:'trailhead',name:'川場谷野営場登山口',lat:36.771194,lon:139.153167,elevation:1230,source:'固定候補'}],
+  '赤城山（黒檜山）':[
+    {id:'v1222-akagi-peak',type:'peak',name:'赤城山（黒檜山）',lat:36.560367,lon:139.193270,elevation:1828,source:'固定候補'},
+    {id:'v1222-akagi-kurobi',type:'trailhead',name:'黒檜山登山口',lat:36.554222,lon:139.183917,elevation:1350,source:'固定候補'}],
+  '草津白根山':[
+    {id:'v1222-kusatsushirane-peak',type:'peak',name:'草津白根山（白根山）',lat:36.643948,lon:138.527727,elevation:2160,source:'固定候補'},
+    {id:'v1222-kusatsushirane-hakone',type:'trailhead',name:'白根火山・湯釜側起点',lat:36.637222,lon:138.534167,elevation:2010,source:'固定候補'}],
+  '浅間隠山':[
+    {id:'v1222-asamakakushi-peak',type:'peak',name:'浅間隠山',lat:36.453704,lon:138.652493,elevation:1757,source:'固定候補'},
+    {id:'v1222-asamakakushi-trail',type:'trailhead',name:'浅間隠山登山口（二度上峠付近）',lat:36.439676,lon:138.649254,elevation:1340,source:'固定候補'}],
+  '榛名山（榛名富士）':[
+    {id:'v1222-harunafuji-peak',type:'peak',name:'榛名富士',lat:36.476933,lon:138.878280,elevation:1390,source:'固定候補'},
+    {id:'v1222-harunafuji-vc',type:'trailhead',name:'榛名公園ビジターセンター登山口',lat:36.470669,lon:138.874255,elevation:1087,source:'固定候補'}],
+  '妙義山（相馬岳）':[
+    {id:'v1222-myogi-peak',type:'peak',name:'妙義山（相馬岳）',lat:36.298645,lon:138.748852,elevation:1104,source:'固定候補'},
+    {id:'v1222-myogi-jinja',type:'trailhead',name:'妙義神社入口・登山者駐車場',lat:36.299287,lon:138.764227,elevation:450,source:'固定候補'}],
+  '荒船山':[
+    {id:'v1222-arafune-peak',type:'peak',name:'荒船山（経塚山）',lat:36.203993,lon:138.637127,elevation:1423,source:'固定候補'},
+    {id:'v1222-arafune-uchiyama',type:'trailhead',name:'内山峠登山口',lat:36.222368,lon:138.616004,elevation:1060,source:'固定候補'}],
+  '諏訪山':[
+    {id:'v1222-suwa-peak',type:'peak',name:'諏訪山（上野村）',lat:36.040050,lon:138.729580,elevation:1549,source:'固定候補'},
+    {id:'v1222-suwa-taruhara',type:'trailhead',name:'楢原・樽原登山口',lat:36.074444,lon:138.731889,elevation:850,source:'固定候補'},
+    {id:'v1222-suwa-hamahira',type:'trailhead',name:'浜平登山口',lat:36.063583,lon:138.707333,elevation:686,source:'固定候補'}],
+  '巻機山':[
+    {id:'v1222-makihata-peak',type:'peak',name:'巻機山',lat:36.978551,lon:138.964448,elevation:1967,source:'固定候補'},
+    {id:'v1222-makihata-sakurazaka',type:'trailhead',name:'桜坂登山口',lat:36.954532,lon:138.935319,elevation:730,source:'固定候補'}],
+  '朝日岳（群馬）':[
+    {id:'v1222-asahi-gunma-peak',type:'peak',name:'朝日岳（群馬）',lat:36.880662,lon:138.972624,elevation:1945,source:'固定候補'},
+    {id:'v1222-asahi-yubiso',type:'trailhead',name:'湯檜曽公園・白毛門登山口側',lat:36.816547,lon:138.985161,elevation:590,source:'固定候補'}],
+  '谷川岳':[
+    {id:'v1222-tanigawa-peak',type:'peak',name:'谷川岳（オキノ耳）',lat:36.837115,lon:138.930157,elevation:1977,source:'固定候補'},
+    {id:'v1222-tanigawa-tenjin',type:'trailhead',name:'天神平',lat:36.819600,lon:138.949000,elevation:1319,source:'固定候補'},
+    {id:'v1222-tanigawa-kumazawa',type:'hut',name:'熊穴沢避難小屋',lat:36.828000,lon:138.944600,elevation:1465,source:'固定候補'}],
+  '仙ノ倉山':[
+    {id:'v1222-sennokura-peak',type:'peak',name:'仙ノ倉山',lat:36.817468,lon:138.839518,elevation:2026,source:'固定候補'},
+    {id:'v1222-sennokura-tairappyo',type:'trailhead',name:'平標登山口・元橋駐車場',lat:36.813507,lon:138.783102,elevation:970,source:'固定候補'},
+    {id:'v1222-sennokura-tairappyo-hut',type:'hut',name:'平標山の家',lat:36.806667,lon:138.824722,elevation:1655,source:'固定候補'}],
+  '白砂山':[
+    {id:'v1222-shirasuna-peak',type:'peak',name:'白砂山',lat:36.738071,lon:138.693474,elevation:2140,source:'固定候補'},
+    {id:'v1222-shirasuna-nozori',type:'trailhead',name:'野反湖・白砂山登山口',lat:36.719662,lon:138.643020,elevation:1520,source:'固定候補'}],
+  '横手山':[
+    {id:'v1222-yokote-peak',type:'peak',name:'横手山',lat:36.668919,lon:138.525913,elevation:2307,source:'固定候補'},
+    {id:'v1222-yokote-shibu',type:'trailhead',name:'渋峠',lat:36.666492,lon:138.534141,elevation:2150,source:'固定候補'}],
+  '岩菅山':[
+    {id:'v1222-iwasuge-peak',type:'peak',name:'岩菅山',lat:36.742041,lon:138.559524,elevation:2295,source:'固定候補'},
+    {id:'v1222-iwasuge-hijiri',type:'trailhead',name:'聖平登山口',lat:36.748806,lon:138.532167,elevation:1535,source:'固定候補'}],
+  '笠ヶ岳（長野）':[
+    {id:'v1222-kasa-nagano-peak',type:'peak',name:'笠ヶ岳（長野）',lat:36.676633,lon:138.481478,elevation:2076,source:'固定候補'},
+    {id:'v1222-kasa-nagano-toge',type:'trailhead',name:'笠岳峠・笠ヶ岳登山口',lat:36.676833,lon:138.477750,elevation:1923,source:'固定候補'}],
+  '四阿山':[
+    {id:'v1222-azumaya-peak',type:'peak',name:'四阿山',lat:36.541764,lon:138.412969,elevation:2354,source:'固定候補'},
+    {id:'v1222-azumaya-sugadaira',type:'trailhead',name:'菅平牧場登山口',lat:36.538255,lon:138.371745,elevation:1580,source:'固定候補'}],
+  '浅間山':[
+    {id:'v1222-asama-peak',type:'peak',name:'浅間山',lat:36.406526,lon:138.522963,elevation:2568,source:'固定候補'},
+    {id:'v1222-asama-kurumazaka',type:'trailhead',name:'高峰高原・車坂峠',lat:36.405090,lon:138.469704,elevation:1970,source:'固定候補'}],
+  '御座山':[
+    {id:'v1222-ogura-peak',type:'peak',name:'御座山',lat:36.034105,lon:138.606775,elevation:2112,source:'固定候補'},
+    {id:'v1222-ogura-choja',type:'trailhead',name:'長者の森登山口',lat:36.064769,lon:138.629299,elevation:1240,source:'固定候補'},
+    {id:'v1222-ogura-kuryu',type:'trailhead',name:'栗生登山口',lat:36.020483,lon:138.601839,elevation:1420,source:'固定候補'}]
+};
+for (const [mountain, fixed] of Object.entries(V1222_KANTO_JOSHINETSU_FIXED)) {
+  const old = BUILTIN_ROUTE_CATALOG[mountain] || [];
+  const keys = new Set(fixed.map(p => `${p.type}:${p.name}`));
+  BUILTIN_ROUTE_CATALOG[mountain] = [...fixed, ...old.filter(p => !keys.has(`${p.type}:${p.name}`))];
+}
+
 function regionalCandidates(mountain){
   const key=MOUNTAIN_REGION[mountain];
   if(!key)return [];
@@ -1789,6 +1935,649 @@ function haversineMeters(lat1,lon1,lat2,lon2){
 }
 
 let candidates=[];
+// V1.12.23: 八ヶ岳・中信を一括固定強化。山頂は国土地理院値を基準にし、公開座標を確認できた主要登山口・山小屋を固定候補化。
+const FIXED_YATSUGATAKE_CHUSHIN_V11223 = {
+  '蓼科山': [
+    {id:'fixed23-tateshina-peak',type:'peak',name:'蓼科山',lat:36.103611,lon:138.295000,elevation:2531,source:'固定候補'},
+    {id:'fixed23-tateshina-7',type:'trailhead',name:'蓼科山七合目登山口',lat:36.117000,lon:138.297000,elevation:1900,source:'固定候補'},
+    {id:'fixed23-tateshina-suzuran',type:'trailhead',name:'女乃神茶屋（蓼科山登山口）',lat:36.089000,lon:138.277000,elevation:1730,source:'固定候補'},
+    {id:'fixed23-tateshina-hutte',type:'hut',name:'蓼科山頂ヒュッテ',lat:36.103500,lon:138.294400,elevation:2530,source:'固定候補'}
+  ],
+  '天狗岳': [
+    {id:'fixed23-tengu-peak',type:'peak',name:'天狗岳（東天狗岳）',lat:36.019167,lon:138.355556,elevation:2646,source:'固定候補'},
+    {id:'fixed23-tengu-shibu',type:'trailhead',name:'渋の湯',lat:36.045500,lon:138.304000,elevation:1840,source:'固定候補'},
+    {id:'fixed23-tengu-karasawa',type:'trailhead',name:'唐沢鉱泉',lat:36.037000,lon:138.309000,elevation:1870,source:'固定候補'},
+    {id:'fixed23-tengu-kuroyuri',type:'hut',name:'黒百合ヒュッテ',lat:36.026000,lon:138.348000,elevation:2410,source:'固定候補'}
+  ],
+  '八ヶ岳（赤岳）': [
+    {id:'fixed23-yatsu-aka-peak',type:'peak',name:'赤岳（八ヶ岳最高峰）',lat:35.970833,lon:138.370000,elevation:2899,source:'固定候補'},
+    {id:'fixed23-yatsu-minotoguchi',type:'trailhead',name:'美濃戸口',lat:35.997800,lon:138.307900,elevation:1490,source:'固定候補'},
+    {id:'fixed23-yatsu-minoto',type:'trailhead',name:'美濃戸',lat:35.988800,lon:138.329800,elevation:1720,source:'固定候補'},
+    {id:'fixed23-yatsu-akakosen',type:'hut',name:'赤岳鉱泉',lat:35.986100,lon:138.350400,elevation:2220,source:'固定候補'},
+    {id:'fixed23-yatsu-gyoja',type:'hut',name:'行者小屋',lat:35.977900,lon:138.357200,elevation:2350,source:'固定候補'},
+    {id:'fixed23-yatsu-tenbo',type:'hut',name:'赤岳天望荘',lat:35.976000,lon:138.371000,elevation:2722,source:'固定候補'}
+  ],
+  '入笠山': [
+    {id:'fixed23-nyukasa-peak',type:'peak',name:'入笠山',lat:35.896389,lon:138.171667,elevation:1955,source:'固定候補'},
+    {id:'fixed23-nyukasa-sawairi',type:'trailhead',name:'沢入登山口',lat:35.901833,lon:138.190722,elevation:1450,source:'固定候補'},
+    {id:'fixed23-nyukasa-goshodaira',type:'trailhead',name:'御所平 登山者用臨時駐車場',lat:35.901167,lon:138.172389,elevation:1780,source:'固定候補'}
+  ],
+  '霧ヶ峰（車山）': [
+    {id:'fixed23-kirigamine-peak',type:'peak',name:'霧ヶ峰（車山）',lat:36.103056,lon:138.196667,elevation:1925,source:'固定候補'},
+    {id:'fixed23-kirigamine-kata',type:'trailhead',name:'車山肩',lat:36.103935,lon:138.187367,elevation:1800,source:'固定候補'},
+    {id:'fixed23-kirigamine-yashima',type:'trailhead',name:'八島ヶ原湿原',lat:36.120275,lon:138.159731,elevation:1645,source:'固定候補'}
+  ],
+  '鉢伏山': [
+    {id:'fixed23-hachibuse-peak',type:'peak',name:'鉢伏山',lat:36.163056,lon:138.059167,elevation:1929,source:'固定候補'},
+    {id:'fixed23-hachibuse-sanso-th',type:'trailhead',name:'鉢伏山荘駐車場',lat:36.166638,lon:138.057418,elevation:1840,source:'固定候補'},
+    {id:'fixed23-hachibuse-tobira',type:'trailhead',name:'扉温泉',lat:36.186940,lon:138.079838,elevation:1050,source:'固定候補'},
+    {id:'fixed23-hachibuse-sanso',type:'hut',name:'鉢伏山荘',lat:36.166111,lon:138.054722,elevation:1833,source:'固定候補'}
+  ],
+  '美ヶ原': [
+    {id:'fixed23-utsukushi-peak',type:'peak',name:'美ヶ原（王ヶ頭）',lat:36.225833,lon:138.107500,elevation:2034,source:'固定候補'},
+    {id:'fixed23-utsukushi-sanjio',type:'trailhead',name:'三城いこいの広場',lat:36.208900,lon:138.102361,elevation:1410,source:'固定候補'},
+    {id:'fixed23-utsukushi-yamamoto',type:'trailhead',name:'山本小屋ふる里館・町営駐車場',lat:36.228410,lon:138.132690,elevation:1940,source:'固定候補'}
+  ],
+  '赤岳': [
+    {id:'fixed23-aka-peak',type:'peak',name:'赤岳',lat:35.970833,lon:138.370000,elevation:2899,source:'固定候補'},
+    {id:'fixed23-aka-minoto',type:'trailhead',name:'美濃戸口',lat:35.997800,lon:138.307900,elevation:1490,source:'固定候補'},
+    {id:'fixed23-aka-kosen',type:'hut',name:'赤岳鉱泉',lat:35.986100,lon:138.350400,elevation:2220,source:'固定候補'},
+    {id:'fixed23-aka-gyoja',type:'hut',name:'行者小屋',lat:35.977900,lon:138.357200,elevation:2350,source:'固定候補'}
+  ],
+  '横岳（八ヶ岳）': [
+    {id:'fixed23-yoko-peak',type:'peak',name:'横岳（八ヶ岳）',lat:35.984722,lon:138.373611,elevation:2829,source:'固定候補'},
+    {id:'fixed23-yoko-minoto',type:'trailhead',name:'美濃戸口',lat:35.997800,lon:138.307900,elevation:1490,source:'固定候補'},
+    {id:'fixed23-yoko-iouhut',type:'hut',name:'硫黄岳山荘',lat:35.994800,lon:138.372000,elevation:2650,source:'固定候補'}
+  ],
+  '硫黄岳（八ヶ岳）': [
+    {id:'fixed23-iou-peak',type:'peak',name:'硫黄岳（八ヶ岳）',lat:35.998611,lon:138.370000,elevation:2760,source:'固定候補'},
+    {id:'fixed23-iou-minoto',type:'trailhead',name:'美濃戸口',lat:35.997800,lon:138.307900,elevation:1490,source:'固定候補'},
+    {id:'fixed23-iou-kosen',type:'hut',name:'赤岳鉱泉',lat:35.986100,lon:138.350400,elevation:2220,source:'固定候補'},
+    {id:'fixed23-iou-hut',type:'hut',name:'硫黄岳山荘',lat:35.994800,lon:138.372000,elevation:2650,source:'固定候補'}
+  ],
+  '阿弥陀岳': [
+    {id:'fixed23-amida-peak',type:'peak',name:'阿弥陀岳',lat:35.972222,lon:138.358889,elevation:2805,source:'固定候補'},
+    {id:'fixed23-amida-minoto',type:'trailhead',name:'美濃戸口',lat:35.997800,lon:138.307900,elevation:1490,source:'固定候補'},
+    {id:'fixed23-amida-gyoja',type:'hut',name:'行者小屋',lat:35.977900,lon:138.357200,elevation:2350,source:'固定候補'}
+  ],
+  '権現岳': [
+    {id:'fixed23-gongen-peak',type:'peak',name:'権現岳',lat:35.949722,lon:138.359722,elevation:2715,source:'固定候補'},
+    {id:'fixed23-gongen-kannon',type:'trailhead',name:'観音平',lat:35.930000,lon:138.360000,elevation:1560,source:'固定候補'},
+    {id:'fixed23-gongen-hut',type:'hut',name:'権現小屋',lat:35.949000,lon:138.359000,elevation:2700,source:'固定候補'}
+  ],
+  '編笠山': [
+    {id:'fixed23-amigasa-peak',type:'peak',name:'編笠山',lat:35.941667,lon:138.345000,elevation:2524,source:'固定候補'},
+    {id:'fixed23-amigasa-kannon',type:'trailhead',name:'観音平',lat:35.930000,lon:138.360000,elevation:1560,source:'固定候補'},
+    {id:'fixed23-amigasa-fujimi',type:'trailhead',name:'富士見高原登山口',lat:35.924000,lon:138.332000,elevation:1350,source:'固定候補'},
+    {id:'fixed23-amigasa-seinen',type:'hut',name:'青年小屋',lat:35.946000,lon:138.350000,elevation:2380,source:'固定候補'}
+  ],
+  '北横岳': [
+    {id:'fixed23-kitayoko-peak',type:'peak',name:'北横岳',lat:36.087500,lon:138.320000,elevation:2480,source:'固定候補'},
+    {id:'fixed23-kitayoko-ropeway',type:'trailhead',name:'北八ヶ岳ロープウェイ山頂駅',lat:36.075500,lon:138.337000,elevation:2237,source:'固定候補'},
+    {id:'fixed23-kitayoko-hut',type:'hut',name:'北横岳ヒュッテ',lat:36.083000,lon:138.322000,elevation:2400,source:'固定候補'}
+  ]
+};
+for(const [mountain,points] of Object.entries(FIXED_YATSUGATAKE_CHUSHIN_V11223)){
+  BUILTIN_ROUTE_CATALOG[mountain]=[...(BUILTIN_ROUTE_CATALOG[mountain]||[]),...points];
+}
+
+
+
+// V1.12.24: 越後・尾瀬15座を一括固定強化。
+// 山頂は国土地理院「日本の主な山岳」を基準にし、公開座標を確認できた主要登山口・山小屋を固定候補化。
+const FIXED_ECHIGO_OZE_V11224 = {
+  '杁差岳': [
+    {id:'fixed24-eburi-peak',type:'peak',name:'杁差岳',lat:37.942500,lon:139.608889,elevation:1636,source:'固定候補'},
+    {id:'fixed24-eburi-okutainai',type:'trailhead',name:'奥胎内ヒュッテ（足ノ松尾根ルート起点）',lat:37.924889,lon:139.539778,elevation:345,source:'固定候補'},
+    {id:'fixed24-eburi-okutainai-hut',type:'hut',name:'奥胎内ヒュッテ',lat:37.923889,lon:139.539722,elevation:341,source:'固定候補'}
+  ],
+  '二王子岳': [
+    {id:'fixed24-ninoji-peak',type:'peak',name:'二王子岳',lat:37.899722,lon:139.499167,elevation:1420,source:'固定候補'},
+    {id:'fixed24-ninoji-jinja',type:'trailhead',name:'二王子神社登山口',lat:37.904278,lon:139.450778,elevation:297,source:'固定候補'}
+  ],
+  '粟ヶ岳': [
+    {id:'fixed24-awa-peak',type:'peak',name:'粟ヶ岳',lat:37.555278,lon:139.188611,elevation:1293,source:'固定候補'},
+    {id:'fixed24-awa-chuo',type:'trailhead',name:'粟ヶ岳中央登山口（県民休養地）',lat:37.579694,lon:139.145583,elevation:157,source:'固定候補'}
+  ],
+  '御神楽岳': [
+    {id:'fixed24-mikagura-peak',type:'peak',name:'御神楽岳',lat:37.521944,lon:139.425833,elevation:1386,source:'固定候補'},
+    {id:'fixed24-mikagura-muroya',type:'trailhead',name:'室谷登山口',lat:37.545861,lon:139.392833,elevation:302,source:'固定候補'}
+  ],
+  '守門岳': [
+    {id:'fixed24-sumon-peak',type:'peak',name:'守門岳',lat:37.397778,lon:139.136667,elevation:1537,source:'固定候補'},
+    {id:'fixed24-sumon-hokkure',type:'trailhead',name:'保久礼登山口',lat:37.410139,lon:139.095361,elevation:781,source:'固定候補'},
+    {id:'fixed24-sumon-nibun',type:'trailhead',name:'二分登山口',lat:37.403806,lon:139.091944,elevation:586,source:'固定候補'}
+  ],
+  '浅草岳': [
+    {id:'fixed24-asakusa-peak',type:'peak',name:'浅草岳',lat:37.343611,lon:139.233611,elevation:1585,source:'固定候補'},
+    {id:'fixed24-asakusa-nezumochi',type:'trailhead',name:'ネズモチ平登山口駐車場',lat:37.359528,lon:139.216944,elevation:873,source:'固定候補'}
+  ],
+  '平ヶ岳': [
+    {id:'fixed24-hiragatake-peak',type:'peak',name:'平ヶ岳',lat:37.001944,lon:139.170833,elevation:2141,source:'固定候補'},
+    {id:'fixed24-hiragatake-takanosu',type:'trailhead',name:'鷹ノ巣・平ヶ岳登山口',lat:37.037210,lon:139.252784,elevation:840,source:'固定候補'}
+  ],
+  '越後駒ヶ岳': [
+    {id:'fixed24-echigokoma-peak',type:'peak',name:'越後駒ヶ岳',lat:37.123611,lon:139.075278,elevation:2003,source:'固定候補'},
+    {id:'fixed24-echigokoma-shiori',type:'trailhead',name:'枝折峠',lat:37.152232,lon:139.129661,elevation:1070,source:'固定候補'}
+  ],
+  '中ノ岳': [
+    {id:'fixed24-nakano-peak',type:'peak',name:'中ノ岳',lat:37.085278,lon:139.077500,elevation:2085,source:'固定候補'},
+    {id:'fixed24-nakano-jujikkyo',type:'trailhead',name:'十字峡登山センター',lat:37.058456,lon:139.032542,elevation:445,source:'固定候補'}
+  ],
+  '八海山': [
+    {id:'fixed24-hakkai-peak',type:'peak',name:'八海山（入道岳）',lat:37.103889,lon:139.024722,elevation:1778,source:'固定候補'},
+    {id:'fixed24-hakkai-ropeway',type:'trailhead',name:'八海山スキー場・ロープウェー山麓駅',lat:37.107276,lon:138.978704,elevation:376,source:'固定候補'},
+    {id:'fixed24-hakkai-senbon',type:'hut',name:'八海山千本檜小屋',lat:37.112222,lon:139.015000,elevation:1656,source:'固定候補'}
+  ],
+  '苗場山': [
+    {id:'fixed24-naeba-peak',type:'peak',name:'苗場山',lat:36.845833,lon:138.690278,elevation:2145,source:'固定候補'},
+    {id:'fixed24-naeba-koakazawa',type:'trailhead',name:'小赤沢三合目登山口',lat:36.853611,lon:138.662222,elevation:1300,source:'固定候補'},
+    {id:'fixed24-naeba-hutte',type:'hut',name:'苗場山頂ヒュッテ',lat:36.845683,lon:138.690000,elevation:2140,source:'固定候補'}
+  ],
+  '佐武流山': [
+    {id:'fixed24-saburyu-peak',type:'peak',name:'佐武流山',lat:36.772222,lon:138.670556,elevation:2192,source:'固定候補'},
+    {id:'fixed24-saburyu-doronoki',type:'trailhead',name:'ドロノ木平登山口',lat:36.817218,lon:138.632685,elevation:1060,source:'固定候補'}
+  ],
+  '鳥甲山': [
+    {id:'fixed24-torikabuto-peak',type:'peak',name:'鳥甲山',lat:36.839167,lon:138.583889,elevation:2038,source:'固定候補'},
+    {id:'fixed24-torikabuto-mujina',type:'trailhead',name:'ムジナ平登山口',lat:36.821784,lon:138.613771,elevation:1020,source:'固定候補'},
+    {id:'fixed24-torikabuto-yashiki',type:'trailhead',name:'屋敷口',lat:36.850775,lon:138.617554,elevation:860,source:'固定候補'}
+  ],
+  '金北山': [
+    {id:'fixed24-kinpoku-peak',type:'peak',name:'金北山',lat:38.103889,lon:138.349722,elevation:1172,source:'固定候補'},
+    {id:'fixed24-kinpoku-hakuundai',type:'trailhead',name:'白雲台交流センター',lat:38.080833,lon:138.333333,elevation:850,source:'固定候補'}
+  ],
+  '米山': [
+    {id:'fixed24-yoneyama-peak',type:'peak',name:'米山',lat:37.289444,lon:138.483889,elevation:993,source:'固定候補'},
+    {id:'fixed24-yoneyama-ohira',type:'trailhead',name:'大平登山口',lat:37.298389,lon:138.460500,elevation:234,source:'固定候補'},
+    {id:'fixed24-yoneyama-hut',type:'hut',name:'米山山頂避難小屋',lat:37.288889,lon:138.483611,elevation:989,source:'固定候補'}
+  ]
+};
+for(const [mountain,points] of Object.entries(FIXED_ECHIGO_OZE_V11224)){
+  BUILTIN_ROUTE_CATALOG[mountain]=[...(BUILTIN_ROUTE_CATALOG[mountain]||[]),...points];
+}
+
+// V1.12.25: 北海道26座＋東北38座を一括固定強化。
+// 山頂は国土地理院2026-03-31版を主基準、二岐山は産総研地質調査総合センター公開位置を使用。
+const FIXED_HOKKAIDO_TOHOKU_V11225 = {
+  '利尻山': [
+    {id:'fixed25-00-peak',type:'peak',name:'利尻山',lat:45.178536,lon:141.242036,elevation:1721,source:'固定候補'}
+  ],
+  '羅臼岳': [
+    {id:'fixed25-01-peak',type:'peak',name:'羅臼岳',lat:44.075917,lon:145.122246,elevation:1660,source:'固定候補'}
+  ],
+  '斜里岳': [
+    {id:'fixed25-02-peak',type:'peak',name:'斜里岳',lat:43.765743,lon:144.717659,elevation:1547,source:'固定候補'}
+  ],
+  '雄阿寒岳': [
+    {id:'fixed25-03-peak',type:'peak',name:'雄阿寒岳',lat:43.454056,lon:144.164617,elevation:1370,source:'固定候補'}
+  ],
+  '天塩岳': [
+    {id:'fixed25-04-peak',type:'peak',name:'天塩岳',lat:43.964372,lon:142.887986,elevation:1557,source:'固定候補'}
+  ],
+  'ニセイカウシュッペ山': [
+    {id:'fixed25-05-peak',type:'peak',name:'ニセイカウシュッペ山',lat:43.779967,lon:142.985346,elevation:1883,source:'固定候補'},
+    {id:'fixed25-05-th1',type:'trailhead',name:'ニセイカウシュッペ山登山口（古川林道・西尾根）',lat:43.796944,lon:142.949722,elevation:1126,source:'固定候補'}
+  ],
+  '大雪山（旭岳）': [
+    {id:'fixed25-06-peak',type:'peak',name:'大雪山（旭岳）',lat:43.663582,lon:142.854138,elevation:2291,source:'固定候補'}
+  ],
+  '石狩岳': [
+    {id:'fixed25-07-peak',type:'peak',name:'石狩岳',lat:43.546573,lon:143.022311,elevation:1967,source:'固定候補'},
+    {id:'fixed25-07-th1',type:'trailhead',name:'シュナイダーコース登山口（音更川二十一ノ沢出合）',lat:43.528972,lon:143.063639,elevation:801,source:'固定候補'}
+  ],
+  'トムラウシ山': [
+    {id:'fixed25-08-peak',type:'peak',name:'トムラウシ山',lat:43.527111,lon:142.848790,elevation:2141,source:'固定候補'}
+  ],
+  'オプタテシケ山': [
+    {id:'fixed25-09-peak',type:'peak',name:'オプタテシケ山',lat:43.470244,lon:142.751538,elevation:2012,source:'固定候補'},
+    {id:'fixed25-09-th1',type:'trailhead',name:'美瑛富士登山口',lat:43.470000,lon:142.673056,elevation:933,source:'固定候補'},
+    {id:'fixed25-09-hut1',type:'hut',name:'美瑛富士避難小屋',lat:43.454444,lon:142.721944,elevation:1627,source:'固定候補'}
+  ],
+  '十勝岳': [
+    {id:'fixed25-10-peak',type:'peak',name:'十勝岳',lat:43.417859,lon:142.686283,elevation:2077,source:'固定候補'}
+  ],
+  'ニペソツ山': [
+    {id:'fixed25-11-peak',type:'peak',name:'ニペソツ山',lat:43.455985,lon:143.032245,elevation:2013,source:'固定候補'},
+    {id:'fixed25-11-th1',type:'trailhead',name:'幌加温泉コース登山口',lat:43.471667,lon:143.129167,source:'固定候補'}
+  ],
+  '幌尻岳': [
+    {id:'fixed25-12-peak',type:'peak',name:'幌尻岳',lat:42.719435,lon:142.682894,elevation:2052,source:'固定候補'}
+  ],
+  'カムイエクウチカウシ山': [
+    {id:'fixed25-13-peak',type:'peak',name:'カムイエクウチカウシ山',lat:42.625112,lon:142.766406,elevation:1979,source:'固定候補'},
+    {id:'fixed25-13-th1',type:'trailhead',name:'札内川ヒュッテ駐車場',lat:42.594111,lon:142.879611,elevation:500,source:'固定候補'},
+    {id:'fixed25-13-hut1',type:'hut',name:'札内川ヒュッテ',lat:42.593889,lon:142.876944,elevation:626,source:'固定候補'}
+  ],
+  'ペテガリ岳': [
+    {id:'fixed25-14-peak',type:'peak',name:'ペテガリ岳',lat:42.499337,lon:142.871019,elevation:1736,source:'固定候補'},
+    {id:'fixed25-14-th1',type:'trailhead',name:'神威山荘（ペテガリ岳アプローチ起点）',lat:42.436917,lon:142.856528,elevation:389,source:'固定候補'},
+    {id:'fixed25-14-hut1',type:'hut',name:'神威山荘',lat:42.436917,lon:142.856528,elevation:389,source:'固定候補'}
+  ],
+  '神威岳': [
+    {id:'fixed25-15-peak',type:'peak',name:'神威岳',lat:42.428465,lon:142.906866,elevation:1600,source:'固定候補'},
+    {id:'fixed25-15-th1',type:'trailhead',name:'神威山荘・神威岳登山口',lat:42.436917,lon:142.856528,elevation:389,source:'固定候補'},
+    {id:'fixed25-15-hut1',type:'hut',name:'神威山荘',lat:42.436917,lon:142.856528,elevation:389,source:'固定候補'}
+  ],
+  '芦別岳': [
+    {id:'fixed25-16-peak',type:'peak',name:'芦別岳',lat:43.235730,lon:142.283553,elevation:1726,source:'固定候補'},
+    {id:'fixed25-16-th1',type:'trailhead',name:'新道登山口',lat:43.244667,lon:142.343583,elevation:325,source:'固定候補'}
+  ],
+  '夕張岳': [
+    {id:'fixed25-17-peak',type:'peak',name:'夕張岳',lat:43.099691,lon:142.251011,elevation:1668,source:'固定候補'},
+    {id:'fixed25-17-th1',type:'trailhead',name:'冷水・馬の背登山口（夕張岳ヒュッテ）',lat:43.109389,lon:142.192972,elevation:586,source:'固定候補'},
+    {id:'fixed25-17-hut1',type:'hut',name:'夕張岳ヒュッテ',lat:43.109389,lon:142.192972,elevation:586,source:'固定候補'}
+  ],
+  '暑寒別岳': [
+    {id:'fixed25-18-peak',type:'peak',name:'暑寒別岳',lat:43.715865,lon:141.522949,elevation:1491,source:'固定候補'},
+    {id:'fixed25-18-th1',type:'trailhead',name:'暑寒荘・暑寒別岳登山口',lat:43.770833,lon:141.510417,elevation:286,source:'固定候補'},
+    {id:'fixed25-18-hut1',type:'hut',name:'暑寒荘',lat:43.770833,lon:141.510417,elevation:286,source:'固定候補'}
+  ],
+  '余市岳': [
+    {id:'fixed25-19-peak',type:'peak',name:'余市岳',lat:43.032728,lon:141.019787,elevation:1488,source:'固定候補'}
+  ],
+  '樽前山': [
+    {id:'fixed25-20-peak',type:'peak',name:'樽前山',lat:42.690539,lon:141.376650,elevation:1041,source:'固定候補'}
+  ],
+  '後方羊蹄山': [
+    {id:'fixed25-21-peak',type:'peak',name:'後方羊蹄山（羊蹄山）',lat:42.826659,lon:140.811488,elevation:1898,source:'固定候補'}
+  ],
+  'ニセコアンヌプリ': [
+    {id:'fixed25-22-peak',type:'peak',name:'ニセコアンヌプリ',lat:42.875018,lon:140.658839,elevation:1308,source:'固定候補'}
+  ],
+  '狩場山': [
+    {id:'fixed25-23-peak',type:'peak',name:'狩場山',lat:42.613353,lon:139.940602,elevation:1520,source:'固定候補'},
+    {id:'fixed25-23-th1',type:'trailhead',name:'千走登山口',lat:42.595278,lon:139.956278,elevation:699,source:'固定候補'}
+  ],
+  '渡島駒ヶ岳': [
+    {id:'fixed25-24-peak',type:'peak',name:'渡島駒ヶ岳（剣ヶ峯）',lat:42.063344,lon:140.677287,elevation:1131,source:'固定候補'}
+  ],
+  '大千軒岳': [
+    {id:'fixed25-25-peak',type:'peak',name:'大千軒岳',lat:41.579319,lon:140.160818,elevation:1072,source:'固定候補'},
+    {id:'fixed25-25-th1',type:'trailhead',name:'奥二股登山口駐車場',lat:41.563472,lon:140.198972,elevation:234,source:'固定候補'}
+  ],
+  '八甲田山': [
+    {id:'fixed25-26-peak',type:'peak',name:'八甲田山（大岳）',lat:40.658907,lon:140.877249,elevation:1584,source:'固定候補'}
+  ],
+  '岩木山': [
+    {id:'fixed25-27-peak',type:'peak',name:'岩木山',lat:40.655916,lon:140.303075,elevation:1624,source:'固定候補'}
+  ],
+  '白神岳': [
+    {id:'fixed25-28-peak',type:'peak',name:'白神岳',lat:40.507426,lon:140.018230,elevation:1235,source:'固定候補'}
+  ],
+  '八幡平': [
+    {id:'fixed25-29-peak',type:'peak',name:'八幡平',lat:39.957808,lon:140.854094,elevation:1613,source:'固定候補'}
+  ],
+  '乳頭山（烏帽子岳）': [
+    {id:'fixed25-30-peak',type:'peak',name:'乳頭山（烏帽子岳）',lat:39.804889,lon:140.838626,elevation:1478,source:'固定候補'},
+    {id:'fixed25-30-th1',type:'trailhead',name:'滝ノ上温泉・乳頭山登山口',lat:39.826667,lon:140.872806,elevation:630,source:'固定候補'}
+  ],
+  '秋田駒ヶ岳': [
+    {id:'fixed25-31-peak',type:'peak',name:'秋田駒ヶ岳（男女岳）',lat:39.761097,lon:140.799381,elevation:1637,source:'固定候補'}
+  ],
+  '岩手山': [
+    {id:'fixed25-32-peak',type:'peak',name:'岩手山',lat:39.852607,lon:141.001018,elevation:2038,source:'固定候補'}
+  ],
+  '姫神山': [
+    {id:'fixed25-33-peak',type:'peak',name:'姫神山',lat:39.844024,lon:141.246896,elevation:1123,source:'固定候補'}
+  ],
+  '早池峰山': [
+    {id:'fixed25-34-peak',type:'peak',name:'早池峰山',lat:39.558445,lon:141.488876,elevation:1917,source:'固定候補'}
+  ],
+  '五葉山': [
+    {id:'fixed25-35-peak',type:'peak',name:'五葉山',lat:39.205453,lon:141.732123,elevation:1351,source:'固定候補'}
+  ],
+  '和賀岳': [
+    {id:'fixed25-36-peak',type:'peak',name:'和賀岳',lat:39.570396,lon:140.754255,elevation:1439,source:'固定候補'},
+    {id:'fixed25-36-th1',type:'trailhead',name:'甘露水口・薬師岳登山口駐車場',lat:39.538250,lon:140.714139,elevation:369,source:'固定候補'}
+  ],
+  '焼石岳': [
+    {id:'fixed25-37-peak',type:'peak',name:'焼石岳',lat:39.163672,lon:140.828835,elevation:1547,source:'固定候補'}
+  ],
+  '栗駒山': [
+    {id:'fixed25-38-peak',type:'peak',name:'栗駒山',lat:38.960912,lon:140.788430,elevation:1626,source:'固定候補'}
+  ],
+  '神室山': [
+    {id:'fixed25-39-peak',type:'peak',name:'神室山',lat:38.902253,lon:140.492300,elevation:1365,source:'固定候補'}
+  ],
+  '森吉山': [
+    {id:'fixed25-40-peak',type:'peak',name:'森吉山',lat:39.976753,lon:140.544174,elevation:1454,source:'固定候補'}
+  ],
+  '太平山': [
+    {id:'fixed25-41-peak',type:'peak',name:'太平山',lat:39.796992,lon:140.310685,elevation:1170,source:'固定候補'}
+  ],
+  '鳥海山': [
+    {id:'fixed25-42-peak',type:'peak',name:'鳥海山（新山）',lat:39.099369,lon:140.048885,elevation:2236,source:'固定候補'}
+  ],
+  '月山': [
+    {id:'fixed25-43-peak',type:'peak',name:'月山',lat:38.549136,lon:140.026971,elevation:1984,source:'固定候補'}
+  ],
+  '摩耶山': [
+    {id:'fixed25-44-peak',type:'peak',name:'摩耶山',lat:38.520194,lon:139.727851,elevation:1020,source:'固定候補'},
+    {id:'fixed25-44-th1',type:'trailhead',name:'越沢口',lat:38.533472,lon:139.709889,elevation:283,source:'固定候補'}
+  ],
+  '以東岳': [
+    {id:'fixed25-45-peak',type:'peak',name:'以東岳',lat:38.342954,lon:139.849062,elevation:1772,source:'固定候補'}
+  ],
+  '大朝日岳': [
+    {id:'fixed25-46-peak',type:'peak',name:'大朝日岳',lat:38.260533,lon:139.922321,elevation:1870,source:'固定候補'}
+  ],
+  '祝瓶山': [
+    {id:'fixed25-47-peak',type:'peak',name:'祝瓶山',lat:38.197610,lon:139.879609,elevation:1417,source:'固定候補'},
+    {id:'fixed25-47-th1',type:'trailhead',name:'祝瓶山荘駐車場・桑住平ルート',lat:38.188694,lon:139.905694,elevation:575,source:'固定候補'}
+  ],
+  '船形山': [
+    {id:'fixed25-48-peak',type:'peak',name:'船形山（御所山）',lat:38.455447,lon:140.619866,elevation:1500,source:'固定候補'}
+  ],
+  '泉ヶ岳': [
+    {id:'fixed25-49-peak',type:'peak',name:'泉ヶ岳',lat:38.411987,lon:140.708761,elevation:1175,source:'固定候補'},
+    {id:'fixed25-49-th1',type:'trailhead',name:'泉ヶ岳大駐車場',lat:38.390167,lon:140.722639,elevation:518,source:'固定候補'}
+  ],
+  '蔵王山（熊野岳）': [
+    {id:'fixed25-50-peak',type:'peak',name:'蔵王山（熊野岳）',lat:38.143878,lon:140.439741,elevation:1841,source:'固定候補'}
+  ],
+  '飯豊山': [
+    {id:'fixed25-51-peak',type:'peak',name:'飯豊山',lat:37.854831,lon:139.707110,elevation:2105,source:'固定候補'}
+  ],
+  '西吾妻山': [
+    {id:'fixed25-52-peak',type:'peak',name:'西吾妻山',lat:37.738140,lon:140.140800,elevation:2035,source:'固定候補'}
+  ],
+  '一切経山': [
+    {id:'fixed25-53-peak',type:'peak',name:'一切経山',lat:37.735364,lon:140.244343,elevation:1949,source:'固定候補'}
+  ],
+  '安達太良山': [
+    {id:'fixed25-54-peak',type:'peak',name:'安達太良山',lat:37.621123,lon:140.287891,elevation:1700,source:'固定候補'}
+  ],
+  '磐梯山': [
+    {id:'fixed25-55-peak',type:'peak',name:'磐梯山',lat:37.600975,lon:140.072248,elevation:1816,source:'固定候補'}
+  ],
+  '二岐山': [
+    {id:'fixed25-56-peak',type:'peak',name:'二岐山（男岳）',lat:37.246389,lon:139.967222,elevation:1544,source:'固定候補'},
+    {id:'fixed25-56-th1',type:'trailhead',name:'御鍋神社登山口',lat:37.234114,lon:139.970716,elevation:970,source:'固定候補'}
+  ],
+  '七ヶ岳': [
+    {id:'fixed25-57-peak',type:'peak',name:'七ヶ岳',lat:37.124279,lon:139.657482,elevation:1636,source:'固定候補'}
+  ],
+  '荒海山': [
+    {id:'fixed25-58-peak',type:'peak',name:'荒海山（太郎岳）',lat:37.036071,lon:139.643769,elevation:1581,source:'固定候補'},
+    {id:'fixed25-58-th1',type:'trailhead',name:'八総鉱山跡・荒海山登山駐車場',lat:37.060556,lon:139.660000,elevation:834,source:'固定候補'}
+  ],
+  '帝釈山': [
+    {id:'fixed25-59-peak',type:'peak',name:'帝釈山',lat:36.969811,lon:139.459994,elevation:2060,source:'固定候補'},
+    {id:'fixed25-59-th1',type:'trailhead',name:'馬坂峠',lat:36.963880,lon:139.458759,elevation:1790,source:'固定候補'}
+  ],
+  '会津駒ヶ岳': [
+    {id:'fixed25-60-peak',type:'peak',name:'会津駒ヶ岳',lat:37.047574,lon:139.353543,elevation:2133,source:'固定候補'}
+  ],
+  '会津朝日岳': [
+    {id:'fixed25-61-peak',type:'peak',name:'会津朝日岳',lat:37.221148,lon:139.339661,elevation:1624,source:'固定候補'},
+    {id:'fixed25-61-th1',type:'trailhead',name:'赤倉沢登山口',lat:37.246027,lon:139.377242,elevation:550,source:'固定候補'}
+  ],
+  '燧ヶ岳': [
+    {id:'fixed25-62-peak',type:'peak',name:'燧ヶ岳（柴安嵓）',lat:36.955102,lon:139.285334,elevation:2356,source:'固定候補'}
+  ],
+  '大滝根山': [
+    {id:'fixed25-63-peak',type:'peak',name:'大滝根山',lat:37.354899,lon:140.701664,elevation:1192,source:'固定候補'}
+  ]
+};
+for(const [mountain,fixed] of Object.entries(FIXED_HOKKAIDO_TOHOKU_V11225)){
+  const old=BUILTIN_ROUTE_CATALOG[mountain]||[];
+  const keys=new Set(fixed.map(p=>`${p.type}:${p.name}`));
+  BUILTIN_ROUTE_CATALOG[mountain]=[...fixed,...old.filter(p=>!keys.has(`${p.type}:${p.name}`))];
+}
+
+
+// V1.12.26: 中央アルプス・御嶽11座の山頂・主要登山口・確認済み山小屋を固定。
+const FIXED_CENTRAL_ALPS_ONTAKE_V11226 = {
+  '御嶽山': [
+    {id:'fixed26-ontake-peak',type:'peak',name:'御嶽山（剣ヶ峰）',lat:35.892778,lon:137.480278,elevation:3067,source:'固定候補'}
+  ],
+  '小秀山': [
+    {id:'fixed26-kohide-peak',type:'peak',name:'小秀山',lat:35.785556,lon:137.396944,elevation:1982,source:'固定候補'},
+    {id:'fixed26-kohide-otome',type:'trailhead',name:'乙女渓谷（小秀山登山口）',lat:35.776924,lon:137.359837,elevation:880,source:'固定候補'}
+  ],
+  '奥三界岳': [
+    {id:'fixed26-okusan-peak',type:'peak',name:'奥三界岳',lat:35.681667,lon:137.507222,elevation:1811,source:'固定候補'},
+    {id:'fixed26-okusan-gate',type:'trailhead',name:'川上林道ゲート（夕森渓谷）',lat:35.644965,lon:137.513254,elevation:720,source:'固定候補'},
+    {id:'fixed26-okusan-yumori',type:'trailhead',name:'夕森渓谷駐車場',lat:35.642049,lon:137.510173,elevation:680,source:'固定候補'}
+  ],
+  '経ヶ岳（長野）': [
+    {id:'fixed26-kyogatake-peak',type:'peak',name:'経ヶ岳',lat:35.912778,lon:137.862500,elevation:2296,source:'固定候補'},
+    {id:'fixed26-kyogatake-gonbee',type:'trailhead',name:'権兵衛峠登山口',lat:35.875306,lon:137.857306,elevation:1545,source:'固定候補'},
+    {id:'fixed26-kyogatake-chusenji',type:'trailhead',name:'仲仙寺登山口',lat:35.888220,lon:137.916434,elevation:920,source:'固定候補'}
+  ],
+  '木曽駒ヶ岳': [
+    {id:'fixed26-kisokoma-peak',type:'peak',name:'木曽駒ヶ岳',lat:35.789444,lon:137.804444,elevation:2956,source:'固定候補'}
+  ],
+  '空木岳': [
+    {id:'fixed26-utsugi-peak',type:'peak',name:'空木岳',lat:35.718889,lon:137.817222,elevation:2864,source:'固定候補'},
+    {id:'fixed26-utsugi-ikeyama',type:'trailhead',name:'池山口登山口',lat:35.736861,lon:137.878032,elevation:1370,source:'固定候補'},
+    {id:'fixed26-utsugi-inagawa',type:'trailhead',name:'伊奈川ダム上登山口',lat:35.695700,lon:137.751314,elevation:1090,source:'固定候補'},
+    {id:'fixed26-utsugi-komaho',type:'hut',name:'空木駒峰ヒュッテ',lat:35.719722,lon:137.818333,elevation:2800,source:'固定候補'}
+  ],
+  '南駒ヶ岳': [
+    {id:'fixed26-minamikoma-peak',type:'peak',name:'南駒ヶ岳',lat:35.701389,lon:137.810833,elevation:2841,source:'固定候補'},
+    {id:'fixed26-minamikoma-inagawa',type:'trailhead',name:'伊奈川ダム上登山口',lat:35.695700,lon:137.751314,elevation:1090,source:'固定候補'}
+  ],
+  '越百山': [
+    {id:'fixed26-kosumo-peak',type:'peak',name:'越百山',lat:35.679444,lon:137.803333,elevation:2614,source:'固定候補'},
+    {id:'fixed26-kosumo-inagawa',type:'trailhead',name:'伊奈川ダム上登山口',lat:35.695700,lon:137.751314,elevation:1090,source:'固定候補'},
+    {id:'fixed26-kosumo-goya',type:'hut',name:'越百小屋・越百避難小屋',lat:35.677500,lon:137.793611,elevation:2342,source:'固定候補'}
+  ],
+  '安平路山': [
+    {id:'fixed26-anpeiji-peak',type:'peak',name:'安平路山',lat:35.630556,lon:137.774444,elevation:2363,source:'固定候補'},
+    {id:'fixed26-anpeiji-surikogi',type:'trailhead',name:'摺古木自然園入口',lat:35.598439,lon:137.730911,elevation:1770,source:'固定候補'},
+    {id:'fixed26-anpeiji-odaira',type:'trailhead',name:'大平宿（林道規制時起点）',lat:35.556528,lon:137.723250,elevation:1139,source:'固定候補'}
+  ],
+  '南木曽岳': [
+    {id:'fixed26-nagiso-peak',type:'peak',name:'南木曽岳',lat:35.592500,lon:137.644167,elevation:1679,source:'固定候補'},
+    {id:'fixed26-nagiso-araragi',type:'trailhead',name:'蘭登山口',lat:35.577402,lon:137.640155,elevation:960,source:'固定候補'}
+  ],
+  '恵那山': [
+    {id:'fixed26-ena-peak',type:'peak',name:'恵那山',lat:35.443611,lon:137.597222,elevation:2191,source:'固定候補'},
+    {id:'fixed26-ena-hiro',type:'trailhead',name:'広河原登山口・峰越林道ゲート',lat:35.442862,lon:137.630613,elevation:1140,source:'固定候補'},
+    {id:'fixed26-ena-misaka',type:'trailhead',name:'神坂峠登山口',lat:35.472357,lon:137.632380,elevation:1565,source:'固定候補'}
+  ]
+};
+for(const [mountain,fixed] of Object.entries(FIXED_CENTRAL_ALPS_ONTAKE_V11226)){
+  const old=BUILTIN_ROUTE_CATALOG[mountain]||[];
+  const keys=new Set(fixed.map(p=>`${p.type}:${p.name}`));
+  BUILTIN_ROUTE_CATALOG[mountain]=[...fixed,...old.filter(p=>!keys.has(`${p.type}:${p.name}`))];
+}
+
+
+// V1.12.27: 南アルプス22座の山頂を国土地理院値へ統一し、未固定7座の代表登山口を公開座標で固定。
+Object.assign(MOUNTAIN_PRESETS, {
+  '甲斐駒ヶ岳': {latitude:35.758056, longitude:138.236667},
+  '鋸岳': {latitude:35.778889, longitude:138.210000},
+  '仙丈ヶ岳': {latitude:35.720000, longitude:138.183611},
+  'アサヨ峰': {latitude:35.731667, longitude:138.241389},
+  '地蔵ヶ岳': {latitude:35.712222, longitude:138.298611},
+  '北岳': {latitude:35.674444, longitude:138.238889},
+  '間ノ岳': {latitude:35.646111, longitude:138.228333},
+  '農鳥岳': {latitude:35.621111, longitude:138.236944},
+  '塩見岳': {latitude:35.573889, longitude:138.183056},
+  '荒川岳': {latitude:35.500833, longitude:138.182500},
+  '赤石岳': {latitude:35.461111, longitude:138.157222},
+  '聖岳': {latitude:35.422778, longitude:138.139722},
+  '上河内岳': {latitude:35.389722, longitude:138.152778},
+  '茶臼岳': {latitude:35.369167, longitude:138.140556},
+  '光岳': {latitude:35.338056, longitude:138.083889},
+  '池口岳': {latitude:35.330278, longitude:138.038333},
+  '奥茶臼山': {latitude:35.485000, longitude:138.069167},
+  '大無間山': {latitude:35.256111, longitude:138.161667},
+  '黒法師岳': {latitude:35.196111, longitude:138.029444},
+  '笊ヶ岳': {latitude:35.424167, longitude:138.259444},
+  '高塚山': {latitude:35.115556, longitude:138.003611},
+  '熊伏山': {latitude:35.263333, longitude:137.895000}
+});
+
+Object.assign(BUILTIN_ROUTE_CATALOG, {
+  '池口岳': [
+    {id:'fixed27-sa-0-th',type:'trailhead',name:'池口林道口・池口岳登山口',lat:35.334726,lon:137.966669,elevation:1060,source:'固定候補'},
+    {id:'fixed27-sa-0-peak',type:'peak',name:'池口岳',lat:35.330278,lon:138.038333,elevation:2392,source:'固定候補'}
+  ],
+  '奥茶臼山': [
+    {id:'fixed27-sa-1-th',type:'trailhead',name:'しらびそ峠・奥茶臼山登山口',lat:35.437991,lon:138.030336,elevation:1833,source:'固定候補'},
+    {id:'fixed27-sa-1-peak',type:'peak',name:'奥茶臼山',lat:35.485000,lon:138.069167,elevation:2474,source:'固定候補'}
+  ],
+  '大無間山': [
+    {id:'fixed27-sa-2-th',type:'trailhead',name:'田代・大無間山登山口',lat:35.257005,lon:138.234120,elevation:660,source:'固定候補'},
+    {id:'fixed27-sa-2-peak',type:'peak',name:'大無間山',lat:35.256111,lon:138.161667,elevation:2330,source:'固定候補'}
+  ],
+  '黒法師岳': [
+    {id:'fixed27-sa-3-th',type:'trailhead',name:'戸中山林道ゲート',lat:35.216648,lon:137.968967,elevation:610,source:'固定候補'},
+    {id:'fixed27-sa-3-peak',type:'peak',name:'黒法師岳',lat:35.196111,lon:138.029444,elevation:2068,source:'固定候補'}
+  ],
+  '笊ヶ岳': [
+    {id:'fixed27-sa-4-th',type:'trailhead',name:'老平・笊ヶ岳登山口',lat:35.404690,lon:138.323843,elevation:490,source:'固定候補'},
+    {id:'fixed27-sa-4-peak',type:'peak',name:'笊ヶ岳',lat:35.424167,lon:138.259444,elevation:2629,source:'固定候補'}
+  ],
+  '高塚山': [
+    {id:'fixed27-sa-5-th',type:'trailhead',name:'山犬段・高塚山登山口',lat:35.133066,lon:138.043377,elevation:1404,source:'固定候補'},
+    {id:'fixed27-sa-5-peak',type:'peak',name:'高塚山',lat:35.115556,lon:138.003611,elevation:1621,source:'固定候補'}
+  ],
+  '熊伏山': [
+    {id:'fixed27-sa-6-th',type:'trailhead',name:'青崩峠入口・熊伏山登山口',lat:35.250169,lon:137.908928,elevation:980,source:'固定候補'},
+    {id:'fixed27-sa-6-peak',type:'peak',name:'熊伏山',lat:35.263333,lon:137.895000,elevation:1654,source:'固定候補'}
+  ]
+});
+
+Object.assign(BUILTIN_ROUTE_CATALOG, {
+  '甲斐駒ヶ岳': [
+    ...(BUILTIN_ROUTE_CATALOG['甲斐駒ヶ岳'] || []),
+    {id:'fixed27-sa-p0',type:'peak',name:'甲斐駒ヶ岳',lat:35.758056,lon:138.236667,elevation:2967,source:'固定候補'}
+  ],
+  '鋸岳': [
+    ...(BUILTIN_ROUTE_CATALOG['鋸岳'] || []),
+    {id:'fixed27-sa-p1',type:'peak',name:'鋸岳',lat:35.778889,lon:138.210000,elevation:2685,source:'固定候補'}
+  ],
+  '仙丈ヶ岳': [
+    ...(BUILTIN_ROUTE_CATALOG['仙丈ヶ岳'] || []),
+    {id:'fixed27-sa-p2',type:'peak',name:'仙丈ヶ岳',lat:35.720000,lon:138.183611,elevation:3033,source:'固定候補'}
+  ],
+  'アサヨ峰': [
+    ...(BUILTIN_ROUTE_CATALOG['アサヨ峰'] || []),
+    {id:'fixed27-sa-p3',type:'peak',name:'アサヨ峰',lat:35.731667,lon:138.241389,elevation:2799,source:'固定候補'}
+  ],
+  '地蔵ヶ岳': [
+    ...(BUILTIN_ROUTE_CATALOG['地蔵ヶ岳'] || []),
+    {id:'fixed27-sa-p4',type:'peak',name:'地蔵ヶ岳',lat:35.712222,lon:138.298611,elevation:2764,source:'固定候補'}
+  ],
+  '北岳': [
+    ...(BUILTIN_ROUTE_CATALOG['北岳'] || []),
+    {id:'fixed27-sa-p5',type:'peak',name:'北岳',lat:35.674444,lon:138.238889,elevation:3193,source:'固定候補'}
+  ],
+  '間ノ岳': [
+    ...(BUILTIN_ROUTE_CATALOG['間ノ岳'] || []),
+    {id:'fixed27-sa-p6',type:'peak',name:'間ノ岳',lat:35.646111,lon:138.228333,elevation:3190,source:'固定候補'}
+  ],
+  '農鳥岳': [
+    ...(BUILTIN_ROUTE_CATALOG['農鳥岳'] || []),
+    {id:'fixed27-sa-p7',type:'peak',name:'農鳥岳',lat:35.621111,lon:138.236944,elevation:3026,source:'固定候補'}
+  ],
+  '塩見岳': [
+    ...(BUILTIN_ROUTE_CATALOG['塩見岳'] || []),
+    {id:'fixed27-sa-p8',type:'peak',name:'塩見岳',lat:35.573889,lon:138.183056,elevation:3047,source:'固定候補'}
+  ],
+  '荒川岳': [
+    ...(BUILTIN_ROUTE_CATALOG['荒川岳'] || []),
+    {id:'fixed27-sa-p9',type:'peak',name:'荒川岳',lat:35.500833,lon:138.182500,elevation:3141,source:'固定候補'}
+  ],
+  '赤石岳': [
+    ...(BUILTIN_ROUTE_CATALOG['赤石岳'] || []),
+    {id:'fixed27-sa-p10',type:'peak',name:'赤石岳',lat:35.461111,lon:138.157222,elevation:3121,source:'固定候補'}
+  ],
+  '聖岳': [
+    ...(BUILTIN_ROUTE_CATALOG['聖岳'] || []),
+    {id:'fixed27-sa-p11',type:'peak',name:'聖岳',lat:35.422778,lon:138.139722,elevation:3013,source:'固定候補'}
+  ],
+  '上河内岳': [
+    ...(BUILTIN_ROUTE_CATALOG['上河内岳'] || []),
+    {id:'fixed27-sa-p12',type:'peak',name:'上河内岳',lat:35.389722,lon:138.152778,elevation:2803,source:'固定候補'}
+  ],
+  '茶臼岳': [
+    ...(BUILTIN_ROUTE_CATALOG['茶臼岳'] || []),
+    {id:'fixed27-sa-p13',type:'peak',name:'茶臼岳',lat:35.369167,lon:138.140556,elevation:2604,source:'固定候補'}
+  ],
+  '光岳': [
+    ...(BUILTIN_ROUTE_CATALOG['光岳'] || []),
+    {id:'fixed27-sa-p14',type:'peak',name:'光岳',lat:35.338056,lon:138.083889,elevation:2592,source:'固定候補'}
+  ]
+});
+
+// V1.12.28: 北アルプス34座＋縦走主要ピーク5座の山頂を国土地理院2026-03-31版へ統一。
+// 未固定だった毛勝山・鍬崎山・鉢盛山の代表登山口も公開座標で固定。
+const V1228_NORTHERN_ALPS_PEAKS = {
+  '朝日岳（新潟・富山）':{latitude:36.826738,longitude:137.729884,elevation:2418},
+  '雪倉岳':{latitude:36.794644,longitude:137.754036,elevation:2611},
+  '白馬岳':{latitude:36.758510,longitude:137.758555,elevation:2932},
+  '唐松岳':{latitude:36.687234,longitude:137.754685,elevation:2696},
+  '五竜岳':{latitude:36.658407,longitude:137.752691,elevation:2814},
+  '鹿島槍ヶ岳':{latitude:36.624553,longitude:137.747058,elevation:2889},
+  '爺ヶ岳':{latitude:36.588301,longitude:137.750922,elevation:2670},
+  '針ノ木岳':{latitude:36.538077,longitude:137.684427,elevation:2821},
+  '蓮華岳':{latitude:36.535747,longitude:137.710543,elevation:2799},
+  '毛勝山':{latitude:36.701111,longitude:137.590844,elevation:2414},
+  '剱岳':{latitude:36.623248,longitude:137.616878,elevation:2999},
+  '立山':{latitude:36.575959,longitude:137.619808,elevation:3015},
+  '奥大日岳':{latitude:36.598373,longitude:137.580978,elevation:2611},
+  '鍬崎山':{latitude:36.539915,longitude:137.478028,elevation:2090},
+  '薬師岳':{latitude:36.468841,longitude:137.544800,elevation:2926},
+  '黒部五郎岳':{latitude:36.392550,longitude:137.539948,elevation:2840},
+  '烏帽子岳':{latitude:36.479510,longitude:137.650918,elevation:2628},
+  '野口五郎岳':{latitude:36.432683,longitude:137.637903,elevation:2924},
+  '水晶岳（黒岳）':{latitude:36.426363,longitude:137.602779,elevation:2986},
+  '鷲羽岳':{latitude:36.402996,longitude:137.605250,elevation:2924},
+  '三俣蓮華岳':{latitude:36.389989,longitude:137.587734,elevation:2841},
+  '赤牛岳':{latitude:36.461590,longitude:137.603289,elevation:2864},
+  '笠ヶ岳（岐阜）':{latitude:36.315477,longitude:137.550401,elevation:2897},
+  '餓鬼岳':{latitude:36.447226,longitude:137.736029,elevation:2647},
+  '燕岳':{latitude:36.406817,longitude:137.712756,elevation:2763},
+  '有明山':{latitude:36.391087,longitude:137.770678,elevation:2268},
+  '大天井岳':{latitude:36.364989,longitude:137.701124,elevation:2922},
+  '常念岳':{latitude:36.325524,longitude:137.727592,elevation:2857},
+  '槍ヶ岳':{latitude:36.342024,longitude:137.647643,elevation:3180},
+  '奥穂高岳':{latitude:36.289226,longitude:137.647988,elevation:3190},
+  '焼岳':{latitude:36.226864,longitude:137.587067,elevation:2455},
+  '霞沢岳':{latitude:36.221205,longitude:137.640601,elevation:2646},
+  '鉢盛山':{latitude:36.086649,longitude:137.754849,elevation:2447},
+  '乗鞍岳':{latitude:36.106487,longitude:137.553634,elevation:3026},
+  '蝶ヶ岳':{latitude:36.287421,longitude:137.726084,elevation:2677},
+  '西穂高岳':{latitude:36.278994,longitude:137.629062,elevation:2909},
+  '南岳':{latitude:36.319012,longitude:137.650732,elevation:3033},
+  '北穂高岳':{latitude:36.302540,longitude:137.652029,elevation:3106},
+  '前穂高岳':{latitude:36.281979,longitude:137.660574,elevation:3090},
+};
+Object.assign(MOUNTAIN_PRESETS, Object.fromEntries(Object.entries(V1228_NORTHERN_ALPS_PEAKS).map(([n,p])=>[n,{latitude:p.latitude,longitude:p.longitude}])));
+for (const [mountain,p] of Object.entries(V1228_NORTHERN_ALPS_PEAKS)) {
+  const old=BUILTIN_ROUTE_CATALOG[mountain]||[];
+  const fixedPeak={id:`fixed28-north-peak-${mountain}`,type:'peak',name:mountain==='立山'?'立山（大汝山）':mountain,lat:p.latitude,lon:p.longitude,elevation:p.elevation,source:'固定候補'};
+  BUILTIN_ROUTE_CATALOG[mountain]=[fixedPeak,...old.filter(x=>x.type!=='peak'||x.name!==fixedPeak.name)];
+}
+const V1228_NORTHERN_ALPS_ACCESS = {
+  '毛勝山':[
+    {id:'fixed28-kekachi-katakai',type:'trailhead',name:'片貝登山口（東又第五発電所登山口）',lat:36.731056,lon:137.552306,elevation:710,source:'固定候補'}
+  ],
+  '鍬崎山':[
+    {id:'fixed28-kuwasaki-awasuno',type:'trailhead',name:'あわすのスキー場・鍬崎山登山口',lat:36.576278,lon:137.439917,elevation:601,source:'固定候補'}
+  ],
+  '鉢盛山':[
+    {id:'fixed28-hachimori-shindo',type:'trailhead',name:'鉢盛坂新道口',lat:36.086470,lon:137.772764,elevation:1740,source:'固定候補'}
+  ],
+  '餓鬼岳':[
+    {id:'fixed28-gaki-hut',type:'hut',name:'餓鬼岳小屋',lat:36.399167,lon:137.645000,elevation:2605,source:'固定候補'}
+  ],
+  '燕岳':[
+    {id:'fixed28-tsubakuro-enzanso',type:'hut',name:'燕山荘',lat:36.399444,lon:137.715000,elevation:2704,source:'固定候補'}
+  ]
+};
+for (const [mountain,pts] of Object.entries(V1228_NORTHERN_ALPS_ACCESS)) {
+  const old=BUILTIN_ROUTE_CATALOG[mountain]||[];
+  const keys=new Set(pts.map(x=>`${x.type}:${x.name}`));
+  BUILTIN_ROUTE_CATALOG[mountain]=[...pts,...old.filter(x=>!keys.has(`${x.type}:${x.name}`))];
+}
+
 let pointSeq=0;
 const sessionId=(crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2));
 
@@ -3122,4 +3911,539 @@ Object.assign(BUILTIN_ROUTE_CATALOG, {
     {id:'fixed18-chugoku-sanbe-north',type:'trailhead',name:'北の原・姫逃池登山口',lat:35.151750,lon:132.621222,elevation:588,source:'固定候補'},
     {id:'fixed18-chugoku-sanbe-peak',type:'peak',name:'三瓶山（男三瓶山）',lat:35.140556,lon:132.621667,elevation:1126,source:'固定候補'}
   ]
+});
+
+
+// V1.12.19: 北陸・岐阜の現行アプリ区分19座を一括固定。
+// 山頂は国土地理院「日本の主な山岳」を基準。登山口・ルート起点・小屋は公開情報で一点座標を確認できた地点のみ採用。
+// 笈ヶ岳・猿ヶ馬場山など一般登山道がない山は、通常の「登山口」と誤認しないよう残雪期ルート起点と明記する。
+Object.assign(MOUNTAIN_PRESETS, {
+  '白木峰': {latitude:36.415556, longitude:137.112222},
+  '金剛堂山': {latitude:36.378889, longitude:137.048889},
+  '人形山': {latitude:36.348889, longitude:136.939722},
+  '医王山': {latitude:36.512778, longitude:136.796111},
+  '大門山': {latitude:36.365278, longitude:136.803611},
+  '大笠山': {latitude:36.320556, longitude:136.789722},
+  '笈ヶ岳': {latitude:36.298611, longitude:136.792222},
+  '三方岩岳': {latitude:36.258889, longitude:136.844444},
+  '猿ヶ馬場山': {latitude:36.225833, longitude:136.942778},
+  '白山': {latitude:36.155000, longitude:136.771389},
+  '経ヶ岳（福井）': {latitude:36.046389, longitude:136.621944},
+  '野伏ヶ岳': {latitude:36.012778, longitude:136.732500},
+  '大日ヶ岳': {latitude:36.001389, longitude:136.837778},
+  '鷲ヶ岳': {latitude:35.940278, longitude:136.971389},
+  '位山': {latitude:36.038333, longitude:137.196667},
+  '川上岳': {latitude:36.008333, longitude:137.149444},
+  '荒島岳': {latitude:35.934167, longitude:136.601389},
+  '能郷白山': {latitude:35.762500, longitude:136.514167},
+  '冠山': {latitude:35.779722, longitude:136.409444}
+});
+
+Object.assign(CURATED_ACCESS_HINTS, {
+  '白木峰':{trailheads:['白木峰8合目駐車場'],huts:['白木山荘（避難小屋）']},
+  '金剛堂山':{trailheads:['栃谷登山口 金剛堂山']},
+  '人形山':{trailheads:['人形堂・中根平登山口']},
+  '医王山':{trailheads:['医王の里登山者用駐車場','西尾平駐車場','しがらくび駐車場']},
+  '大門山':{trailheads:['ブナオ峠 大門山登山口']},
+  '大笠山':{trailheads:['桂湖森林公園駐車場（大笠山ルート起点）','ブナオ峠（大笠山ルート）']},
+  '笈ヶ岳':{trailheads:['中宮温泉ビジターセンター（笈ヶ岳ルート起点）']},
+  '三方岩岳':{trailheads:['三方岩駐車場']},
+  '猿ヶ馬場山':{trailheads:['村営せせらぎ公園駐車場（猿ヶ馬場山残雪期ルート起点）']},
+  '白山':{trailheads:['別当出合','市ノ瀬','大白川・平瀬道登山口'],huts:['白山室堂']},
+  '経ヶ岳（福井）':{trailheads:['経ヶ岳登山口展望台駐車場','奥越高原青少年自然の家']},
+  '野伏ヶ岳':{trailheads:['白山中居神社（野伏ヶ岳残雪期ルート起点）']},
+  '大日ヶ岳':{trailheads:['桧峠 大日ヶ岳登山口','高鷲スノーパーク']},
+  '鷲ヶ岳':{trailheads:['鷲ヶ岳立石キャンプ場（林道ルート起点）']},
+  '位山':{trailheads:['ダナ平林道登山口','モンデウス飛騨位山']},
+  '川上岳':{trailheads:['山之口登山口 川上岳']},
+  '荒島岳':{trailheads:['勝原コース登山口','中出コース登山口']},
+  '能郷白山':{trailheads:['温見峠']},
+  '冠山':{trailheads:['冠山峠']}
+});
+
+Object.assign(BUILTIN_ROUTE_CATALOG, {
+  '白木峰': [
+    {id:'fixed19-hg-shirakimine-8go',type:'trailhead',name:'白木峰8合目駐車場',lat:36.418556,lon:137.104972,elevation:1322,source:'固定候補'},
+    {id:'fixed19-hg-shirakimine-hut',type:'hut',name:'白木山荘（避難小屋）',lat:36.417250,lon:137.111694,source:'固定候補'},
+    {id:'fixed19-hg-shirakimine-peak',type:'peak',name:'白木峰',lat:36.415556,lon:137.112222,elevation:1596,source:'固定候補'}
+  ],
+  '金剛堂山': [
+    {id:'fixed19-hg-kongodo-tochidani',type:'trailhead',name:'栃谷登山口 金剛堂山',lat:36.407333,lon:137.029278,elevation:778,source:'固定候補'},
+    {id:'fixed19-hg-kongodo-peak',type:'peak',name:'金剛堂山',lat:36.378889,lon:137.048889,elevation:1650,source:'固定候補'}
+  ],
+  '人形山': [
+    {id:'fixed19-hg-ningyo-nakane',type:'trailhead',name:'人形堂・中根平登山口',lat:36.383194,lon:136.940389,elevation:832,source:'固定候補'},
+    {id:'fixed19-hg-ningyo-peak',type:'peak',name:'人形山',lat:36.348889,lon:136.939722,elevation:1726,source:'固定候補'}
+  ],
+  '医王山': [
+    {id:'fixed19-hg-io-ionosato',type:'trailhead',name:'医王の里登山者用駐車場',lat:36.529028,lon:136.770472,elevation:515,source:'固定候補'},
+    {id:'fixed19-hg-io-nishio',type:'trailhead',name:'西尾平駐車場',lat:36.528833,lon:136.780944,elevation:634,source:'固定候補'},
+    {id:'fixed19-hg-io-shigaraku',type:'trailhead',name:'しがらくび駐車場',lat:36.526889,lon:136.788889,elevation:705,source:'固定候補'},
+    {id:'fixed19-hg-io-peak',type:'peak',name:'医王山（奥医王山）',lat:36.512778,lon:136.796111,elevation:939,source:'固定候補'}
+  ],
+  '大門山': [
+    {id:'fixed19-hg-daimon-bunao',type:'trailhead',name:'ブナオ峠 大門山登山口',lat:36.372694,lon:136.823722,elevation:984,source:'固定候補'},
+    {id:'fixed19-hg-daimon-peak',type:'peak',name:'大門山',lat:36.365278,lon:136.803611,elevation:1572,source:'固定候補'}
+  ],
+  '大笠山': [
+    {id:'fixed19-hg-ogasa-katsura',type:'trailhead',name:'桂湖森林公園駐車場（大笠山ルート起点）',lat:36.327250,lon:136.837167,elevation:574,source:'固定候補'},
+    {id:'fixed19-hg-ogasa-bunao',type:'trailhead',name:'ブナオ峠（大笠山ルート）',lat:36.372694,lon:136.823722,elevation:984,source:'固定候補'},
+    {id:'fixed19-hg-ogasa-peak',type:'peak',name:'大笠山',lat:36.320556,lon:136.789722,elevation:1822,source:'固定候補'}
+  ],
+  '笈ヶ岳': [
+    {id:'fixed19-hg-oizuru-chugu',type:'trailhead',name:'中宮温泉ビジターセンター（笈ヶ岳ルート起点）',lat:36.262722,lon:136.760389,elevation:606,source:'固定候補'},
+    {id:'fixed19-hg-oizuru-peak',type:'peak',name:'笈ヶ岳',lat:36.298611,lon:136.792222,elevation:1841,source:'固定候補'}
+  ],
+  '三方岩岳': [
+    {id:'fixed19-hg-sanpoiwa-p',type:'trailhead',name:'三方岩駐車場',lat:36.263333,lon:136.837778,elevation:1450,source:'固定候補'},
+    {id:'fixed19-hg-sanpoiwa-peak',type:'peak',name:'三方岩岳',lat:36.258889,lon:136.844444,elevation:1736,source:'固定候補'}
+  ],
+  '猿ヶ馬場山': [
+    {id:'fixed19-hg-sarugabamba-seseragi',type:'trailhead',name:'村営せせらぎ公園駐車場（猿ヶ馬場山残雪期ルート起点）',lat:36.257363,lon:136.902778,source:'固定候補'},
+    {id:'fixed19-hg-sarugabamba-peak',type:'peak',name:'猿ヶ馬場山',lat:36.225833,lon:136.942778,elevation:1875,source:'固定候補'}
+  ],
+  '白山': [
+    {id:'fixed19-hg-hakusan-betto',type:'trailhead',name:'別当出合',lat:36.125064,lon:136.739781,elevation:1260,source:'固定候補'},
+    {id:'fixed19-hg-hakusan-ichinose',type:'trailhead',name:'市ノ瀬',lat:36.114278,lon:136.700778,elevation:830,source:'固定候補'},
+    {id:'fixed19-hg-hakusan-hirase',type:'trailhead',name:'大白川・平瀬道登山口',lat:36.143583,lon:136.820750,elevation:1235,source:'固定候補'},
+    {id:'fixed19-hg-hakusan-murodo',type:'hut',name:'白山室堂',lat:36.148889,lon:136.767500,elevation:2450,source:'固定候補'},
+    {id:'fixed19-hg-hakusan-peak',type:'peak',name:'白山（御前峰）',lat:36.155000,lon:136.771389,elevation:2702,source:'固定候補'}
+  ],
+  '経ヶ岳（福井）': [
+    {id:'fixed19-hg-kyogatake-fukui-view',type:'trailhead',name:'経ヶ岳登山口展望台駐車場',lat:36.032889,lon:136.590750,elevation:894,source:'固定候補'},
+    {id:'fixed19-hg-kyogatake-fukui-okukoshi',type:'trailhead',name:'奥越高原青少年自然の家',lat:36.023389,lon:136.583389,elevation:596,source:'固定候補'},
+    {id:'fixed19-hg-kyogatake-fukui-peak',type:'peak',name:'経ヶ岳（福井）',lat:36.046389,lon:136.621944,elevation:1625,source:'固定候補'}
+  ],
+  '野伏ヶ岳': [
+    {id:'fixed19-hg-nobuse-hakusanchoi',type:'trailhead',name:'白山中居神社（野伏ヶ岳残雪期ルート起点）',lat:35.991056,lon:136.768583,elevation:720,source:'固定候補'},
+    {id:'fixed19-hg-nobuse-peak',type:'peak',name:'野伏ヶ岳',lat:36.012778,lon:136.732500,elevation:1674,source:'固定候補'}
+  ],
+  '大日ヶ岳': [
+    {id:'fixed19-hg-dainichi-hinoki',type:'trailhead',name:'桧峠 大日ヶ岳登山口',lat:35.962889,lon:136.808972,elevation:957,source:'固定候補'},
+    {id:'fixed19-hg-dainichi-takasu',type:'trailhead',name:'高鷲スノーパーク',lat:35.994944,lon:136.878361,elevation:920,source:'固定候補'},
+    {id:'fixed19-hg-dainichi-peak',type:'peak',name:'大日ヶ岳',lat:36.001389,lon:136.837778,elevation:1709,source:'固定候補'}
+  ],
+  '鷲ヶ岳': [
+    {id:'fixed19-hg-washigatake-tateishi',type:'trailhead',name:'鷲ヶ岳立石キャンプ場（林道ルート起点）',lat:35.958899,lon:136.958301,elevation:1100,source:'固定候補'},
+    {id:'fixed19-hg-washigatake-peak',type:'peak',name:'鷲ヶ岳',lat:35.940278,lon:136.971389,elevation:1671,source:'固定候補'}
+  ],
+  '位山': [
+    {id:'fixed19-hg-kurai-danabira',type:'trailhead',name:'ダナ平林道登山口',lat:36.047194,lon:137.191556,elevation:1320,source:'固定候補'},
+    {id:'fixed19-hg-kurai-montdeus',type:'trailhead',name:'モンデウス飛騨位山',lat:36.062444,lon:137.226333,elevation:900,source:'固定候補'},
+    {id:'fixed19-hg-kurai-peak',type:'peak',name:'位山',lat:36.038333,lon:137.196667,elevation:1529,source:'固定候補'}
+  ],
+  '川上岳': [
+    {id:'fixed19-hg-kaore-yamanokuchi',type:'trailhead',name:'山之口登山口 川上岳',lat:36.013611,lon:137.175250,elevation:889,source:'固定候補'},
+    {id:'fixed19-hg-kaore-peak',type:'peak',name:'川上岳',lat:36.008333,lon:137.149444,elevation:1625,source:'固定候補'}
+  ],
+  '荒島岳': [
+    {id:'fixed19-hg-arashima-kadohara',type:'trailhead',name:'勝原コース登山口',lat:35.963834,lon:136.604581,elevation:345,source:'固定候補'},
+    {id:'fixed19-hg-arashima-nakande',type:'trailhead',name:'中出コース登山口',lat:35.958222,lon:136.558778,elevation:347,source:'固定候補'},
+    {id:'fixed19-hg-arashima-peak',type:'peak',name:'荒島岳',lat:35.934167,lon:136.601389,elevation:1523,source:'固定候補'}
+  ],
+  '能郷白山': [
+    {id:'fixed19-hg-nougo-nukumi',type:'trailhead',name:'温見峠',lat:35.779250,lon:136.518528,elevation:1040,source:'固定候補'},
+    {id:'fixed19-hg-nougo-peak',type:'peak',name:'能郷白山（権現山）',lat:35.762500,lon:136.514167,elevation:1617,source:'固定候補'}
+  ],
+  '冠山': [
+    {id:'fixed19-hg-kanmuri-toge',type:'trailhead',name:'冠山峠',lat:35.788417,lon:136.393083,elevation:1047,source:'固定候補'},
+    {id:'fixed19-hg-kanmuri-peak',type:'peak',name:'冠山',lat:35.779722,lon:136.409444,elevation:1257,source:'固定候補'}
+  ]
+});
+
+// V1.12.20: 奥秩父・丹沢15座の山頂・主要登山口・山小屋を固定座標化。
+// 山頂は国土地理院「日本の主な山岳」を優先。山小屋・登山口は公開座標が確認できた地点のみ採用。
+Object.assign(MOUNTAIN_PRESETS, {
+  '武甲山': {latitude:35.951667, longitude:139.097778},
+  '両神山': {latitude:36.023333, longitude:138.841389},
+  '雲取山': {latitude:35.855556, longitude:138.943889},
+  '和名倉山（白石山）': {latitude:35.899444, longitude:138.878056},
+  '甲武信ヶ岳': {latitude:35.908889, longitude:138.728889},
+  '国師ヶ岳': {latitude:35.870833, longitude:138.673056},
+  '金峰山': {latitude:35.871389, longitude:138.625278},
+  '瑞牆山': {latitude:35.893333, longitude:138.591944},
+  '茅ヶ岳': {latitude:35.795000, longitude:138.513889},
+  '乾徳山': {latitude:35.823056, longitude:138.715000},
+  '大菩薩嶺': {latitude:35.748889, longitude:138.845556},
+  '大岳山': {latitude:35.765278, longitude:139.130278},
+  '三頭山': {latitude:35.739167, longitude:139.013889},
+  '大山（神奈川）': {latitude:35.440833, longitude:139.231389},
+  '塔ノ岳': {latitude:35.454167, longitude:139.163333}
+});
+
+Object.assign(CURATED_ACCESS_HINTS, {
+  '武甲山':{trailheads:['生川・一の鳥居']},
+  '両神山':{trailheads:['日向大谷口','尾ノ内渓谷登山口']},
+  '雲取山':{trailheads:['鴨沢登山口','小袖乗越・丹波山村村営駐車場'],huts:['雲取山荘']},
+  '和名倉山（白石山）':{trailheads:['三ノ瀬（民宿みはらし）']},
+  '甲武信ヶ岳':{trailheads:['毛木平登山口'],huts:['甲武信小屋']},
+  '国師ヶ岳':{trailheads:['大弛峠']},
+  '金峰山':{trailheads:['大弛峠','瑞牆山荘・富士見平口'],huts:['富士見平小屋','大日小屋']},
+  '瑞牆山':{trailheads:['瑞牆山荘・富士見平口','みずがき山自然公園'],huts:['富士見平小屋']},
+  '茅ヶ岳':{trailheads:['深田記念公園・茅ヶ岳登山口']},
+  '乾徳山':{trailheads:['徳和・乾徳山登山口']},
+  '大菩薩嶺':{trailheads:['上日川峠'],huts:['介山荘']},
+  '大岳山':{trailheads:['白倉・大嶽神社里宮登山口'],huts:['大岳山荘']},
+  '三頭山':{trailheads:['山のふるさと村登山口']},
+  '大山（神奈川）':{trailheads:['大山ケーブル口・市営第二駐車場','ヤビツ峠']},
+  '塔ノ岳':{trailheads:['大倉登山口','戸沢出合'],huts:['尊仏山荘']}
+});
+
+Object.assign(BUILTIN_ROUTE_CATALOG, {
+  '武甲山': [
+    {id:'fixed20-okutan-buko-ichinotorii',type:'trailhead',name:'生川・一の鳥居',lat:35.941718,lon:139.115772,elevation:520,source:'固定候補'},
+    {id:'fixed20-okutan-buko-peak',type:'peak',name:'武甲山',lat:35.951667,lon:139.097778,elevation:1304,source:'固定候補'}
+  ],
+  '両神山': [
+    {id:'fixed20-okutan-ryokami-hinata',type:'trailhead',name:'日向大谷口',lat:36.027967,lon:138.878234,elevation:640,source:'固定候補'},
+    {id:'fixed20-okutan-ryokami-onouchi',type:'trailhead',name:'尾ノ内渓谷登山口',lat:36.046278,lon:138.866194,elevation:523,source:'固定候補'},
+    {id:'fixed20-okutan-ryokami-peak',type:'peak',name:'両神山',lat:36.023333,lon:138.841389,elevation:1723,source:'固定候補'}
+  ],
+  '雲取山': [
+    {id:'fixed20-okutan-kumotori-kamosawa',type:'trailhead',name:'鴨沢登山口',lat:35.780424,lon:138.984381,elevation:550,source:'固定候補'},
+    {id:'fixed20-okutan-kumotori-kosode',type:'trailhead',name:'小袖乗越・丹波山村村営駐車場',lat:35.785900,lon:138.977500,elevation:738,source:'固定候補'},
+    {id:'fixed20-okutan-kumotori-hut',type:'hut',name:'雲取山荘',lat:35.860833,lon:138.943333,elevation:1836,source:'固定候補'},
+    {id:'fixed20-okutan-kumotori-peak',type:'peak',name:'雲取山',lat:35.855556,lon:138.943889,elevation:2017,source:'固定候補'}
+  ],
+  '和名倉山（白石山）': [
+    {id:'fixed20-okutan-wanakura-sannose',type:'trailhead',name:'三ノ瀬（民宿みはらし）',lat:35.838773,lon:138.837935,elevation:1280,source:'固定候補'},
+    {id:'fixed20-okutan-wanakura-peak',type:'peak',name:'和名倉山（白石山）',lat:35.899444,lon:138.878056,elevation:2036,source:'固定候補'}
+  ],
+  '甲武信ヶ岳': [
+    {id:'fixed20-okutan-kobushi-mokidaira',type:'trailhead',name:'毛木平登山口',lat:35.954134,lon:138.710874,elevation:1460,source:'固定候補'},
+    {id:'fixed20-okutan-kobushi-hut',type:'hut',name:'甲武信小屋',lat:35.906944,lon:138.730556,elevation:2360,source:'固定候補'},
+    {id:'fixed20-okutan-kobushi-peak',type:'peak',name:'甲武信ヶ岳',lat:35.908889,lon:138.728889,elevation:2475,source:'固定候補'}
+  ],
+  '国師ヶ岳': [
+    {id:'fixed20-okutan-kokushi-odarumi',type:'trailhead',name:'大弛峠',lat:35.872723,lon:138.662769,elevation:2360,source:'固定候補'},
+    {id:'fixed20-okutan-kokushi-peak',type:'peak',name:'国師ヶ岳',lat:35.870833,lon:138.673056,elevation:2592,source:'固定候補'}
+  ],
+  '金峰山': [
+    {id:'fixed20-okutan-kinpu-odarumi',type:'trailhead',name:'大弛峠',lat:35.872723,lon:138.662769,elevation:2360,source:'固定候補'},
+    {id:'fixed20-okutan-kinpu-mizugaki',type:'trailhead',name:'瑞牆山荘・富士見平口',lat:35.878124,lon:138.580085,elevation:1530,source:'固定候補'},
+    {id:'fixed20-okutan-kinpu-fujimidaira',type:'hut',name:'富士見平小屋',lat:35.882500,lon:138.587500,elevation:1814,source:'固定候補'},
+    {id:'fixed20-okutan-kinpu-dainichi',type:'hut',name:'大日小屋',lat:35.880833,lon:138.601111,elevation:1976,source:'固定候補'},
+    {id:'fixed20-okutan-kinpu-peak',type:'peak',name:'金峰山',lat:35.871389,lon:138.625278,elevation:2599,source:'固定候補'}
+  ],
+  '瑞牆山': [
+    {id:'fixed20-okutan-mizugaki-sanso',type:'trailhead',name:'瑞牆山荘・富士見平口',lat:35.878124,lon:138.580085,elevation:1530,source:'固定候補'},
+    {id:'fixed20-okutan-mizugaki-park',type:'trailhead',name:'みずがき山自然公園',lat:35.896278,lon:138.573306,elevation:1460,source:'固定候補'},
+    {id:'fixed20-okutan-mizugaki-fujimidaira',type:'hut',name:'富士見平小屋',lat:35.882500,lon:138.587500,elevation:1814,source:'固定候補'},
+    {id:'fixed20-okutan-mizugaki-peak',type:'peak',name:'瑞牆山',lat:35.893333,lon:138.591944,elevation:2230,source:'固定候補'}
+  ],
+  '茅ヶ岳': [
+    {id:'fixed20-okutan-kaya-fukada',type:'trailhead',name:'深田記念公園・茅ヶ岳登山口',lat:35.770061,lon:138.506805,elevation:940,source:'固定候補'},
+    {id:'fixed20-okutan-kaya-peak',type:'peak',name:'茅ヶ岳',lat:35.795000,lon:138.513889,elevation:1704,source:'固定候補'}
+  ],
+  '乾徳山': [
+    {id:'fixed20-okutan-kentoku-tokuwa',type:'trailhead',name:'徳和・乾徳山登山口',lat:35.790770,lon:138.724621,elevation:830,source:'固定候補'},
+    {id:'fixed20-okutan-kentoku-peak',type:'peak',name:'乾徳山',lat:35.823056,lon:138.715000,elevation:2031,source:'固定候補'}
+  ],
+  '大菩薩嶺': [
+    {id:'fixed20-okutan-daibosatsu-kamihikawa',type:'trailhead',name:'上日川峠',lat:35.731528,lon:138.832528,elevation:1580,source:'固定候補'},
+    {id:'fixed20-okutan-daibosatsu-kaizan',type:'hut',name:'介山荘',lat:35.736111,lon:138.852778,elevation:1889,source:'固定候補'},
+    {id:'fixed20-okutan-daibosatsu-peak',type:'peak',name:'大菩薩嶺',lat:35.748889,lon:138.845556,elevation:2057,source:'固定候補'}
+  ],
+  '大岳山': [
+    {id:'fixed20-okutan-odake-shirakura',type:'trailhead',name:'白倉・大嶽神社里宮登山口',lat:35.744361,lon:139.133833,elevation:382,source:'固定候補'},
+    {id:'fixed20-okutan-odake-hut',type:'hut',name:'大岳山荘',lat:35.764618,lon:139.133311,source:'固定候補'},
+    {id:'fixed20-okutan-odake-peak',type:'peak',name:'大岳山',lat:35.765278,lon:139.130278,elevation:1266,source:'固定候補'}
+  ],
+  '三頭山': [
+    {id:'fixed20-okutan-mitou-furusato',type:'trailhead',name:'山のふるさと村登山口',lat:35.766306,lon:139.023056,elevation:548,source:'固定候補'},
+    {id:'fixed20-okutan-mitou-peak',type:'peak',name:'三頭山',lat:35.739167,lon:139.013889,elevation:1531,source:'固定候補'}
+  ],
+  '大山（神奈川）': [
+    {id:'fixed20-tanzawa-oyama-cable',type:'trailhead',name:'大山ケーブル口・市営第二駐車場',lat:35.424634,lon:139.249003,elevation:315,source:'固定候補'},
+    {id:'fixed20-tanzawa-oyama-yabitsu',type:'trailhead',name:'ヤビツ峠',lat:35.428127,lon:139.219122,elevation:760,source:'固定候補'},
+    {id:'fixed20-tanzawa-oyama-peak',type:'peak',name:'大山（神奈川）',lat:35.440833,lon:139.231389,elevation:1252,source:'固定候補'}
+  ],
+  '塔ノ岳': [
+    {id:'fixed20-tanzawa-tonodake-okura',type:'trailhead',name:'大倉登山口',lat:35.404065,lon:139.168805,elevation:290,source:'固定候補'},
+    {id:'fixed20-tanzawa-tonodake-tosawa',type:'trailhead',name:'戸沢出合',lat:35.435478,lon:139.173273,elevation:570,source:'固定候補'},
+    {id:'fixed20-tanzawa-tonodake-sonbutsu',type:'hut',name:'尊仏山荘',lat:35.454167,lon:139.163333,elevation:1491,source:'固定候補'},
+    {id:'fixed20-tanzawa-tonodake-peak',type:'peak',name:'塔ノ岳',lat:35.454167,lon:139.163333,elevation:1491,source:'固定候補'}
+  ]
+});
+
+// V1.12.21: 北信・頸城10座の山頂・主要登山口・山小屋／避難小屋を固定座標化。
+// 山頂は国土地理院「日本の主な山岳」を優先。登山口・山小屋は公開座標が確認できた地点のみ採用。
+Object.assign(MOUNTAIN_PRESETS, {
+  '飯縄山': {latitude:36.739444, longitude:138.133611},
+  '戸隠山': {latitude:36.770278, longitude:138.055000},
+  '高妻山': {latitude:36.800000, longitude:138.051944},
+  '黒姫山': {latitude:36.813333, longitude:138.127222},
+  '斑尾山': {latitude:36.837500, longitude:138.274444},
+  '妙高山': {latitude:36.891389, longitude:138.113333},
+  '火打山': {latitude:36.922778, longitude:138.068056},
+  '焼山': {latitude:36.920833, longitude:138.035833},
+  '雨飾山': {latitude:36.901944, longitude:137.962500},
+  '青海黒姫山': {latitude:36.976667, longitude:137.790000}
+});
+
+Object.assign(BUILTIN_ROUTE_CATALOG, {
+  '飯縄山': [
+    {id:'fixed21-hk-iizuna-ichinotorii',type:'trailhead',name:'一の鳥居苑地・飯縄山登山者駐車場',lat:36.711077,lon:138.124645,elevation:1130,source:'固定候補'},
+    {id:'fixed21-hk-iizuna-peak',type:'peak',name:'飯縄山',lat:36.739444,lon:138.133611,elevation:1917,source:'固定候補'}
+  ],
+  '戸隠山': [
+    {id:'fixed21-hk-togakushi-okusha',type:'trailhead',name:'戸隠神社奥社登山口',lat:36.765233,lon:138.062600,elevation:1350,source:'固定候補'},
+    {id:'fixed21-hk-togakushi-camp',type:'trailhead',name:'戸隠キャンプ場・戸隠牧場',lat:36.769172,lon:138.090407,elevation:1170,source:'固定候補'},
+    {id:'fixed21-hk-togakushi-ichifudo',type:'hut',name:'一不動避難小屋',lat:36.782533,lon:138.063200,elevation:1747,source:'固定候補'},
+    {id:'fixed21-hk-togakushi-peak',type:'peak',name:'戸隠山',lat:36.770278,lon:138.055000,elevation:1904,source:'固定候補'}
+  ],
+  '高妻山': [
+    {id:'fixed21-hk-takatsuma-camp',type:'trailhead',name:'戸隠キャンプ場・高妻山登山者駐車場',lat:36.769172,lon:138.090407,elevation:1170,source:'固定候補'},
+    {id:'fixed21-hk-takatsuma-ichifudo',type:'hut',name:'一不動避難小屋',lat:36.782533,lon:138.063200,elevation:1747,source:'固定候補'},
+    {id:'fixed21-hk-takatsuma-peak',type:'peak',name:'高妻山',lat:36.800000,lon:138.051944,elevation:2353,source:'固定候補'}
+  ],
+  '黒姫山': [
+    {id:'fixed21-hk-kurohime-ohashi',type:'trailhead',name:'大橋林道口・黒姫山登山口',lat:36.779899,lon:138.099342,elevation:1140,source:'固定候補'},
+    {id:'fixed21-hk-kurohime-peak',type:'peak',name:'黒姫山',lat:36.813333,lon:138.127222,elevation:2053,source:'固定候補'}
+  ],
+  '斑尾山': [
+    {id:'fixed21-hk-madarao-visitor',type:'trailhead',name:'斑尾高原ビジターセンター（山の家）',lat:36.855448,lon:138.296359,elevation:965,source:'固定候補'},
+    {id:'fixed21-hk-madarao-ski',type:'trailhead',name:'斑尾高原スキー場',lat:36.851825,lon:138.291592,elevation:960,source:'固定候補'},
+    {id:'fixed21-hk-madarao-peak',type:'peak',name:'斑尾山',lat:36.837500,lon:138.274444,elevation:1382,source:'固定候補'}
+  ],
+  '妙高山': [
+    {id:'fixed21-hk-myoko-tsubame',type:'trailhead',name:'燕温泉登山口',lat:36.900946,lon:138.148066,elevation:1080,source:'固定候補'},
+    {id:'fixed21-hk-myoko-sasagamine',type:'trailhead',name:'笹ヶ峰登山口',lat:36.868699,lon:138.078730,elevation:1310,source:'固定候補'},
+    {id:'fixed21-hk-myoko-koyaike',type:'hut',name:'高谷池ヒュッテ',lat:36.909722,lon:138.084722,elevation:2101,source:'固定候補'},
+    {id:'fixed21-hk-myoko-kurosawa',type:'hut',name:'黒沢池ヒュッテ',lat:36.906389,lon:138.101389,elevation:2007,source:'固定候補'},
+    {id:'fixed21-hk-myoko-peak',type:'peak',name:'妙高山',lat:36.891389,lon:138.113333,elevation:2454,source:'固定候補'}
+  ],
+  '火打山': [
+    {id:'fixed21-hk-hiuchi-sasagamine',type:'trailhead',name:'笹ヶ峰登山口',lat:36.868699,lon:138.078730,elevation:1310,source:'固定候補'},
+    {id:'fixed21-hk-hiuchi-koyaike',type:'hut',name:'高谷池ヒュッテ',lat:36.909722,lon:138.084722,elevation:2101,source:'固定候補'},
+    {id:'fixed21-hk-hiuchi-kurosawa',type:'hut',name:'黒沢池ヒュッテ',lat:36.906389,lon:138.101389,elevation:2007,source:'固定候補'},
+    {id:'fixed21-hk-hiuchi-peak',type:'peak',name:'火打山',lat:36.922778,lon:138.068056,elevation:2462,source:'固定候補'}
+  ],
+  '焼山': [
+    {id:'fixed21-hk-yakeyama-gate',type:'trailhead',name:'焼山林道第2ゲート（焼山ルート起点）',lat:36.972025,lon:138.030806,elevation:850,source:'固定候補'},
+    {id:'fixed21-hk-yakeyama-kanayama',type:'trailhead',name:'金山登山口（小谷側）',lat:36.869778,lon:138.008111,elevation:1240,source:'固定候補'},
+    {id:'fixed21-hk-yakeyama-peak',type:'peak',name:'新潟焼山',lat:36.920833,lon:138.035833,elevation:2400,source:'固定候補'}
+  ],
+  '雨飾山': [
+    {id:'fixed21-hk-amakazari-camp',type:'trailhead',name:'雨飾高原キャンプ場登山口',lat:36.882084,lon:137.974519,elevation:1160,source:'固定候補'},
+    {id:'fixed21-hk-amakazari-ooami',type:'trailhead',name:'大網登山口',lat:36.884825,lon:137.944280,elevation:920,source:'固定候補'},
+    {id:'fixed21-hk-amakazari-sanso',type:'hut',name:'雨飾山荘（雨飾温泉）',lat:36.920556,lon:137.954444,elevation:882,source:'固定候補'},
+    {id:'fixed21-hk-amakazari-peak',type:'peak',name:'雨飾山',lat:36.901944,lon:137.962500,elevation:1963,source:'固定候補'}
+  ],
+  '青海黒姫山': [
+    {id:'fixed21-hk-oumi-shimizukura',type:'trailhead',name:'清水倉登山口',lat:36.986032,lon:137.766972,elevation:90,source:'固定候補'},
+    {id:'fixed21-hk-oumi-peak',type:'peak',name:'青海黒姫山',lat:36.976667,lon:137.790000,elevation:1221,source:'固定候補'}
+  ]
+});
+// V1.12.29: 九州22座を再監査。山頂は国土地理院2026-03-31版へ統一し、主要登山口を再確認。
+// 多良岳は従来の多良嶽神社上宮983mではなく、国土地理院の多良岳996mを山頂として採用。
+// 桜島は入山規制中のため、湯之平展望所を「アクセス地点・入山不可」と明記して固定。
+const V1229_KYUSHU_PEAKS = {
+  "英彦山":{latitude:33.476247,longitude:130.925973,elevation:1199,label:"英彦山"},
+  "脊振山":{latitude:33.43644,longitude:130.368623,elevation:1054,label:"脊振山"},
+  "多良岳":{latitude:32.975491,longitude:130.092539,elevation:996,label:"多良岳"},
+  "雲仙岳（普賢岳）":{latitude:32.759909,longitude:130.292147,elevation:1359,label:"雲仙岳（普賢岳）"},
+  "鶴見岳":{latitude:33.286621,longitude:131.429751,elevation:1375,label:"鶴見岳"},
+  "由布岳":{latitude:33.282267,longitude:131.390233,elevation:1583,label:"由布岳"},
+  "大船山":{latitude:33.095024,longitude:131.28069,elevation:1786,label:"大船山"},
+  "久住山":{latitude:33.082187,longitude:131.240871,elevation:1786,label:"久住山"},
+  "湧蓋山":{latitude:33.139941,longitude:131.164344,elevation:1499,label:"涌蓋山"},
+  "阿蘇山（高岳）":{latitude:32.884318,longitude:131.103918,elevation:1592,label:"阿蘇山（高岳）"},
+  "祖母山":{latitude:32.828131,longitude:131.347045,elevation:1756,label:"祖母山"},
+  "傾山":{latitude:32.839,longitude:131.475911,elevation:1605,label:"傾山"},
+  "大崩山":{latitude:32.737774,longitude:131.513389,elevation:1644,label:"大崩山"},
+  "国見岳":{latitude:32.547131,longitude:131.018363,elevation:1739,label:"国見岳"},
+  "市房山":{latitude:32.311682,longitude:131.101036,elevation:1720,label:"市房山"},
+  "尾鈴山":{latitude:32.299301,longitude:131.426587,elevation:1405,label:"尾鈴山"},
+  "霧島山（韓国岳）":{latitude:31.93417,longitude:130.861577,elevation:1700,label:"霧島山（韓国岳）"},
+  "高千穂峰":{latitude:31.886257,longitude:130.918939,elevation:1573,label:"高千穂峰"},
+  "桜島（御岳）":{latitude:31.592626,longitude:130.656638,elevation:1117,label:"桜島（御岳・北岳）"},
+  "高隈山":{latitude:31.486212,longitude:130.818538,elevation:1236,label:"高隈山（大箆柄岳）"},
+  "開聞岳":{latitude:31.179926,longitude:130.528406,elevation:924,label:"開聞岳"},
+  "宮ノ浦岳":{latitude:30.335951,longitude:130.504287,elevation:1936,label:"宮ノ浦岳"},
+};
+Object.assign(MOUNTAIN_PRESETS, Object.fromEntries(Object.entries(V1229_KYUSHU_PEAKS).map(([n,p])=>[n,{latitude:p.latitude,longitude:p.longitude}])));
+for (const [mountain,p] of Object.entries(V1229_KYUSHU_PEAKS)) {
+  const old=BUILTIN_ROUTE_CATALOG[mountain]||[];
+  const fixedPeak={id:`fixed29-kyushu-peak-${mountain}`,type:'peak',name:p.label,lat:p.latitude,lon:p.longitude,elevation:p.elevation,source:'固定候補'};
+  BUILTIN_ROUTE_CATALOG[mountain]=[fixedPeak,...old.filter(x=>x.type!=='peak')];
+}
+const V1229_KYUSHU_ACCESS = {
+  "英彦山":[
+    {id:"fixed29-英彦山-別所駐車場・英彦山登山口",type:"trailhead",name:"別所駐車場・英彦山登山口",lat:33.488861,lon:130.905111,elevation:633,source:'固定候補'},
+    {id:"fixed29-英彦山-豊前坊・高住神社登山口",type:"trailhead",name:"豊前坊・高住神社登山口",lat:33.484778,lon:130.932028,elevation:796,source:'固定候補'},
+  ],
+  "脊振山":[
+    {id:"fixed29-脊振山-脊振山山頂駐車場",type:"trailhead",name:"脊振山山頂駐車場",lat:33.434361,lon:130.369944,elevation:996,source:'固定候補'},
+    {id:"fixed29-脊振山-椎原峠登山口",type:"trailhead",name:"椎原峠登山口",lat:33.455389,lon:130.349139,elevation:423,source:'固定候補'},
+  ],
+  "多良岳":[
+    {id:"fixed29-多良岳-黒木第2駐車場・黒木登山口",type:"trailhead",name:"黒木第2駐車場・黒木登山口",lat:32.975944,lon:130.063361,elevation:352,source:'固定候補'},
+    {id:"fixed29-多良岳-中山キャンプ場（中山登山口）",type:"trailhead",name:"中山キャンプ場（中山登山口）",lat:32.985306,lon:130.094306,elevation:548,source:'固定候補'},
+  ],
+  "雲仙岳（普賢岳）":[
+    {id:"fixed29-雲仙岳（普賢岳）-仁田峠第一展望所駐車場・普賢岳登山口",type:"trailhead",name:"仁田峠第一展望所駐車場・普賢岳登山口",lat:32.750611,lon:130.28375,elevation:1066,source:'固定候補'},
+  ],
+  "鶴見岳":[
+    {id:"fixed29-鶴見岳-火男火売神社登山口駐車場",type:"trailhead",name:"火男火売神社登山口駐車場",lat:33.272528,lon:131.439583,elevation:700,source:'固定候補'},
+    {id:"fixed29-鶴見岳-別府ロープウェイ 鶴見山上駅",type:"trailhead",name:"別府ロープウェイ 鶴見山上駅",lat:33.285174,lon:131.433301,elevation:1300,source:'固定候補'},
+  ],
+  "由布岳":[
+    {id:"fixed29-由布岳-由布岳正面登山口駐車場",type:"trailhead",name:"由布岳正面登山口駐車場",lat:33.264611,lon:131.396278,elevation:780,source:'固定候補'},
+  ],
+  "大船山":[
+    {id:"fixed29-大船山-男池駐車場・男池登山口",type:"trailhead",name:"男池駐車場・男池登山口",lat:33.125559,lon:131.294777,elevation:850,source:'固定候補'},
+    {id:"fixed29-大船山-吉部（坊ガツル）登山口駐車場",type:"trailhead",name:"吉部（坊ガツル）登山口駐車場",lat:33.133222,lon:131.255389,elevation:935,source:'固定候補'},
+  ],
+  "久住山":[
+    {id:"fixed29-久住山-牧ノ戸峠",type:"trailhead",name:"牧ノ戸峠",lat:33.096111,lon:131.207861,elevation:1330,source:'固定候補'},
+    {id:"fixed29-久住山-長者原",type:"trailhead",name:"長者原",lat:33.118694,lon:131.229583,elevation:1036,source:'固定候補'},
+  ],
+  "湧蓋山":[
+    {id:"fixed29-湧蓋山-八丁原登山口",type:"trailhead",name:"八丁原登山口",lat:33.104667,lon:131.179694,elevation:1100,source:'固定候補'},
+  ],
+  "阿蘇山（高岳）":[
+    {id:"fixed29-阿蘇山（高岳）-仙酔峡駐車場・仙酔峡登山口",type:"trailhead",name:"仙酔峡駐車場・仙酔峡登山口",lat:32.899281,lon:131.102628,elevation:980,source:'固定候補'},
+  ],
+  "祖母山":[
+    {id:"fixed29-祖母山-北谷登山口駐車場・北谷登山口",type:"trailhead",name:"北谷登山口駐車場・北谷登山口",lat:32.820472,lon:131.325167,elevation:1110,source:'固定候補'},
+    {id:"fixed29-祖母山-神原登山口",type:"trailhead",name:"神原登山口",lat:32.854333,lon:131.339778,elevation:690,source:'固定候補'},
+  ],
+  "傾山":[
+    {id:"fixed29-傾山-九折登山口 傾山",type:"trailhead",name:"九折登山口 傾山",lat:32.853167,lon:131.446861,elevation:374,source:'固定候補'},
+  ],
+  "大崩山":[
+    {id:"fixed29-大崩山-祝子川 大崩山登山口",type:"trailhead",name:"祝子川 大崩山登山口",lat:32.743611,lon:131.542611,elevation:612,source:'固定候補'},
+  ],
+  "国見岳":[
+    {id:"fixed29-国見岳-国見岳新登山口（五勇谷橋ルート）",type:"trailhead",name:"国見岳新登山口（五勇谷橋ルート）",lat:32.53225,lon:130.995194,elevation:1010,source:'固定候補'},
+  ],
+  "市房山":[
+    {id:"fixed29-市房山-市房山キャンプ場アクセス起点",type:"trailhead",name:"市房山キャンプ場（市房山登山口アクセス起点）",lat:32.31825,lon:131.070306,elevation:574,source:'固定候補'},
+  ],
+  "尾鈴山":[
+    {id:"fixed29-尾鈴山-尾鈴山第1駐車場",type:"trailhead",name:"尾鈴山第1駐車場（尾鈴山登山口アクセス起点）",lat:32.284889,lon:131.465306,elevation:410,source:'固定候補'},
+  ],
+  "霧島山（韓国岳）":[
+    {id:"fixed29-霧島山（韓国岳）-えびの高原・韓国岳登山口",type:"trailhead",name:"えびの高原・韓国岳登山口",lat:31.9457,lon:130.8428,elevation:1180,source:'固定候補'},
+    {id:"fixed29-霧島山（韓国岳）-大浪池登山口",type:"trailhead",name:"大浪池登山口",lat:31.9144795,lon:130.8411962,elevation:1070,source:'固定候補'},
+  ],
+  "高千穂峰":[
+    {id:"fixed29-高千穂峰-高千穂河原駐車場・高千穂峰登山口",type:"trailhead",name:"高千穂河原駐車場・高千穂峰登山口",lat:31.884944,lon:130.895278,elevation:965,source:'固定候補'},
+  ],
+  "桜島（御岳）":[
+    {id:"fixed29-桜島（御岳）-湯之平展望所",type:"trailhead",name:"湯之平展望所（一般立入可能な最高地点・山頂入山不可）",lat:31.591463,lon:130.630017,elevation:373,source:'固定候補'},
+  ],
+  "高隈山":[
+    {id:"fixed29-高隈山-大箆柄岳垂桜コース駐車場",type:"trailhead",name:"大箆柄岳 垂桜コース駐車場・登山口",lat:31.496222,lon:130.795306,elevation:672,source:'固定候補'},
+  ],
+  "開聞岳":[
+    {id:"fixed29-開聞岳-かいもん山麓ふれあい公園駐車場",type:"trailhead",name:"かいもん山麓ふれあい公園駐車場・開聞岳登山口アクセス",lat:31.196611,lon:130.533639,elevation:120,source:'固定候補'},
+  ],
+  "宮ノ浦岳":[
+    {id:"fixed29-宮ノ浦岳-淀川登山口",type:"trailhead",name:"淀川登山口",lat:30.299559,lon:130.533802,elevation:1360,source:'固定候補'},
+    {id:"fixed29-宮ノ浦岳-淀川小屋",type:"hut",name:"淀川小屋",lat:30.3,lon:130.523889,elevation:1385,source:'固定候補'},
+  ],
+};
+const V1229_KYUSHU_STALE_ACCESS_NAMES = {
+  "多良岳":new Set(["黒木登山口","中山キャンプ場 多良岳"]),
+  "鶴見岳":new Set(["火男火売神社登山口"]),
+  "由布岳":new Set(["由布岳正面登山口"]),
+  "大船山":new Set(["男池登山口"]),
+  "阿蘇山（高岳）":new Set(["仙酔峡登山口"]),
+  "祖母山":new Set(["北谷登山口"]),
+  "市房山":new Set(["市房山キャンプ場 登山口"]),
+  "高千穂峰":new Set(["高千穂河原"]),
+  "開聞岳":new Set(["かいもん山麓ふれあい公園登山口"]),
+};
+for (const [mountain,pts] of Object.entries(V1229_KYUSHU_ACCESS)) {
+  const old=BUILTIN_ROUTE_CATALOG[mountain]||[];
+  const keys=new Set(pts.map(x=>`${x.type}:${x.name}`));
+  const stale=V1229_KYUSHU_STALE_ACCESS_NAMES[mountain]||new Set();
+  BUILTIN_ROUTE_CATALOG[mountain]=[...pts,...old.filter(x=>!keys.has(`${x.type}:${x.name}`)&&!stale.has(x.name))];
+}
+Object.assign(CURATED_ACCESS_HINTS, {
+  "英彦山":{trailheads:["別所駐車場・英彦山登山口", "豊前坊・高住神社登山口"]},
+  "脊振山":{trailheads:["脊振山山頂駐車場", "椎原峠登山口"]},
+  "多良岳":{trailheads:["黒木第2駐車場・黒木登山口", "中山キャンプ場（中山登山口）"]},
+  "雲仙岳（普賢岳）":{trailheads:["仁田峠第一展望所駐車場・普賢岳登山口"]},
+  "鶴見岳":{trailheads:["火男火売神社登山口駐車場", "別府ロープウェイ 鶴見山上駅"]},
+  "由布岳":{trailheads:["由布岳正面登山口駐車場"]},
+  "大船山":{trailheads:["男池駐車場・男池登山口", "吉部（坊ガツル）登山口駐車場"],huts:["法華院温泉山荘", "坊ガツル"]},
+  "久住山":{trailheads:["牧ノ戸峠", "長者原"],huts:["久住分かれ避難小屋", "法華院温泉山荘"]},
+  "湧蓋山":{trailheads:["八丁原登山口"]},
+  "阿蘇山（高岳）":{trailheads:["仙酔峡駐車場・仙酔峡登山口"],huts:["月見小屋"]},
+  "祖母山":{trailheads:["北谷登山口駐車場・北谷登山口", "神原登山口"],huts:["祖母山九合目小屋"]},
+  "傾山":{trailheads:["九折登山口 傾山"]},
+  "大崩山":{trailheads:["祝子川 大崩山登山口"],huts:["大崩山荘"]},
+  "国見岳":{trailheads:["国見岳新登山口（五勇谷橋ルート）"]},
+  "市房山":{trailheads:["市房山キャンプ場（市房山登山口アクセス起点）"]},
+  "尾鈴山":{trailheads:["尾鈴山第1駐車場（尾鈴山登山口アクセス起点）"]},
+  "霧島山（韓国岳）":{trailheads:["えびの高原・韓国岳登山口", "大浪池登山口"]},
+  "高千穂峰":{trailheads:["高千穂河原駐車場・高千穂峰登山口"]},
+  "桜島（御岳）":{trailheads:["湯之平展望所（一般立入可能な最高地点・山頂入山不可）"]},
+  "高隈山":{trailheads:["大箆柄岳 垂桜コース駐車場・登山口"]},
+  "開聞岳":{trailheads:["かいもん山麓ふれあい公園駐車場・開聞岳登山口アクセス"]},
+  "宮ノ浦岳":{trailheads:["淀川登山口"],huts:["淀川小屋"]},
+});
+
+// V1.12.29 alias bridge: UI label "宮ノ浦岳" is canonicalized to "宮之浦岳" before candidate loading.
+// Mirror the re-audited peak/access points to the canonical key so the fixed values are actually used at runtime.
+MOUNTAIN_PRESETS['宮之浦岳'] = {...MOUNTAIN_PRESETS['宮ノ浦岳']};
+{
+  const curated = BUILTIN_ROUTE_CATALOG['宮ノ浦岳'] || [];
+  const old = BUILTIN_ROUTE_CATALOG['宮之浦岳'] || [];
+  const curatedKeys = new Set(curated.map(x=>`${x.type}:${x.name}`));
+  BUILTIN_ROUTE_CATALOG['宮之浦岳'] = [
+    ...curated,
+    ...old.filter(x=>x.type!=='peak' && !curatedKeys.has(`${x.type}:${x.name}`))
+  ];
+}
+CURATED_ACCESS_HINTS['宮之浦岳'] = CURATED_ACCESS_HINTS['宮ノ浦岳'];
+
+
+// V1.12.30: 全国固定登山口カバー最終5座を再監査して固定。
+// 山頂は国土地理院「日本の主な山岳」を基準に確認。
+// 「黒岳」は北アルプスの水晶岳（別名・黒岳）ではなく、日本三百名山の御坂黒岳。
+const V1230_FINAL5_PEAKS = {
+  '大天井岳':{latitude:36.365000,longitude:137.701111,elevation:2922,label:'大天井岳'},
+  '七面山':{latitude:35.369444,longitude:138.348889,elevation:1989,label:'七面山'},
+  '山伏':{latitude:35.304444,longitude:138.285278,elevation:2013,label:'山伏'},
+  '御正体山':{latitude:35.486944,longitude:138.931667,elevation:1681,label:'御正体山'},
+  '黒岳':{latitude:35.551944,longitude:138.749444,elevation:1793,label:'黒岳（御坂黒岳）'},
+};
+Object.assign(MOUNTAIN_PRESETS, Object.fromEntries(Object.entries(V1230_FINAL5_PEAKS).map(([n,p])=>[n,{latitude:p.latitude,longitude:p.longitude}])));
+for (const [mountain,p] of Object.entries(V1230_FINAL5_PEAKS)) {
+  const old=BUILTIN_ROUTE_CATALOG[mountain]||[];
+  const fixedPeak={id:`fixed30-final5-peak-${mountain}`,type:'peak',name:p.label,lat:p.latitude,lon:p.longitude,elevation:p.elevation,source:'固定候補'};
+  BUILTIN_ROUTE_CATALOG[mountain]=[fixedPeak,...old.filter(x=>x.type!=='peak')];
+}
+const V1230_FINAL5_ACCESS = {
+  '大天井岳':[
+    {id:'fixed30-otensho-nakabusa',type:'trailhead',name:'中房登山口（燕岳・大天井岳 表銀座ルート）',lat:36.389401,lon:137.747800,elevation:1390,source:'固定候補'}
+  ],
+  '七面山':[
+    {id:'fixed30-shichimen-hagoromo',type:'trailhead',name:'羽衣・七面山表参道駐車場',lat:35.386001,lon:138.378645,elevation:480,source:'固定候補'}
+  ],
+  '山伏':[
+    {id:'fixed30-yanbushi-hyakujotoge',type:'trailhead',name:'百畳峠（百畳平）駐車場・山伏登山口',lat:35.296019,lon:138.280566,elevation:1770,source:'固定候補'}
+  ],
+  '御正体山':[
+    {id:'fixed30-mishotai-dozaka',type:'trailhead',name:'道坂トンネル都留側駐車場・御正体山登山口',lat:35.511901,lon:138.967737,elevation:1010,source:'固定候補'}
+  ],
+  '黒岳':[
+    {id:'fixed30-misakakuro-shinmisaka',type:'trailhead',name:'新御坂トンネル御坂口駐車場（御坂黒岳ルート）',lat:35.572695,lon:138.764949,elevation:990,source:'固定候補'}
+  ],
+};
+for (const [mountain,pts] of Object.entries(V1230_FINAL5_ACCESS)) {
+  const old=BUILTIN_ROUTE_CATALOG[mountain]||[];
+  const keys=new Set(pts.map(x=>`${x.type}:${x.name}`));
+  BUILTIN_ROUTE_CATALOG[mountain]=[...pts,...old.filter(x=>!keys.has(`${x.type}:${x.name}`))];
+}
+Object.assign(CURATED_ACCESS_HINTS, {
+  '大天井岳':{trailheads:['中房登山口（燕岳・大天井岳 表銀座ルート）']},
+  '七面山':{trailheads:['羽衣・七面山表参道駐車場']},
+  '山伏':{trailheads:['百畳峠（百畳平）駐車場・山伏登山口']},
+  '御正体山':{trailheads:['道坂トンネル都留側駐車場・御正体山登山口']},
+  '黒岳':{trailheads:['新御坂トンネル御坂口駐車場（御坂黒岳ルート）']},
 });
