@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.11.0';
+const APP_VERSION = '1.11.1';
 
 const providers = [
   {id:'jma',name:'JMA MSM',kind:'openmeteo',endpoint:'https://api.open-meteo.com/v1/jma',model:'jma_msm',forecastDays:4,vars:['temperature_2m','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_direction_10m']},
@@ -500,7 +500,10 @@ const BUILTIN_ROUTE_CATALOG = {
     {id:'builtin-kita-peak',type:'peak',name:'北岳',lat:35.6745,lon:138.2389,elevation:3193}
   ],
   '富士山': [
-    {id:'builtin-fuji-subaru',type:'trailhead',name:'富士スバルライン五合目',lat:35.3948,lon:138.7332,elevation:2305},
+    {id:'builtin-fuji-subaru',type:'trailhead',name:'富士スバルライン五合目（吉田口）',lat:35.394667,lon:138.731872,elevation:2300,source:'固定候補'},
+    {id:'builtin-fuji-subashiri',type:'trailhead',name:'須走口五合目',lat:35.364942,lon:138.777077,elevation:1980,source:'固定候補'},
+    {id:'builtin-fuji-gotemba',type:'trailhead',name:'御殿場口新五合目',lat:35.335281,lon:138.794672,elevation:1430,source:'固定候補'},
+    {id:'builtin-fuji-fujinomiya',type:'trailhead',name:'富士宮口五合目',lat:35.336540,lon:138.734233,elevation:2380,source:'固定候補'},
     {id:'builtin-fuji-yoshida7',type:'hut',name:'吉田口七合目',lat:35.3817,lon:138.7317,elevation:2700},
     {id:'builtin-fuji-hachigo',type:'hut',name:'八合目',lat:35.3719,lon:138.7315,elevation:3100},
     {id:'builtin-fuji-peak',type:'peak',name:'富士山（剣ヶ峰）',lat:35.3606,lon:138.7274,elevation:3776}
@@ -1338,7 +1341,7 @@ function updateLoadButtonAppearance(loaded){
   btn.classList.toggle('route-load-needed',hasMountain&&!loaded);
 }
 
-const ROUTE_CACHE_PREFIX='traverse-route-v1110:';
+const ROUTE_CACHE_PREFIX='traverse-route-v1111:';
 function routeCacheGet(key,maxAgeMs=7*24*60*60*1000){
   try{
     const raw=localStorage.getItem(ROUTE_CACHE_PREFIX+key);
@@ -1530,6 +1533,15 @@ async function discoverTrailheadsByName(label,center){
   routeCachePut(cacheKey,result);
   return result;
 }
+function accessNameKey(name,mountain=''){
+  let x=String(name||'').normalize('NFKC').replace(/\s+/g,'');
+  const m=String(mountain||'').normalize('NFKC').replace(/（.*?）/g,'').replace(/\s+/g,'');
+  if(m)x=x.replaceAll(m,'');
+  x=x.replace(/（.*?）/g,'').replace(/[・･\/／()（）]/g,'');
+  x=x.replace(/登山道入口|登山道入り口|登山口|駐車場|バス停/g,'');
+  return x;
+}
+
 async function loadCandidates(){
   const label=$('mountainPreset').value.trim();
   if(!label){
@@ -1546,8 +1558,8 @@ async function loadCandidates(){
     if(!MOUNTAIN_PRESETS[mountain])MOUNTAIN_PRESETS[mountain]=center;
 
     const embeddedBase=[...(BUILTIN_ROUTE_CATALOG[mountain]||[]),...(TRAVERSE_CATALOG[mountain]||[]),...regionalCandidates(mountain)].filter(p=>Object.prototype.hasOwnProperty.call(TYPE_LABEL,p.type));
-    const embeddedNames=new Set(embeddedBase.map(p=>`${p.type}|${p.name}`));
-    const fixedNameFallback=fixedNameFallbackCandidates(mountain).filter(p=>!embeddedNames.has(`${p.type}|${p.name}`));
+    const embeddedNames=new Set(embeddedBase.map(p=>`${p.type}|${accessNameKey(p.name,mountain)}`));
+    const fixedNameFallback=fixedNameFallbackCandidates(mountain).filter(p=>!embeddedNames.has(`${p.type}|${accessNameKey(p.name,mountain)}`));
     const staticBase=[...embeddedBase,...fixedNameFallback];
     const fullCacheKey=`full:${mountainCacheKey(mountain)}`;
     const cachedFull=routeCacheGet(fullCacheKey,7*24*60*60*1000);
@@ -1645,6 +1657,69 @@ function formatLocalTime(dt){
 }
 
 function typeOptions(selected){return Object.entries(TYPE_LABEL).map(([v,l])=>`<option value="${v}" ${v===selected?'selected':''}>${l}</option>`).join('');}
+
+async function resolveSingleCandidateCoordinate(candidate,mountainLabel){
+  if(!candidate||hasResolvedCoord(candidate))return candidate;
+  const mountain=canonicalMountainName(mountainLabel||$('mountainPreset')?.value||'');
+  let center=null;
+  try{center=await resolveMountainCenter(mountain);}catch(_){ }
+  const terms=[
+    `${candidate.name} ${mountain} 日本`,
+    `${candidate.name} 日本`,
+    candidate.name
+  ];
+  let best=null;
+  for(const term of terms){
+    try{
+      const url=`https://nominatim.openstreetmap.org/search?format=jsonv2&countrycodes=jp&limit=8&addressdetails=1&q=${encodeURIComponent(term)}`;
+      const res=await proxyFetch(url);
+      if(!res.ok)continue;
+      const rows=await res.json();
+      const found=(Array.isArray(rows)?rows:[]).map(r=>({r,lat:Number(r.lat),lon:Number(r.lon)})).filter(x=>Number.isFinite(x.lat)&&Number.isFinite(x.lon));
+      if(center){
+        found.sort((a,b)=>haversineMeters(center.latitude,center.longitude,a.lat,a.lon)-haversineMeters(center.latitude,center.longitude,b.lat,b.lon));
+        best=found.find(x=>haversineMeters(center.latitude,center.longitude,x.lat,x.lon)<=70000)||null;
+      }else best=found[0]||null;
+      if(best)break;
+    }catch(_){ }
+  }
+  if(!best)return null;
+  candidate.lat=best.lat;
+  candidate.lon=best.lon;
+  candidate.unresolved=false;
+  candidate.source='固定候補（座標取得済み）';
+  const cacheKey=`singlecoord:${mountainCacheKey(mountain)}:${candidate.name}`;
+  routeCachePut(cacheKey,{lat:best.lat,lon:best.lon});
+  return candidate;
+}
+
+async function ensureCandidateCoordinateForRow(row,{manual=false}={}){
+  const select=row?.querySelector('.point-select');
+  const meta=row?.querySelector('.point-meta');
+  const p=selectedCandidate(select?.value);
+  if(!p||hasResolvedCoord(p)){ updateMeta(row); return !!p; }
+  const mountain=$('mountainPreset')?.value?.trim()||'';
+  const cacheKey=`singlecoord:${mountainCacheKey(mountain)}:${p.name}`;
+  const cached=routeCacheGet(cacheKey,30*24*60*60*1000);
+  if(cached&&Number.isFinite(Number(cached.lat))&&Number.isFinite(Number(cached.lon))){
+    p.lat=Number(cached.lat); p.lon=Number(cached.lon); p.unresolved=false; p.source='固定候補（キャッシュ）';
+    refreshPointCandidateOptions(); updateMeta(row); return true;
+  }
+  if(meta)meta.innerHTML=`<span class="coord-loading">${esc(p.name)} / 座標を取得中…</span>`;
+  const resolved=await resolveSingleCandidateCoordinate(p,mountain);
+  if(resolved){
+    refreshPointCandidateOptions();
+    updateMeta(row);
+    setStatus(`${p.name} の座標を取得しました。`);
+    return true;
+  }
+  if(meta)meta.innerHTML=`<span>${esc(p.name)} / 固定候補・座標未確定</span><button class="coord-retry-btn" type="button">座標を再取得</button>`;
+  const retry=meta?.querySelector('.coord-retry-btn');
+  retry?.addEventListener('click',()=>ensureCandidateCoordinateForRow(row,{manual:true}));
+  if(manual)setStatus(`${p.name} の座標を取得できませんでした。時間をおいて再試行するか、別の候補を選択してください。`,true);
+  return false;
+}
+
 function candidateOptions(type,selected=''){
   const list=candidates.filter(p=>p.type===type);
   return `<option value="">地点を選択</option>`+list.map(p=>`<option value="${esc(p.id)}" ${p.id===selected?'selected':''}>${esc(p.name)}${p.elevation?` / ${p.elevation}m`:''}</option>`).join('');
@@ -1663,7 +1738,7 @@ function addPointRow(type='peak',selected='',roleLabel='',initialDateTime=null){
   $('points').appendChild(row); renumber();
   const typeSel=row.querySelector('.point-type'), pointSel=row.querySelector('.point-select'), stay=row.querySelector('.stay-option');
   typeSel.addEventListener('change',()=>{pointSel.innerHTML=candidateOptions(typeSel.value); stay.classList.toggle('hidden',typeSel.value!=='hut'); if(typeSel.value!=='hut')row.querySelector('.point-stay').checked=false; updateMeta(row);});
-  pointSel.addEventListener('change',()=>updateMeta(row));
+  pointSel.addEventListener('change',()=>{updateMeta(row); const p=selectedCandidate(pointSel.value); if(p&&!hasResolvedCoord(p))ensureCandidateCoordinateForRow(row);});
   const dateInput=row.querySelector('.point-date'), timeInput=row.querySelector('.point-time');
   const pickerBtn=row.querySelector('.date-picker-btn');
   const openDatePicker=()=>{
@@ -1736,14 +1811,24 @@ function updateForecastHorizon(){
 }
 
 function selectedCandidate(id){return candidates.find(p=>String(p.id)===String(id));}
-function updateMeta(row){const p=selectedCandidate(row.querySelector('.point-select').value); if(!p){row.querySelector('.point-meta').textContent='地点を選択してください';return;} row.querySelector('.point-meta').textContent=hasResolvedCoord(p)?`${p.name} / ${p.elevation||'標高自動'}m / ${Number(p.lat).toFixed(4)}, ${Number(p.lon).toFixed(4)}`:`${p.name} / 固定候補・座標確認中`; }
+function updateMeta(row){
+  const p=selectedCandidate(row.querySelector('.point-select').value);
+  const meta=row.querySelector('.point-meta');
+  if(!p){meta.textContent='地点を選択してください';return;}
+  if(hasResolvedCoord(p)){
+    meta.textContent=`${p.name} / ${p.elevation||'標高自動'}m / ${Number(p.lat).toFixed(4)}, ${Number(p.lon).toFixed(4)}`;
+    return;
+  }
+  meta.innerHTML=`<span>${esc(p.name)} / 固定候補・座標未確定</span><button class="coord-retry-btn" type="button">座標を再取得</button>`;
+  meta.querySelector('.coord-retry-btn')?.addEventListener('click',()=>ensureCandidateCoordinateForRow(row,{manual:true}));
+}
 function collectPoints(){
   return [...$('points').children].map((row,i)=>{
     const p=selectedCandidate(row.querySelector('.point-select').value);
     if(!p) return null; // 最初から表示する4枠は、使わない枠を空欄のままにできる
     const date=row.querySelector('.point-date').value, time=row.querySelector('.point-time').value;
     if(!date||!time) throw new Error(`${p.name} の通過日・通過時刻を入力してください。`);
-    if(!hasResolvedCoord(p)) throw new Error(`${p.name} の座標がまだ確定していません。候補を再読み込みするか、座標取得済みの候補を選択してください。`);
+    if(!hasResolvedCoord(p)) throw new Error(`${p.name} の座標がまだ確定していません。地点欄の「座標を再取得」を押してください。`);
     return {...p,date,time,type:row.querySelector('.point-type').value,stay:!!row.querySelector('.point-stay')?.checked,role:row.dataset.role||''};
   }).filter(Boolean);
 }
