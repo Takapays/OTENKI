@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.12.9';
+const APP_VERSION = '1.12.11';
 
 const providers = [
   {id:'jma',name:'JMA MSM',kind:'openmeteo',endpoint:'https://api.open-meteo.com/v1/jma',model:'jma_msm',forecastDays:4,vars:['temperature_2m','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_direction_10m']},
@@ -486,6 +486,7 @@ const BUILTIN_ROUTE_CATALOG = {
   ],
   '剱岳': [
     {id:'builtin-tsuru-murodo',type:'trailhead',name:'室堂',lat:36.5779,lon:137.5950,elevation:2450},
+    {id:'builtin-tsuru-hayatsuki',type:'trailhead',name:'馬場島（早月尾根登山口）',lat:36.645254,lon:137.560383,elevation:780,source:'固定候補'},
     {id:'builtin-tsuru-tsurugi',type:'hut',name:'剱澤小屋',lat:36.6047,lon:137.6177,elevation:2470},
     {id:'builtin-tsuru-kensanso',type:'hut',name:'剣山荘',lat:36.6108,lon:137.6208,elevation:2475},
     {id:'builtin-tsuru-peak',type:'peak',name:'剱岳',lat:36.6233,lon:137.6170,elevation:2999}
@@ -1033,7 +1034,10 @@ Object.assign(BUILTIN_ROUTE_CATALOG, {
     {id:'fixed-tohoku-akita-kunimi',type:'trailhead',name:'国見温泉登山口',lat:39.726667,lon:140.793972,elevation:831,source:'固定候補'}
   ],
   '岩手山': [
-    {id:'fixed-tohoku-iwate-omisaka',type:'trailhead',name:'御神坂登山口',lat:39.808250,lon:140.993389,elevation:604,source:'固定候補'}
+    {id:'fixed-tohoku-iwate-omisaka',type:'trailhead',name:'御神坂登山口',lat:39.808250,lon:140.993389,elevation:604,source:'固定候補'},
+    {id:'fixed-tohoku-iwate-umagaeshi',type:'trailhead',name:'馬返し登山口',lat:39.834361,lon:141.039278,elevation:620,source:'固定候補'},
+    {id:'fixed-tohoku-iwate-yakehashiri',type:'trailhead',name:'焼走り登山口',lat:39.875139,lon:141.044778,elevation:567,source:'固定候補'},
+    {id:'fixed-tohoku-iwate-8go',type:'hut',name:'八合目避難小屋',lat:39.844167,lon:141.005833,elevation:1768,source:'固定候補'}
   ],
   '焼石岳': [
     {id:'fixed-tohoku-yakeishi-nakanuma',type:'trailhead',name:'中沼登山口',lat:39.146778,lon:140.879222,elevation:720,source:'固定候補'}
@@ -1502,6 +1506,8 @@ Object.assign(BUILTIN_ROUTE_CATALOG, {
 });
 
 
+// V1.12.11: 剱岳に馬場島（早月尾根登山口）を座標込み固定。
+// V1.12.10: 岩手山の馬返し・焼走り登山口、八合目避難小屋を座標込み固定。
 // V1.12.9: 第10弾 低固定率地域の追加強化（中国・四国・九州・東北）。
 // 公開情報で登山口名と座標が確認できた地点のみ固定。
 Object.assign(BUILTIN_ROUTE_CATALOG, {
