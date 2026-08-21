@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.10.2';
+const APP_VERSION = '1.10.3';
 
 const providers = [
   {id:'jma',name:'JMA MSM',kind:'openmeteo',endpoint:'https://api.open-meteo.com/v1/jma',model:'jma_msm',forecastDays:4,vars:['temperature_2m','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_direction_10m']},
@@ -58,7 +58,10 @@ const MOUNTAIN_PRESETS = {
   '阿弥陀岳': {latitude:35.9732, longitude:138.3582},
   '権現岳': {latitude:35.9497, longitude:138.3586},
   '編笠山': {latitude:35.9422, longitude:138.3450},
-  '北横岳': {latitude:36.0870, longitude:138.3200}
+  '北横岳': {latitude:36.0870, longitude:138.3200},
+  // V1.10.3: geocoder依存を避ける代表的な山頂座標
+  '筑波山': {latitude:36.225393, longitude:140.106982},
+  '八経ヶ岳': {latitude:34.173611, longitude:135.907500}
 };
 
 const JAPAN_300_MOUNTAINS = [
@@ -380,12 +383,53 @@ const MOUNTAIN_NAME_ALIAS = {
 };
 function canonicalMountainName(label){return MOUNTAIN_NAME_ALIAS[label]||label;}
 function mountainSearchQuery(label){
-  const alias={'宮ノ浦岳':'宮之浦岳','御嶽':'御嶽山','八ヶ岳（赤岳）':'赤岳'}[label];
+  const alias={'宮ノ浦岳':'宮之浦岳','御嶽':'御嶽山','八ヶ岳（赤岳）':'赤岳','八経ヶ岳':'八経ヶ岳','筑波山':'筑波山 女体山'}[label];
   if(alias)return alias;
   return String(label||'').replace(/（/g,' ').replace(/）/g,' ').replace(/\s+/g,' ').trim();
 }
+function mountainSearchVariants(label){
+  const canonical=canonicalMountainName(label);
+  const base=mountainSearchQuery(label);
+  const variants=[canonical,base,String(label||'')];
+  const extra={
+    '八経ヶ岳':['八経ヶ岳','八剣山','仏経ヶ岳','大峰山 八経ヶ岳'],
+    '筑波山':['筑波山','女体山 筑波山','男体山 筑波山'],
+    '大雪山（旭岳）':['旭岳 大雪山'],
+    '蔵王山（熊野岳）':['熊野岳 蔵王山'],
+    '雲仙岳（普賢岳）':['普賢岳 雲仙岳'],
+    '霧島山（韓国岳）':['韓国岳 霧島山'],
+    '阿蘇山（高岳）':['高岳 阿蘇山']
+  }[label]||extra[canonical]||[];
+  return [...new Set([...variants,...extra].map(x=>String(x||'').trim()).filter(Boolean))];
+}
+async function resolvePeakByOverpass(label){
+  const variants=mountainSearchVariants(label);
+  for(const name of variants){
+    const escaped=name.replaceAll('\"','\\\"');
+    const query=`[out:json][timeout:18];(nwr["natural"="peak"]["name"="${escaped}"](area:3600382243);nwr["natural"="peak"]["name:ja"="${escaped}"](area:3600382243););out center tags 8;`;
+    try{
+      const res=await fetch('/api/overpass',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query})});
+      if(!res.ok)continue;
+      const data=await res.json();
+      const rows=(data.elements||[]).map(el=>({lat:Number(el.lat??el.center?.lat),lon:Number(el.lon??el.center?.lon),tags:el.tags||{}})).filter(x=>Number.isFinite(x.lat)&&Number.isFinite(x.lon));
+      if(rows.length)return {latitude:rows[0].lat,longitude:rows[0].lon};
+    }catch(_){ }
+  }
+  return null;
+}
 
 const BUILTIN_ROUTE_CATALOG = {
+  '筑波山': [
+    {id:'builtin-tsukuba-tsutsujigaoka',type:'trailhead',name:'つつじヶ丘',lat:36.2201631,lon:140.1194898,elevation:542},
+    {id:'builtin-tsukuba-jinja',type:'trailhead',name:'筑波山神社入口',lat:36.2137,lon:140.1016,elevation:270},
+    {id:'builtin-tsukuba-nyotai',type:'peak',name:'筑波山（女体山）',lat:36.225393,lon:140.106982,elevation:877},
+    {id:'builtin-tsukuba-nantai',type:'peak',name:'筑波山（男体山）',lat:36.225965,lon:140.098399,elevation:871}
+  ],
+  '八経ヶ岳': [
+    {id:'builtin-hakkyo-tunnel',type:'trailhead',name:'行者還トンネル西口',lat:34.188877,lon:135.937116,elevation:1100},
+    {id:'builtin-hakkyo-misenhut',type:'hut',name:'弥山小屋',lat:34.179444,lon:135.910278,elevation:1876},
+    {id:'builtin-hakkyo-peak',type:'peak',name:'八経ヶ岳',lat:34.173611,lon:135.907500,elevation:1915}
+  ],
   '槍ヶ岳': [
     // V4.8: 主要ポイントは座標・標高を内蔵し、名称検索に依存しない。
     {id:'builtin-yari-shinhotaka', type:'trailhead', name:'新穂高温泉', search:'新穂高温泉 登山口', lat:36.285405, lon:137.575014, elevation:1117},
@@ -900,6 +944,9 @@ const CURATED_ACCESS_HINTS = {
   '燧ヶ岳':{trailheads:['御池登山口 燧ヶ岳','長英新道 尾瀬沼'],huts:['尾瀬沼ヒュッテ']},
   '大滝根山':{trailheads:['仙台平 大滝根山登山口']},
 
+  // 関東（代表的な未補強山）
+  '筑波山':{trailheads:['筑波山神社入口','筑波山つつじヶ丘駐車場','つつじヶ丘駅 筑波山ロープウェイ'],huts:[]},
+
   // 近畿
   '伊吹山':{trailheads:['伊吹山登山口 三之宮神社','伊吹山ドライブウェイ山頂駐車場']},
   '藤原岳':{trailheads:['大貝戸登山口 藤原岳','孫太尾根登山口'],huts:['藤原山荘']},
@@ -1217,16 +1264,35 @@ async function resolveMountainCenter(label){
     MOUNTAIN_PRESETS[canonical]=cached;
     return cached;
   }
-  const q=mountainSearchQuery(label);
-  const url=`https://nominatim.openstreetmap.org/search?format=jsonv2&countrycodes=jp&limit=8&addressdetails=1&q=${encodeURIComponent(q+' 山 日本')}`;
-  const res=await proxyFetch(url);
-  if(!res.ok)throw new Error(`山頂座標検索 HTTP ${res.status}`);
-  const rows=await res.json();
-  const best=rows.find(x=>x.type==='peak'||x.category==='natural'||x.class==='natural')||rows[0];
-  if(!best)throw new Error('山頂座標が見つかりませんでした');
-  const center={latitude:Number(best.lat),longitude:Number(best.lon)};
-  routeCachePut(cacheKey,center);
-  return center;
+
+  // Nominatimで取りこぼす山名があるため、まずOSMのnatural=peakを直接検索。
+  const overpassPeak=await resolvePeakByOverpass(label);
+  if(overpassPeak){
+    MOUNTAIN_PRESETS[canonical]=overpassPeak;
+    routeCachePut(cacheKey,overpassPeak);
+    return overpassPeak;
+  }
+
+  // 表記ゆれ・別名を順にNominatimへ問い合わせる。
+  for(const q of mountainSearchVariants(label)){
+    const searches=[`${q} 山 日本`,`${q} 日本`,q];
+    for(const term of searches){
+      try{
+        const url=`https://nominatim.openstreetmap.org/search?format=jsonv2&countrycodes=jp&limit=10&addressdetails=1&q=${encodeURIComponent(term)}`;
+        const res=await proxyFetch(url);
+        if(!res.ok)continue;
+        const rows=await res.json();
+        const best=(Array.isArray(rows)?rows:[]).find(x=>x.type==='peak'||x.category==='natural'||x.class==='natural')||(Array.isArray(rows)?rows:[])[0];
+        if(!best)continue;
+        const center={latitude:Number(best.lat),longitude:Number(best.lon)};
+        if(!Number.isFinite(center.latitude)||!Number.isFinite(center.longitude))continue;
+        MOUNTAIN_PRESETS[canonical]=center;
+        routeCachePut(cacheKey,center);
+        return center;
+      }catch(_){ }
+    }
+  }
+  throw new Error('山頂座標が見つかりませんでした');
 }
 function overpassPoint(el){
   const lat=Number(el.lat ?? el.center?.lat), lon=Number(el.lon ?? el.center?.lon);
