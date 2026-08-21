@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.9.1';
+const APP_VERSION = '1.10.1';
 
 const providers = [
   {id:'jma',name:'JMA MSM',kind:'openmeteo',endpoint:'https://api.open-meteo.com/v1/jma',model:'jma_msm',forecastDays:4,vars:['temperature_2m','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_direction_10m']},
@@ -50,7 +50,15 @@ const MOUNTAIN_PRESETS = {
   '爺ヶ岳': {latitude:36.5883, longitude:137.7507},
   '針ノ木岳': {latitude:36.5374, longitude:137.6842},
   '蓮華岳': {latitude:36.5350, longitude:137.7030},
-  '奥大日岳': {latitude:36.5986, longitude:137.5831}
+  '奥大日岳': {latitude:36.5986, longitude:137.5831},
+  // V1.10.0 南アルプス・八ヶ岳の縦走主要ピーク
+  '鳳凰山': {latitude:35.7017, longitude:138.3047},
+  '横岳（八ヶ岳）': {latitude:35.9845, longitude:138.3729},
+  '硫黄岳（八ヶ岳）': {latitude:36.0016, longitude:138.3700},
+  '阿弥陀岳': {latitude:35.9732, longitude:138.3582},
+  '権現岳': {latitude:35.9497, longitude:138.3586},
+  '編笠山': {latitude:35.9422, longitude:138.3450},
+  '北横岳': {latitude:36.0870, longitude:138.3200}
 };
 
 const JAPAN_300_MOUNTAINS = [
@@ -732,7 +740,270 @@ REGIONAL_CATALOG.harinoki_funakubo = [
   {id:'area-hf-jiigatake',type:'peak',name:'爺ヶ岳',lat:36.5883,lon:137.7507,elevation:2670}
 ];
 
+
+// V1.10.0 南アルプス・八ヶ岳を山域単位で手登録。
+// 登山口・山小屋を固定候補として優先し、OSM自動探索で不足分を補完する。
+REGIONAL_CATALOG.southalps_north = [
+  {id:'area-san-kitasawa',type:'trailhead',name:'北沢峠',lat:35.7353,lon:138.2110,elevation:2032},
+  {id:'area-san-todai',type:'trailhead',name:'戸台パーク（仙流荘）',lat:35.8150,lon:138.1610,elevation:860},
+  {id:'area-san-hirokawara',type:'trailhead',name:'広河原',lat:35.6867,lon:138.2705,elevation:1520},
+  {id:'area-san-nagoe',type:'hut',name:'長衛小屋',lat:35.7330,lon:138.2077,elevation:1980},
+  {id:'area-san-sensui',type:'hut',name:'仙水小屋',lat:35.7467,lon:138.2105,elevation:2130},
+  {id:'area-san-kaikoma',type:'peak',name:'甲斐駒ヶ岳',lat:35.7578,lon:138.2368,elevation:2967},
+  {id:'area-san-senjo',type:'peak',name:'仙丈ヶ岳',lat:35.7201,lon:138.1836,elevation:3033},
+  {id:'area-san-senjogoya',type:'hut',name:'仙丈小屋',lat:35.7206,lon:138.1883,elevation:2900},
+  {id:'area-san-umanose',type:'hut',name:'馬の背ヒュッテ',lat:35.7277,lon:138.1900,elevation:2640},
+  {id:'area-san-yashajin',type:'trailhead',name:'夜叉神峠登山口',lat:35.6528,lon:138.3310,elevation:1380},
+  {id:'area-san-aoki',type:'hut',name:'南御室小屋',lat:35.6849,lon:138.3092,elevation:2420},
+  {id:'area-san-houou',type:'peak',name:'鳳凰山',lat:35.7017,lon:138.3047,elevation:2841}
+];
+REGIONAL_CATALOG.southalps_shirane = [
+  {id:'area-sas-hirokawara',type:'trailhead',name:'広河原',lat:35.6867,lon:138.2705,elevation:1520},
+  {id:'area-sas-narada',type:'trailhead',name:'奈良田',lat:35.5685,lon:138.3038,elevation:830},
+  {id:'area-sas-shiraneike',type:'hut',name:'白根御池小屋',lat:35.6820,lon:138.2512,elevation:2236},
+  {id:'area-sas-kata',type:'hut',name:'北岳肩の小屋',lat:35.6771,lon:138.2405,elevation:3000},
+  {id:'area-sas-kitazawa',type:'peak',name:'北岳',lat:35.6745,lon:138.2389,elevation:3193},
+  {id:'area-sas-kitahut',type:'hut',name:'北岳山荘',lat:35.6585,lon:138.2315,elevation:2900},
+  {id:'area-sas-aino',type:'peak',name:'間ノ岳',lat:35.6461,lon:138.2283,elevation:3190},
+  {id:'area-sas-noutori',type:'peak',name:'農鳥岳',lat:35.6210,lon:138.2360,elevation:3026},
+  {id:'area-sas-noutorigoya',type:'hut',name:'農鳥小屋',lat:35.6290,lon:138.2265,elevation:2800},
+  {id:'area-sas-daimon',type:'hut',name:'大門沢小屋',lat:35.6025,lon:138.2580,elevation:1770}
+];
+REGIONAL_CATALOG.southalps_central = [
+  {id:'area-sac-torikura',type:'trailhead',name:'鳥倉登山口',lat:35.5810,lon:138.1570,elevation:1780},
+  {id:'area-sac-sanpuku',type:'hut',name:'三伏峠小屋',lat:35.5725,lon:138.1820,elevation:2580},
+  {id:'area-sac-shiomi',type:'peak',name:'塩見岳',lat:35.5733,lon:138.1828,elevation:3052},
+  {id:'area-sac-shiomigoya',type:'hut',name:'塩見小屋',lat:35.5777,lon:138.1932,elevation:2760},
+  {id:'area-sac-sawarajima',type:'trailhead',name:'椹島',lat:35.4175,lon:138.1870,elevation:1120},
+  {id:'area-sac-senmai',type:'hut',name:'千枚小屋',lat:35.4825,lon:138.1905,elevation:2610},
+  {id:'area-sac-arakawa',type:'peak',name:'荒川岳',lat:35.5005,lon:138.1825,elevation:3141},
+  {id:'area-sac-arakawagoya',type:'hut',name:'荒川小屋',lat:35.4760,lon:138.1645,elevation:2610},
+  {id:'area-sac-akaishi',type:'peak',name:'赤石岳',lat:35.4610,lon:138.1570,elevation:3121},
+  {id:'area-sac-akaishigoya',type:'hut',name:'赤石小屋',lat:35.4450,lon:138.1805,elevation:2560}
+];
+REGIONAL_CATALOG.southalps_south = [
+  {id:'area-south-sawarajima',type:'trailhead',name:'椹島',lat:35.4175,lon:138.1870,elevation:1120},
+  {id:'area-south-hijiri',type:'peak',name:'聖岳',lat:35.4220,lon:138.1390,elevation:3013},
+  {id:'area-south-hijiridaira',type:'hut',name:'聖平小屋',lat:35.4090,lon:138.1510,elevation:2260},
+  {id:'area-south-kamikouchi',type:'peak',name:'上河内岳',lat:35.3870,lon:138.1540,elevation:2803},
+  {id:'area-south-chause',type:'peak',name:'茶臼岳',lat:35.3660,lon:138.1530,elevation:2604},
+  {id:'area-south-chausu',type:'hut',name:'茶臼小屋',lat:35.3615,lon:138.1585,elevation:2400},
+  {id:'area-south-hikari',type:'peak',name:'光岳',lat:35.3380,lon:138.0830,elevation:2592},
+  {id:'area-south-hikarigoya',type:'hut',name:'光岳小屋',lat:35.3395,lon:138.0870,elevation:2510},
+  {id:'area-south-numadaira',type:'trailhead',name:'沼平ゲート',lat:35.3150,lon:138.1880,elevation:930}
+];
+REGIONAL_CATALOG.yatsu_south = [
+  {id:'area-ys-minoto',type:'trailhead',name:'美濃戸口',lat:35.9978,lon:138.3079,elevation:1490},
+  {id:'area-ys-minoto2',type:'trailhead',name:'美濃戸',lat:35.9888,lon:138.3298,elevation:1720},
+  {id:'area-ys-fujimi',type:'trailhead',name:'富士見高原登山口',lat:35.9240,lon:138.3320,elevation:1350},
+  {id:'area-ys-kannon',type:'trailhead',name:'観音平',lat:35.9300,lon:138.3600,elevation:1560},
+  {id:'area-ys-akakosen',type:'hut',name:'赤岳鉱泉',lat:35.9861,lon:138.3504,elevation:2220},
+  {id:'area-ys-gyoja',type:'hut',name:'行者小屋',lat:35.9779,lon:138.3572,elevation:2350},
+  {id:'area-ys-aka',type:'peak',name:'赤岳',lat:35.9708,lon:138.3701,elevation:2899},
+  {id:'area-ys-tenbou',type:'hut',name:'赤岳天望荘',lat:35.9760,lon:138.3710,elevation:2722},
+  {id:'area-ys-yoko',type:'peak',name:'横岳（八ヶ岳）',lat:35.9845,lon:138.3729,elevation:2829},
+  {id:'area-ys-iou',type:'peak',name:'硫黄岳（八ヶ岳）',lat:36.0016,lon:138.3700,elevation:2760},
+  {id:'area-ys-iouhut',type:'hut',name:'硫黄岳山荘',lat:35.9948,lon:138.3720,elevation:2650},
+  {id:'area-ys-amida',type:'peak',name:'阿弥陀岳',lat:35.9732,lon:138.3582,elevation:2805},
+  {id:'area-ys-gongen',type:'peak',name:'権現岳',lat:35.9497,lon:138.3586,elevation:2715},
+  {id:'area-ys-gongengoya',type:'hut',name:'権現小屋',lat:35.9490,lon:138.3590,elevation:2700},
+  {id:'area-ys-amigasa',type:'peak',name:'編笠山',lat:35.9422,lon:138.3450,elevation:2524},
+  {id:'area-ys-seinen',type:'hut',name:'青年小屋',lat:35.9460,lon:138.3500,elevation:2380}
+];
+REGIONAL_CATALOG.yatsu_north = [
+  {id:'area-yn-shibunoyu',type:'trailhead',name:'渋の湯',lat:36.0455,lon:138.3040,elevation:1840},
+  {id:'area-yn-karasawa',type:'trailhead',name:'唐沢鉱泉',lat:36.0370,lon:138.3090,elevation:1870},
+  {id:'area-yn-shirakoma',type:'trailhead',name:'白駒池入口',lat:36.0575,lon:138.3620,elevation:2090},
+  {id:'area-yn-ropeway',type:'trailhead',name:'北八ヶ岳ロープウェイ山頂駅',lat:36.0755,lon:138.3370,elevation:2237},
+  {id:'area-yn-tengu',type:'peak',name:'天狗岳',lat:36.0190,lon:138.3550,elevation:2646},
+  {id:'area-yn-kuroyuri',type:'hut',name:'黒百合ヒュッテ',lat:36.0260,lon:138.3480,elevation:2410},
+  {id:'area-yn-takamiishi',type:'hut',name:'高見石小屋',lat:36.0460,lon:138.3520,elevation:2300},
+  {id:'area-yn-kitayoko',type:'peak',name:'北横岳',lat:36.0870,lon:138.3200,elevation:2480},
+  {id:'area-yn-kitayokohutte',type:'hut',name:'北横岳ヒュッテ',lat:36.0830,lon:138.3220,elevation:2400},
+  {id:'area-yn-tateshina7',type:'trailhead',name:'蓼科山七合目登山口',lat:36.1170,lon:138.2970,elevation:1900},
+  {id:'area-yn-suzuran',type:'trailhead',name:'女乃神茶屋（蓼科山登山口）',lat:36.0890,lon:138.2770,elevation:1730},
+  {id:'area-yn-tateshina',type:'peak',name:'蓼科山',lat:36.1036,lon:138.2950,elevation:2531},
+  {id:'area-yn-tateshinagoya',type:'hut',name:'蓼科山頂ヒュッテ',lat:36.1035,lon:138.2944,elevation:2530}
+];
+
+
+
+// V1.10.0 全国主要山域強化。
+// 座標をハードコードせず、代表登山口・山小屋の「名称」を手登録し、選択時にOSM/Nominatimで座標解決する。
+// これにより全国の三百名山で手登録候補を持ちつつ、施設移転・名称差異にも自動探索で補完できる。
+const CURATED_ACCESS_HINTS = {
+  // 北海道
+  '利尻山':{trailheads:['北麓野営場 利尻山登山口','沓形登山口'],huts:['利尻山避難小屋']},
+  '羅臼岳':{trailheads:['岩尾別温泉 羅臼岳登山口'],huts:['羅臼平']},
+  '斜里岳':{trailheads:['清岳荘'],huts:['清岳荘']},
+  '雄阿寒岳':{trailheads:['滝口 雄阿寒岳登山口']},
+  '天塩岳':{trailheads:['天塩岳ヒュッテ 登山口'],huts:['天塩岳ヒュッテ']},
+  'ニセイカウシュッペ山':{trailheads:['古川林道 ニセイカウシュッペ山登山口']},
+  '大雪山（旭岳）':{trailheads:['旭岳ロープウェイ姿見駅','旭岳温泉'],huts:['旭岳石室']},
+  '石狩岳':{trailheads:['シュナイダーコース登山口','ユニ石狩岳登山口']},
+  'トムラウシ山':{trailheads:['トムラウシ温泉 短縮登山口'],huts:['ヒサゴ沼避難小屋']},
+  'オプタテシケ山':{trailheads:['望岳台'],huts:['美瑛富士避難小屋']},
+  '十勝岳':{trailheads:['望岳台','吹上温泉登山口'],huts:['十勝岳避難小屋']},
+  'ニペソツ山':{trailheads:['幌加温泉 ニペソツ山登山口']},
+  '幌尻岳':{trailheads:['とよぬか山荘','新冠ポロシリ山荘 登山口'],huts:['幌尻山荘','新冠ポロシリ山荘']},
+  'カムイエクウチカウシ山':{trailheads:['札内川ヒュッテ'],huts:['札内川ヒュッテ']},
+  'ペテガリ岳':{trailheads:['神威山荘 ペテガリ岳登山口'],huts:['ペテガリ山荘']},
+  '神威岳':{trailheads:['神威山荘']},
+  '芦別岳':{trailheads:['山部自然公園太陽の里 芦別岳登山口']},
+  '夕張岳':{trailheads:['夕張岳登山口'],huts:['夕張岳ヒュッテ']},
+  '暑寒別岳':{trailheads:['暑寒荘'],huts:['暑寒荘']},
+  '余市岳':{trailheads:['キロロ ゴンドラ山頂駅']},
+  '樽前山':{trailheads:['樽前山七合目登山口']},
+  '後方羊蹄山':{trailheads:['羊蹄山比羅夫登山口','真狩登山口','京極登山口'],huts:['羊蹄山避難小屋']},
+  'ニセコアンヌプリ':{trailheads:['ニセコアンヌプリ五色温泉登山口']},
+  '狩場山':{trailheads:['千走新道登山口']},
+  '渡島駒ヶ岳':{trailheads:['赤井川登山口 駒ヶ岳']},
+  '大千軒岳':{trailheads:['知内川コース登山口 大千軒岳']},
+
+  // 東北
+  '八甲田山':{trailheads:['酸ヶ湯温泉','八甲田ロープウェー山頂公園駅'],huts:['仙人岱避難小屋']},
+  '岩木山':{trailheads:['岩木山八合目','嶽温泉 岩木山登山口']},
+  '白神岳':{trailheads:['白神岳登山口'],huts:['白神岳避難小屋']},
+  '八幡平':{trailheads:['八幡平山頂レストハウス']},
+  '乳頭山（烏帽子岳）':{trailheads:['黒湯温泉','蟹場温泉']},
+  '秋田駒ヶ岳':{trailheads:['八合目小屋 秋田駒ヶ岳'],huts:['阿弥陀池避難小屋']},
+  '岩手山':{trailheads:['馬返し登山口 岩手山','焼走り登山口'],huts:['八合目避難小屋']},
+  '姫神山':{trailheads:['一本杉登山口 姫神山']},
+  '早池峰山':{trailheads:['小田越登山口'],huts:['早池峰山避難小屋']},
+  '五葉山':{trailheads:['赤坂峠 五葉山登山口'],huts:['石楠花荘']},
+  '和賀岳':{trailheads:['甘露水登山口 和賀岳']},
+  '焼石岳':{trailheads:['中沼登山口'],huts:['銀明水避難小屋']},
+  '栗駒山':{trailheads:['いわかがみ平','須川高原温泉']},
+  '神室山':{trailheads:['西ノ又登山口 神室山']},
+  '森吉山':{trailheads:['阿仁ゴンドラ山頂駅']},
+  '太平山':{trailheads:['旭又登山口 太平山']},
+  '鳥海山':{trailheads:['鉾立 鳥海山登山口','湯ノ台口'],huts:['御浜小屋','大物忌神社参籠所']},
+  '月山':{trailheads:['月山八合目','姥沢 月山リフト'],huts:['佛生池小屋']},
+  '摩耶山':{trailheads:['越沢登山口 摩耶山 山形']},
+  '以東岳':{trailheads:['泡滝ダム'],huts:['以東岳避難小屋','大鳥小屋']},
+  '大朝日岳':{trailheads:['古寺鉱泉 朝日岳登山口','日暮沢小屋'],huts:['大朝日小屋','竜門小屋']},
+  '祝瓶山':{trailheads:['祝瓶山荘 登山口'],huts:['祝瓶山荘']},
+  '船形山':{trailheads:['大滝キャンプ場 船形山登山口','旗坂キャンプ場'],huts:['升沢避難小屋']},
+  '泉ヶ岳':{trailheads:['泉ヶ岳大駐車場']},
+  '蔵王山（熊野岳）':{trailheads:['蔵王ロープウェイ地蔵山頂駅','刈田峠']},
+  '飯豊山':{trailheads:['御沢登山口 飯豊山','大日杉登山口'],huts:['三国小屋','切合小屋','本山小屋']},
+  '西吾妻山':{trailheads:['天元台高原リフト北望台','グランデコ ゴンドラ山頂駅'],huts:['西吾妻小屋']},
+  '一切経山':{trailheads:['浄土平'],huts:['酸ヶ平避難小屋']},
+  '安達太良山':{trailheads:['あだたら山ロープウェイ山頂駅','奥岳登山口'],huts:['くろがね小屋']},
+  '磐梯山':{trailheads:['八方台登山口','猪苗代登山口'],huts:['弘法清水小屋']},
+  '二岐山':{trailheads:['御鍋神社登山口 二岐山']},
+  '七ヶ岳':{trailheads:['たかつえスキー場 七ヶ岳登山口']},
+  '荒海山':{trailheads:['八総鉱山跡 荒海山登山口']},
+  '帝釈山':{trailheads:['馬坂峠 帝釈山登山口']},
+  '会津駒ヶ岳':{trailheads:['滝沢登山口 会津駒ヶ岳'],huts:['駒の小屋']},
+  '会津朝日岳':{trailheads:['赤倉沢登山口 会津朝日岳']},
+  '燧ヶ岳':{trailheads:['御池登山口 燧ヶ岳','長英新道 尾瀬沼'],huts:['尾瀬沼ヒュッテ']},
+  '大滝根山':{trailheads:['仙台平 大滝根山登山口']},
+
+  // 近畿
+  '伊吹山':{trailheads:['伊吹山登山口 三之宮神社','伊吹山ドライブウェイ山頂駐車場']},
+  '藤原岳':{trailheads:['大貝戸登山口 藤原岳','孫太尾根登山口'],huts:['藤原山荘']},
+  '御在所岳':{trailheads:['中登山道口 御在所岳','御在所ロープウエイ山上公園駅']},
+  '倶留尊山':{trailheads:['曽爾高原 倶留尊山登山口']},
+  '三峰山':{trailheads:['みつえ青少年旅行村 三峰山登山口']},
+  '高見山':{trailheads:['高見峠','たかすみ温泉 高見山登山口']},
+  '日出ヶ岳':{trailheads:['大台ヶ原ビジターセンター']},
+  '竜門岳':{trailheads:['竜門岳登山口 吉野']},
+  '山上ヶ岳':{trailheads:['清浄大橋 大峯山登山口'],huts:['大峯山寺宿坊']},
+  '八経ヶ岳':{trailheads:['行者還トンネル西口'],huts:['弥山小屋']},
+  '釈迦ヶ岳（奈良）':{trailheads:['太尾登山口 釈迦ヶ岳 奈良']},
+  '伯母子岳':{trailheads:['大股登山口 伯母子岳'],huts:['伯母子岳避難小屋']},
+  '護摩壇山':{trailheads:['護摩壇山森林公園ワイルドライフ']},
+  '大和葛城山':{trailheads:['葛城山ロープウェイ山上駅','水越峠']},
+  '金剛山':{trailheads:['千早本道登山口','水越峠 金剛山']},
+  '武奈ヶ岳':{trailheads:['坊村 武奈ヶ岳登山口','イン谷口']},
+  '蓬来山':{trailheads:['びわ湖バレイ山頂駅','蓬莱駅 登山口']},
+  '比叡山':{trailheads:['坂本ケーブル延暦寺駅','修学院 比叡山登山口']},
+  '愛宕山':{trailheads:['清滝 愛宕山登山口']},
+  '六甲山':{trailheads:['芦屋川 高座の滝','有馬温泉 六甲山登山口']},
+
+  // 中国
+  '扇ノ山':{trailheads:['河合谷高原 扇ノ山登山口','姫路公園登山口']},
+  '氷ノ山':{trailheads:['福定親水公園 氷ノ山登山口','わかさ氷ノ山登山口'],huts:['氷ノ山越避難小屋','氷ノ山山頂避難小屋']},
+  '那岐山':{trailheads:['蛇淵の滝 那岐山登山口'],huts:['那岐山避難小屋']},
+  '大山（鳥取）':{trailheads:['夏山登山口 大山','博労座'],huts:['六合目避難小屋','大山頂上避難小屋']},
+  '上蒜山':{trailheads:['上蒜山登山口']},
+  '道後山':{trailheads:['月見ヶ丘駐車場 道後山']},
+  '吾妻山':{trailheads:['休暇村吾妻山ロッジ 登山口']},
+  '三瓶山':{trailheads:['東の原 三瓶山','西の原 三瓶山','三瓶山北の原']},
+
+  // 四国
+  '剣山':{trailheads:['見ノ越 剣山登山口','剣山観光登山リフト西島駅'],huts:['剣山頂上ヒュッテ']},
+  '三嶺':{trailheads:['名頃登山口 三嶺','光石登山口'],huts:['三嶺ヒュッテ']},
+  '東赤石山':{trailheads:['瀬場登山口 東赤石山'],huts:['赤石山荘']},
+  '笹ヶ峰':{trailheads:['下津池 笹ヶ峰登山口']},
+  '伊予富士':{trailheads:['寒風山登山口']},
+  '瓶ヶ森':{trailheads:['瓶ヶ森駐車場']},
+  '石鎚山':{trailheads:['土小屋登山口','石鎚ロープウェイ山頂成就駅'],huts:['石鎚神社頂上山荘']},
+  '三本杭':{trailheads:['万年橋 滑床渓谷 三本杭登山口']},
+  '篠山':{trailheads:['篠山登山口 愛媛高知']},
+
+  // 九州
+  '英彦山':{trailheads:['別所駐車場 英彦山','豊前坊 高住神社'],huts:['英彦山青年の家']},
+  '脊振山':{trailheads:['脊振山山頂駐車場','椎原峠登山口']},
+  '多良岳':{trailheads:['中山キャンプ場 多良岳','黒木登山口']},
+  '雲仙岳（普賢岳）':{trailheads:['仁田峠'],huts:['紅葉茶屋']},
+  '鶴見岳':{trailheads:['別府ロープウェイ鶴見山上駅','火男火売神社登山口']},
+  '由布岳':{trailheads:['由布岳正面登山口','東登山口']},
+  '大船山':{trailheads:['長者原 九重登山口','男池登山口'],huts:['法華院温泉山荘','坊ガツル']},
+  '久住山':{trailheads:['牧ノ戸峠','長者原 九重登山口'],huts:['久住分かれ避難小屋','法華院温泉山荘']},
+  '湧蓋山':{trailheads:['八丁原 湧蓋山登山口']},
+  '阿蘇山（高岳）':{trailheads:['仙酔峡登山口','砂千里ヶ浜'],huts:['月見小屋']},
+  '祖母山':{trailheads:['北谷登山口 祖母山','神原登山口'],huts:['祖母山九合目小屋']},
+  '傾山':{trailheads:['九折登山口 傾山']},
+  '大崩山':{trailheads:['祝子川 大崩山登山口'],huts:['大崩山荘']},
+  '国見岳':{trailheads:['五勇谷橋 国見岳登山口']},
+  '市房山':{trailheads:['市房山キャンプ場 登山口']},
+  '尾鈴山':{trailheads:['甘茶谷 尾鈴山登山口']},
+  '霧島山（韓国岳）':{trailheads:['えびの高原 韓国岳登山口','大浪池登山口']},
+  '高千穂峰':{trailheads:['高千穂河原']},
+  '桜島（御岳）':{trailheads:['湯之平展望所']},
+  '高隈山':{trailheads:['大野原 高隈山登山口']},
+  '開聞岳':{trailheads:['かいもん山麓ふれあい公園 開聞岳登山口']},
+  '宮ノ浦岳':{trailheads:['淀川登山口'],huts:['淀川小屋','新高塚小屋','高塚小屋']},
+  '宮之浦岳':{trailheads:['淀川登山口'],huts:['淀川小屋','新高塚小屋','高塚小屋']}
+};
+
+function curatedHintRows(mountain){
+  const hint=CURATED_ACCESS_HINTS[mountain]||CURATED_ACCESS_HINTS[Object.keys(MOUNTAIN_NAME_ALIAS).find(k=>MOUNTAIN_NAME_ALIAS[k]===mountain)]||null;
+  if(!hint)return [];
+  return [
+    ...(hint.trailheads||[]).map((name,i)=>({type:'trailhead',name,search:`${name} ${mountain} 日本`,hintIndex:i})),
+    ...(hint.huts||[]).map((name,i)=>({type:'hut',name,search:`${name} ${mountain} 日本`,hintIndex:i}))
+  ];
+}
+async function resolveCuratedCandidates(mountain,center){
+  const hints=curatedHintRows(mountain);
+  const out=[];
+  for(const h of hints){
+    try{
+      const url=`https://nominatim.openstreetmap.org/search?format=jsonv2&countrycodes=jp&limit=4&addressdetails=1&q=${encodeURIComponent(h.search)}`;
+      const res=await proxyFetch(url);
+      if(!res.ok)continue;
+      const rows=await res.json();
+      const candidates=(Array.isArray(rows)?rows:[]).map(r=>({r,lat:Number(r.lat),lon:Number(r.lon)})).filter(x=>Number.isFinite(x.lat)&&Number.isFinite(x.lon));
+      candidates.sort((a,b)=>haversineMeters(center.latitude,center.longitude,a.lat,a.lon)-haversineMeters(center.latitude,center.longitude,b.lat,b.lon));
+      const best=candidates.find(x=>haversineMeters(center.latitude,center.longitude,x.lat,x.lon)<=70000);
+      if(best)out.push({id:`curated-${h.type}-${mountain}-${h.hintIndex}-${Math.abs(Math.round(best.lat*1e5))}`,type:h.type,name:h.name,lat:best.lat,lon:best.lon,elevation:'',source:'手登録候補'});
+    }catch(_){ }
+  }
+  return out;
+}
+
 const MOUNTAIN_REGION = {
+  // V1.10.0 南アルプス
+  '甲斐駒ヶ岳':'southalps_north','鋸岳':'southalps_north','仙丈ヶ岳':'southalps_north','アサヨ峰':'southalps_north','地蔵ヶ岳':'southalps_north','鳳凰山':'southalps_north',
+  '北岳':'southalps_shirane','間ノ岳':'southalps_shirane','農鳥岳':'southalps_shirane',
+  '塩見岳':'southalps_central','荒川岳':'southalps_central','赤石岳':'southalps_central',
+  '聖岳':'southalps_south','上河内岳':'southalps_south','茶臼岳':'southalps_south','光岳':'southalps_south','池口岳':'southalps_south','奥茶臼山':'southalps_south','大無間山':'southalps_south','黒法師岳':'southalps_south','笊ヶ岳':'southalps_south',
+  // V1.10.0 八ヶ岳
+  '八ヶ岳（赤岳）':'yatsu_south','赤岳':'yatsu_south','横岳（八ヶ岳）':'yatsu_south','硫黄岳（八ヶ岳）':'yatsu_south','阿弥陀岳':'yatsu_south','権現岳':'yatsu_south','編笠山':'yatsu_south',
+  '蓼科山':'yatsu_north','天狗岳':'yatsu_north','北横岳':'yatsu_north',
   '燕岳':'omoteginza','大天井岳':'omoteginza',
   '常念岳':'jonen_chou','蝶ヶ岳':'jonen_chou',
   '槍ヶ岳':'yarihotaka','南岳':'yarihotaka','北穂高岳':'yarihotaka','奥穂高岳':'yarihotaka','前穂高岳':'yarihotaka',
@@ -787,7 +1058,8 @@ const MOUNTAIN_UI_AREAS = [
 ];
 const EXTRA_MOUNTAIN_UI_AREA = {
   '蝶ヶ岳':'northern_alps','西穂高岳':'northern_alps','南岳':'northern_alps','北穂高岳':'northern_alps','前穂高岳':'northern_alps',
-  '赤岳':'yatsugatake_chushin','御嶽山':'central_alps_ontake','宮之浦岳':'kyushu','大山':'chugoku'
+  '赤岳':'yatsugatake_chushin','横岳（八ヶ岳）':'yatsugatake_chushin','硫黄岳（八ヶ岳）':'yatsugatake_chushin','阿弥陀岳':'yatsugatake_chushin','権現岳':'yatsugatake_chushin','編笠山':'yatsugatake_chushin','北横岳':'yatsugatake_chushin',
+  '鳳凰山':'southern_alps','御嶽山':'central_alps_ontake','宮之浦岳':'kyushu','大山':'chugoku'
 };
 function mountainUiArea(name){
   if(EXTRA_MOUNTAIN_UI_AREA[name])return EXTRA_MOUNTAIN_UI_AREA[name];
@@ -817,7 +1089,7 @@ function init(){
     select.disabled=!areaKey;
     if(preserve&&names.includes(preserve))select.value=preserve;
     const areaName=MOUNTAIN_UI_AREAS.find(([k])=>k===areaKey)?.[1]||'';
-    $('mountainCount').textContent=areaKey?`${areaName}：${names.length}座 / 山名検索なら全山から直接選択できます`:`日本三百名山 300座 ＋ 縦走主要ピーク ${extra.length}座 / まず山域を選択`;
+    $('mountainCount').textContent=areaKey?`${areaName}：${names.length}座を表示中 / 山名検索なら全国から直接選択できます`:`全国版：日本三百名山300座＋縦走主要ピーク${extra.length}座 / まず山域を選択`;
   };
   area.value=''; select.value=''; search.value=''; populateMountainSelect('');
   $('loadPoiBtn').addEventListener('click',loadCandidates);
@@ -917,14 +1189,15 @@ function classifyNamedOsmPoint(el){
   const ele=Number(String(t.ele||'').replace(/[^0-9.\-]/g,''));
   let type=null;
   if(t.tourism==='alpine_hut'||t.tourism==='wilderness_hut'||t.shelter_type==='basic_hut'||/(避難小屋|山小屋|山荘|ヒュッテ|ロッジ|小屋$)/.test(name)) type='hut';
-  else if(t.information==='trailhead'||/(登山口|登山道入口|登山道入り口|登山者用駐車場|登山者駐車場|ロープウェイ.*駅|ゴンドラ.*駅)/.test(name)) type='trailhead';
+  else if(t.information==='trailhead'||(t.highway==='bus_stop'&&/(登山口|登山道|ロープウェイ|ゴンドラ)/.test(name))||(t.amenity==='parking'&&/(登山|登山口|登山者|ロープウェイ|ゴンドラ)/.test(name))||t.aerialway==='station'||/(登山口|登山道入口|登山道入り口|登山者用駐車場|登山者駐車場|ロープウェイ.*駅|ゴンドラ.*駅)/.test(name)) type='trailhead';
   else if(t.natural==='peak') type='peak';
   if(!type)return null;
   return {id:`osm-${el.type}-${el.id}`,type,name,lat,lon,elevation:Number.isFinite(ele)?ele:'',source:'OpenStreetMap'};
 }
-async function discoverNearbyCandidates(center){
-  const lat=Number(center.latitude), lon=Number(center.longitude), radius=24000;
-  const query=`[out:json][timeout:35];(
+async function discoverNearbyCandidates(center,radius=24000){
+  const lat=Number(center.latitude), lon=Number(center.longitude);
+  const peakRadius=Math.min(radius,22000);
+  const query=`[out:json][timeout:40];(
     nwr(around:${radius},${lat},${lon})["tourism"="alpine_hut"];
     nwr(around:${radius},${lat},${lon})["tourism"="wilderness_hut"];
     nwr(around:${radius},${lat},${lon})["shelter_type"="basic_hut"];
@@ -932,19 +1205,47 @@ async function discoverNearbyCandidates(center){
     nwr(around:${radius},${lat},${lon})["tourism"="chalet"]["name"];
     nwr(around:${radius},${lat},${lon})["information"="trailhead"];
     nwr(around:${radius},${lat},${lon})["name"~"登山口|登山道入口|登山道入り口|登山者用駐車場|登山者駐車場"];
-    nwr(around:${radius},${lat},${lon})["aerialway"="station"]["name"~"ロープウェイ|ゴンドラ"];
-    nwr(around:18000,${lat},${lon})["natural"="peak"]["name"];
+    nwr(around:${radius},${lat},${lon})["highway"="bus_stop"]["name"~"登山口|登山道|ロープウェイ|ゴンドラ"];
+    nwr(around:${radius},${lat},${lon})["amenity"="parking"]["name"~"登山|登山口|登山者|ロープウェイ|ゴンドラ"];
+    nwr(around:${radius},${lat},${lon})["aerialway"="station"]["name"];
+    nwr(around:${peakRadius},${lat},${lon})["natural"="peak"]["name"];
   );out center tags;`;
   try{
     const res=await fetch('/api/overpass',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query})});
     if(!res.ok)return [];
     const data=await res.json();
     const all=dedupeDiscovered((data.elements||[]).map(classifyNamedOsmPoint),lat,lon);
-    const trail=all.filter(x=>x.type==='trailhead').slice(0,18);
+    const trail=all.filter(x=>x.type==='trailhead').slice(0,radius>30000?30:18);
     const huts=all.filter(x=>x.type==='hut').slice(0,24);
     const peaks=all.filter(x=>x.type==='peak').slice(0,18);
     return [...trail,...huts,...peaks];
   }catch(_){return [];}
+}
+
+function nominatimTrailheadPoint(row,center,label,idx){
+  const lat=Number(row?.lat),lon=Number(row?.lon);
+  if(!Number.isFinite(lat)||!Number.isFinite(lon))return null;
+  if(haversineMeters(center.latitude,center.longitude,lat,lon)>60000)return null;
+  const display=String(row?.display_name||row?.name||'');
+  const first=(row?.name||display.split(',')[0]||'').trim();
+  if(!first)return null;
+  const looksAccess=/(登山口|登山道|登山者|ロープウェイ|ゴンドラ|ケーブル|駐車場|バス停)/.test(display);
+  if(!looksAccess)return null;
+  return {id:`nominatim-trail-${idx}-${Math.abs(Math.round(lat*100000))}`,type:'trailhead',name:first,lat,lon,elevation:'',source:'OpenStreetMap検索'};
+}
+async function discoverTrailheadsByName(label,center){
+  const queries=[`${label} 登山口 日本`,`${label} 登山道入口 日本`,`${label} ロープウェイ 日本`];
+  const rows=[];
+  for(const q of queries){
+    try{
+      const url=`https://nominatim.openstreetmap.org/search?format=jsonv2&countrycodes=jp&limit=8&addressdetails=1&q=${encodeURIComponent(q)}`;
+      const res=await proxyFetch(url);
+      if(!res.ok)continue;
+      const data=await res.json();
+      if(Array.isArray(data))rows.push(...data);
+    }catch(_){ }
+  }
+  return dedupeDiscovered(rows.map((r,i)=>nominatimTrailheadPoint(r,center,label,i)),center.latitude,center.longitude).filter(x=>x.type==='trailhead').slice(0,12);
 }
 async function loadCandidates(){
   const label=$('mountainPreset').value.trim();
@@ -960,9 +1261,23 @@ async function loadCandidates(){
   try{
     const center=await resolveMountainCenter(label);
     if(!MOUNTAIN_PRESETS[mountain])MOUNTAIN_PRESETS[mountain]=center;
-    const staticBase=[...(BUILTIN_ROUTE_CATALOG[mountain]||[]),...(TRAVERSE_CATALOG[mountain]||[]),...regionalCandidates(mountain)].filter(p=>Object.prototype.hasOwnProperty.call(TYPE_LABEL,p.type));
-    // V1.8.1: 三百名山を含む全山で周辺の登山口・山小屋・避難小屋を上乗せ探索。
-    const dynamic=await discoverNearbyCandidates(center);
+    const curated=await resolveCuratedCandidates(mountain,center);
+    const staticBase=[...(BUILTIN_ROUTE_CATALOG[mountain]||[]),...(TRAVERSE_CATALOG[mountain]||[]),...regionalCandidates(mountain),...curated].filter(p=>Object.prototype.hasOwnProperty.call(TYPE_LABEL,p.type));
+    // V1.10.0: 全国の手登録名称候補を優先し、その後に段階探索で補完。
+    const dynamicPrimary=await discoverNearbyCandidates(center,24000);
+    let dynamic=[...dynamicPrimary];
+    let trailSearchStage='24km';
+    const hasTrailIn=(arr)=>arr.some(p=>p.type==='trailhead');
+    if(!hasTrailIn([...staticBase,...dynamic])){
+      const extended=await discoverNearbyCandidates(center,45000);
+      dynamic=[...dynamic,...extended];
+      trailSearchStage='45km';
+    }
+    if(!hasTrailIn([...staticBase,...dynamic])){
+      const named=await discoverTrailheadsByName(label,center);
+      dynamic=[...dynamic,...named];
+      trailSearchStage='山名検索';
+    }
     const base=[...staticBase,...dynamic];
     const seen=new Set();
     candidates=base.filter(p=>{const k=`${p.type}|${p.name}|${Number(p.lat).toFixed(4)}|${Number(p.lon).toFixed(4)}`;if(seen.has(k))return false;seen.add(k);return true;});
@@ -971,7 +1286,9 @@ async function loadCandidates(){
       candidates.unshift({id:'center-peak',type:'peak',name:peakName,lat:center.latitude,lon:center.longitude,elevation:'',distance:0});
     }
     const trailCount=candidates.filter(p=>p.type==='trailhead').length, hutCount=candidates.filter(p=>p.type==='hut').length, peakCount=candidates.filter(p=>p.type==='peak').length;
-    $('candidateState').textContent=`${label}：登山口 ${trailCount} / 山小屋・避難小屋 ${hutCount} / 山頂・周辺ピーク ${peakCount}（登録済み＋周辺自動探索）`;
+    const trailNote=trailCount?`登山口探索 ${trailSearchStage}`:'登山口候補を検出できませんでした';
+    $('candidateState').textContent=`${label}：登山口 ${trailCount} / 山小屋・避難小屋 ${hutCount} / 山頂・周辺ピーク ${peakCount}（手登録 ${curated.length}件 / ${trailNote}）`;
+    if(!trailCount)setStatus(`${label} の登山口を自動検出できませんでした。次版の手登録補強対象として扱います。`,true);
     updateLoadButtonAppearance(true);
     $('points').innerHTML=''; pointSeq=0;
     const hasTrail=candidates.some(p=>p.type==='trailhead'), hasHut=candidates.some(p=>p.type==='hut');
@@ -980,7 +1297,7 @@ async function loadCandidates(){
     if(hasHut)addPointRow('hut','','山小屋・避難小屋');
     if(hasTrail)addPointRow('trailhead','','下山口');
     updateForecastHorizon();
-    logEvent('route_candidates_loaded',{success:true,metadata:{mountain:label,candidate_count:candidates.length,dynamic_count:dynamic.length}});
+    logEvent('route_candidates_loaded',{success:true,metadata:{mountain:label,candidate_count:candidates.length,dynamic_count:dynamic.length,curated_count:curated.length}});
   }catch(e){
     $('candidateState').textContent=`${label}：候補を読み込めませんでした（${e.message||e}）`;
     setStatus(`山頂座標の取得に失敗しました：${e.message||e}`,true);
