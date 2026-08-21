@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.7.0';
+const APP_VERSION = '1.7.2';
 
 const providers = [
   {id:'jma',name:'JMA MSM',kind:'openmeteo',endpoint:'https://api.open-meteo.com/v1/jma',model:'jma_msm',forecastDays:4,vars:['temperature_2m','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_direction_10m']},
@@ -237,12 +237,20 @@ function init(){
   $('loadPoiBtn').addEventListener('click',loadCandidates);
   $('addPointBtn').addEventListener('click',()=>addManualPointRow());
   $('analyzeBtn').addEventListener('click',analyze);
-  $('mountainPreset').addEventListener('change',()=>{candidates=[];$('candidateState').textContent='「この山のルート候補を読み込む」を押してください';$('points').innerHTML='';pointSeq=0;});
+  $('mountainPreset').addEventListener('change',()=>{candidates=[];$('candidateState').textContent='「この山のルート候補を読み込む」を押してください';$('points').innerHTML='';pointSeq=0;updateLoadButtonAppearance(false);});
+  updateLoadButtonAppearance(false);
   loadCandidates();
   updateForecastHorizon();
   logEvent('page_view',{success:true});
 }
 
+function updateLoadButtonAppearance(loaded){
+  const btn=$('loadPoiBtn');
+  if(!btn)return;
+  btn.classList.toggle('primary',!loaded);
+  btn.classList.toggle('secondary',loaded);
+  btn.classList.toggle('route-load-needed',!loaded);
+}
 function loadCandidates(){
   const mountain=$('mountainPreset').value;
   const base=[...(BUILTIN_ROUTE_CATALOG[mountain]||[]),...(TRAVERSE_CATALOG[mountain]||[]),...regionalCandidates(mountain)].filter(p=>Object.prototype.hasOwnProperty.call(TYPE_LABEL,p.type));
@@ -250,6 +258,7 @@ function loadCandidates(){
   candidates=base.filter(p=>{const k=`${p.name}|${p.lat}|${p.lon}`;if(seen.has(k))return false;seen.add(k);return true;});
   if(!candidates.some(p=>p.type==='peak') && MOUNTAIN_PRESETS[mountain]){const c=MOUNTAIN_PRESETS[mountain];candidates.push({id:'center-peak',type:'peak',name:mountain,lat:c.latitude,lon:c.longitude,elevation:''});}
   $('candidateState').textContent=`${mountain}：${candidates.length}地点を読み込みました（通信なし）`;
+  updateLoadButtonAppearance(true);
   $('points').innerHTML=''; pointSeq=0;
   addPointRow('trailhead','','登山口');
   addPointRow('peak','','山頂');
@@ -294,10 +303,9 @@ function addPointRow(type='peak',selected='',roleLabel='',initialDateTime=null){
   pointSeq++;
   const row=document.createElement('div'); row.className='point-row'; row.dataset.id=String(pointSeq); row.dataset.role=roleLabel||'';
   row.innerHTML=`<div class="point-no"></div>
-    <div class="role-chip">${esc(roleLabel||'経由')}</div>
     <label>種類<select class="point-type">${typeOptions(type)}</select></label>
     <label class="point-name-label">地点<select class="point-select">${candidateOptions(type,selected)}</select></label>
-    <label class="datetime-label date-label"><span class="field-caption">📅 通過日</span><input class="point-date" type="date" value="${initialDateTime?.date||todayLocal()}"></label>
+    <label class="datetime-label date-label"><span class="field-caption">📅 通過日</span><span class="date-control"><input class="point-date" type="date" value="${initialDateTime?.date||todayLocal()}"><button class="date-picker-btn" type="button" title="カレンダーを開く" aria-label="カレンダーを開く">📅</button></span></label>
     <label class="datetime-label time-label"><span class="field-caption">🕒 通過時刻</span><input class="point-time" type="time" value="${initialDateTime?.time||'06:00'}"></label>
     <label class="stay-option ${type==='hut'?'':'hidden'}"><span>宿泊</span><span class="stay-toggle"><input class="point-stay" type="checkbox"><b>ここに泊まる</b></span></label>
     <button class="move up" type="button" title="上へ">↑</button><button class="move down" type="button" title="下へ">↓</button><button class="remove" type="button" title="削除">×</button>
@@ -307,6 +315,12 @@ function addPointRow(type='peak',selected='',roleLabel='',initialDateTime=null){
   typeSel.addEventListener('change',()=>{pointSel.innerHTML=candidateOptions(typeSel.value); stay.classList.toggle('hidden',typeSel.value!=='hut'); if(typeSel.value!=='hut')row.querySelector('.point-stay').checked=false; updateMeta(row);});
   pointSel.addEventListener('change',()=>updateMeta(row));
   const dateInput=row.querySelector('.point-date'), timeInput=row.querySelector('.point-time');
+  const pickerBtn=row.querySelector('.date-picker-btn');
+  const openDatePicker=()=>{
+    try{ if(typeof dateInput.showPicker==='function') dateInput.showPicker(); else { dateInput.focus(); dateInput.click(); } }catch(_){ dateInput.focus(); }
+  };
+  pickerBtn?.addEventListener('click',openDatePicker);
+  dateInput.addEventListener('dblclick',openDatePicker);
   [dateInput,timeInput].forEach(input=>{
     input.addEventListener('focus',()=>{ row.dataset.datetimeBefore = rowDateTimeValue(row) || ''; });
     input.addEventListener('change',()=>{
@@ -729,6 +743,7 @@ function gradeRank(g){return({A:1,B:2,C:3,D:4,E:5})[g]||9;} function verdict(g){
 function maxThunder(v){const r={LOW:1,MEDIUM:2,HIGH:3,EXTREME:4};return [...v].sort((a,b)=>r[b]-r[a])[0]||'LOW';} function overallConfidence(v){return v.includes('LOW')?'LOW':v.includes('MEDIUM')?'MEDIUM':'HIGH';}
 function num(v,d=1){return Number.isFinite(v)?v.toFixed(d):'–';}
 
+
 function chartPath(values,w,h,pad=26){
   const finite=values.map(Number).filter(Number.isFinite);
   if(!finite.length)return {path:'',dots:[],min:0,max:1};
@@ -739,35 +754,68 @@ function chartPath(values,w,h,pad=26){
   const pts=[]; values.forEach((v,i)=>{if(Number.isFinite(Number(v)))pts.push([x(i),y(Number(v)),Number(v),i]);});
   return {path:pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' '),dots:pts,min,max};
 }
-function renderLineChart(title,subtitle,points,series){
-  const w=Math.max(620,points.length*115), h=210, pad=32;
-  const all=series.flatMap(s=>points.map(p=>p[s.key])).filter(Number.isFinite);
-  let ymin=Math.min(...all), ymax=Math.max(...all); if(!all.length){ymin=0;ymax=1;} if(ymin===ymax){ymin-=1;ymax+=1;}
-  const x=i=>points.length===1?w/2:pad+i*(w-pad*2)/(points.length-1);
-  const y=v=>h-48-(v-ymin)*(h-78)/(ymax-ymin);
-  const lines=series.map((ser,si)=>{
-    const pts=points.map((p,i)=>Number.isFinite(p[ser.key])?[x(i),y(p[ser.key]),p[ser.key],i]:null).filter(Boolean);
-    const path=pts.map((q,i)=>(i?'L':'M')+q[0].toFixed(1)+' '+q[1].toFixed(1)).join(' ');
-    const dash=si?' stroke-dasharray="7 5"':'';
-    return `<path class="chart-line s${si}" d="${path}"${dash}/>${pts.map(q=>`<circle class="chart-dot s${si}" cx="${q[0]}" cy="${q[1]}" r="4"><title>${esc(points[q[3]].point.name)} ${num(q[2])}${ser.unit}</title></circle>`).join('')}`;
-  }).join('');
-  const labels=points.map((p,i)=>`<text class="chart-x" x="${x(i)}" y="194" text-anchor="middle">${esc(p.point.name.length>8?p.point.name.slice(0,8)+'…':p.point.name)}</text>`).join('');
-  const values=series.map((ser,si)=>points.map((p,i)=>Number.isFinite(p[ser.key])?`<text class="chart-value v${si}" x="${x(i)}" y="${Math.max(15,y(p[ser.key])-8-(si*14))}" text-anchor="middle">${num(p[ser.key])}${ser.unit}</text>`:'').join('')).join('');
-  const legend=series.map((ser,si)=>`<span class="chart-legend-item s${si}">${esc(ser.label)}</span>`).join('');
-  return `<article class="chart-card"><div class="chart-head"><div><h3>${esc(title)}</h3><small>${esc(subtitle)}</small></div><div class="chart-legend">${legend}</div></div><div class="chart-scroll"><svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" role="img" aria-label="${esc(title)}"><line class="chart-axis" x1="${pad}" y1="162" x2="${w-pad}" y2="162"/>${lines}${values}${labels}</svg></div></article>`;
+function niceMax(v){
+  if(!Number.isFinite(v) || v<=0) return 1;
+  const p=Math.pow(10,Math.floor(Math.log10(v)));
+  const n=v/p;
+  const step=n<=1?1:n<=2?2:n<=5?5:10;
+  return step*p;
+}
+
+function pointLegend(points){
+  return `<div class="point-key" style="--point-count:${Math.max(points.length,1)}">${points.map((p,i)=>`<span class="point-key-item"><b>${String(i+1).padStart(2,'0')}</b><span class="point-key-copy"><strong>${esc(p.point.name)}</strong><small>${esc(p.point.time||'--:--')}</small></span></span>`).join('')}</div>`;
+}
+function chartKpis(items){
+  return `<div class="chart-kpis">${items.map(x=>`<span class="chart-kpi"><small>${esc(x.label)}</small><b>${esc(x.value)}</b></span>`).join('')}</div>`;
+}
+function gridLines(w,h,left,right,top,bottom,steps=4){
+  let html='';
+  for(let i=0;i<=steps;i++){
+    const yy=top+i*(h-top-bottom)/steps;
+    html+=`<line class="chart-grid" x1="${left}" y1="${yy.toFixed(1)}" x2="${w-right}" y2="${yy.toFixed(1)}"/>`;
+  }
+  return html;
+}
+
+function renderImpactChart(points){
+  const w=720,h=270,left=42,right=42,top=24,bottom=58;
+  const rainMax=niceMax(max(points.map(p=>p.rain)));
+  const windMax=niceMax(max(points.flatMap(p=>[p.wind,p.gust])));
+  const x=i=>points.length===1?w/2:left+i*(w-left-right)/(points.length-1);
+  const yRain=v=>h-bottom-(v/rainMax)*(h-top-bottom);
+  const yWind=v=>h-bottom-(v/windMax)*(h-top-bottom);
+  const barW=Math.min(28,Math.max(8,(w-left-right)/Math.max(points.length*2.5,10)));
+  const bars=points.map((p,i)=>{const val=Number.isFinite(p.rain)?p.rain:0;const yy=yRain(val),xx=x(i)-barW/2;return `<rect class="rain-bar" x="${xx.toFixed(1)}" y="${yy.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(0,h-bottom-yy).toFixed(1)}" rx="5"><title>${esc(p.point.name)} ${p.point.time} 降水 ${num(val)}mm/h</title></rect>`;}).join('');
+  const buildLine=(key,cls,label)=>{const pts=points.map((p,i)=>Number.isFinite(p[key])?[x(i),yWind(p[key]),p[key],i]:null).filter(Boolean);const path=pts.map((q,i)=>(i?'L':'M')+q[0].toFixed(1)+' '+q[1].toFixed(1)).join(' ');return `<path class="chart-line ${cls}" d="${path}"/>${pts.map(q=>`<circle class="chart-dot ${cls}" cx="${q[0]}" cy="${q[1]}" r="4"><title>${esc(points[q[3]].point.name)} ${points[q[3]].point.time} ${label} ${num(q[2])}m/s</title></circle>`).join('')}`;};
+  const xTicks=points.map((p,i)=>`<g class="chart-step"><circle class="chart-step-dot" cx="${x(i)}" cy="${h-27}" r="10"></circle><text class="chart-step-text" x="${x(i)}" y="${h-23}" text-anchor="middle">${String(i+1).padStart(2,'0')}</text></g>`).join('');
+  return `<article class="chart-card featured"><div class="chart-head"><div><h3>風・降水</h3><small>降水量のバーに、風速と突風を重ねて表示</small></div><div class="chart-legend"><span class="chart-legend-item rain">降水量</span><span class="chart-legend-item s0">風速</span><span class="chart-legend-item gust">突風</span></div></div>${chartKpis([{label:'最大降水',value:`${num(max(points.map(p=>p.rain)))} mm/h`},{label:'最大風速',value:`${num(max(points.map(p=>p.wind)))} m/s`},{label:'最大突風',value:`${num(max(points.map(p=>p.gust)))} m/s`}])}<div class="chart-canvas dual"><div class="chart-scale top left">風 ${num(windMax)}m/s</div><div class="chart-scale top right">雨 ${num(rainMax)}mm/h</div><div class="chart-scale bottom left">0</div><div class="chart-scale bottom right">0</div><svg class="chart-svg" viewBox="0 0 ${w} ${h}" role="img" aria-label="風と降水の複合グラフ"><defs><linearGradient id="rainGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#91d1ff"/><stop offset="100%" stop-color="#4aa5ff"/></linearGradient></defs>${gridLines(w,h,left,right,top,bottom,4)}<line class="chart-axis" x1="${left}" y1="${h-bottom}" x2="${w-right}" y2="${h-bottom}"/>${bars}${buildLine('wind','s0','風速')}${buildLine('gust','gust','突風')}${xTicks}</svg></div>${pointLegend(points)}</article>`;
+}
+function renderTempCloudChart(points){
+  const w=720,h=270,left=42,right=42,top=24,bottom=58;
+  const temps=points.map(p=>p.temp).filter(Number.isFinite), clouds=points.map(p=>p.cloud).filter(Number.isFinite);
+  let tMin=temps.length?Math.min(...temps):0, tMax=temps.length?Math.max(...temps):1;
+  if(tMin===tMax){tMin-=1;tMax+=1;}
+  const pad=Math.max(1,(tMax-tMin)*.12); tMin-=pad; tMax+=pad;
+  const x=i=>points.length===1?w/2:left+i*(w-left-right)/(points.length-1);
+  const yTemp=v=>h-bottom-(v-tMin)*(h-top-bottom)/(tMax-tMin);
+  const yCloud=v=>h-bottom-(Math.max(0,Math.min(100,v))/100)*(h-top-bottom);
+  const barW=Math.min(28,Math.max(8,(w-left-right)/Math.max(points.length*2.5,10)));
+  const bars=points.map((p,i)=>{const val=Number.isFinite(p.cloud)?p.cloud:0;const yy=yCloud(val),xx=x(i)-barW/2;return `<rect class="cloud-bar" x="${xx.toFixed(1)}" y="${yy.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(0,h-bottom-yy).toFixed(1)}" rx="5"><title>${esc(p.point.name)} ${p.point.time} 雲量 ${num(val,0)}%</title></rect>`;}).join('');
+  const pts=points.map((p,i)=>Number.isFinite(p.temp)?[x(i),yTemp(p.temp),p.temp,i]:null).filter(Boolean);
+  const path=pts.map((q,i)=>(i?'L':'M')+q[0].toFixed(1)+' '+q[1].toFixed(1)).join(' ');
+  const line=`<path class="chart-line temp" d="${path}"/>${pts.map(q=>`<circle class="chart-dot temp" cx="${q[0]}" cy="${q[1]}" r="4"><title>${esc(points[q[3]].point.name)} ${points[q[3]].point.time} 気温 ${num(q[2])}℃</title></circle>`).join('')}`;
+  const xTicks=points.map((p,i)=>`<g class="chart-step"><circle class="chart-step-dot" cx="${x(i)}" cy="${h-27}" r="10"></circle><text class="chart-step-text" x="${x(i)}" y="${h-23}" text-anchor="middle">${String(i+1).padStart(2,'0')}</text></g>`).join('');
+  const avgCloud=clouds.length?clouds.reduce((a,b)=>a+b,0)/clouds.length:NaN;
+  return `<article class="chart-card featured"><div class="chart-head"><div><h3>気温・雲量</h3><small>気温の推移と、雲量による視界悪化の目安を同時表示</small></div><div class="chart-legend"><span class="chart-legend-item temp">気温</span><span class="chart-legend-item cloud">雲量</span></div></div>${chartKpis([{label:'最低気温',value:`${num(Math.min(...temps))}℃`},{label:'最高気温',value:`${num(Math.max(...temps))}℃`},{label:'平均雲量',value:`${num(avgCloud,0)}%`}])}<div class="chart-canvas temp-cloud"><div class="chart-scale top left">気温 ${num(tMax)}℃</div><div class="chart-scale top right">雲 100%</div><div class="chart-scale bottom left">${num(tMin)}℃</div><div class="chart-scale bottom right">0%</div><svg class="chart-svg" viewBox="0 0 ${w} ${h}" role="img" aria-label="気温と雲量の複合グラフ"><defs><linearGradient id="cloudGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#c3cbd3" stop-opacity=".78"/><stop offset="100%" stop-color="#8f9aa6" stop-opacity=".36"/></linearGradient></defs>${gridLines(w,h,left,right,top,bottom,4)}<line class="chart-axis" x1="${left}" y1="${h-bottom}" x2="${w-right}" y2="${h-bottom}"/>${bars}${line}${xTicks}</svg></div>${pointLegend(points)}</article>`;
 }
 function renderWeatherCharts(points){
   const el=$('weatherCharts'); if(!el)return;
-  el.innerHTML=[
-    renderLineChart('気温','通過予定時刻の平均気温',points,[{key:'temp',label:'気温',unit:'℃'}]),
-    renderLineChart('風','平均風速と突風',points,[{key:'wind',label:'風速',unit:'m/s'},{key:'gust',label:'突風',unit:'m/s'}]),
-    renderLineChart('降水量','1時間降水量',points,[{key:'rain',label:'降水',unit:'mm'}]),
-    renderLineChart('雲量','ガス・視界悪化の目安',points,[{key:'cloud',label:'雲量',unit:'%'}])
-  ].join('');
-  const ribbon=$('riskRibbon'); if(ribbon)ribbon.innerHTML=`<div class="risk-ribbon-head"><b>地点別リスク</b><small>A → E の順に厳しくなります</small></div><div class="risk-ribbon-track">${points.map((p,i)=>`<div class="risk-stop g-${p.grade}"><span>${String(i+1).padStart(2,'0')}</span><b>${p.grade}</b><small>${esc(p.point.name)}</small></div>`).join('')}</div>`;
+  el.innerHTML=[renderImpactChart(points),renderTempCloudChart(points)].join('');
+  const ribbon=$('riskRibbon'); if(ribbon)ribbon.innerHTML=`<div class="risk-ribbon-head"><b>地点別リスク</b><small>番号はグラフのポイント番号と対応しています</small></div><div class="risk-ribbon-track">${points.map((p,i)=>`<div class="risk-stop g-${p.grade}"><span>${String(i+1).padStart(2,'0')}</span><b>${p.grade}</b><small>${esc(p.point.name)}</small><em>${esc(p.point.time||'')}</em></div>`).join('')}</div>`;
 }
 
 function renderAll(points,overnight=[]){
+
   $('results').classList.remove('hidden'); renderWeatherCharts(points); const worst=points.reduce((a,b)=>gradeRank(b.grade)>gradeRank(a.grade)?b:a,points[0]); const best=points.reduce((a,b)=>gradeRank(b.grade)<gradeRank(a.grade)?b:a,points[0]);
   $('grade').textContent=worst.grade; $('verdict').textContent=verdict(worst.grade); $('bestWindow').textContent=`${best.point.date} ${best.point.time} ${best.point.name}`; $('maxWind').textContent=`${num(max(points.flatMap(x=>x.providerRows.map(y=>y.row.wind))))} m/s`; $('maxRain').textContent=`${num(max(points.flatMap(x=>x.providerRows.map(y=>y.row.rain))))} mm/h`; $('thunderRisk').textContent=maxThunder(points.map(x=>x.thunder)); $('confidence').textContent=overallConfidence(points.map(x=>x.confidence));
   $('forecastCards').innerHTML=points.map((r,i)=>`<article class="forecast-card"><div class="card-head"><div><span>${String(i+1).padStart(2,'0')} / ${TYPE_LABEL[r.point.type]}</span><h3>${esc(r.point.name)}</h3><small>${r.point.date} ${r.point.time} / ${Math.round(r.point.elevation||0)}m</small></div><b class="grade g-${r.grade}">${r.grade}</b></div><div class="metrics"><span>気温 <b>${num(r.temp)}℃</b></span><span>風 <b>${num(r.wind)}m/s</b></span><span>突風 <b>${num(r.gust)}m/s</b></span><span>雨 <b>${num(r.rain)}mm/h</b></span><span>雲 <b>${num(r.cloud,0)}%</b></span><span>雷 <b>${r.thunder}</b></span></div><div class="model-note">取得 ${r.providerRows.length}/${providers.length}モデル / 一致度 ${r.confidence}${r.errors.length?`<br><small>${esc(r.errors.join(' / '))}</small>`:''}</div></article>`).join('');
