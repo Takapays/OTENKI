@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.10.5';
+const APP_VERSION = '1.10.6';
 
 const providers = [
   {id:'jma',name:'JMA MSM',kind:'openmeteo',endpoint:'https://api.open-meteo.com/v1/jma',model:'jma_msm',forecastDays:4,vars:['temperature_2m','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_direction_10m']},
@@ -610,6 +610,81 @@ const BUILTIN_ROUTE_CATALOG = {
     {id:'builtin-kiso-peak',type:'peak',name:'木曽駒ヶ岳',lat:35.7895,lon:137.8047,elevation:2956}
   ]
 };
+
+
+// V1.10.6: 近畿主要20座の代表登山口を座標込みで固定。
+// 外部ジオコーディングに失敗しても、最低1つの登山口候補を即表示する。
+Object.assign(BUILTIN_ROUTE_CATALOG, {
+  '伊吹山': [
+    {id:'kinki-ibuki-ueno',type:'trailhead',name:'伊吹山 上野登山口（三之宮神社）',lat:35.394142,lon:136.382775,elevation:220}
+  ],
+  '藤原岳': [
+    {id:'kinki-fujiwara-ogaido',type:'trailhead',name:'大貝戸登山口',lat:35.1704991,lon:136.4751261,elevation:160},
+    {id:'kinki-fujiwara-hut',type:'hut',name:'藤原山荘',lat:35.1579,lon:136.4468,elevation:1090}
+  ],
+  '御在所岳': [
+    {id:'kinki-gozaisho-naka',type:'trailhead',name:'中道登山口',lat:35.014417,lon:136.436667,elevation:570},
+    {id:'kinki-gozaisho-budodani',type:'trailhead',name:'武平峠登山口',lat:35.011361,lon:136.421556,elevation:810}
+  ],
+  '倶留尊山': [
+    {id:'kinki-kuroso-soni',type:'trailhead',name:'曽爾高原登山口',lat:34.518261,lon:136.160949,elevation:700}
+  ],
+  '三峰山': [
+    {id:'kinki-miune-mitsue',type:'trailhead',name:'みつえ青少年旅行村（三峰山登山口）',lat:34.471333,lon:136.195250,elevation:556}
+  ],
+  '高見山': [
+    {id:'kinki-takami-takasumi',type:'trailhead',name:'たかすみ温泉登山口',lat:34.439833,lon:136.060556,elevation:470}
+  ],
+  '日出ヶ岳': [
+    {id:'kinki-hide-vc',type:'trailhead',name:'大台ヶ原ビジターセンター',lat:34.180694,lon:136.097139,elevation:1570}
+  ],
+  '竜門岳': [
+    {id:'kinki-ryumon',type:'trailhead',name:'竜門岳登山口（バイオトイレ前）',lat:34.420936,lon:135.892397,elevation:520}
+  ],
+  '山上ヶ岳': [
+    {id:'kinki-sanjo-ohmine',type:'trailhead',name:'大峯大橋・清浄大橋登山口',lat:34.267139,lon:135.913167,elevation:916}
+  ],
+  '八経ヶ岳': [
+    {id:'builtin-hakkyo-tunnel',type:'trailhead',name:'行者還トンネル西口',lat:34.188877,lon:135.937116,elevation:1100},
+    {id:'builtin-hakkyo-misenhut',type:'hut',name:'弥山小屋',lat:34.179444,lon:135.910278,elevation:1876},
+    {id:'builtin-hakkyo-peak',type:'peak',name:'八経ヶ岳',lat:34.173611,lon:135.907500,elevation:1915}
+  ],
+  '釈迦ヶ岳（奈良）': [
+    {id:'kinki-shaka-futoo',type:'trailhead',name:'太尾登山口',lat:34.098167,lon:135.871750,elevation:1310}
+  ],
+  '伯母子岳': [
+    {id:'kinki-obako-omata',type:'trailhead',name:'大股登山口',lat:34.106222,lon:135.631139,elevation:660},
+    {id:'kinki-obako-hut',type:'hut',name:'伯母子岳避難小屋',lat:34.0769,lon:135.6503,elevation:1240}
+  ],
+  '護摩壇山': [
+    {id:'kinki-gomadan',type:'trailhead',name:'護摩壇山森林公園ワイルドライフ',lat:34.040556,lon:135.567222,elevation:1000}
+  ],
+  '大和葛城山': [
+    {id:'kinki-katsuragi-mizukoshi',type:'trailhead',name:'水越峠',lat:34.443567,lon:135.681872,elevation:510}
+  ],
+  '金剛山': [
+    {id:'kinki-kongo-chihaya',type:'trailhead',name:'千早本道登山口',lat:34.418667,lon:135.650667,elevation:524},
+    {id:'kinki-kongo-mizukoshi',type:'trailhead',name:'水越峠',lat:34.443567,lon:135.681872,elevation:510}
+  ],
+  '武奈ヶ岳': [
+    {id:'kinki-buna-bomura',type:'trailhead',name:'坊村登山口',lat:35.246389,lon:135.866556,elevation:305},
+    {id:'kinki-buna-intani',type:'trailhead',name:'イン谷口',lat:35.239083,lon:135.926194,elevation:270}
+  ],
+  '蓬来山': [
+    {id:'kinki-horai-ropeway',type:'trailhead',name:'びわ湖バレイ ロープウェイ山頂駅',lat:35.213385,lon:135.895707,elevation:1100}
+  ],
+  '比叡山': [
+    {id:'kinki-hiei-cable',type:'trailhead',name:'ケーブル延暦寺駅',lat:35.0665212,lon:135.843941,elevation:650}
+  ],
+  '愛宕山': [
+    {id:'kinki-atago-kiyotaki',type:'trailhead',name:'清滝・愛宕山表参道登山口',lat:35.039750,lon:135.658220,elevation:90}
+  ],
+  '六甲山': [
+    {id:'kinki-rokko-koza',type:'trailhead',name:'高座の滝・ロックガーデン入口',lat:34.745969,lon:135.288225,elevation:250},
+    {id:'kinki-rokko-arima',type:'trailhead',name:'有馬温泉 六甲山登山口',lat:34.7973,lon:135.2496,elevation:380}
+  ]
+});
+
 const TRAVERSE_CATALOG = {
   '槍ヶ岳': [
     {id:'trv-yari-oku',type:'peak',name:'大喰岳',lat:36.3339,lon:137.6469,elevation:3101,sourceMountain:'槍ヶ岳・南岳周辺'},
@@ -1045,7 +1120,7 @@ async function resolveCuratedCandidates(mountain,center){
       const found=(Array.isArray(rows)?rows:[]).map(r=>({r,lat:Number(r.lat),lon:Number(r.lon)})).filter(x=>Number.isFinite(x.lat)&&Number.isFinite(x.lon));
       found.sort((a,b)=>haversineMeters(center.latitude,center.longitude,a.lat,a.lon)-haversineMeters(center.latitude,center.longitude,b.lat,b.lon));
       const best=found.find(x=>haversineMeters(center.latitude,center.longitude,x.lat,x.lon)<=70000);
-      return best?{id:`curated-${h.type}-${mountain}-${h.hintIndex}-${Math.abs(Math.round(best.lat*1e5))}`,type:h.type,name:h.name,lat:best.lat,lon:best.lon,elevation:'',source:'手登録候補'}:null;
+      return best?{id:`curated-${h.type}-${mountain}-${h.hintIndex}-${Math.abs(Math.round(best.lat*1e5))}`,type:h.type,name:h.name,lat:best.lat,lon:best.lon,elevation:'',source:'固定候補（名称解決）'}:null;
     }catch(_){return null;}
   });
   const out=(await Promise.all(jobs)).filter(Boolean);
@@ -1460,8 +1535,8 @@ async function loadCandidates(){
 
     const trailCount=candidates.filter(p=>p.type==='trailhead').length, hutCount=candidates.filter(p=>p.type==='hut').length, peakCount=candidates.filter(p=>p.type==='peak').length;
     const trailNote=trailCount?`登山口探索 ${trailSearchStage}`:'登山口候補を検出できませんでした';
-    $('candidateState').textContent=`${label}：登山口 ${trailCount} / 山小屋・避難小屋 ${hutCount} / 山頂・周辺ピーク ${peakCount}（追加探索完了 / 手登録 ${curated.length}件 / ${trailNote}）`;
-    if(!trailCount)setStatus(`${label} の登山口を自動検出できませんでした。手登録補強対象として扱います。`,true);
+    $('candidateState').textContent=`${label}：登山口 ${trailCount} / 山小屋・避難小屋 ${hutCount} / 山頂・周辺ピーク ${peakCount}（追加探索完了 / 固定候補 ${curated.length}件 / ${trailNote}）`;
+    if(!trailCount)setStatus(`${label} の登山口を自動検出できませんでした。固定候補が未整備です。追加登録が必要です。`,true);
     updateLoadButtonAppearance(true);
     logEvent('route_candidates_loaded',{success:true,metadata:{mountain:label,candidate_count:candidates.length,dynamic_count:dynamic.length,curated_count:curated.length,cache_hit:false}});
   }catch(e){
