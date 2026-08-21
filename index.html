@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0b1714">
-  <title>縦走山行判断ツール | V1.7.6</title>
+  <title>縦走山行判断ツール | V1.8.2</title>
   <link rel="stylesheet" href="styles.css?v=1.7.6">
 </head>
 <body>
@@ -14,7 +14,7 @@
       <div class="eyebrow">TRAVERSE WEATHER DECISION</div>
       <h1>縦走山行判断ツール</h1>
       <p>山に行くか？やめるか？</p>
-      <span class="version">V1.7.6</span>
+      <div class="version-row"><span class="version">V1.8.2</span><span class="edition-badge">三百名山網羅版！</span></div>
     </div>
     <div class="hero-mark" aria-hidden="true">
       <span class="ridge ridge-back"></span>
@@ -32,7 +32,16 @@
     </div>
 
     <div class="mountain-row">
-      <label>山<select id="mountainPreset"></select></label>
+      <div class="mountain-picker-dual">
+        <label class="mountain-select-label">山を選択
+          <select id="mountainPreset"><option value="">山を選択してください</option></select>
+        </label>
+        <label class="mountain-search-label">山名検索
+          <input id="mountainSearch" type="search" list="mountainPresetList" autocomplete="off" placeholder="例：槍ヶ岳、石鎚山、利尻山">
+          <datalist id="mountainPresetList"></datalist>
+        </label>
+      </div>
+      <small id="mountainCount" class="mountain-count"></small>
       <button id="loadPoiBtn" class="secondary" type="button">この山のルート候補を読み込む</button>
       <div id="candidateState" class="state"></div>
     </div>

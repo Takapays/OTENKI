@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.7.6';
+const APP_VERSION = '1.8.2';
 
 const providers = [
   {id:'jma',name:'JMA MSM',kind:'openmeteo',endpoint:'https://api.open-meteo.com/v1/jma',model:'jma_msm',forecastDays:4,vars:['temperature_2m','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_direction_10m']},
@@ -37,6 +37,331 @@ const MOUNTAIN_PRESETS = {
   '石鎚山': {latitude:33.7679, longitude:133.1150},
   '宮之浦岳': {latitude:30.3362, longitude:130.5042}
 };
+
+const JAPAN_300_MOUNTAINS = [
+  "利尻山",
+  "羅臼岳",
+  "斜里岳",
+  "雄阿寒岳",
+  "天塩岳",
+  "ニセイカウシュッペ山",
+  "大雪山（旭岳）",
+  "石狩岳",
+  "トムラウシ山",
+  "オプタテシケ山",
+  "十勝岳",
+  "ニペソツ山",
+  "幌尻岳",
+  "カムイエクウチカウシ山",
+  "ペテガリ岳",
+  "神威岳",
+  "芦別岳",
+  "夕張岳",
+  "暑寒別岳",
+  "余市岳",
+  "樽前山",
+  "後方羊蹄山",
+  "ニセコアンヌプリ",
+  "狩場山",
+  "渡島駒ヶ岳",
+  "大千軒岳",
+  "八甲田山",
+  "岩木山",
+  "白神岳",
+  "八幡平",
+  "乳頭山（烏帽子岳）",
+  "秋田駒ヶ岳",
+  "岩手山",
+  "姫神山",
+  "早池峰山",
+  "五葉山",
+  "和賀岳",
+  "焼石岳",
+  "栗駒山",
+  "神室山",
+  "森吉山",
+  "太平山",
+  "鳥海山",
+  "月山",
+  "摩耶山",
+  "以東岳",
+  "大朝日岳",
+  "祝瓶山",
+  "船形山",
+  "泉ヶ岳",
+  "蔵王山（熊野岳）",
+  "飯豊山",
+  "西吾妻山",
+  "一切経山",
+  "安達太良山",
+  "磐梯山",
+  "二岐山",
+  "七ヶ岳",
+  "荒海山",
+  "帝釈山",
+  "会津駒ヶ岳",
+  "会津朝日岳",
+  "燧ヶ岳",
+  "大滝根山",
+  "杁差岳",
+  "二王子岳",
+  "粟ヶ岳",
+  "御神楽岳",
+  "守門岳",
+  "浅草岳",
+  "平ヶ岳",
+  "越後駒ヶ岳",
+  "中ノ岳",
+  "八海山",
+  "苗場山",
+  "佐武流山",
+  "鳥甲山",
+  "金北山",
+  "米山",
+  "八溝山",
+  "筑波山",
+  "三本槍岳",
+  "男鹿岳",
+  "景鶴山",
+  "至仏山",
+  "釈迦ヶ岳（栃木）",
+  "女峰山",
+  "男体山",
+  "太郎山",
+  "奥白根山",
+  "皇海山",
+  "袈裟丸山",
+  "武尊山",
+  "赤城山（黒檜山）",
+  "草津白根山",
+  "浅間隠山",
+  "榛名山（榛名富士）",
+  "妙義山（相馬岳）",
+  "荒船山",
+  "諏訪山",
+  "巻機山",
+  "朝日岳（群馬）",
+  "谷川岳",
+  "仙ノ倉山",
+  "白砂山",
+  "横手山",
+  "岩菅山",
+  "笠ヶ岳（長野）",
+  "四阿山",
+  "浅間山",
+  "御座山",
+  "蓼科山",
+  "天狗岳",
+  "八ヶ岳（赤岳）",
+  "入笠山",
+  "霧ヶ峰（車山）",
+  "鉢伏山",
+  "美ヶ原",
+  "飯縄山",
+  "戸隠山",
+  "高妻山",
+  "黒姫山",
+  "斑尾山",
+  "妙高山",
+  "火打山",
+  "焼山",
+  "雨飾山",
+  "青海黒姫山",
+  "朝日岳（新潟・富山）",
+  "雪倉岳",
+  "白馬岳",
+  "唐松岳",
+  "五竜岳",
+  "鹿島槍ヶ岳",
+  "爺ヶ岳",
+  "針ノ木岳",
+  "蓮華岳",
+  "毛勝山",
+  "剱岳",
+  "立山",
+  "奥大日岳",
+  "鍬崎山",
+  "薬師岳",
+  "黒部五郎岳",
+  "烏帽子岳",
+  "野口五郎岳",
+  "水晶岳（黒岳）",
+  "鷲羽岳",
+  "三俣蓮華岳",
+  "赤牛岳",
+  "笠ヶ岳（岐阜）",
+  "餓鬼岳",
+  "燕岳",
+  "有明山",
+  "大天井岳",
+  "常念岳",
+  "槍ヶ岳",
+  "奥穂高岳",
+  "焼岳",
+  "霞沢岳",
+  "鉢盛山",
+  "乗鞍岳",
+  "御嶽",
+  "小秀山",
+  "奥三界岳",
+  "経ヶ岳（長野）",
+  "木曽駒ヶ岳",
+  "空木岳",
+  "南駒ヶ岳",
+  "越百山",
+  "安平路山",
+  "南木曽岳",
+  "恵那山",
+  "武甲山",
+  "両神山",
+  "雲取山",
+  "和名倉山（白石山）",
+  "甲武信ヶ岳",
+  "国師ヶ岳",
+  "金峰山",
+  "瑞牆山",
+  "茅ヶ岳",
+  "乾徳山",
+  "大菩薩嶺",
+  "大岳山",
+  "三頭山",
+  "大山（神奈川）",
+  "塔ノ岳",
+  "金時山",
+  "箱根山",
+  "天城山（万三郎岳）",
+  "愛鷹山（越前岳）",
+  "毛無山",
+  "七面山",
+  "山伏",
+  "櫛形山",
+  "御正体山",
+  "三ッ峠山",
+  "黒岳",
+  "富士山",
+  "甲斐駒ヶ岳",
+  "鋸岳",
+  "仙丈ヶ岳",
+  "アサヨ峰",
+  "地蔵ヶ岳",
+  "北岳",
+  "間ノ岳",
+  "農鳥岳",
+  "塩見岳",
+  "荒川岳",
+  "赤石岳",
+  "聖岳",
+  "上河内岳",
+  "茶臼岳",
+  "光岳",
+  "池口岳",
+  "奥茶臼山",
+  "大無間山",
+  "黒法師岳",
+  "笊ヶ岳",
+  "高塚山",
+  "熊伏山",
+  "白木峰",
+  "金剛堂山",
+  "人形山",
+  "医王山",
+  "大門山",
+  "大笠山",
+  "笈ヶ岳",
+  "三方岩岳",
+  "猿ヶ馬場山",
+  "白山",
+  "経ヶ岳（福井）",
+  "野伏ヶ岳",
+  "大日ヶ岳",
+  "鷲ヶ岳",
+  "位山",
+  "川上岳",
+  "荒島岳",
+  "能郷白山",
+  "冠山",
+  "伊吹山",
+  "藤原岳",
+  "御在所岳",
+  "倶留尊山",
+  "三峰山",
+  "高見山",
+  "日出ヶ岳",
+  "竜門岳",
+  "山上ヶ岳",
+  "八経ヶ岳",
+  "釈迦ヶ岳（奈良）",
+  "伯母子岳",
+  "護摩壇山",
+  "大和葛城山",
+  "金剛山",
+  "武奈ヶ岳",
+  "蓬来山",
+  "比叡山",
+  "愛宕山",
+  "六甲山",
+  "扇ノ山",
+  "氷ノ山",
+  "那岐山",
+  "大山（鳥取）",
+  "上蒜山",
+  "道後山",
+  "吾妻山",
+  "三瓶山",
+  "剣山",
+  "三嶺",
+  "東赤石山",
+  "笹ヶ峰",
+  "伊予富士",
+  "瓶ヶ森",
+  "石鎚山",
+  "三本杭",
+  "篠山",
+  "英彦山",
+  "脊振山",
+  "多良岳",
+  "雲仙岳（普賢岳）",
+  "鶴見岳",
+  "由布岳",
+  "大船山",
+  "久住山",
+  "湧蓋山",
+  "阿蘇山（高岳）",
+  "祖母山",
+  "傾山",
+  "大崩山",
+  "国見岳",
+  "市房山",
+  "尾鈴山",
+  "霧島山（韓国岳）",
+  "高千穂峰",
+  "桜島（御岳）",
+  "高隈山",
+  "開聞岳",
+  "宮ノ浦岳"
+];
+const MOUNTAIN_NAME_ALIAS = {
+  '大山（鳥取）':'大山',
+  '宮ノ浦岳':'宮之浦岳',
+  '御嶽':'御嶽山',
+  '八ヶ岳（赤岳）':'赤岳',
+  '大山（神奈川）':'大山（神奈川）',
+  '朝日岳（群馬）':'朝日岳（群馬）',
+  '朝日岳（新潟・富山）':'朝日岳（新潟・富山）',
+  '笠ヶ岳（長野）':'笠ヶ岳（長野）',
+  '笠ヶ岳（岐阜）':'笠ヶ岳（岐阜）',
+  '経ヶ岳（長野）':'経ヶ岳（長野）',
+  '経ヶ岳（福井）':'経ヶ岳（福井）',
+  '釈迦ヶ岳（栃木）':'釈迦ヶ岳（栃木）',
+  '釈迦ヶ岳（奈良）':'釈迦ヶ岳（奈良）'
+};
+function canonicalMountainName(label){return MOUNTAIN_NAME_ALIAS[label]||label;}
+function mountainSearchQuery(label){
+  const alias={'宮ノ浦岳':'宮之浦岳','御嶽':'御嶽山','八ヶ岳（赤岳）':'赤岳'}[label];
+  if(alias)return alias;
+  return String(label||'').replace(/（/g,' ').replace(/）/g,' ').replace(/\s+/g,' ').trim();
+}
+
 const BUILTIN_ROUTE_CATALOG = {
   '槍ヶ岳': [
     // V4.8: 主要ポイントは座標・標高を内蔵し、名称検索に依存しない。
@@ -296,21 +621,52 @@ let pointSeq=0;
 const sessionId=(crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2));
 
 document.addEventListener('DOMContentLoaded',init);
+
+
 function init(){
-  const sel=$('mountainPreset');
-  sel.add(new Option('山を選択してください',''));
-  Object.keys(MOUNTAIN_PRESETS).forEach(n=>sel.add(new Option(n,n)));
-  sel.value='';
+  const select=$('mountainPreset');
+  const search=$('mountainSearch');
+  const list=$('mountainPresetList');
+  const existing=Object.keys(MOUNTAIN_PRESETS);
+  const extra=existing.filter(n=>!JAPAN_300_MOUNTAINS.includes(n));
+  const all=[...JAPAN_300_MOUNTAINS,...extra];
+  select.innerHTML=`<option value="">山を選択してください</option><optgroup label="日本三百名山">${JAPAN_300_MOUNTAINS.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('')}</optgroup>${extra.length?`<optgroup label="縦走主要ピーク">${extra.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('')}</optgroup>`:''}`;
+  list.innerHTML=all.map(n=>`<option value="${esc(n)}"></option>`).join('');
+  select.value='';
+  search.value='';
+  $('mountainCount').textContent=`日本三百名山 300座 ＋ 縦走主要ピーク ${extra.length}座 / プルダウン・検索どちらでも選択できます`;
   $('loadPoiBtn').addEventListener('click',loadCandidates);
   $('addPointBtn').addEventListener('click',()=>addManualPointRow());
   $('analyzeBtn').addEventListener('click',analyze);
-  $('mountainPreset').addEventListener('change',()=>{
+
+  const resetForMountainChange=()=>{
     candidates=[];
     $('points').innerHTML=''; pointSeq=0;
-    const selected=!!sel.value;
+    const selected=!!select.value.trim();
     $('candidateState').textContent=selected?'「この山のルート候補を読み込む」を押してください':'山を選択してください';
     updateLoadButtonAppearance(false);
     updateForecastHorizon();
+  };
+  select.addEventListener('change',()=>{
+    search.value=select.value;
+    resetForMountainChange();
+  });
+  search.addEventListener('input',()=>{
+    const q=search.value.trim();
+    const exact=all.find(n=>n===q);
+    if(exact){
+      if(select.value!==exact){select.value=exact;resetForMountainChange();}
+      return;
+    }
+    if(!q){select.value='';resetForMountainChange();return;}
+    const hit=all.find(n=>n.includes(q));
+    if(hit)select.value=hit;
+  });
+  search.addEventListener('change',()=>{
+    const q=search.value.trim();
+    if(!q){select.value='';resetForMountainChange();return;}
+    const hit=all.find(n=>n===q)||all.find(n=>n.includes(q));
+    if(hit){select.value=hit;search.value=hit;resetForMountainChange();}
   });
   $('candidateState').textContent='山を選択してください';
   updateLoadButtonAppearance(false);
@@ -319,38 +675,133 @@ function init(){
 }
 
 function updateLoadButtonAppearance(loaded){
+
   const btn=$('loadPoiBtn');
   if(!btn)return;
-  const hasMountain=!!$('mountainPreset')?.value;
+  const hasMountain=!!$('mountainPreset')?.value?.trim();
   btn.disabled=!hasMountain;
   btn.classList.toggle('primary',hasMountain&&!loaded);
   btn.classList.toggle('secondary',!hasMountain||loaded);
   btn.classList.toggle('route-load-needed',hasMountain&&!loaded);
 }
-function loadCandidates(){
-  const mountain=$('mountainPreset').value;
-  if(!mountain){
+
+async function resolveMountainCenter(label){
+  const canonical=canonicalMountainName(label);
+  if(MOUNTAIN_PRESETS[canonical])return MOUNTAIN_PRESETS[canonical];
+  const q=mountainSearchQuery(label);
+  const url=`https://nominatim.openstreetmap.org/search?format=jsonv2&countrycodes=jp&limit=8&addressdetails=1&q=${encodeURIComponent(q+' 山 日本')}`;
+  const res=await proxyFetch(url);
+  if(!res.ok)throw new Error(`山頂座標検索 HTTP ${res.status}`);
+  const rows=await res.json();
+  const best=rows.find(x=>x.type==='peak'||x.category==='natural'||x.class==='natural')||rows[0];
+  if(!best)throw new Error('山頂座標が見つかりませんでした');
+  return {latitude:Number(best.lat),longitude:Number(best.lon)};
+}
+function overpassPoint(el){
+  const lat=Number(el.lat ?? el.center?.lat), lon=Number(el.lon ?? el.center?.lon);
+  if(!Number.isFinite(lat)||!Number.isFinite(lon))return null;
+  const t=el.tags||{}, name=t.name||t['name:ja'];
+  if(!name)return null;
+  let type=null;
+  if(t.tourism==='alpine_hut'||t.tourism==='wilderness_hut'||t.amenity==='shelter')type='hut';
+  else if(t.information==='trailhead')type='trailhead';
+  else if(t.natural==='peak')type='peak';
+  if(!type)return null;
+  const ele=Number(String(t.ele||'').replace(/[^0-9.\-]/g,''));
+  return {id:`osm-${el.type}-${el.id}`,type,name,lat,lon,elevation:Number.isFinite(ele)?ele:'',source:'OpenStreetMap'};
+}
+
+function dedupeDiscovered(items,lat,lon){
+  const seen=new Set();
+  return items.filter(Boolean).filter(p=>{
+    const k=`${p.type}|${p.name}|${Number(p.lat).toFixed(4)}|${Number(p.lon).toFixed(4)}`;
+    if(seen.has(k))return false; seen.add(k); return true;
+  }).map(p=>({...p,distance:haversineMeters(lat,lon,p.lat,p.lon)})).sort((a,b)=>a.distance-b.distance);
+}
+function classifyNamedOsmPoint(el){
+  const lat=Number(el.lat ?? el.center?.lat), lon=Number(el.lon ?? el.center?.lon);
+  if(!Number.isFinite(lat)||!Number.isFinite(lon))return null;
+  const t=el.tags||{}, name=t['name:ja']||t.name;
+  if(!name)return null;
+  const ele=Number(String(t.ele||'').replace(/[^0-9.\-]/g,''));
+  let type=null;
+  if(t.tourism==='alpine_hut'||t.tourism==='wilderness_hut'||t.shelter_type==='basic_hut'||/(避難小屋|山小屋|山荘|ヒュッテ|ロッジ|小屋$)/.test(name)) type='hut';
+  else if(t.information==='trailhead'||/(登山口|登山道入口|登山道入り口|登山者用駐車場|登山者駐車場|ロープウェイ.*駅|ゴンドラ.*駅)/.test(name)) type='trailhead';
+  else if(t.natural==='peak') type='peak';
+  if(!type)return null;
+  return {id:`osm-${el.type}-${el.id}`,type,name,lat,lon,elevation:Number.isFinite(ele)?ele:'',source:'OpenStreetMap'};
+}
+async function discoverNearbyCandidates(center){
+  const lat=Number(center.latitude), lon=Number(center.longitude), radius=24000;
+  const query=`[out:json][timeout:35];(
+    nwr(around:${radius},${lat},${lon})["tourism"="alpine_hut"];
+    nwr(around:${radius},${lat},${lon})["tourism"="wilderness_hut"];
+    nwr(around:${radius},${lat},${lon})["shelter_type"="basic_hut"];
+    nwr(around:${radius},${lat},${lon})["amenity"="shelter"]["name"~"避難小屋|山小屋|山荘|ヒュッテ|小屋"];
+    nwr(around:${radius},${lat},${lon})["tourism"="chalet"]["name"];
+    nwr(around:${radius},${lat},${lon})["information"="trailhead"];
+    nwr(around:${radius},${lat},${lon})["name"~"登山口|登山道入口|登山道入り口|登山者用駐車場|登山者駐車場"];
+    nwr(around:${radius},${lat},${lon})["aerialway"="station"]["name"~"ロープウェイ|ゴンドラ"];
+    nwr(around:18000,${lat},${lon})["natural"="peak"]["name"];
+  );out center tags;`;
+  try{
+    const res=await fetch('/api/overpass',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query})});
+    if(!res.ok)return [];
+    const data=await res.json();
+    const all=dedupeDiscovered((data.elements||[]).map(classifyNamedOsmPoint),lat,lon);
+    const trail=all.filter(x=>x.type==='trailhead').slice(0,18);
+    const huts=all.filter(x=>x.type==='hut').slice(0,24);
+    const peaks=all.filter(x=>x.type==='peak').slice(0,18);
+    return [...trail,...huts,...peaks];
+  }catch(_){return [];}
+}
+async function loadCandidates(){
+  const label=$('mountainPreset').value.trim();
+  if(!label){
     $('candidateState').textContent='先に山を選択してください';
     updateLoadButtonAppearance(false);
     return;
   }
-  const base=[...(BUILTIN_ROUTE_CATALOG[mountain]||[]),...(TRAVERSE_CATALOG[mountain]||[]),...regionalCandidates(mountain)].filter(p=>Object.prototype.hasOwnProperty.call(TYPE_LABEL,p.type));
-  const seen=new Set();
-  candidates=base.filter(p=>{const k=`${p.name}|${p.lat}|${p.lon}`;if(seen.has(k))return false;seen.add(k);return true;});
-  if(!candidates.some(p=>p.type==='peak') && MOUNTAIN_PRESETS[mountain]){const c=MOUNTAIN_PRESETS[mountain];candidates.push({id:'center-peak',type:'peak',name:mountain,lat:c.latitude,lon:c.longitude,elevation:''});}
-  $('candidateState').textContent=`${mountain}：${candidates.length}地点を読み込みました（通信なし）`;
-  updateLoadButtonAppearance(true);
-  $('points').innerHTML=''; pointSeq=0;
-  addPointRow('trailhead','','登山口');
-  addPointRow('peak','','山頂');
-  addPointRow('hut','','山小屋・避難小屋');
-  addPointRow('trailhead','','下山口');
-  updateForecastHorizon();
-  logEvent('route_candidates_loaded',{success:true,metadata:{mountain,candidate_count:candidates.length}});
+  const mountain=canonicalMountainName(label);
+  const btn=$('loadPoiBtn');
+  const before=btn.textContent;
+  btn.disabled=true; btn.textContent='候補を検索中…';
+  try{
+    const center=await resolveMountainCenter(label);
+    if(!MOUNTAIN_PRESETS[mountain])MOUNTAIN_PRESETS[mountain]=center;
+    const staticBase=[...(BUILTIN_ROUTE_CATALOG[mountain]||[]),...(TRAVERSE_CATALOG[mountain]||[]),...regionalCandidates(mountain)].filter(p=>Object.prototype.hasOwnProperty.call(TYPE_LABEL,p.type));
+    // V1.8.1: 三百名山を含む全山で周辺の登山口・山小屋・避難小屋を上乗せ探索。
+    const dynamic=await discoverNearbyCandidates(center);
+    const base=[...staticBase,...dynamic];
+    const seen=new Set();
+    candidates=base.filter(p=>{const k=`${p.type}|${p.name}|${Number(p.lat).toFixed(4)}|${Number(p.lon).toFixed(4)}`;if(seen.has(k))return false;seen.add(k);return true;});
+    const peakName=label.replace(/（神奈川）|（鳥取）|（群馬）|（新潟・富山）|（長野）|（岐阜）|（福井）|（栃木）|（奈良）/g,'');
+    if(!candidates.some(p=>p.type==='peak'&&haversineMeters(center.latitude,center.longitude,p.lat,p.lon)<2500)){
+      candidates.unshift({id:'center-peak',type:'peak',name:peakName,lat:center.latitude,lon:center.longitude,elevation:'',distance:0});
+    }
+    const trailCount=candidates.filter(p=>p.type==='trailhead').length, hutCount=candidates.filter(p=>p.type==='hut').length, peakCount=candidates.filter(p=>p.type==='peak').length;
+    $('candidateState').textContent=`${label}：登山口 ${trailCount} / 山小屋・避難小屋 ${hutCount} / 山頂・周辺ピーク ${peakCount}（登録済み＋周辺自動探索）`;
+    updateLoadButtonAppearance(true);
+    $('points').innerHTML=''; pointSeq=0;
+    const hasTrail=candidates.some(p=>p.type==='trailhead'), hasHut=candidates.some(p=>p.type==='hut');
+    if(hasTrail)addPointRow('trailhead','','登山口');
+    addPointRow('peak','','山頂');
+    if(hasHut)addPointRow('hut','','山小屋・避難小屋');
+    if(hasTrail)addPointRow('trailhead','','下山口');
+    updateForecastHorizon();
+    logEvent('route_candidates_loaded',{success:true,metadata:{mountain:label,candidate_count:candidates.length,dynamic_count:dynamic.length}});
+  }catch(e){
+    $('candidateState').textContent=`${label}：候補を読み込めませんでした（${e.message||e}）`;
+    setStatus(`山頂座標の取得に失敗しました：${e.message||e}`,true);
+    updateLoadButtonAppearance(false);
+  }finally{
+    btn.textContent=before;
+    btn.disabled=!$('mountainPreset').value.trim();
+  }
 }
 
-
 function addManualPointRow(){
+
   const rows=[...$('points').children];
   let date=todayLocal(), time='06:00';
   if(rows.length){
