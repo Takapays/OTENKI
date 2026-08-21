@@ -272,13 +272,18 @@ footer{color:#768d82}footer strong{color:#4e675c}
 
 
 /* V1.8.1 mountain picker: dropdown + search */
-.mountain-picker-dual{display:grid;grid-template-columns:minmax(260px,1fr) minmax(260px,1fr);gap:12px;align-items:end;width:100%}
-.mountain-select-label,.mountain-search-label{display:flex;flex-direction:column;gap:6px;font-weight:800;color:#294239}
-.mountain-select-label select,.mountain-search-label input[type="search"]{width:100%;min-height:46px;border:1px solid #cbded4;border-radius:12px;background:#fff;color:#173128;padding:0 14px;font-size:15px;font-weight:700;outline:none;box-shadow:0 3px 10px rgba(24,49,40,.04)}
-.mountain-select-label select:focus,.mountain-search-label input[type="search"]:focus{border-color:#16865b;box-shadow:0 0 0 3px rgba(22,134,91,.12)}
+.mountain-picker-dual{display:grid;grid-template-columns:minmax(190px,.75fr) minmax(220px,1fr) minmax(250px,1fr);gap:12px;align-items:end;width:100%}
+.mountain-area-label,.mountain-select-label,.mountain-search-label{display:flex;flex-direction:column;gap:6px;font-weight:800;color:#294239}
+.mountain-area-label select,.mountain-select-label select,.mountain-search-label input[type="search"]{width:100%;min-height:46px;border:1px solid #cbded4;border-radius:12px;background:#fff;color:#173128;padding:0 14px;font-size:15px;font-weight:700;outline:none;box-shadow:0 3px 10px rgba(24,49,40,.04)}
+.mountain-area-label select:focus,.mountain-select-label select:focus,.mountain-search-label input[type="search"]:focus{border-color:#16865b;box-shadow:0 0 0 3px rgba(22,134,91,.12)}
 .mountain-count{display:block;margin-top:7px;color:#6d8278;font-size:11px;font-weight:700}
-@media(max-width:760px){.mountain-picker-dual{grid-template-columns:1fr}.mountain-select-label select,.mountain-search-label input[type="search"]{font-size:16px}}
+@media(max-width:760px){.mountain-picker-dual{grid-template-columns:1fr}.mountain-area-label select,.mountain-select-label select,.mountain-search-label input[type="search"]{font-size:16px}}
 
 /* V1.8.2 edition badge */
 .version-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:20px}.version-row .version{margin-top:0}.edition-badge{display:inline-flex;align-items:center;border:1px solid rgba(123,224,167,.32);background:rgba(255,255,255,.08);color:#eafff3;border-radius:999px;padding:6px 12px;font-size:12px;font-weight:900;letter-spacing:.03em}.hero .edition-badge{border-color:#c6dfd2;background:#f4fbf7;color:#116f4b;box-shadow:0 4px 12px rgba(17,111,75,.08)}
 @media(max-width:560px){.version-row{gap:7px}.edition-badge,.version-row .version{font-size:11px;padding:6px 10px}}
+
+/* V1.9.0 - Northern Alps regional catalog expansion */
+
+/* V1.9.1 - area-first mountain picker */
+.mountain-area-label select:disabled,.mountain-select-label select:disabled{background:#eef3f0;color:#8a9c94;cursor:not-allowed}

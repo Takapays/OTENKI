@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0b1714">
-  <title>縦走山行判断ツール | V1.8.2</title>
-  <link rel="stylesheet" href="styles.css?v=1.7.6">
+  <title>縦走山行判断ツール | V1.9.1</title>
+  <link rel="stylesheet" href="styles.css?v=1.9.1">
 </head>
 <body>
 <header class="hero">
@@ -14,7 +14,7 @@
       <div class="eyebrow">TRAVERSE WEATHER DECISION</div>
       <h1>縦走山行判断ツール</h1>
       <p>山に行くか？やめるか？</p>
-      <div class="version-row"><span class="version">V1.8.2</span><span class="edition-badge">三百名山網羅版！</span></div>
+      <div class="version-row"><span class="version">V1.9.1</span><span class="edition-badge">三百名山網羅版！</span></div>
     </div>
     <div class="hero-mark" aria-hidden="true">
       <span class="ridge ridge-back"></span>
@@ -33,8 +33,11 @@
 
     <div class="mountain-row">
       <div class="mountain-picker-dual">
+        <label class="mountain-area-label">山域を選択
+          <select id="mountainArea"><option value="">山域を選択してください</option></select>
+        </label>
         <label class="mountain-select-label">山を選択
-          <select id="mountainPreset"><option value="">山を選択してください</option></select>
+          <select id="mountainPreset" disabled><option value="">先に山域を選択してください</option></select>
         </label>
         <label class="mountain-search-label">山名検索
           <input id="mountainSearch" type="search" list="mountainPresetList" autocomplete="off" placeholder="例：槍ヶ岳、石鎚山、利尻山">
@@ -111,6 +114,6 @@
   <strong>縦走山行判断ツール</strong><br>
   Weather via Open-Meteo。予報は登山の安全を保証しません。
 </footer>
-<script src="app.js?v=1.7.6"></script>
+<script src="app.js?v=1.9.1"></script>
 </body>
 </html>
