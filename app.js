@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.10.6';
+const APP_VERSION = '1.11.0';
 
 const providers = [
   {id:'jma',name:'JMA MSM',kind:'openmeteo',endpoint:'https://api.open-meteo.com/v1/jma',model:'jma_msm',forecastDays:4,vars:['temperature_2m','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_direction_10m']},
@@ -685,6 +685,47 @@ Object.assign(BUILTIN_ROUTE_CATALOG, {
   ]
 });
 
+
+
+// V1.11.0: 全国主要山の代表登山口を座標込みで固定。
+// まず利用頻度の高い山を固定し、名称固定候補 + 自動探索で全国の穴を補完する。
+Object.assign(BUILTIN_ROUTE_CATALOG, {
+  '剣山': [
+    {id:'fixed-shikoku-tsurugi-minokoshi',type:'trailhead',name:'見ノ越 剣山登山口',lat:33.853577,lon:134.094250,elevation:1400},
+    {id:'fixed-shikoku-tsurugi-nishijima',type:'trailhead',name:'剣山観光登山リフト 西島駅',lat:33.860656,lon:134.092260,elevation:1750}
+  ],
+  '祖母山': [
+    {id:'fixed-kyushu-sobo-kitadani',type:'trailhead',name:'北谷登山口',lat:32.820472,lon:131.325167,elevation:1110},
+    {id:'fixed-kyushu-sobo-kambara',type:'trailhead',name:'神原登山口',lat:32.854333,lon:131.339778,elevation:690}
+  ],
+  '久住山': [
+    {id:'fixed-kyushu-kuju-makinoto',type:'trailhead',name:'牧ノ戸峠',lat:33.096461,lon:131.208391,elevation:1330},
+    {id:'fixed-kyushu-kuju-chojabaru',type:'trailhead',name:'長者原',lat:33.118389,lon:131.229278,elevation:1030}
+  ],
+  '大船山': [
+    {id:'fixed-kyushu-taisen-chojabaru',type:'trailhead',name:'長者原',lat:33.118389,lon:131.229278,elevation:1030},
+    {id:'fixed-kyushu-taisen-oidake',type:'trailhead',name:'男池登山口',lat:33.125559,lon:131.294777,elevation:850}
+  ],
+  '由布岳': [
+    {id:'fixed-kyushu-yufu-main',type:'trailhead',name:'由布岳正面登山口',lat:33.264611,lon:131.396278,elevation:780}
+  ],
+  '湧蓋山': [
+    {id:'fixed-kyushu-waita-hatchobaru',type:'trailhead',name:'八丁原登山口',lat:33.104667,lon:131.179694,elevation:1100}
+  ],
+  '石鎚山': [
+    ...(BUILTIN_ROUTE_CATALOG['石鎚山']||[]),
+    {id:'fixed-shikoku-ishizuchi-tsuchigoya',type:'trailhead',name:'土小屋登山口',lat:33.758250,lon:133.144778,elevation:1492}
+  ],
+  '大山（鳥取）': [
+    ...(BUILTIN_ROUTE_CATALOG['大山（鳥取）']||[]),
+    {id:'fixed-chugoku-daisen-natsu',type:'trailhead',name:'夏山登山口',lat:35.391194,lon:133.530556,elevation:770}
+  ],
+  '宮之浦岳': [
+    ...(BUILTIN_ROUTE_CATALOG['宮之浦岳']||[]),
+    {id:'fixed-kyushu-miyanoura-yodogawa',type:'trailhead',name:'淀川登山口',lat:30.299559,lon:130.533802,elevation:1360}
+  ]
+});
+
 const TRAVERSE_CATALOG = {
   '槍ヶ岳': [
     {id:'trv-yari-oku',type:'peak',name:'大喰岳',lat:36.3339,lon:137.6469,elevation:3101,sourceMountain:'槍ヶ岳・南岳周辺'},
@@ -1106,6 +1147,22 @@ function curatedHintRows(mountain){
     ...(hint.huts||[]).map((name,i)=>({type:'hut',name,search:`${name} ${mountain} 日本`,hintIndex:i}))
   ];
 }
+
+function fixedNameFallbackCandidates(mountain){
+  return curatedHintRows(mountain).map((h,i)=>({
+    id:`fixed-name-${h.type}-${mountain}-${i}`,
+    type:h.type,
+    name:h.name,
+    lat:null,
+    lon:null,
+    elevation:'',
+    unresolved:true,
+    source:'固定候補（座標確認中）'
+  }));
+}
+function hasResolvedCoord(p){
+  return p&&p.lat!==null&&p.lat!==undefined&&p.lon!==null&&p.lon!==undefined&&Number.isFinite(Number(p.lat))&&Number.isFinite(Number(p.lon));
+}
 async function resolveCuratedCandidates(mountain,center){
   const cacheKey=`curated:${mountainCacheKey(mountain)}`;
   const cached=routeCacheGet(cacheKey,30*24*60*60*1000);
@@ -1281,7 +1338,7 @@ function updateLoadButtonAppearance(loaded){
   btn.classList.toggle('route-load-needed',hasMountain&&!loaded);
 }
 
-const ROUTE_CACHE_PREFIX='traverse-route-v1102:';
+const ROUTE_CACHE_PREFIX='traverse-route-v1110:';
 function routeCacheGet(key,maxAgeMs=7*24*60*60*1000){
   try{
     const raw=localStorage.getItem(ROUTE_CACHE_PREFIX+key);
@@ -1311,7 +1368,7 @@ function dedupeCandidateList(base){
   return base.filter(Boolean).filter(p=>{
     if(!Object.prototype.hasOwnProperty.call(TYPE_LABEL,p.type))return false;
     const lat=Number(p.lat),lon=Number(p.lon);
-    const coord=Number.isFinite(lat)&&Number.isFinite(lon)?`${lat.toFixed(4)}|${lon.toFixed(4)}`:`unresolved|${p.name}`;
+    const coord=hasResolvedCoord(p)?`${lat.toFixed(4)}|${lon.toFixed(4)}`:`unresolved|${p.name}`;
     const k=`${p.type}|${p.name}|${coord}`;
     if(seen.has(k))return false;seen.add(k);return true;
   });
@@ -1488,7 +1545,10 @@ async function loadCandidates(){
     const center=await resolveMountainCenter(label);
     if(!MOUNTAIN_PRESETS[mountain])MOUNTAIN_PRESETS[mountain]=center;
 
-    const staticBase=[...(BUILTIN_ROUTE_CATALOG[mountain]||[]),...(TRAVERSE_CATALOG[mountain]||[]),...regionalCandidates(mountain)].filter(p=>Object.prototype.hasOwnProperty.call(TYPE_LABEL,p.type));
+    const embeddedBase=[...(BUILTIN_ROUTE_CATALOG[mountain]||[]),...(TRAVERSE_CATALOG[mountain]||[]),...regionalCandidates(mountain)].filter(p=>Object.prototype.hasOwnProperty.call(TYPE_LABEL,p.type));
+    const embeddedNames=new Set(embeddedBase.map(p=>`${p.type}|${p.name}`));
+    const fixedNameFallback=fixedNameFallbackCandidates(mountain).filter(p=>!embeddedNames.has(`${p.type}|${p.name}`));
+    const staticBase=[...embeddedBase,...fixedNameFallback];
     const fullCacheKey=`full:${mountainCacheKey(mountain)}`;
     const cachedFull=routeCacheGet(fullCacheKey,7*24*60*60*1000);
 
@@ -1529,14 +1589,18 @@ async function loadCandidates(){
       trailSearchStage='山名検索';
     }
 
-    candidates=[...staticBase,...curated,...dynamic];
+    const resolvedNames=new Set(curated.map(p=>`${p.type}|${p.name}`));
+    const staticResolved=staticBase.filter(p=>!p.unresolved||!resolvedNames.has(`${p.type}|${p.name}`));
+    candidates=[...staticResolved,...curated,...dynamic];
     renderCandidateRows(label,center,{resetPoints:false});
     routeCachePut(fullCacheKey,[...curated,...dynamic]);
 
     const trailCount=candidates.filter(p=>p.type==='trailhead').length, hutCount=candidates.filter(p=>p.type==='hut').length, peakCount=candidates.filter(p=>p.type==='peak').length;
-    const trailNote=trailCount?`登山口探索 ${trailSearchStage}`:'登山口候補を検出できませんでした';
+    const resolvedTrailCount=candidates.filter(p=>p.type==='trailhead'&&hasResolvedCoord(p)).length;
+    const trailNote=resolvedTrailCount?`登山口探索 ${trailSearchStage}`:(trailCount?'固定候補あり・一部座標確認中':'登山口候補を検出できませんでした');
     $('candidateState').textContent=`${label}：登山口 ${trailCount} / 山小屋・避難小屋 ${hutCount} / 山頂・周辺ピーク ${peakCount}（追加探索完了 / 固定候補 ${curated.length}件 / ${trailNote}）`;
-    if(!trailCount)setStatus(`${label} の登山口を自動検出できませんでした。固定候補が未整備です。追加登録が必要です。`,true);
+    if(!trailCount)setStatus(`${label} の登山口候補が見つかりませんでした。`,true);
+    else if(!resolvedTrailCount)setStatus(`${label} は代表登山口名を固定候補として表示しています。座標確認が完了した候補を選んでください。`,false);
     updateLoadButtonAppearance(true);
     logEvent('route_candidates_loaded',{success:true,metadata:{mountain:label,candidate_count:candidates.length,dynamic_count:dynamic.length,curated_count:curated.length,cache_hit:false}});
   }catch(e){
@@ -1672,13 +1736,14 @@ function updateForecastHorizon(){
 }
 
 function selectedCandidate(id){return candidates.find(p=>String(p.id)===String(id));}
-function updateMeta(row){const p=selectedCandidate(row.querySelector('.point-select').value); row.querySelector('.point-meta').textContent=p?`${p.name} / ${p.elevation||'標高自動'}m / ${Number(p.lat).toFixed(4)}, ${Number(p.lon).toFixed(4)}`:'地点を選択してください';}
+function updateMeta(row){const p=selectedCandidate(row.querySelector('.point-select').value); if(!p){row.querySelector('.point-meta').textContent='地点を選択してください';return;} row.querySelector('.point-meta').textContent=hasResolvedCoord(p)?`${p.name} / ${p.elevation||'標高自動'}m / ${Number(p.lat).toFixed(4)}, ${Number(p.lon).toFixed(4)}`:`${p.name} / 固定候補・座標確認中`; }
 function collectPoints(){
   return [...$('points').children].map((row,i)=>{
     const p=selectedCandidate(row.querySelector('.point-select').value);
     if(!p) return null; // 最初から表示する4枠は、使わない枠を空欄のままにできる
     const date=row.querySelector('.point-date').value, time=row.querySelector('.point-time').value;
     if(!date||!time) throw new Error(`${p.name} の通過日・通過時刻を入力してください。`);
+    if(!hasResolvedCoord(p)) throw new Error(`${p.name} の座標がまだ確定していません。候補を再読み込みするか、座標取得済みの候補を選択してください。`);
     return {...p,date,time,type:row.querySelector('.point-type').value,stay:!!row.querySelector('.point-stay')?.checked,role:row.dataset.role||''};
   }).filter(Boolean);
 }
