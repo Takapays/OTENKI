@@ -1,4 +1,4 @@
-Japan 300 fixed/resolved trailhead coverage: 190/300
+Japan 300 fixed/resolved trailhead coverage: 196/300
 
 Missing fixed coordinates:
 - ニセイカウシュッペ山
@@ -93,12 +93,6 @@ Missing fixed coordinates:
 - 鷲ヶ岳
 - 川上岳
 - 冠山
-- 扇ノ山
-- 那岐山
-- 三瓶山
-- 東赤石山
-- 三本杭
-- 篠山
 - 英彦山
 - 脊振山
 - 多良岳
