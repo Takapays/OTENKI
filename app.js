@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.7.3';
+const APP_VERSION = '1.7.4';
 
 const providers = [
   {id:'jma',name:'JMA MSM',kind:'openmeteo',endpoint:'https://api.open-meteo.com/v1/jma',model:'jma_msm',forecastDays:4,vars:['temperature_2m','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_direction_10m']},
@@ -232,14 +232,22 @@ const sessionId=(crypto.randomUUID?crypto.randomUUID():Math.random().toString(36
 document.addEventListener('DOMContentLoaded',init);
 function init(){
   const sel=$('mountainPreset');
+  sel.add(new Option('山を選択してください',''));
   Object.keys(MOUNTAIN_PRESETS).forEach(n=>sel.add(new Option(n,n)));
-  sel.value='槍ヶ岳';
+  sel.value='';
   $('loadPoiBtn').addEventListener('click',loadCandidates);
   $('addPointBtn').addEventListener('click',()=>addManualPointRow());
   $('analyzeBtn').addEventListener('click',analyze);
-  $('mountainPreset').addEventListener('change',()=>{candidates=[];$('candidateState').textContent='「この山のルート候補を読み込む」を押してください';$('points').innerHTML='';pointSeq=0;updateLoadButtonAppearance(false);});
+  $('mountainPreset').addEventListener('change',()=>{
+    candidates=[];
+    $('points').innerHTML=''; pointSeq=0;
+    const selected=!!sel.value;
+    $('candidateState').textContent=selected?'「この山のルート候補を読み込む」を押してください':'山を選択してください';
+    updateLoadButtonAppearance(false);
+    updateForecastHorizon();
+  });
+  $('candidateState').textContent='山を選択してください';
   updateLoadButtonAppearance(false);
-  loadCandidates();
   updateForecastHorizon();
   logEvent('page_view',{success:true});
 }
@@ -247,12 +255,19 @@ function init(){
 function updateLoadButtonAppearance(loaded){
   const btn=$('loadPoiBtn');
   if(!btn)return;
-  btn.classList.toggle('primary',!loaded);
-  btn.classList.toggle('secondary',loaded);
-  btn.classList.toggle('route-load-needed',!loaded);
+  const hasMountain=!!$('mountainPreset')?.value;
+  btn.disabled=!hasMountain;
+  btn.classList.toggle('primary',hasMountain&&!loaded);
+  btn.classList.toggle('secondary',!hasMountain||loaded);
+  btn.classList.toggle('route-load-needed',hasMountain&&!loaded);
 }
 function loadCandidates(){
   const mountain=$('mountainPreset').value;
+  if(!mountain){
+    $('candidateState').textContent='先に山を選択してください';
+    updateLoadButtonAppearance(false);
+    return;
+  }
   const base=[...(BUILTIN_ROUTE_CATALOG[mountain]||[]),...(TRAVERSE_CATALOG[mountain]||[]),...regionalCandidates(mountain)].filter(p=>Object.prototype.hasOwnProperty.call(TYPE_LABEL,p.type));
   const seen=new Set();
   candidates=base.filter(p=>{const k=`${p.name}|${p.lat}|${p.lon}`;if(seen.has(k))return false;seen.add(k);return true;});
@@ -278,7 +293,12 @@ function addManualPointRow(){
     if(lastValue){
       const dt=new Date(lastValue);
       if(!Number.isNaN(dt.getTime())){
-        dt.setHours(dt.getHours()+1);
+        if(last.querySelector('.point-stay')?.checked){
+          dt.setDate(dt.getDate()+1);
+          dt.setHours(5,0,0,0);
+        }else{
+          dt.setHours(dt.getHours()+1);
+        }
         date=formatLocalDate(dt);
         time=formatLocalTime(dt);
       }
@@ -322,25 +342,15 @@ function addPointRow(type='peak',selected='',roleLabel='',initialDateTime=null){
   pickerBtn?.addEventListener('click',openDatePicker);
   dateInput.addEventListener('dblclick',openDatePicker);
   [dateInput,timeInput].forEach(input=>{
-    input.addEventListener('focus',()=>{ row.dataset.datetimeBefore = rowDateTimeValue(row) || ''; });
     input.addEventListener('change',()=>{
-      const before=row.dataset.datetimeBefore || '';
-      const after=rowDateTimeValue(row) || '';
-      if(before && after && before!==after) shiftFollowingPointTimes(row,before,after);
-      row.dataset.datetimeBefore=after;
+      syncNextPointInitialTime(row);
+      row.dataset.datetimeBefore=rowDateTimeValue(row)||'';
       updateForecastHorizon();
     });
   });
-  row.querySelector('.point-stay').addEventListener('change',e=>{
-    if(!e.target.checked)return;
-    const next=row.nextElementSibling;
-    const date=row.querySelector('.point-date').value;
-    if(next&&date){
-      next.querySelector('.point-date').value=addDays(date,1);
-      next.dataset.datetimeBefore=rowDateTimeValue(next)||'';
-      setStatus(`宿泊の次のポイントを翌日（${next.querySelector('.point-date').value}）にしました。`);
-      updateForecastHorizon();
-    }
+  row.querySelector('.point-stay').addEventListener('change',()=>{
+    syncNextPointInitialTime(row);
+    updateForecastHorizon();
   });
   row.querySelector('.remove').addEventListener('click',()=>{row.remove();renumber();updateForecastHorizon();});
   row.querySelector('.up').addEventListener('click',()=>{const p=row.previousElementSibling;if(p)row.parentNode.insertBefore(row,p);renumber();});
@@ -356,31 +366,26 @@ function formatJstInput(ms){
   const pad=n=>String(n).padStart(2,'0');
   return {date:`${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}`,time:`${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`};
 }
-function shiftFollowingPointTimes(row,beforeIso,afterIso){
-  const beforeMs=new Date(beforeIso).getTime(), afterMs=new Date(afterIso).getTime();
-  if(!Number.isFinite(beforeMs)||!Number.isFinite(afterMs)) return;
-  const delta=afterMs-beforeMs;
-  if(!delta) return;
-  let next=row.nextElementSibling;
-  while(next){
-    const iso=rowDateTimeValue(next);
-    if(iso){
-      const oldMs=new Date(iso).getTime();
-      if(Number.isFinite(oldMs)){
-        const shifted=formatJstInput(oldMs+delta);
-        next.querySelector('.point-date').value=shifted.date;
-        next.querySelector('.point-time').value=shifted.time;
-        next.dataset.datetimeBefore=`${shifted.date}T${shifted.time}:00+09:00`;
-      }
-    }
-    next=next.nextElementSibling;
+function syncNextPointInitialTime(row){
+  const next=row.nextElementSibling;
+  const current=rowDateTimeValue(row);
+  if(!next||!current)return;
+  const dt=new Date(current);
+  if(Number.isNaN(dt.getTime()))return;
+  if(row.querySelector('.point-stay')?.checked){
+    const base=new Date(`${row.querySelector('.point-date').value}T12:00:00+09:00`);
+    base.setDate(base.getDate()+1);
+    const nextDate=formatLocalDate(base);
+    next.querySelector('.point-date').value=nextDate;
+    next.querySelector('.point-time').value='05:00';
+    next.dataset.datetimeBefore=`${nextDate}T05:00:00+09:00`;
+    setStatus(`宿泊の次のポイントを翌朝 5:00 にしました。`);
+  }else{
+    const shifted=formatJstInput(dt.getTime()+60*60*1000);
+    next.querySelector('.point-date').value=shifted.date;
+    next.querySelector('.point-time').value=shifted.time;
+    next.dataset.datetimeBefore=`${shifted.date}T${shifted.time}:00+09:00`;
   }
-  setStatus(`後続ポイントの通過日時を ${formatShift(delta)} ずらしました。`);
-}
-function formatShift(ms){
-  const sign=ms>=0?'+':'−', mins=Math.round(Math.abs(ms)/60000), days=Math.floor(mins/1440), hrs=Math.floor((mins%1440)/60), rem=mins%60;
-  const parts=[]; if(days)parts.push(`${days}日`); if(hrs)parts.push(`${hrs}時間`); if(rem||!parts.length)parts.push(`${rem}分`);
-  return `${sign}${parts.join('')}`;
 }
 function updateForecastHorizon(){
   const el=$('forecastHorizonCurrent');
@@ -818,14 +823,21 @@ function renderWeatherCharts(points){
   const ribbon=$('riskRibbon'); if(ribbon)ribbon.innerHTML=`<div class="risk-ribbon-head"><b>地点別リスク</b><small>番号はグラフのポイント番号と対応しています</small></div><div class="risk-ribbon-track">${points.map((p,i)=>`<div class="risk-stop g-${p.grade}"><span>${String(i+1).padStart(2,'0')}</span><b>${p.grade}</b><small>${esc(p.point.name)}</small><em>${esc(p.point.time||'')}</em></div>`).join('')}</div>`;
 }
 
+function thunderBadge(level){
+  const lv=String(level||'LOW').toUpperCase();
+  if(lv==='EXTREME')return `<span class="thunder-badge extreme">⚡⚡ EXTREME</span>`;
+  if(lv==='HIGH')return `<span class="thunder-badge high">⚡ HIGH</span>`;
+  if(lv==='MEDIUM')return `<span class="thunder-badge medium">⚡ MEDIUM</span>`;
+  return `<span class="thunder-badge low">LOW</span>`;
+}
 function renderAll(points,overnight=[]){
 
   $('results').classList.remove('hidden'); renderWeatherCharts(points); const worst=points.reduce((a,b)=>gradeRank(b.grade)>gradeRank(a.grade)?b:a,points[0]); const best=points.reduce((a,b)=>gradeRank(b.grade)<gradeRank(a.grade)?b:a,points[0]);
-  $('grade').textContent=worst.grade; $('verdict').textContent=verdict(worst.grade); $('bestWindow').textContent=`${best.point.date} ${best.point.time} ${best.point.name}`; $('maxWind').textContent=`${num(max(points.flatMap(x=>x.providerRows.map(y=>y.row.wind))))} m/s`; $('maxRain').textContent=`${num(max(points.flatMap(x=>x.providerRows.map(y=>y.row.rain))))} mm/h`; $('thunderRisk').textContent=maxThunder(points.map(x=>x.thunder)); $('confidence').textContent=overallConfidence(points.map(x=>x.confidence));
-  $('forecastCards').innerHTML=points.map((r,i)=>`<article class="forecast-card"><div class="card-head"><div><span>${String(i+1).padStart(2,'0')} / ${TYPE_LABEL[r.point.type]}</span><h3>${esc(r.point.name)}</h3><small>${r.point.date} ${r.point.time} / ${Math.round(r.point.elevation||0)}m</small></div><b class="grade g-${r.grade}">${r.grade}</b></div><div class="metrics"><span>気温 <b>${num(r.temp)}℃</b></span><span>風 <b>${num(r.wind)}m/s</b></span><span>突風 <b>${num(r.gust)}m/s</b></span><span>雨 <b>${num(r.rain)}mm/h</b></span><span>雲 <b>${num(r.cloud,0)}%</b></span><span>雷 <b>${r.thunder}</b></span></div><div class="model-note">取得 ${r.providerRows.length}/${providers.length}モデル / 一致度 ${r.confidence}${r.errors.length?`<br><small>${esc(r.errors.join(' / '))}</small>`:''}</div></article>`).join('');
+  $('grade').textContent=worst.grade; $('verdict').textContent=verdict(worst.grade); $('bestWindow').textContent=`${best.point.date} ${best.point.time} ${best.point.name}`; $('maxWind').textContent=`${num(max(points.flatMap(x=>x.providerRows.map(y=>y.row.wind))))} m/s`; $('maxRain').textContent=`${num(max(points.flatMap(x=>x.providerRows.map(y=>y.row.rain))))} mm/h`; $('thunderRisk').innerHTML=thunderBadge(maxThunder(points.map(x=>x.thunder))); $('confidence').textContent=overallConfidence(points.map(x=>x.confidence));
+  $('forecastCards').innerHTML=points.map((r,i)=>`<article class="forecast-card"><div class="card-head"><div><span>${String(i+1).padStart(2,'0')} / ${TYPE_LABEL[r.point.type]}</span><h3>${esc(r.point.name)}</h3><small>${r.point.date} ${r.point.time} / ${Math.round(r.point.elevation||0)}m</small></div><b class="grade g-${r.grade}">${r.grade}</b></div><div class="metrics"><span>気温 <b>${num(r.temp)}℃</b></span><span>風 <b>${num(r.wind)}m/s</b></span><span>突風 <b>${num(r.gust)}m/s</b></span><span>雨 <b>${num(r.rain)}mm/h</b></span><span>雲 <b>${num(r.cloud,0)}%</b></span><span class="thunder-metric thunder-${String(r.thunder).toLowerCase()}">雷 <b>${thunderBadge(r.thunder)}</b></span></div><div class="model-note">取得 ${r.providerRows.length}/${providers.length}モデル / 一致度 ${r.confidence}${r.errors.length?`<br><small>${esc(r.errors.join(' / '))}</small>`:''}</div></article>`).join('');
   const overnightWithArrival=overnight.map(o=>{const match=points.find(r=>r.point===o.point||(r.point.name===o.point.name&&r.point.date===o.point.date&&r.point.time===o.point.time));return {...o,arrivalTemp:match?.temp};});
   renderOvernights(overnightWithArrival);
-  $('modelDetails').innerHTML=points.map(r=>`<article class="model-block"><h3>${esc(r.point.name)} <small>${r.point.date} ${r.point.time}</small></h3><div class="table-wrap"><table><thead><tr><th>モデル</th><th>気温</th><th>風</th><th>突風</th><th>雨</th><th>雲</th><th>CAPE</th><th>視程</th></tr></thead><tbody>${r.providerRows.map(x=>`<tr><td>${x.provider.name}</td><td>${num(x.row.temp)}℃</td><td>${num(x.row.wind)}m/s</td><td>${num(x.row.gust)}m/s</td><td>${num(x.row.rain)}mm</td><td>${num(x.row.cloud,0)}%</td><td>${num(x.row.cape,0)}</td><td>${Number.isFinite(x.row.visibility)?Math.round(x.row.visibility)+'m':'–'}</td></tr>`).join('')}</tbody></table></div></article>`).join('');
+  $('modelDetails').innerHTML=points.map(r=>`<article class="model-block"><h3>${esc(r.point.name)} <small>${r.point.date} ${r.point.time}</small></h3><div class="table-wrap"><table><thead><tr><th>モデル</th><th>気温</th><th>風</th><th>突風</th><th>雨</th><th>雲</th><th>大気不安定度</th><th>視程</th></tr></thead><tbody>${r.providerRows.map(x=>`<tr><td>${x.provider.name}</td><td>${num(x.row.temp)}℃</td><td>${num(x.row.wind)}m/s</td><td>${num(x.row.gust)}m/s</td><td>${num(x.row.rain)}mm</td><td>${num(x.row.cloud,0)}%</td><td>${num(x.row.cape,0)} J/kg</td><td>${Number.isFinite(x.row.visibility)?Math.round(x.row.visibility)+'m':'–'}</td></tr>`).join('')}</tbody></table></div></article>`).join('');
   $('updatedAt').textContent=new Date().toLocaleString('ja-JP');
 }
 async function proxyFetch(url){return fetch(`/api/proxy?url=${encodeURIComponent(url)}`);}
