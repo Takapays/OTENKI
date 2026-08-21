@@ -227,7 +227,7 @@ footer{color:#768d82}footer strong{color:#4e675c}
 @media(max-width:680px){.chart-card{padding:14px;border-radius:18px}.chart-head h3{font-size:16px}.chart-legend-item{font-size:10px;padding:5px 9px}.chart-kpi{padding:7px 9px}.point-key{gap:6px}.point-key-item{max-width:100%;padding:6px 8px}.point-key-item small{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.chart-canvas{padding:10px}.risk-ribbon-head{align-items:flex-start;flex-direction:column;gap:4px}}
 
 
-/* V1.7.2 usability + full-itinerary graph layout */
+/* V1.7.3 usability + numeric graph labels */
 #loadPoiBtn.route-load-needed{background:linear-gradient(135deg,#22a96f,#138459);color:#fff;border-color:transparent;box-shadow:0 12px 28px rgba(22,138,91,.18)}
 #loadPoiBtn.route-load-needed:hover{filter:brightness(1.04);transform:translateY(-1px)}
 .point-row{grid-template-columns:42px 140px minmax(210px,1fr) 190px 118px 128px 40px 40px 40px}
@@ -240,3 +240,11 @@ footer{color:#768d82}footer strong{color:#4e675c}
 .risk-stop em{display:block;margin-top:2px;font-size:9px;font-style:normal;font-weight:900;opacity:.78}
 @media(max-width:850px){.point-row{grid-template-columns:34px 1fr 1fr}.point-name-label,.stay-option,.point-meta{grid-column:2/4}.datetime-label{grid-column:2/4!important}.move,.remove{align-self:end}.point-key{gap:3px}.point-key-item{display:flex;flex-direction:column;justify-content:center;gap:3px;padding:5px 2px;text-align:center}.point-key-copy strong{font-size:8px;max-width:100%}.point-key-copy small{font-size:8px}.point-key-item b{width:20px;height:20px;font-size:9px}.chart-card{padding:12px}.chart-canvas{padding:6px}.chart-kpis{gap:5px}.chart-kpi{padding:6px 7px}.chart-kpi small,.chart-kpi b{font-size:10px}}
 @media(max-width:520px){.point-row{grid-template-columns:30px 1fr 1fr}.point-name-label,.stay-option,.point-meta,.datetime-label{grid-column:2/4!important}.date-picker-btn{flex-basis:40px}.point-key-copy strong{font-size:7px}.point-key-copy small{font-size:8px}.point-key-item b{width:18px;height:18px;font-size:8px}.chart-scale{font-size:9px}}
+
+
+/* V1.7.3 visible values + overnight temperature focus */
+.chart-value{paint-order:stroke;stroke:#ffffff;stroke-width:3px;stroke-linejoin:round;font-size:10px;font-weight:900;pointer-events:none}
+.chart-value.wind-value{fill:#137957}.chart-value.gust-value{fill:#115ac8}.chart-value.rain-value{fill:#237dbd}.chart-value.temp-value{fill:#d96919}.chart-value.cloud-value{fill:#66727d;stroke:#f7faf8;stroke-width:3px}
+.overnight-metrics .temp-focus{background:linear-gradient(145deg,#eef9f4,#ffffff);border-color:#bcded0;box-shadow:0 7px 18px rgba(24,84,61,.07)}
+.overnight-metrics .temp-focus b{font-size:18px;color:#116d4c}.overnight-metrics .temp-focus.morning b{color:#235f99}.overnight-metrics .temp-focus em{display:block;margin-top:3px;font-style:normal;font-size:9px;color:#7a9086}
+@media(max-width:680px){.chart-value{font-size:9px;stroke-width:2.5px}.overnight-metrics .temp-focus b{font-size:17px}}
