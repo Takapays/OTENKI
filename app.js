@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.7.4';
+const APP_VERSION = '1.7.6';
 
 const providers = [
   {id:'jma',name:'JMA MSM',kind:'openmeteo',endpoint:'https://api.open-meteo.com/v1/jma',model:'jma_msm',forecastDays:4,vars:['temperature_2m','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_direction_10m']},
@@ -118,10 +118,76 @@ const BUILTIN_ROUTE_CATALOG = {
     {id:'builtin-tani-tomano',type:'peak',name:'トマノ耳',lat:36.8362,lon:138.9309,elevation:1963},
     {id:'builtin-tani-oki',type:'peak',name:'谷川岳 オキノ耳',lat:36.8370,lon:138.9300,elevation:1977}
   ],
+  '双六岳': [
+    {id:'builtin-sugoroku-shinhotaka',type:'trailhead',name:'新穂高温泉',lat:36.285405,lon:137.575014,elevation:1117},
+    {id:'builtin-sugoroku-wasabidaira',type:'hut',name:'わさび平小屋',lat:36.3075,lon:137.5925,elevation:1402},
+    {id:'builtin-sugoroku-kagamidaira',type:'hut',name:'鏡平山荘',lat:36.3388,lon:137.5888,elevation:2300},
+    {id:'builtin-sugoroku-goya',type:'hut',name:'双六小屋',lat:36.3745,lon:137.5920,elevation:2550},
+    {id:'builtin-sugoroku-peak',type:'peak',name:'双六岳',lat:36.3723,lon:137.5875,elevation:2860}
+  ],
+  '鹿島槍ヶ岳': [
+    {id:'builtin-kashima-ogisawa',type:'trailhead',name:'扇沢登山口',lat:36.558056,lon:137.721389,elevation:1430},
+    {id:'builtin-kashima-otani',type:'trailhead',name:'大谷原登山口',lat:36.604167,lon:137.800000,elevation:1070},
+    {id:'builtin-kashima-taneike',type:'hut',name:'種池山荘',lat:36.5769,lon:137.7039,elevation:2450},
+    {id:'builtin-kashima-tsumetaike',type:'hut',name:'冷池山荘',lat:36.6049,lon:137.7168,elevation:2410},
+    {id:'builtin-kashima-kiretto',type:'hut',name:'キレット小屋',lat:36.6410,lon:137.7384,elevation:2470},
+    {id:'builtin-kashima-peak',type:'peak',name:'鹿島槍ヶ岳',lat:36.6244,lon:137.7467,elevation:2889}
+  ],
+  '間ノ岳': [
+    {id:'builtin-ainodake-hirokawara',type:'trailhead',name:'広河原',lat:35.6867,lon:138.2705,elevation:1520},
+    {id:'builtin-ainodake-kitadake-sanso',type:'hut',name:'北岳山荘',lat:35.6585,lon:138.2315,elevation:2900},
+    {id:'builtin-ainodake-kumanodaira',type:'hut',name:'熊ノ平小屋',lat:35.6176,lon:138.2276,elevation:2450},
+    {id:'builtin-ainodake-peak',type:'peak',name:'間ノ岳',lat:35.6461,lon:138.2283,elevation:3190}
+  ],
+  '甲斐駒ヶ岳': [
+    {id:'builtin-kaikoma-kitazawa',type:'trailhead',name:'北沢峠',lat:35.742214,lon:138.213675,elevation:2030},
+    {id:'builtin-kaikoma-choei',type:'hut',name:'長衛小屋',lat:35.7434,lon:138.2149,elevation:1980},
+    {id:'builtin-kaikoma-sensui',type:'hut',name:'仙水小屋',lat:35.7508,lon:138.2257,elevation:2130},
+    {id:'builtin-kaikoma-peak',type:'peak',name:'甲斐駒ヶ岳',lat:35.7578,lon:138.2368,elevation:2967}
+  ],
+  '仙丈ヶ岳': [
+    {id:'builtin-senjo-kitazawa',type:'trailhead',name:'北沢峠',lat:35.742214,lon:138.213675,elevation:2030},
+    {id:'builtin-senjo-choei',type:'hut',name:'長衛小屋',lat:35.7434,lon:138.2149,elevation:1980},
+    {id:'builtin-senjo-umanose',type:'hut',name:'馬の背ヒュッテ',lat:35.7254,lon:138.1924,elevation:2640},
+    {id:'builtin-senjo-goya',type:'hut',name:'仙丈小屋',lat:35.7206,lon:138.1883,elevation:2900},
+    {id:'builtin-senjo-peak',type:'peak',name:'仙丈ヶ岳',lat:35.7201,lon:138.1836,elevation:3033}
+  ],
+  '御嶽山': [
+    {id:'builtin-ontake-nakanoyu',type:'trailhead',name:'中の湯登山口（黒沢口）',lat:35.894822,lon:137.521394,elevation:1820},
+    {id:'builtin-ontake-tanohara',type:'trailhead',name:'田の原登山口',lat:35.873167,lon:137.503500,elevation:2196},
+    {id:'builtin-ontake-nyonindo',type:'hut',name:'女人堂',lat:35.8955,lon:137.5073,elevation:2470},
+    {id:'builtin-ontake-ishimuro',type:'hut',name:'石室山荘',lat:35.8941,lon:137.4907,elevation:2800},
+    {id:'builtin-ontake-ninoike',type:'hut',name:'二の池ヒュッテ',lat:35.8899,lon:137.4848,elevation:2900},
+    {id:'builtin-ontake-gonoike',type:'hut',name:'五の池小屋',lat:35.9020,lon:137.4665,elevation:2798},
+    {id:'builtin-ontake-peak',type:'peak',name:'御嶽山（剣ヶ峰）',lat:35.8929,lon:137.4803,elevation:3067}
+  ],
+  '大山': [
+    {id:'builtin-daisen-natsuyama',type:'trailhead',name:'夏山登山口',lat:35.391194,lon:133.530556,elevation:770},
+    {id:'builtin-daisen-bakuroza',type:'trailhead',name:'博労座・大山寺側',lat:35.394694,lon:133.530306,elevation:740},
+    {id:'builtin-daisen-roku',type:'hut',name:'六合目避難小屋',lat:35.3797,lon:133.5387,elevation:1350},
+    {id:'builtin-daisen-summit',type:'hut',name:'大山頂上避難小屋',lat:35.3714,lon:133.5460,elevation:1700},
+    {id:'builtin-daisen-peak',type:'peak',name:'大山（弥山）',lat:35.3711,lon:133.5462,elevation:1709}
+  ],
+  '石鎚山': [
+    {id:'builtin-ishizuchi-tsuchigoya',type:'trailhead',name:'土小屋登山口',lat:33.758250,lon:133.144778,elevation:1492},
+    {id:'builtin-ishizuchi-ropeway',type:'trailhead',name:'石鎚ロープウェイ前',lat:33.802778,lon:133.147778,elevation:450},
+    {id:'builtin-ishizuchi-chojo',type:'hut',name:'石鎚神社頂上山荘',lat:33.7678,lon:133.1152,elevation:1970},
+    {id:'builtin-ishizuchi-peak',type:'peak',name:'石鎚山（弥山）',lat:33.7679,lon:133.1150,elevation:1972}
+  ],
+  '宮之浦岳': [
+    {id:'builtin-miyanoura-yodogawa',type:'trailhead',name:'淀川登山口',lat:30.299559,lon:130.533802,elevation:1360},
+    {id:'builtin-miyanoura-yodogawa-goya',type:'hut',name:'淀川小屋',lat:30.3052,lon:130.5328,elevation:1380},
+    {id:'builtin-miyanoura-shintakatsuka',type:'hut',name:'新高塚小屋',lat:30.3572,lon:130.5024,elevation:1460},
+    {id:'builtin-miyanoura-takatsuka',type:'hut',name:'高塚小屋',lat:30.3741,lon:130.4979,elevation:1330},
+    {id:'builtin-miyanoura-peak',type:'peak',name:'宮之浦岳',lat:30.3362,lon:130.5042,elevation:1936}
+  ],
   '木曽駒ヶ岳': [
     {id:'builtin-kiso-senjo',type:'trailhead',name:'千畳敷',lat:35.7797,lon:137.8147,elevation:2612},
     {id:'builtin-kiso-nokkoshi',type:'pass',name:'乗越浄土',lat:35.7837,lon:137.8077,elevation:2850},
     {id:'builtin-kiso-tengu',type:'hut',name:'天狗荘',lat:35.7861,lon:137.8065,elevation:2870},
+    {id:'builtin-kiso-hoken',type:'hut',name:'宝剣山荘',lat:35.7852,lon:137.8068,elevation:2865},
+    {id:'builtin-kiso-chojo',type:'hut',name:'頂上山荘',lat:35.7904,lon:137.8060,elevation:2870},
+    {id:'builtin-kiso-tamanokubo',type:'hut',name:'玉乃窪山荘',lat:35.7944,lon:137.7991,elevation:2756},
     {id:'builtin-kiso-peak',type:'peak',name:'木曽駒ヶ岳',lat:35.7895,lon:137.8047,elevation:2956}
   ]
 };
