@@ -26,7 +26,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.12.30"
+APP_VERSION = "1.12.69"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -73,12 +73,12 @@ OVERPASS_ENDPOINTS = [
 
 UA = os.environ.get(
     "UPSTREAM_USER_AGENT",
-    "TraverseWeatherDecision/1.12.30",
+    "TraverseWeatherDecision/1.12.69",
 )
 
 METNO_USER_AGENT = os.environ.get(
     "METNO_USER_AGENT",
-    "JUUSOUTENKI/1.12.30 https://juusoutenki.onrender.com",
+    "TRATEN/1.12.69 https://juusoutenki.onrender.com",
 )
 
 NOAA_GFS_FILTER = os.environ.get(
@@ -736,15 +736,19 @@ def index():
     return send_from_directory(BASE, "index.html")
 
 
-PUBLIC_FILES = {"app.js", "styles.css", "favicon.ico", "robots.txt"}
+PUBLIC_FILES = {"app.js", "styles.css", "favicon.ico", "robots.txt", "manifest.json"}
+PUBLIC_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif", ".ico"}
 
 
 @app.get("/<path:path>")
 def static_files(path: str):
     # Do not expose server/config files from the repository root.
-    if path in PUBLIC_FILES and os.path.isfile(os.path.join(BASE, path)):
+    full_path = os.path.join(BASE, path)
+    ext = os.path.splitext(path)[1].lower()
+    is_public_asset = path in PUBLIC_FILES or ext in PUBLIC_IMAGE_EXTS
+    if is_public_asset and os.path.isfile(full_path):
         response = send_from_directory(BASE, path)
-        if path.endswith((".js", ".css")):
+        if path.endswith((".js", ".css", ".json")) or ext in PUBLIC_IMAGE_EXTS:
             response.headers["Cache-Control"] = "public, max-age=300"
         return response
     return send_from_directory(BASE, "index.html")

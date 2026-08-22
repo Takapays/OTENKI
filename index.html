@@ -3,117 +3,180 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#0b1714">
-  <title>縦走山行判断ツール | V1.12.30</title>
-  <link rel="stylesheet" href="styles.css?v=1.12.30">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="トラテン">
+  <link rel="apple-touch-icon" sizes="180x180" href="traten-icon-180.png?v=1.12.69">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=1.12.69">
+  <link rel="manifest" href="manifest.json?v=1.12.69">
+  <title>トラテン｜トラバース天気 | V1.12.69</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+  <link rel="stylesheet" href="styles.css?v=1.12.69">
 </head>
 <body>
-<header class="hero">
-  <div class="hero-inner">
-    <div class="hero-copy">
-      <div class="eyebrow">TRAVERSE WEATHER DECISION</div>
-      <h1>縦走山行判断ツール</h1>
-      <p>山に行くか？やめるか？</p>
-      <div class="version-row"><span class="version">V1.12.30</span><span class="edition-badge">三百名山網羅版！</span></div>
+<header class="app-topbar">
+  <div class="topbar-inner">
+    <div class="brand-lockup">
+      <img src="traten-logo.png?v=1.12.69" alt="トラテン｜トラバース天気">
     </div>
-    <div class="hero-mark" aria-hidden="true">
-      <span class="ridge ridge-back"></span>
-      <span class="ridge ridge-front"></span>
-      <span class="sun"></span>
+    <div class="topbar-center">
+      <h1>その時、その場所の空を読む。</h1>
+      <div class="topbar-badges">
+        <span>V1.12.69</span>
+        <span>日本三百名山 300座</span>
+        <span>5系統アラート</span>
+      </div>
     </div>
+    <div class="mobile-topbar-copy">その時、その場所の空を読む。</div>
+    <span class="mobile-topbar-version">V1.12.69</span>
+    <section id="statusDesktop" class="status status-topbar status-desktop hidden" aria-live="polite"></section>
   </div>
 </header>
 
-<main>
-  <section class="panel plan-panel">
-    <div class="section-title">
-      <span>01</span>
-      <div><h2>山と通過予定地点</h2></div>
-    </div>
-
-    <div class="mountain-row">
-      <div class="mountain-picker-dual">
-        <label class="mountain-area-label">山域を選択
-          <select id="mountainArea"><option value="">山域を選択してください</option></select>
-        </label>
-        <label class="mountain-select-label">山を選択
-          <select id="mountainPreset" disabled><option value="">先に山域を選択してください</option></select>
-        </label>
-        <label class="mountain-search-label">山名検索
-          <input id="mountainSearch" type="search" list="mountainPresetList" autocomplete="off" placeholder="山名を入力して検索">
-          <datalist id="mountainPresetList"></datalist>
-        </label>
+<main class="dashboard-shell">
+  <aside class="planner-rail">
+    <section class="panel plan-panel">
+      <div class="panel-kicker">ROUTE PLAN</div>
+      <div class="section-title compact-title">
+        <span>01</span>
+        <div><h2>山行設定</h2><p>山と通過予定地点を設定</p></div>
       </div>
-      <small id="mountainCount" class="mountain-count"></small>
-      <button id="loadPoiBtn" class="secondary" type="button">この山のルート候補を読み込む</button>
-      <div id="candidateState" class="state"></div>
-    </div>
 
-    <div class="forecast-horizon" id="forecastHorizon">
-      <div class="forecast-horizon-head">
-        <div><strong>予報期間の目安</strong><small id="forecastHorizonCurrent">選択中：0〜4日先 / 4モデル比較 ◎</small></div>
+      <div class="mountain-row">
+        <div class="mountain-picker-dual">
+          <label class="mountain-area-label">山域を選択
+            <select id="mountainArea"><option value="">山域を選択してください</option></select>
+          </label>
+          <label class="mountain-select-label">山を選択
+            <select id="mountainPreset" disabled><option value="">先に山域を選択してください</option></select>
+          </label>
+          <label class="mountain-search-label">山名検索
+            <input id="mountainSearch" type="search" list="mountainPresetList" autocomplete="off" placeholder="山名を入力して検索">
+            <datalist id="mountainPresetList"></datalist>
+          </label>
+        </div>
+        <small id="mountainCount" class="mountain-count"></small>
+        <button id="loadPoiBtn" class="secondary" type="button">ルート候補を読み込む</button>
+        <div id="candidateState" class="state"></div>
       </div>
-      <div class="forecast-horizon-grid">
-        <span class="horizon-chip best"><b>0〜4日先</b><small>4モデル比較 ◎</small></span>
-        <span class="horizon-chip good"><b>5〜7日先</b><small>3モデル程度 ○</small></span>
-        <span class="horizon-chip caution"><b>8〜15日先</b><small>ECMWF / GFS中心 △</small></span>
-        <span class="horizon-chip out"><b>16日以降</b><small>予報対象外</small></span>
+
+      <div class="points-head">
+        <div><h3>通過ポイント</h3><small>登山口・山頂・山小屋・下山口</small></div>
       </div>
-    </div>
+      <div id="points" class="points"></div>
 
-    <div class="points-head">
-      <div><h3>通過ポイント</h3><small>登山口・山頂・山小屋・下山口を最初から表示</small></div>
-    </div>
-    <div id="points" class="points"></div>
-
-    <div class="actions route-actions">
-      <button id="addPointBtn" class="secondary" type="button">＋ 地点を追加</button>
-      <button id="analyzeBtn" class="primary" type="button"><span>この計画を分析開始</span><b>→</b></button>
-    </div>
-  </section>
-
-  <section id="status" class="status hidden"></section>
-
-  <section id="results" class="hidden">
-    <section class="panel result-panel">
-      <div class="section-title"><span>02</span><div><h2>総合判断</h2><p id="updatedAt"></p></div></div>
-      <div class="summary">
-        <article class="summary-main"><small>総合評価</small><div id="grade" class="big-grade">–</div><b id="verdict">–</b></article>
-        <article><small>比較的よい地点</small><b id="bestWindow">–</b></article>
-        <article><small>最大風速</small><b id="maxWind">–</b></article>
-        <article><small>最大降水</small><b id="maxRain">–</b></article>
-        <article><small>雷リスク</small><b id="thunderRisk">–</b></article>
-        <article><small>モデル一致度</small><b id="confidence">–</b></article>
+      <div class="actions route-actions">
+        <button id="addPointBtn" class="secondary" type="button">＋ 地点を追加</button>
+        <button id="analyzeBtn" class="primary" type="button"><span>この計画を分析開始</span><b>→</b></button>
+        <section id="statusMobile" class="status status-mobile hidden" aria-live="polite"></section>
       </div>
     </section>
+  </aside>
 
-    <section class="panel">
-      <div class="section-title"><span>03</span><div><h2>縦走気象グラフ</h2></div></div>
-      <div id="weatherCharts" class="weather-charts"></div>
-      <div id="riskRibbon" class="risk-ribbon"></div>
+  <section class="dashboard-stage">
+    <section class="dashboard-welcome" aria-label="トラテンの分析内容">
+      <div class="forecast-horizon dashboard-horizon" id="forecastHorizon">
+        <div class="forecast-horizon-head">
+          <div><strong>予報期間の目安</strong><small id="forecastHorizonCurrent">選択中：0〜4日先 / 4モデル比較 ◎</small></div>
+        </div>
+        <div class="forecast-horizon-grid">
+          <span class="horizon-chip best"><b>0〜4日先</b><small>4モデル比較 ◎</small></span>
+          <span class="horizon-chip good"><b>5〜7日先</b><small>3モデル程度 ○</small></span>
+          <span class="horizon-chip caution"><b>8〜15日先</b><small>ECMWF / GFS中心 △</small></span>
+          <span class="horizon-chip out"><b>16日以降</b><small>予報対象外</small></span>
+        </div>
+        <div class="forecast-horizon-note">※混雑時は予備モデルのみの分析となります</div>
+      </div>
+
+      <div class="welcome-risk-grid">
+        <article><span>💨</span><div><small>風</small><b>平均・突風を判定</b></div></article>
+        <article><span>💧</span><div><small>雨</small><b>時間雨量を判定</b></div></article>
+        <article><span>⚡</span><div><small>雷</small><b>雷リスクを表示</b></div></article>
+        <article><span>🌡</span><div><small>気温</small><b>低温・高温を警告</b></div></article>
+        <article><span>🌫</span><div><small>視界</small><b>視程悪化を警告</b></div></article>
+      </div>
+
+      <div class="welcome-preview">
+        <div class="preview-head">
+          <div><small>分析すると表示</small><strong>ルート全体の最大リスク</strong></div>
+          <span>地点 × 時刻 × 天気</span>
+        </div>
+        <div class="preview-route">
+          <span><i></i><b>登山口</b><small>06:00</small></span>
+          <em></em>
+          <span><i></i><b>山小屋</b><small>09:30</small></span>
+          <em></em>
+          <span class="hot"><i></i><b>稜線</b><small>12:00</small></span>
+          <em></em>
+          <span><i></i><b>山頂</b><small>14:00</small></span>
+        </div>
+      </div>
+
+      <section class="route-map-shell route-map-preview-panel">
+        <div class="route-map-head">
+          <div><small>選択地点を自動表示</small><strong>ルートマップ</strong></div>
+          <span>地点を直線で接続</span>
+        </div>
+        <div id="routeMapPreviewEmpty" class="route-map-empty">山行設定で地点を選ぶと、登山口・山頂・山小屋・下山口を地図上に表示します。</div>
+        <div id="routeMapPreview" class="route-map-canvas hidden" aria-label="ルートマップ（プレビュー）"></div>
+        <div id="routeMapPreviewList" class="route-map-point-list"></div>
+      </section>
     </section>
 
-    <section class="panel">
-      <div class="section-title"><span>04</span><div><h2>地点別予報</h2><p>入力した通過日時そのものを分析</p></div></div>
-      <div id="forecastCards" class="forecast-grid"></div>
-    </section>
+    <section id="results" class="hidden">
+      <section id="summaryResult" class="panel result-panel dashboard-primary">
+        <div class="section-title"><span>02</span><div><h2>総合判断</h2><p id="updatedAt"></p></div></div>
+        <div class="summary">
+          <article class="summary-main"><small>総合評価</small><div id="grade" class="big-grade">–</div><b id="verdict">–</b></article>
+          <article><small>比較的よい地点</small><b id="bestWindow">–</b></article>
+          <article><small>最大風速</small><b id="maxWind">–</b></article>
+          <article><small>最大降水</small><b id="maxRain">–</b></article>
+          <article><small>雷リスク</small><b id="thunderRisk">–</b></article>
+          <article><small>モデル一致度</small><b id="confidence">–</b></article>
+        </div>
+        <div id="decisionCommentary" class="decision-commentary"></div>
+        <div id="routeAlerts"></div>
+        <section class="route-map-shell route-map-results-panel">
+          <div class="route-map-head">
+            <div><small>分析対象ルート</small><strong>ルートマップ</strong></div>
+            <span>地点を直線で接続</span>
+          </div>
+          <div id="routeMapResultsEmpty" class="route-map-empty">分析した地点を地図上に表示します。</div>
+          <div id="routeMapResults" class="route-map-canvas hidden" aria-label="ルートマップ（結果）"></div>
+          <div id="routeMapResultsList" class="route-map-point-list"></div>
+        </section>
+      </section>
 
-    <section id="overnightSection" class="panel hidden">
-      <div class="section-title"><span>05</span><div><h2>宿泊地点の分析</h2><p>日の入りから翌朝まで。1泊目・2泊目…を個別に確認</p></div></div>
-      <div id="overnightCards" class="overnight-grid"></div>
-    </section>
+      <section class="panel dashboard-section">
+        <div class="section-title"><span>03</span><div><h2>縦走気象グラフ</h2><p>ルート上の変化を時系列で確認</p></div></div>
+        <div id="weatherCharts" class="weather-charts"></div>
+        <div id="riskRibbon" class="risk-ribbon"></div>
+      </section>
 
-    <section class="panel">
-      <div class="section-title"><span>06</span><div><h2>気象モデル詳細</h2><p>JMA / ECMWF / GFS / ICON</p></div></div>
-      <div id="modelDetails"></div>
+      <section class="panel dashboard-section">
+        <div class="section-title"><span>04</span><div><h2>地点別予報（到着時間）</h2><p>入力した通過日時そのものを分析</p></div></div>
+        <div id="forecastCards" class="forecast-grid"></div>
+      </section>
+
+      <section id="overnightSection" class="panel dashboard-section hidden">
+        <div class="section-title"><span>05</span><div><h2>宿泊地点の分析</h2><p>日の入りから翌朝まで。1泊目・2泊目…を個別に確認</p></div></div>
+        <div id="overnightCards" class="overnight-grid"></div>
+      </section>
+
+      <section class="panel dashboard-section">
+        <div class="section-title"><span>06</span><div><h2>気象モデル詳細</h2><p>JMA / ECMWF / GFS / ICON</p></div></div>
+        <div id="modelDetails"></div>
+      </section>
     </section>
   </section>
 </main>
 
 <footer>
-  <strong>縦走山行判断ツール</strong><br>
+  <strong>トラテン｜トラバース天気</strong><br>
   Weather via Open-Meteo。予報は登山の安全を保証しません。
 </footer>
-<script src="app.js?v=1.12.30"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="app.js?v=1.12.69"></script>
 </body>
 </html>
