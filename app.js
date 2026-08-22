@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.2';
+const APP_VERSION = '1.2.4';
 
 const providers = [
   {id:'jma',name:'JMA MSM',kind:'openmeteo',endpoint:'https://api.open-meteo.com/v1/jma',model:'jma_msm',forecastDays:4,vars:['temperature_2m','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_direction_10m']},
@@ -2788,11 +2788,48 @@ function ensureCenterPeak(list,label,center){
   }
   return list;
 }
+const CENTRAL_ALPS_AUTO_ROUTE_V121=[
+  ['trailhead','area-cku-senjojiki','登山口'],
+  ['peak','area-cku-kisokoma','山頂'],
+  ['hut','area-cku-chojo','山小屋・避難小屋'],
+  ['hut','area-cku-hoken-sanso','山小屋・避難小屋'],
+  ['peak','area-cku-hoken','山頂'],
+  ['peak','area-cku-hinokio','山頂'],
+  ['hut','area-cku-hinokio-hut','山小屋・避難小屋'],
+  ['peak','area-cku-kumazawa','山頂'],
+  ['peak','area-cku-higashikawa','山頂'],
+  ['hut','area-cku-kisodono','山小屋・避難小屋'],
+  ['peak','area-cku-utsugi','山頂'],
+  ['hut','area-cku-komaho','山小屋・避難小屋'],
+  ['trailhead','area-cku-ikeyama','下山口']
+];
+function centralAlpsAutoRouteFor(mountain){
+  const corridor=['木曽駒ヶ岳','宝剣岳','檜尾岳','熊沢岳','東川岳','空木岳'];
+  if(!corridor.includes(mountain))return null;
+  const route=[...CENTRAL_ALPS_AUTO_ROUTE_V121];
+  return mountain==='空木岳'?route.reverse():route;
+}
 function renderCandidateRows(label,center,{resetPoints=false}={}){
   candidates=ensureCenterPeak(dedupeCandidateList(candidates),label,center);
   refreshPointCandidateOptions();
   if(resetPoints){
     $('points').innerHTML=''; pointSeq=0;
+    const mountain=canonicalMountainName(label);
+    const autoRoute=centralAlpsAutoRouteFor(mountain);
+    if(autoRoute){
+      const available=new Map(candidates.map(p=>[p.id,p]));
+      let added=0;
+      for(const [type,id,role] of autoRoute){
+        if(!available.has(id))continue;
+        addPointRow(type,id,role);
+        added++;
+      }
+      if(added){
+        updateForecastHorizon();
+        renderRouteMaps();
+        return;
+      }
+    }
     const hasTrail=candidates.some(p=>p.type==='trailhead'), hasHut=candidates.some(p=>p.type==='hut');
     if(hasTrail)addPointRow('trailhead','','登山口');
     addPointRow('peak','','山頂');
@@ -3985,16 +4022,28 @@ function thunderBadge(level){
   if(lv==='MEDIUM')return `<span class="thunder-badge medium">⚡ MEDIUM</span>`;
   return `<span class="thunder-badge low">LOW</span>`;
 }
+function weatherIconSvg(kind){
+  const common='viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+  const icons={
+    sun:'<circle cx="24" cy="24" r="8"/><path d="M24 5v6M24 37v6M5 24h6M37 24h6M10.5 10.5l4.2 4.2M33.3 33.3l4.2 4.2M37.5 10.5l-4.2 4.2M14.7 33.3l-4.2 4.2"/>',
+    partly:'<circle cx="18" cy="17" r="7"/><path d="M18 3v5M18 26v4M4 17h5M27 17h5M8.5 7.5l3.5 3.5M28 7.5l-3.5 3.5"/><path d="M14 38h23a7 7 0 0 0 0-14 10 10 0 0 0-19-2 7 7 0 0 0-4 16z"/>',
+    cloud:'<path d="M10 36h27a8 8 0 0 0 0-16 11 11 0 0 0-21 3 7 7 0 0 0-6 13z"/>',
+    shower:'<path d="M10 31h27a8 8 0 0 0 0-16 11 11 0 0 0-21 3 7 7 0 0 0-6 13z"/><path d="M17 36l-2 5M26 36l-2 5M35 36l-2 5"/>',
+    rain:'<path d="M10 29h27a8 8 0 0 0 0-16 11 11 0 0 0-21 3 7 7 0 0 0-6 13z"/><path d="M15 34l-3 8M24 34l-3 8M33 34l-3 8M40 34l-3 8"/>',
+    unknown:'<circle cx="24" cy="24" r="17"/><path d="M19 18a6 6 0 1 1 8 5.7c-2 .9-3 2.1-3 4.3M24 35h.01"/>'
+  };
+  return `<svg ${common}>${icons[kind]||icons.unknown}</svg>`;
+}
 function weatherVisual(r){
   const cloud=Number.isFinite(r.cloud)?r.cloud:NaN;
   const rain=Number.isFinite(r.rain)?r.rain:NaN;
-  const thunder=String(r.thunder||'LOW').toUpperCase();
-  if(thunder==='EXTREME'||thunder==='HIGH') return {icon:'⛈️',label:'雷雨',cls:'storm'};
-  if(Number.isFinite(rain)&&rain>=3) return {icon:'🌧️',label:'雨',cls:'rain'};
-  if(Number.isFinite(rain)&&rain>=0.5) return {icon:'🌦️',label:(Number.isFinite(cloud)&&cloud>=70)?'雨時々くもり':'にわか雨',cls:'shower'};
-  if(Number.isFinite(cloud)&&cloud>=85) return {icon:'☁️',label:'くもり',cls:'cloud'};
-  if(Number.isFinite(cloud)&&cloud>=55) return {icon:'⛅',label:'晴れ時々くもり',cls:'partly'};
-  return {icon:'☀️',label:'晴れ',cls:'sun'};
+  let kind='unknown',label='予報値';
+  if(Number.isFinite(rain)&&rain>=3){kind='rain';label='雨';}
+  else if(Number.isFinite(rain)&&rain>=0.5){kind='shower';label=(Number.isFinite(cloud)&&cloud>=70)?'雨時々くもり':'にわか雨';}
+  else if(Number.isFinite(cloud)&&cloud>=85){kind='cloud';label='くもり';}
+  else if(Number.isFinite(cloud)&&cloud>=55){kind='partly';label='晴れ時々くもり';}
+  else if(Number.isFinite(cloud)||Number.isFinite(rain)){kind='sun';label='晴れ';}
+  return {icon:weatherIconSvg(kind),label,cls:kind};
 }
 function windDirectionLabel(deg){
   if(!Number.isFinite(deg)) return '–';

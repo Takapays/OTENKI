@@ -7,29 +7,29 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="トラテン">
-  <link rel="apple-touch-icon" sizes="180x180" href="traten-icon-180.png?v=1.2">
-  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=1.2">
-  <link rel="manifest" href="manifest.json?v=1.2">
-  <title>トラテン｜トラバース天気 | V1.2</title>
+  <link rel="apple-touch-icon" sizes="180x180" href="traten-icon-180.png?v=1.2.4">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=1.2.4">
+  <link rel="manifest" href="manifest.json?v=1.2.4">
+  <title>トラテン｜トラバース天気 | V1.2.4</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
-  <link rel="stylesheet" href="styles.css?v=1.2">
+  <link rel="stylesheet" href="styles.css?v=1.2.4">
 </head>
 <body>
 <header class="app-topbar">
   <div class="topbar-inner">
     <div class="brand-lockup">
-      <img src="traten-logo.png?v=1.2" alt="トラテン｜トラバース天気">
+      <img src="traten-logo.png?v=1.2.4" alt="トラテン｜トラバース天気">
     </div>
     <div class="topbar-center">
       <h1>その時、その場所の空を読む。</h1>
       <div class="topbar-badges">
-        <span>V1.2</span>
+        <span>V1.2.4</span>
         <span>日本三百名山 300座</span>
         <span>5系統アラート</span>
       </div>
     </div>
     <div class="mobile-topbar-copy">その時、その場所の空を読む。</div>
-    <span class="mobile-topbar-version">V1.2</span>
+    <span class="mobile-topbar-version">V1.2.4</span>
     <section id="statusDesktop" class="status status-topbar status-desktop hidden" aria-live="polite"></section>
   </div>
 </header>
@@ -172,10 +172,16 @@
 </main>
 
 <footer>
-  <strong>トラテン｜トラバース天気</strong><br>
-  Weather via Open-Meteo。予報は登山の安全を保証しません。
+  <div class="footer-brand"><strong>トラテン｜トラバース天気</strong></div>
+  <div class="footer-note">Weather via Open-Meteo。予報は登山の安全を保証しません。</div>
+  <div class="footer-rights">
+    <span>TAKAPAY. All Rights Reserved</span>
+    <a class="footer-mail" href="mailto:shelteq@yahoo.co.jp" aria-label="TAKAPAYへメール" title="shelteq@yahoo.co.jp">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 6.5h17v11h-17z"/><path d="M4 7l8 6 8-6"/></svg>
+    </a>
+  </div>
 </footer>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-<script src="app.js?v=1.2"></script>
+<script src="app.js?v=1.2.4"></script>
 </body>
 </html>
