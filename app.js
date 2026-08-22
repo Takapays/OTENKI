@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.3.0';
+const APP_VERSION = '1.3.6';
 
 const providers = [
   {id:'jma',name:'JMA MSM',kind:'openmeteo',endpoint:'https://api.open-meteo.com/v1/jma',model:'jma_msm',forecastDays:4,vars:['temperature_2m','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_direction_10m']},
@@ -3503,11 +3503,13 @@ function analyzeOvernightJson(point,nightNo,j){
   const next=addDays(point.date,1), h=j?.hourly||{}, d=j?.daily||{};
   const sunset=d.sunset?.find(x=>String(x).startsWith(point.date))||d.sunset?.[0]||`${point.date}T18:00`;
   const sunrise=d.sunrise?.find(x=>String(x).startsWith(next))||d.sunrise?.[1]||`${next}T05:00`;
-  const allRows=(h.time||[]).map((t,i)=>({time:t,temp:numberOrNaN(h.temperature_2m?.[i]),apparent:numberOrNaN(h.apparent_temperature?.[i]),rh:numberOrNaN(h.relative_humidity_2m?.[i]),rain:numberOrNaN(h.precipitation?.[i]),cloud:numberOrNaN(h.cloud_cover?.[i]),wind:numberOrNaN(h.wind_speed_10m?.[i]),gust:numberOrNaN(h.wind_gusts_10m?.[i]),visibility:numberOrNaN(h.visibility?.[i])}));
+  const allRows=(h.time||[]).map((t,i)=>({time:t,temp:numberOrNaN(h.temperature_2m?.[i]),apparent:numberOrNaN(h.apparent_temperature?.[i]),rh:numberOrNaN(h.relative_humidity_2m?.[i]),dew:numberOrNaN(h.dew_point_2m?.[i]),rain:numberOrNaN(h.precipitation?.[i]),cloud:numberOrNaN(h.cloud_cover?.[i]),lowCloud:numberOrNaN(h.cloud_cover_low?.[i]),midCloud:numberOrNaN(h.cloud_cover_mid?.[i]),highCloud:numberOrNaN(h.cloud_cover_high?.[i]),wind:numberOrNaN(h.wind_speed_10m?.[i]),gust:numberOrNaN(h.wind_gusts_10m?.[i]),visibility:numberOrNaN(h.visibility?.[i])}));
   const startMs=new Date(`${point.date}T${point.time}`).getTime(), endMs=new Date(`${next}T08:00`).getTime();
   const rows=allRows.filter(x=>{const t=new Date(x.time).getTime();return t>=startMs&&t<=endMs;});
   const morningStartMs=new Date(`${next}T00:00`).getTime(), morningEndMs=new Date(`${next}T08:00`).getTime();
   const morningRows=allRows.filter(x=>{const t=new Date(x.time).getTime();return t>=morningStartMs&&t<=morningEndMs;});
+  const sunsetMs=new Date(sunset).getTime();
+  const eveningRows=allRows.filter(x=>Math.abs(new Date(x.time).getTime()-sunsetMs)<=120*60000);
   const sunsetRow=allRows[nearestTimeIndex(allRows.map(x=>x.time),sunset)]||null, sunriseRow=allRows[nearestTimeIndex(allRows.map(x=>x.time),sunrise)]||null;
   const sunsetView=horizonVisibility(sunsetRow), sunriseView=horizonVisibility(sunriseRow);
   const darkStart=new Date(sunset).getTime()+90*60000, darkEnd=new Date(sunrise).getTime()-90*60000;
@@ -3519,7 +3521,7 @@ function analyzeOvernightJson(point,nightNo,j){
   const dawnTarget=`${next}T05:00`;
   const dawnRow=allRows[nearestTimeIndex(allRows.map(x=>x.time),dawnTarget)]||morningRows[0]||null;
   const dawnVisual=dawnRow?weatherVisual({cloud:dawnRow.cloud,rain:dawnRow.rain,thunder:'LOW'}):{icon:'',label:'--',cls:'partly'};
-  return {nightNo,point,sunset,sunrise,sunsetView,sunriseView,minTemp,morningMinTemp,minApp,maxWind,maxGust,maxRain,avgCloud,avgWind,maxRh,minVis,fogRisk,moon,best,score,_astroRows:astroRows,_darkStart:darkStart,_darkEnd:darkEnd,dawn:{time:dawnRow?.time||dawnTarget,temp:dawnRow?.temp,rain:dawnRow?.rain,cloud:dawnRow?.cloud,wind:dawnRow?.wind,label:dawnVisual.label,cls:dawnVisual.cls},milkyLabel:score>=75?'期待大':score>=55?'見える可能性あり':score>=35?'条件次第':'厳しい'};
+  return {nightNo,point,sunset,sunrise,sunsetView,sunriseView,minTemp,morningMinTemp,minApp,maxWind,maxGust,maxRain,avgCloud,avgWind,maxRh,minVis,fogRisk,moon,best,score,_astroRows:astroRows,_morningRows:morningRows,_eveningRows:eveningRows,_darkStart:darkStart,_darkEnd:darkEnd,dawn:{time:dawnRow?.time||dawnTarget,temp:dawnRow?.temp,rain:dawnRow?.rain,cloud:dawnRow?.cloud,wind:dawnRow?.wind,label:dawnVisual.label,cls:dawnVisual.cls},milkyLabel:score>=75?'期待大':score>=55?'見える可能性あり':score>=35?'条件次第':'厳しい'};
 }
 function metNoRows(payload){
   const ts=payload?.properties?.timeseries;
@@ -3529,7 +3531,7 @@ function metNoRows(payload){
     const temp=numberOrNaN(d.air_temperature), wind=numberOrNaN(d.wind_speed), rh=numberOrNaN(d.relative_humidity);
     let rain=numberOrNaN(n1.precipitation_amount);
     if(!Number.isFinite(rain)){const r6=numberOrNaN(n6.precipitation_amount); rain=Number.isFinite(r6)?r6/6:NaN;}
-    return {time:item.time,temp,apparent:apparentTempApprox(temp,wind),rh,rain,cloud:numberOrNaN(d.cloud_area_fraction),wind,gust:numberOrNaN(d.wind_speed_of_gust),visibility:NaN};
+    const cloud=numberOrNaN(d.cloud_area_fraction),lowCloud=numberOrNaN(d.cloud_area_fraction_low),midCloud=numberOrNaN(d.cloud_area_fraction_medium),highCloud=numberOrNaN(d.cloud_area_fraction_high);return {time:item.time,temp,apparent:apparentTempApprox(temp,wind),rh,dew:dewPointApprox(temp,rh),rain,cloud,lowCloud:Number.isFinite(lowCloud)?lowCloud:cloud,midCloud,highCloud,wind,gust:numberOrNaN(d.wind_speed_of_gust),visibility:NaN};
   }).filter(x=>x.time);
 }
 function apparentTempApprox(temp,wind){
@@ -3561,6 +3563,8 @@ function analyzeOvernightMetNo(point,nightNo,payload){
   const morningRows=allRows.filter(x=>{const t=new Date(x.time).getTime();return t>=morningStartMs&&t<=morningEndMs;});
   if(!rows.length)throw new Error('MET Norway: 宿泊時間帯の予報なし');
   const sunset=solarTimeApprox(point.date,Number(point.lat),Number(point.lon),false), sunrise=solarTimeApprox(next,Number(point.lat),Number(point.lon),true);
+  const sunsetMs=new Date(sunset).getTime();
+  const eveningRows=allRows.filter(x=>Math.abs(new Date(x.time).getTime()-sunsetMs)<=120*60000);
   const sunsetRow=allRows[nearestTimeIndex(allRows.map(x=>x.time),sunset)]||null, sunriseRow=allRows[nearestTimeIndex(allRows.map(x=>x.time),sunrise)]||null;
   const sunsetView=horizonVisibility(sunsetRow), sunriseView=horizonVisibility(sunriseRow);
   const darkStart=new Date(sunset).getTime()+90*60000, darkEnd=new Date(sunrise).getTime()-90*60000;
@@ -3571,7 +3575,7 @@ function analyzeOvernightMetNo(point,nightNo,payload){
   const dawnTarget=`${next}T05:00:00+09:00`;
   const dawnRow=allRows[nearestTimeIndex(allRows.map(x=>x.time),dawnTarget)]||morningRows[0]||null;
   const dawnVisual=dawnRow?weatherVisual({cloud:dawnRow.cloud,rain:dawnRow.rain,thunder:'LOW'}):{icon:'',label:'--',cls:'partly'};
-  return {nightNo,point,sunset,sunrise,sunsetView,sunriseView,minTemp,morningMinTemp,minApp,maxWind,maxGust,maxRain,avgCloud,avgWind,maxRh,minVis:NaN,fogRisk,moon,best,score,_astroRows:astroRows,_darkStart:darkStart,_darkEnd:darkEnd,dawn:{time:dawnRow?.time||dawnTarget,temp:dawnRow?.temp,rain:dawnRow?.rain,cloud:dawnRow?.cloud,wind:dawnRow?.wind,label:dawnVisual.label,cls:dawnVisual.cls},milkyLabel:score>=75?'期待大':score>=55?'見える可能性あり':score>=35?'条件次第':'厳しい',source:'MET Norway（予備）'};
+  return {nightNo,point,sunset,sunrise,sunsetView,sunriseView,minTemp,morningMinTemp,minApp,maxWind,maxGust,maxRain,avgCloud,avgWind,maxRh,minVis:NaN,fogRisk,moon,best,score,_astroRows:astroRows,_morningRows:morningRows,_eveningRows:eveningRows,_darkStart:darkStart,_darkEnd:darkEnd,dawn:{time:dawnRow?.time||dawnTarget,temp:dawnRow?.temp,rain:dawnRow?.rain,cloud:dawnRow?.cloud,wind:dawnRow?.wind,label:dawnVisual.label,cls:dawnVisual.cls},milkyLabel:score>=75?'期待大':score>=55?'見える可能性あり':score>=35?'条件次第':'厳しい',source:'MET Norway（予備）'};
 }
 async function analyzeOvernightsMetNo(points){
   const out=[];
@@ -3585,7 +3589,7 @@ async function analyzeOvernightsMetNo(points){
 }
 async function analyzeOvernightsBatch(points){
   if(!points.length)return [];
-  const vars=['temperature_2m','apparent_temperature','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_gusts_10m','visibility'];
+  const vars=['temperature_2m','apparent_temperature','relative_humidity_2m','dew_point_2m','precipitation','cloud_cover','cloud_cover_low','cloud_cover_mid','cloud_cover_high','wind_speed_10m','wind_gusts_10m','visibility'];
   const starts=points.map(p=>p.date).sort(), ends=points.map(p=>addDays(p.date,1)).sort();
   const q=new URLSearchParams({
     latitude:points.map(p=>p.lat).join(','),longitude:points.map(p=>p.lon).join(','),elevation:points.map(p=>Number(p.elevation)||'nan').join(','),
@@ -3718,6 +3722,246 @@ function milkyAdvice(m){
   bits.push(`光害は${m.light.label}目安`);
   return bits.join('。')+'。';
 }
+
+function dewPointApprox(temp,rh){
+  if(!Number.isFinite(temp)||!Number.isFinite(rh)||rh<=0)return NaN;
+  const a=17.62,b=243.12,g=Math.log(clamp(rh,1,100)/100)+(a*temp)/(b+temp);
+  return (b*g)/(a-g);
+}
+function cloudSeaRowScore(row){
+  const low=Number.isFinite(row?.lowCloud)?row.lowCloud:Number(row?.cloud);
+  const total=Number(row?.cloud);
+  const upper=Number.isFinite(total)&&Number.isFinite(low)?clamp(total-low,0,100):Number.isFinite(total)?total:50;
+  const clearAbove=100-upper;
+  const dew=Number.isFinite(row?.dew)?row.dew:dewPointApprox(Number(row?.temp),Number(row?.rh));
+  const spread=Number.isFinite(dew)&&Number.isFinite(row?.temp)?Math.max(0,row.temp-dew):NaN;
+  const wind=Number(row?.wind),rain=Number(row?.rain),rh=Number(row?.rh);
+  let lowPts=0;if(Number.isFinite(low)){lowPts=low>=55?30:low>=35?23:low>=20?14:low>=10?7:2;}
+  let clearPts=Number.isFinite(clearAbove)?25*clamp((clearAbove-25)/65,0,1):12;
+  let moisturePts=10;
+  if(Number.isFinite(spread))moisturePts=20*clamp((4.5-spread)/4.0,0,1);
+  else if(Number.isFinite(rh))moisturePts=20*clamp((rh-72)/26,0,1);
+  let windPts=7;if(Number.isFinite(wind)){windPts=wind<=1.5?15:wind<=3?13:wind<=5?8:wind<=7?3:0;}
+  let precipPts=8;if(Number.isFinite(rain)){precipPts=rain<=0.05?10:rain<=0.3?8:rain<=1?4:0;}
+  const score=clamp(lowPts+clearPts+moisturePts+windPts+precipPts,0,100);
+  return {score,lowCloud:low,upperCloud:upper,clearAbove,dew,dewSpread:spread,wind,rain,rh};
+}
+function cloudSeaLabel(score){return score>=80?'期待大':score>=65?'期待できる':score>=50?'可能性あり':score>=35?'条件次第':'厳しい';}
+function cloudSeaRadiative(detail){
+  if(!detail)return '判定不可';
+  const c=Number(detail.clearAbove),w=Number(detail.wind),r=Number(detail.rain);
+  if(c>=70&&w<=2.5&&r<=0.1)return '良好';
+  if(c>=50&&w<=4&&r<=0.3)return 'やや良好';
+  return '弱め';
+}
+function cloudSeaAdvice(c){
+  if(!c?.bestDetail)return '早朝の予報条件を十分に評価できませんでした。';
+  const d=c.bestDetail,b=[];
+  if(Number.isFinite(d.lowCloud)&&d.lowCloud>=55)b.push('低層雲が多い');
+  else if(Number.isFinite(d.lowCloud)&&d.lowCloud<20)b.push('低層雲が少ない');
+  if(Number.isFinite(d.clearAbove)&&d.clearAbove>=70)b.push('上空は比較的抜ける');
+  if(Number.isFinite(d.dewSpread)&&d.dewSpread<=2)b.push('気温と露点が近く霧が生じやすい');
+  if(Number.isFinite(d.wind)&&d.wind<=3)b.push('風が弱く雲が滞留しやすい');
+  if(Number.isFinite(d.rain)&&d.rain>0.5)b.push('見頃時間帯の降水が不利');
+  const lead=b.length?b.slice(0,3).join('・'):'決め手となる条件は弱め';
+  return `${lead}予報です。${c.score>=65?'日の出前後に雲海が見られる可能性があります。':c.score>=50?'条件が揃えば雲海になる可能性があります。':'現時点では雲海の条件は強くありません。'}`;
+}
+function buildCloudSeaAnalysis(o){
+  const rows=(Array.isArray(o._morningRows)?o._morningRows:[]).filter(r=>{const h=Number(String(r.time||'').slice(11,13));return Number.isFinite(h)&&h>=3&&h<=8;});
+  if(!rows.length)return {score:0,label:'判定不可',best:null,bestDetail:null,windowStart:null,windowEnd:null,advice:'早朝予報を取得できませんでした。'};
+  let best=null,bestDetail=null;
+  const scored=rows.map(row=>{const detail=cloudSeaRowScore(row);if(!bestDetail||detail.score>bestDetail.score){best=row;bestDetail=detail;}return {row,detail};});
+  const score=bestDetail?.score||0,threshold=Math.max(50,score-10);
+  const good=scored.filter(x=>x.detail.score>=threshold);
+  const c={score,label:cloudSeaLabel(score),best,bestDetail,windowStart:good[0]?.row.time||best?.time||null,windowEnd:good[good.length-1]?.row.time||best?.time||null,radiative:cloudSeaRadiative(bestDetail)};
+  c.advice=cloudSeaAdvice(c);return c;
+}
+function cloudSeaIcon(){return '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 32h36"/><path d="M8 30l9-10 6 7 6-5 11 8"/><path d="M10 38c4-3 8-3 12 0s8 3 12 0 6-2 8-1"/><path d="M12 42c4-2 7-2 10 0s7 2 10 0 6-2 9-1"/></svg>';}
+function renderCloudSeaDetail(o){
+  const c=o.cloudSea;if(!c)return '';
+  const d=c.bestDetail||{};
+  const low=Number.isFinite(d.lowCloud)?`${Math.round(d.lowCloud)}%`:'--';
+  const upper=Number.isFinite(d.clearAbove)?`${Math.round(d.clearAbove)}%`:'--';
+  const spread=Number.isFinite(d.dewSpread)?`${num(d.dewSpread,1)}℃`:'--';
+  const wind=Number.isFinite(d.wind)?`${num(d.wind,1)}m/s`:'--';
+  const tone=c.score>=65?'good':c.score>=50?'fair':c.score>=35?'caution':'hard';
+  return `<section class="cloudsea-panel ${tone}">
+    <div class="cloudsea-head"><div class="cloudsea-title"><div class="cloudsea-symbol">${cloudSeaIcon()}</div><div><small>翌朝の雲海予測</small><b>${Math.round(c.score)} / 100　${esc(c.label)}</b></div></div><span>${formatTimeRange(c.windowStart,c.windowEnd)}</span></div>
+    <div class="cloudsea-grid">
+      <div class="cloudsea-card"><small>低層雲</small><b>${low}</b><span>${Number(d.lowCloud)>=55?'多い':Number(d.lowCloud)>=30?'やや多い':'少ない'}</span></div>
+      <div class="cloudsea-card"><small>上空の抜け</small><b>${upper}</b><span>${Number(d.clearAbove)>=70?'良好':Number(d.clearAbove)>=45?'まずまず':'雲が多い'}</span></div>
+      <div class="cloudsea-card"><small>気温−露点差</small><b>${spread}</b><span>${Number(d.dewSpread)<=2?'霧が生じやすい':Number(d.dewSpread)<=4?'湿り気あり':'乾き気味'}</span></div>
+      <div class="cloudsea-card"><small>風 / 放射冷却</small><b>${wind}</b><span>放射冷却 ${esc(c.radiative||'--')}</span></div>
+    </div>
+    <div class="cloudsea-advice"><strong>☁ 雲海の目安</strong><p>${esc(c.advice||'')}</p></div>
+    <p class="cloudsea-note">※ 雲海期待度は低層雲・上空の雲・湿度/露点・風・降水から算出した気象条件の目安です。谷地形・局地風・実際の雲底高度によって見え方は変わります。</p>
+  </section>`;
+}
+
+
+function sunDeclinationApprox(date){
+  const d=new Date(`${date}T12:00:00+09:00`),start=new Date(d.getFullYear(),0,0),n=Math.floor((d-start)/86400000);
+  return -23.44*Math.cos((2*Math.PI/365)*(n+10));
+}
+function sunriseAzimuthApprox(date,lat){
+  const rad=Math.PI/180,dec=sunDeclinationApprox(date)*rad,phi=Number(lat)*rad,alt=-0.833*rad;
+  const cosA=(Math.sin(dec)-Math.sin(phi)*Math.sin(alt))/(Math.cos(phi)*Math.cos(alt));
+  return Math.acos(clamp(cosA,-1,1))/rad;
+}
+function compass16(deg){
+  const dirs=['北','北北東','北東','東北東','東','東南東','南東','南南東','南','南南西','南西','西南西','西','西北西','北西','北北西'];
+  return dirs[Math.round(((Number(deg)%360)+360)%360/22.5)%16];
+}
+function sunriseGlowScore(row){
+  if(!row)return 0;
+  const total=Number(row.cloud),low=Number(row.lowCloud),mid=Number(row.midCloud),high=Number(row.highCloud),rain=Number(row.rain),vis=Number(row.visibility);
+  const upper=Number.isFinite(mid)||Number.isFinite(high)?Math.max(Number.isFinite(mid)?mid:0,Number.isFinite(high)?high:0):Number.isFinite(total)&&Number.isFinite(low)?clamp(total-low,0,100):Number.isFinite(total)?total:40;
+  let s=50;
+  if(Number.isFinite(upper)){const ideal=45;s+=35*(1-Math.min(1,Math.abs(upper-ideal)/55));}
+  if(Number.isFinite(low))s-=Math.max(0,low-35)*.55;
+  if(Number.isFinite(rain))s-=Math.min(25,rain*15);
+  if(Number.isFinite(vis)&&vis<10000)s-=Math.min(20,(10000-vis)/500);
+  return clamp(s,0,100);
+}
+function sunriseScore(row,view){
+  if(!row)return 0;
+  let s=Number(view?.score)||50;
+  if(Number.isFinite(row.lowCloud))s-=Math.max(0,row.lowCloud-45)*.35;
+  if(Number.isFinite(row.rain))s-=Math.min(20,row.rain*12);
+  return clamp(s,0,100);
+}
+function morningSceneLabel(score){return score>=80?'期待大':score>=65?'期待できる':score>=50?'可能性あり':score>=35?'条件次第':'厳しい';}
+function buildMorningScene(o){
+  const rows=Array.isArray(o._morningRows)?o._morningRows:[];
+  const sunriseMs=new Date(o.sunrise).getTime();
+  const near=rows.filter(r=>Math.abs(new Date(r.time).getTime()-sunriseMs)<=90*60000);
+  const sunriseRow=rows[nearestTimeIndex(rows.map(r=>r.time),o.sunrise)]||near[0]||null;
+  const cloudSea=buildCloudSeaAnalysis(o);
+  const riseScore=sunriseScore(sunriseRow,o.sunriseView),glowScore=sunriseGlowScore(sunriseRow);
+  const combined=clamp(riseScore*.4+(cloudSea.score||0)*.4+glowScore*.2,0,100);
+  const next=addDays(o.point.date,1),az=sunriseAzimuthApprox(next,o.point.lat);
+  const windowStart=new Date(sunriseMs-30*60000).toISOString(),windowEnd=new Date(sunriseMs+45*60000).toISOString();
+  const temp=Number(sunriseRow?.temp),apparent=Number(sunriseRow?.apparent),wind=Number(sunriseRow?.wind),rain=Number(sunriseRow?.rain),vis=Number(sunriseRow?.visibility),low=Number(sunriseRow?.lowCloud);
+  const adviceBits=[];
+  if(riseScore>=65)adviceBits.push('日の出は見えやすい条件'); else if(riseScore<40)adviceBits.push('日の出方向の雲に注意');
+  if(cloudSea.score>=65)adviceBits.push('雲海も期待'); else if(cloudSea.score>=50)adviceBits.push('雲海の可能性あり');
+  if(glowScore>=65)adviceBits.push('朝焼けにも期待');
+  const advice=`${adviceBits.length?adviceBits.join('・'):'朝景条件はやや不安定'}です。${cloudSea.score>=65&&riseScore>=65?'日の出と雲海を同時に楽しめる可能性があります。':riseScore>=65?'日の出を中心に狙いやすい予報です。':cloudSea.score>=65?'雲海条件は良好ですが、日の出そのものは雲の影響を受ける可能性があります。':'現時点では大きな好条件は揃っていません。'}`;
+  return {score:combined,label:morningSceneLabel(combined),sunriseScore:riseScore,glowScore,cloudSea,azimuth:az,azimuthLabel:compass16(az),windowStart,windowEnd,temp,apparent,wind,rain,visibility:vis,lowCloud:low,advice};
+}
+function morningSceneIcon(){return '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 34h38"/><path d="M10 31l9-11 6 7 5-5 8 9"/><path d="M17 17a8 8 0 0 1 14 0"/><path d="M24 6v5M10 16h5M33 16h5"/></svg>';}
+function renderMorningScene(o){
+  const m=o.morningScene;if(!m)return '';const c=m.cloudSea||{},d=c.bestDetail||{};
+  const vis=Number.isFinite(m.visibility)?(m.visibility>=10000?`${(m.visibility/1000).toFixed(0)}km`:`${(m.visibility/1000).toFixed(1)}km`):'--';
+  const tone=m.score>=65?'good':m.score>=50?'fair':m.score>=35?'caution':'hard';
+  return `<section class="morning-scene-panel ${tone}">
+    <div class="morning-scene-head"><div class="morning-scene-title"><div class="morning-scene-symbol">${morningSceneIcon()}</div><div><small>朝景分析</small><b>${Math.round(m.score)} / 100　${esc(m.label)}</b></div></div><span>ベスト ${formatTimeRange(m.windowStart,m.windowEnd)}</span></div>
+    <div class="morning-scene-summary">
+      <div><small>日の出</small><b>${timeOnly(o.sunrise)}</b><span>${esc(m.azimuthLabel)} ${Math.round(m.azimuth)}°</span></div>
+      <div><small>日の出期待度</small><b>${Math.round(m.sunriseScore)} / 100</b><span>${m.sunriseScore>=65?'見えやすい':m.sunriseScore>=45?'可能性あり':'雲に注意'}</span></div>
+      <div><small>雲海期待度</small><b>${Math.round(c.score||0)} / 100</b><span>${esc(c.label||'--')}</span></div>
+      <div><small>朝焼け期待度</small><b>${Math.round(m.glowScore)} / 100</b><span>${m.glowScore>=65?'期待できる':m.glowScore>=45?'可能性あり':'弱め'}</span></div>
+    </div>
+    <div class="morning-scene-grid">
+      <div><small>東側・低層雲</small><b>${Number.isFinite(m.lowCloud)?Math.round(m.lowCloud)+'%':'--'}</b></div>
+      <div><small>視界</small><b>${vis}</b></div>
+      <div><small>気温 / 体感</small><b>${num(m.temp,1)}℃ / ${num(m.apparent,1)}℃</b></div>
+      <div><small>風 / 降水</small><b>${num(m.wind,1)}m/s / ${num(m.rain,1)}mm/h</b></div>
+    </div>
+    <div class="morning-scene-advice"><strong>☀ 朝景の見どころ</strong><p>${esc(m.advice)}</p></div>
+    <p class="morning-scene-note">※ 朝景分析は日の出時刻周辺の雲・視界・風・降水と雲海条件を組み合わせた目安です。実際の地平線遮蔽や局地雲、谷地形によって見え方は変わります。</p>
+  </section>`;
+}
+
+
+function sunsetAzimuthApprox(date,lat){return 360-sunriseAzimuthApprox(date,lat);}
+function solarTwilightTimeApprox(date,lat,lon,zenithDeg){
+  const base=new Date(`${date}T12:00:00+09:00`),start=new Date(base.getFullYear(),0,0),n=Math.floor((base-start)/86400000);
+  const rad=Math.PI/180,lngHour=Number(lon)/15,t=n+((18-lngHour)/24);
+  const M=(0.9856*t)-3.289;
+  let L=M+1.916*Math.sin(M*rad)+0.020*Math.sin(2*M*rad)+282.634;L=(L+360)%360;
+  let RA=Math.atan(0.91764*Math.tan(L*rad))/rad;RA=(RA+360)%360;
+  const Lq=Math.floor(L/90)*90,RAq=Math.floor(RA/90)*90;RA=(RA+(Lq-RAq))/15;
+  const sinDec=0.39782*Math.sin(L*rad),cosDec=Math.cos(Math.asin(sinDec));
+  const cosH=(Math.cos(Number(zenithDeg)*rad)-(sinDec*Math.sin(Number(lat)*rad)))/(cosDec*Math.cos(Number(lat)*rad));
+  if(cosH>1||cosH<-1)return null;
+  const H=(Math.acos(cosH)/rad)/15,T=H+RA-(0.06571*t)-6.622,UT=(T-lngHour+24)%24,jst=(UT+9)%24;
+  const mins=Math.round(jst*60),hh=Math.floor(mins/60)%24,mm=mins%60;
+  return `${date}T${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}:00+09:00`;
+}
+function sunsetGlowScore(row){
+  if(!row)return 0;
+  const total=Number(row.cloud),low=Number(row.lowCloud),mid=Number(row.midCloud),high=Number(row.highCloud),rain=Number(row.rain),vis=Number(row.visibility);
+  const upper=Number.isFinite(mid)||Number.isFinite(high)?Math.max(Number.isFinite(mid)?mid:0,Number.isFinite(high)?high:0):Number.isFinite(total)&&Number.isFinite(low)?clamp(total-low,0,100):Number.isFinite(total)?total:40;
+  let s=48;
+  if(Number.isFinite(upper)){const ideal=48;s+=38*(1-Math.min(1,Math.abs(upper-ideal)/55));}
+  if(Number.isFinite(low))s-=Math.max(0,low-35)*.6;
+  if(Number.isFinite(rain))s-=Math.min(28,rain*16);
+  if(Number.isFinite(vis)&&vis<10000)s-=Math.min(20,(10000-vis)/500);
+  return clamp(s,0,100);
+}
+function sunsetSceneScore(row,view){
+  if(!row)return 0;
+  let s=Number(view?.score)||50;
+  if(Number.isFinite(row.lowCloud))s-=Math.max(0,row.lowCloud-40)*.4;
+  if(Number.isFinite(row.rain))s-=Math.min(22,row.rain*14);
+  if(Number.isFinite(row.visibility)&&row.visibility<8000)s-=Math.min(18,(8000-row.visibility)/450);
+  return clamp(s,0,100);
+}
+function eveningSceneLabel(score){return score>=80?'期待大':score>=65?'期待できる':score>=50?'可能性あり':score>=35?'条件次第':'厳しい';}
+function buildEveningScene(o){
+  const rows=Array.isArray(o._eveningRows)?o._eveningRows:[];
+  const sunsetMs=new Date(o.sunset).getTime();
+  const sunsetRow=rows[nearestTimeIndex(rows.map(r=>r.time),o.sunset)]||null;
+  const sunScore=sunsetSceneScore(sunsetRow,o.sunsetView),glowScore=sunsetGlowScore(sunsetRow);
+  const scored=rows.filter(r=>{const dt=new Date(r.time).getTime()-sunsetMs;return dt>=-60*60000&&dt<=75*60000;}).map(r=>{
+    const proximity=Math.max(0,1-Math.abs(new Date(r.time).getTime()-sunsetMs)/(90*60000));
+    return {row:r,score:clamp(sunsetSceneScore(r,horizonVisibility(r))*.45+sunsetGlowScore(r)*.45+proximity*10,0,100)};
+  });
+  scored.sort((a,b)=>a.row.time.localeCompare(b.row.time));
+  const bestScore=scored.length?Math.max(...scored.map(x=>x.score)):clamp(sunScore*.55+glowScore*.45,0,100);
+  const threshold=Math.max(50,bestScore-10),good=scored.filter(x=>x.score>=threshold);
+  const defaultStart=new Date(sunsetMs-35*60000).toISOString(),defaultEnd=new Date(sunsetMs+45*60000).toISOString();
+  const windowStart=good[0]?.row.time||defaultStart,windowEnd=good[good.length-1]?.row.time||defaultEnd;
+  const combined=clamp(sunScore*.55+glowScore*.45,0,100);
+  const az=sunsetAzimuthApprox(o.point.date,o.point.lat);
+  const temp=Number(sunsetRow?.temp),apparent=Number(sunsetRow?.apparent),wind=Number(sunsetRow?.wind),rain=Number(sunsetRow?.rain),vis=Number(sunsetRow?.visibility),low=Number(sunsetRow?.lowCloud);
+  const mid=Number(sunsetRow?.midCloud),high=Number(sunsetRow?.highCloud),upper=(Number.isFinite(mid)||Number.isFinite(high))?Math.max(Number.isFinite(mid)?mid:0,Number.isFinite(high)?high:0):NaN;
+  const civil=solarTwilightTimeApprox(o.point.date,o.point.lat,o.point.lon,96),nautical=solarTwilightTimeApprox(o.point.date,o.point.lat,o.point.lon,102),astro=solarTwilightTimeApprox(o.point.date,o.point.lat,o.point.lon,108);
+  const bits=[];
+  if(sunScore>=65)bits.push('夕日は見えやすい条件');else if(sunScore<40)bits.push('日没方向の低い雲に注意');
+  if(glowScore>=70)bits.push('夕焼けは期待大');else if(glowScore>=55)bits.push('夕焼けにも期待');
+  if(Number.isFinite(upper)&&upper>=25&&upper<=70)bits.push('中高層雲が色づきやすい');
+  if(Number.isFinite(low)&&low>65)bits.push('低層雲が多め');
+  const advice=`${bits.length?bits.join('・'):'夕景条件はやや不安定'}です。${sunScore>=65&&glowScore>=65?'夕日から日没後の夕焼けまで連続して楽しめる可能性があります。':glowScore>=65?'夕日そのものより、日没後の空の色づきに期待できます。':sunScore>=65?'夕日を中心に狙いやすい予報です。':'雲の切れ間や局地的な変化に左右されやすい条件です。'}`;
+  return {score:combined,label:eveningSceneLabel(combined),sunsetScore:sunScore,glowScore,azimuth:az,azimuthLabel:compass16(az),windowStart,windowEnd,temp,apparent,wind,rain,visibility:vis,lowCloud:low,upperCloud:upper,civil,nautical,astro,advice};
+}
+function eveningSceneIcon(){return '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 34h38"/><path d="M9 31l10-10 6 7 6-5 8 8"/><path d="M17 25a8 8 0 0 0 14 0"/><path d="M24 8v5M10 18h5M33 18h5"/></svg>';}
+function renderEveningScene(o){
+  const e=o.eveningScene;if(!e)return '';
+  const vis=Number.isFinite(e.visibility)?(e.visibility>=10000?`${(e.visibility/1000).toFixed(0)}km`:`${(e.visibility/1000).toFixed(1)}km`):'--';
+  const tone=e.score>=65?'good':e.score>=50?'fair':e.score>=35?'caution':'hard';
+  const twilight=[e.civil?`市民薄明 ${timeOnly(e.civil)}`:null,e.nautical?`航海薄明 ${timeOnly(e.nautical)}`:null,e.astro?`天文薄明 ${timeOnly(e.astro)}`:null].filter(Boolean).join(' / ');
+  return `<section class="evening-scene-panel ${tone}">
+    <div class="evening-scene-head"><div class="evening-scene-title"><div class="evening-scene-symbol">${eveningSceneIcon()}</div><div><small>夕景分析</small><b>${Math.round(e.score)} / 100　${esc(e.label)}</b></div></div><span>ベスト ${formatTimeRange(e.windowStart,e.windowEnd)}</span></div>
+    <div class="evening-scene-summary">
+      <div><small>日の入り</small><b>${timeOnly(o.sunset)}</b><span>${esc(e.azimuthLabel)} ${Math.round(e.azimuth)}°</span></div>
+      <div><small>夕日期待度</small><b>${Math.round(e.sunsetScore)} / 100</b><span>${e.sunsetScore>=65?'見えやすい':e.sunsetScore>=45?'可能性あり':'雲に注意'}</span></div>
+      <div><small>夕焼け期待度</small><b>${Math.round(e.glowScore)} / 100</b><span>${e.glowScore>=70?'期待大':e.glowScore>=55?'期待できる':'弱め'}</span></div>
+      <div><small>中高層雲</small><b>${Number.isFinite(e.upperCloud)?Math.round(e.upperCloud)+'%':'--'}</b><span>${Number(e.upperCloud)>=25&&Number(e.upperCloud)<=70?'色づき好条件':Number(e.upperCloud)>70?'多め':'少なめ'}</span></div>
+    </div>
+    <div class="evening-scene-grid">
+      <div><small>西側地平線・雲目安</small><b>${Number.isFinite(e.lowCloud)?Math.round(e.lowCloud)+'%':'--'}</b></div>
+      <div><small>視界</small><b>${vis}</b></div>
+      <div><small>気温 / 体感</small><b>${num(e.temp,1)}℃ / ${num(e.apparent,1)}℃</b></div>
+      <div><small>風 / 降水</small><b>${num(e.wind,1)}m/s / ${num(e.rain,1)}mm/h</b></div>
+    </div>
+    <div class="evening-scene-twilight"><small>日没後の薄明</small><b>${esc(twilight||'--')}</b></div>
+    <div class="evening-scene-advice"><strong>☀ 夕景の見どころ</strong><p>${esc(e.advice)}</p></div>
+    <p class="evening-scene-note">※ 夕景分析は日の入り時刻周辺の低層雲・中高層雲・視界・風・降水を組み合わせた目安です。「西側地平線・雲目安」は地点の低層雲量を代用しており、方角別の実測雲量ではありません。地形遮蔽や局地雲によって見え方は変わります。</p>
+  </section>`;
+}
+
 async function enrichOvernightsWithMilky(items){
   const airResults=await Promise.all(items.map(async o=>{try{return await fetchAirQualityForPoint(o.point);}catch(_){return null;}}));
   return items.map((o,i)=>{
@@ -3731,7 +3975,10 @@ async function enrichOvernightsWithMilky(items){
     const goodRows=rows.filter(row=>milkyDetailedScore(row,o.point,o.moon,galactic,air,light).score>=Math.max(55,score-8));
     const windowStart=goodRows[0]?.time||galactic?.visibleStart||best?.time||null,windowEnd=goodRows[goodRows.length-1]?.time||galactic?.visibleEnd||best?.time||null;
     const milky={score,best,bestDetail,galactic,moon,air,light,windowStart,windowEnd,advice:null};milky.advice=milkyAdvice(milky);
-    const clean={...o,best,score,milkyLabel:milkyLabelFromScore(score),milky};delete clean._astroRows;delete clean._darkStart;delete clean._darkEnd;return clean;
+    const cloudSea=buildCloudSeaAnalysis(o);
+    const morningScene=buildMorningScene({...o,cloudSea});
+    const eveningScene=buildEveningScene(o);
+    const clean={...o,best,score,milkyLabel:milkyLabelFromScore(score),milky,cloudSea,morningScene,eveningScene};delete clean._astroRows;delete clean._morningRows;delete clean._eveningRows;delete clean._darkStart;delete clean._darkEnd;return clean;
   });
 }
 
@@ -3839,7 +4086,7 @@ function renderMilkyDetail(o){
   const airSub=air.available?`PM2.5 ${num(air.pm25,1)} μg/m³${Number.isFinite(air.aod)?` / AOD ${num(air.aod,2)}`:''}`:'空気質APIを取得できませんでした';
   const near=light.nearest?`${light.nearest.name} 約${Math.round(light.nearest.km)}km`:'周辺市街地から推定';
   return `<section class="milky-detail-panel">
-    <div class="milky-detail-head"><div><small>星空・天の川 詳細分析</small><b>${Math.round(m.score)} / 100　${esc(o.milkyLabel)}</b></div><span>${formatTimeRange(m.windowStart,m.windowEnd)}</span></div>
+    <div class="milky-detail-head"><div><small>星空・天の川 詳細分析</small><b>${Math.round(m.score)} / 100　${esc(o.milkyLabel)}</b></div><span><em>見頃時間</em>${formatTimeRange(m.windowStart,m.windowEnd)}</span></div>
     <div class="milky-detail-grid">
       <div class="milky-detail-card tone-purple"><div class="milky-detail-icon">${milkyDetailIcon('galaxy')}</div><div><small>銀河中心が最も高い時刻</small><b>${timeOnly(g.peakTime)}</b><span>最大高度 ${Number.isFinite(g.maxAltitude)?Math.round(g.maxAltitude)+'°':'--'}</span></div></div>
       <div class="milky-detail-card tone-moon"><div class="milky-detail-icon">${milkyDetailIcon('moon')}</div><div><small>月明かり</small><b>${esc(moon.impact||'判定不可')}</b><span>${esc(o.moon.phase)} ${Math.round(o.moon.illum)}% / ${moonEvent}</span></div></div>
@@ -3857,19 +4104,15 @@ function renderOvernights(items){
   $('overnightCards').innerHTML=items.map(o=>{
     const dawn=o.dawn||{};
     const comfort=overnightComfort(o);
-    const milkyClass=o.score>=75?'good':o.score>=55?'fair':o.score>=35?'caution':'hard';
     const dawnIcon=overnightDawnIcon(dawn);
     return `<article class="overnight-card overnight-v2">
       <div class="overnight-v2-head">
         <span class="night-badge">${o.nightNo}泊目</span>
         <div class="overnight-v2-place"><div class="hut-mark">⌂</div><div><h3>${esc(o.point.name)}</h3><p>${formatOvernightDate(o.point.date)} / 標高 ${Math.round(o.point.elevation||0).toLocaleString('ja-JP')}m${o.source?` ・ ${esc(o.source)}`:''}</p></div></div>
       </div>
-      <div class="overnight-v2-hero">
-        <div class="overnight-v2-key key-sunset"><div class="key-icon">${overnightIcon('sunset')}</div><small>日の入り</small><b>${timeOnly(o.sunset)}</b><span>${o.sunsetView.mark} ${esc(o.sunsetView.label)}</span></div>
-        <div class="overnight-v2-key key-milky ${milkyClass}"><div class="key-icon">${overnightIcon('milky')}</div><small>天の川</small><b>${esc(o.milkyLabel)}</b><span>${Math.round(o.score)} / 100${o.milky?.windowStart?` ・ ${formatTimeRange(o.milky.windowStart,o.milky.windowEnd)}`:o.best?` ・ ${timeOnly(o.best.time)}頃`:''}</span></div>
-        <div class="overnight-v2-key key-sunrise"><div class="key-icon">${overnightIcon('sunrise')}</div><small>日の出</small><b>${timeOnly(o.sunrise)}</b><span>${o.sunriseView.mark} ${esc(o.sunriseView.label)}</span></div>
-      </div>
+      ${renderEveningScene(o)}
       ${renderMilkyDetail(o)}
+      ${renderMorningScene(o)}
       <div class="overnight-dawn-strip-v69 ${esc(dawn.cls||'partly')}">
         <div class="ods69-icon">${overnightIcon(dawnIcon)}</div>
         <div class="ods69-item ods69-main"><small>朝5時の空</small><b>${timeOnly(dawn.time)||'05:00'}</b></div>
@@ -4270,7 +4513,7 @@ function pointForecastRow(r,i,total){
       <small>${esc(typeLabel)} / 標高 ${elev.toLocaleString('ja-JP')}m</small>
     </div>
     <div class="rf-time"><small>${esc(r.point.date||'----/--/--')}</small><strong>${esc(r.point.time||'--:--')}</strong></div>
-    <div class="rf-weather ${wx.cls}">
+    <div class="rf-weather wx-${wx.cls}">
       <span class="rf-weather-icon" aria-hidden="true">${wx.icon}</span>
       <small>${wx.label}</small>
     </div>
