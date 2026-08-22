@@ -26,7 +26,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.2.4"
+APP_VERSION = "1.3.0"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -54,6 +54,7 @@ ALLOWED_EVENT_NAMES = {
 
 ALLOWED_HOSTS = {
     "api.open-meteo.com",
+    "air-quality-api.open-meteo.com",
     "geocoding-api.open-meteo.com",
     "nominatim.openstreetmap.org",
     "api.met.no",
@@ -73,12 +74,12 @@ OVERPASS_ENDPOINTS = [
 
 UA = os.environ.get(
     "UPSTREAM_USER_AGENT",
-    "TraverseWeatherDecision/1.2.4",
+    "TraverseWeatherDecision/1.3.0",
 )
 
 METNO_USER_AGENT = os.environ.get(
     "METNO_USER_AGENT",
-    "TRATEN/1.2.4 https://juusoutenki.onrender.com",
+    "TRATEN/1.3.0 https://juusoutenki.onrender.com",
 )
 
 NOAA_GFS_FILTER = os.environ.get(
