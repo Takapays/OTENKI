@@ -26,7 +26,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.4.7"
+APP_VERSION = "1.4.8"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -74,12 +74,12 @@ OVERPASS_ENDPOINTS = [
 
 UA = os.environ.get(
     "UPSTREAM_USER_AGENT",
-    "TraverseWeatherDecision/1.4.7",
+    "TraverseWeatherDecision/1.4.8",
 )
 
 METNO_USER_AGENT = os.environ.get(
     "METNO_USER_AGENT",
-    "TRATEN/1.4.7 https://juusoutenki.onrender.com",
+    "TRATEN/1.4.8 https://juusoutenki.onrender.com",
 )
 
 NOAA_GFS_FILTER = os.environ.get(
@@ -737,7 +737,7 @@ def index():
     return send_from_directory(BASE, "index.html")
 
 
-PUBLIC_FILES = {"app.js", "styles.css", "favicon.ico", "robots.txt", "sitemap.xml", "guide.html", "manifest.json"}
+PUBLIC_FILES = {"app.js", "styles.css", "favicon.ico", "robots.txt", "sitemap.xml", "guide.html", "manifest.json", "google5a7b3dfd79ff97f0.html"}
 PUBLIC_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif", ".ico"}
 
 

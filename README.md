@@ -1,3 +1,8 @@
+## V1.4.8 Google Search Console 所有権確認
+
+- Google Search Console の HTML ファイル確認用 `google5a7b3dfd79ff97f0.html` を追加。
+- Flask の公開ファイル許可リストにも追加し、サイト直下から取得可能にした。
+
 ## V1.4.7 Google検索向けSEO基盤
 - title / description / canonical / robots meta を検索意図に合わせて最適化。
 - OGP / Twitter Card を更新し、専用キャッシュバスター画像 `traten-ogp-v147.png` を追加。
@@ -319,7 +324,7 @@
 - カード下部の操作ボタン「↑」「↓」「×」を横一列に配置
 - PC版や分析ロジック、固定座標・縦走候補データは変更なし
 
-# トラテン｜トラバース天気 V1.4.7
+# トラテン｜トラバース天気 V1.4.8
 
 ## V1.12.56 中央アルプス縦走回廊拡張
 
