@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.4.23';
+const APP_VERSION = '1.4.25';
 
 
 const LAST_ANALYSIS_STORAGE_KEY='traten:last-analysis:v1';
@@ -3031,6 +3031,7 @@ function updateLoadButtonAppearance(loaded){
   if(!btn)return;
   const hasMountain=!!$('mountainPreset')?.value?.trim();
   btn.disabled=!hasMountain;
+  btn.textContent=loaded?'読み込み済み':'通過ポイントを読み込む';
   btn.classList.toggle('primary',hasMountain&&!loaded);
   btn.classList.toggle('secondary',!hasMountain||loaded);
   btn.classList.toggle('route-load-needed',hasMountain&&!loaded);
@@ -3307,7 +3308,6 @@ async function loadCandidates(){
   }
   const mountain=canonicalMountainName(label);
   const btn=$('loadPoiBtn');
-  const before=btn.textContent;
   btn.disabled=true; btn.textContent='通過ポイントを出力中…';
   try{
     const center=await resolveMountainCenter(label);
@@ -3326,7 +3326,7 @@ async function loadCandidates(){
     if(resolvedStaticBase.length){
       candidates=[...resolvedStaticBase];
       renderCandidateRows(label,center,{resetPoints:true});
-      $('candidateState').textContent='通過ポイント出力済み';
+      $('candidateState').textContent='';
       updateLoadButtonAppearance(true);
       logEvent('route_candidates_loaded',{success:true,mountain:label,metadata:{candidate_count:candidates.length,hidden_unresolved_count:staticBase.length-resolvedStaticBase.length,source:'fixed',external_search:false}});
       return;
@@ -3340,7 +3340,7 @@ async function loadCandidates(){
     if(Array.isArray(cachedFull)&&cachedFull.length){
       candidates=[...cachedFull];
       renderCandidateRows(label,center,{resetPoints:true});
-      $('candidateState').textContent='通過ポイント出力済み';
+      $('candidateState').textContent='';
       updateLoadButtonAppearance(true);
       logEvent('route_candidates_loaded',{success:true,mountain:label,metadata:{candidate_count:candidates.length,cache_hit:true,source:'external_fallback'}});
       return;
@@ -3360,7 +3360,7 @@ async function loadCandidates(){
     candidates=[...dynamic];
     renderCandidateRows(label,center,{resetPoints:true});
     routeCachePut(fullCacheKey,dynamic);
-    $('candidateState').textContent=candidates.length?'通過ポイント出力済み':'通過ポイント候補を検出できませんでした';
+    $('candidateState').textContent=candidates.length?'':'通過ポイント候補を検出できませんでした';
     if(!candidates.length)setStatus(`${label} の通過ポイント候補が見つかりませんでした。`,true);
     updateLoadButtonAppearance(!!candidates.length);
     logEvent('route_candidates_loaded',{success:!!candidates.length,mountain:label,metadata:{candidate_count:candidates.length,source:'external_fallback',trail_search_stage:trailSearchStage}});
@@ -3369,7 +3369,6 @@ async function loadCandidates(){
     setStatus(`山頂座標の取得に失敗しました：${e.message||e}`,true);
     updateLoadButtonAppearance(false);
   }finally{
-    btn.textContent=before;
     btn.disabled=!$('mountainPreset').value.trim();
   }
 }
@@ -3751,8 +3750,8 @@ async function analyze(){
       setStatus(`宿泊分析：${stayPoints.length}泊分をまとめて取得しています…`);
       try{overnight=await analyzeOvernightsBatch(stayPoints);}catch(e){overnightWarning=` / 宿泊詳細は取得できませんでした（${e?.message||'取得失敗'}）`;}
     }
-    renderAll(results,overnight); saveLastAnalysisSnapshot(mountain,points,results,overnight); setStatus(`分析完了：${points.length}地点${stayPoints.length?` / 宿泊 ${stayPoints.length}泊`:''}${overnightWarning}（一括取得）`,false); scrollToSummaryResult();
     const mountain=currentMountainLabel();
+    renderAll(results,overnight); saveLastAnalysisSnapshot(mountain,points,results,overnight); setStatus(`分析完了：${points.length}地点${stayPoints.length?` / 宿泊 ${stayPoints.length}泊`:''}${overnightWarning}（一括取得）`,false); scrollToSummaryResult();
     points.forEach(p=>logEvent('route_point_used',{success:true,mountain,metadata:{point_name:p.name||'',point_type:p.type||'other',point_role:p.role||'',source:p.source||''}}));
     logEvent('weather_analysis',{success:true,duration_ms:performance.now()-started,mountain,route_points:points.length,stay_count:stayPoints.length,metadata:{provider_count:providers.length,manual_datetime:true,batch_weather:true}});
   }catch(e){setStatus(e.message||String(e),true);logEvent('weather_analysis',{success:false,duration_ms:performance.now()-started,mountain:currentMountainLabel(),route_points:points.length,error_message:e.message||String(e)});}
