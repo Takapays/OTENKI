@@ -27,7 +27,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.4.28"
+APP_VERSION = "1.4.29"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -46,6 +46,15 @@ USAGE_EVENT_MAX_BYTES = int(os.environ.get("USAGE_EVENT_MAX_BYTES", str(32 * 102
 USAGE_DASHBOARD_USERNAME = os.environ.get("USAGE_DASHBOARD_USERNAME", "admin")
 USAGE_DASHBOARD_PASSWORD = os.environ.get("USAGE_DASHBOARD_PASSWORD", "")
 USAGE_DASHBOARD_MAX_EVENTS = int(os.environ.get("USAGE_DASHBOARD_MAX_EVENTS", "50000"))
+
+INDEXNOW_KEY = "5d55ce5ee953aa38b715681f5207ee3d"
+INDEXNOW_KEY_FILENAME = f"{INDEXNOW_KEY}.txt"
+INDEXNOW_ENDPOINT = "https://api.indexnow.org/IndexNow"
+INDEXNOW_HOST = "otenki.onrender.com"
+INDEXNOW_PUBLIC_URLS = [
+    "https://otenki.onrender.com/",
+    "https://otenki.onrender.com/guide.html",
+]
 
 ALLOWED_EVENT_NAMES = {
     "page_view",
@@ -351,6 +360,47 @@ def _dashboard_unauthorized():
     response = Response("Authentication required", status=401, content_type="text/plain; charset=utf-8")
     response.headers["WWW-Authenticate"] = 'Basic realm="TRATEN Usage Dashboard", charset="UTF-8"'
     return response
+
+
+def _submit_indexnow(urls: list[str]) -> tuple[int, str]:
+    allowed_prefix = f"https://{INDEXNOW_HOST}/"
+    clean_urls: list[str] = []
+    for url in urls:
+        if not isinstance(url, str):
+            continue
+        url = url.strip()
+        if url == f"https://{INDEXNOW_HOST}" or url.startswith(allowed_prefix):
+            if url not in clean_urls:
+                clean_urls.append(url)
+    if not clean_urls:
+        raise ValueError("No valid IndexNow URLs were supplied.")
+
+    body = json.dumps(
+        {
+            "host": INDEXNOW_HOST,
+            "key": INDEXNOW_KEY,
+            "keyLocation": f"https://{INDEXNOW_HOST}/{INDEXNOW_KEY_FILENAME}",
+            "urlList": clean_urls,
+        },
+        ensure_ascii=False,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    req = urllib.request.Request(
+        INDEXNOW_ENDPOINT,
+        data=body,
+        method="POST",
+        headers={
+            "Content-Type": "application/json; charset=utf-8",
+            "User-Agent": "Traten-IndexNow/1.0",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            detail = resp.read(1000).decode("utf-8", errors="replace")
+            return resp.status, detail
+    except urllib.error.HTTPError as exc:
+        detail = exc.read(1000).decode("utf-8", errors="replace")
+        return exc.code, detail
 
 
 def _supabase_read_usage_events(days: int | None) -> list[dict[str, Any]]:
@@ -950,6 +1000,32 @@ def usage_dashboard():
     return response
 
 
+@app.post("/api/admin/indexnow-submit")
+def indexnow_submit():
+    if not _dashboard_auth_ok():
+        return _dashboard_unauthorized()
+    payload = request.get_json(silent=True) or {}
+    urls = payload.get("urls") if isinstance(payload, dict) else None
+    if not isinstance(urls, list) or not urls:
+        urls = INDEXNOW_PUBLIC_URLS
+    try:
+        status, detail = _submit_indexnow(urls)
+        ok = status in {200, 202}
+        response = jsonify(
+            ok=ok,
+            status=status,
+            submitted=[u for u in urls if isinstance(u, str)],
+            key_location=f"https://{INDEXNOW_HOST}/{INDEXNOW_KEY_FILENAME}",
+            detail=detail[:500],
+        )
+        response.status_code = 200 if ok else 502
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["X-Robots-Tag"] = "noindex, nofollow"
+        return response
+    except Exception as exc:
+        return jsonify(ok=False, error=str(exc)[:500]), 502
+
+
 @app.get("/api/admin/usage-summary")
 def usage_dashboard_data():
     if not _dashboard_auth_ok():
@@ -1002,7 +1078,7 @@ def sitemap_xml():
     return response
 
 
-PUBLIC_FILES = {"app.js", "styles.css", "favicon.ico", "robots.txt", "sitemap.xml", "guide.html", "manifest.json", "google5a7b3dfd79ff97f0.html"}
+PUBLIC_FILES = {"app.js", "styles.css", "favicon.ico", "robots.txt", "sitemap.xml", "guide.html", "manifest.json", "google5a7b3dfd79ff97f0.html", INDEXNOW_KEY_FILENAME}
 PUBLIC_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif", ".ico"}
 
 

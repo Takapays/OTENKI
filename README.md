@@ -1,3 +1,23 @@
+## V1.4.29 Bing / IndexNow 対応
+
+- IndexNowキーをサイトルートで公開し、Bingなど対応検索エンジンが所有確認できるようにした。
+- 管理者Basic認証付き `POST /api/admin/indexnow-submit` を追加。引数なしならトップページと `guide.html` をIndexNowへ一括通知する。
+- sitemap.xml の `lastmod` を 2026-08-24 に更新。
+- robots.txt の Sitemap 指定は既存の `https://otenki.onrender.com/sitemap.xml` を維持。
+- Bing Webmaster ToolsではGoogle Search Consoleからサイトとsitemapをインポート可能。
+
+### デプロイ後のIndexNow送信
+
+管理画面と同じBasic認証で以下をPOSTする。
+
+```bash
+curl -u admin:YOUR_PASSWORD -X POST https://otenki.onrender.com/api/admin/indexnow-submit
+```
+
+成功時は `ok: true` とHTTP 200/202相当の応答を返す。IndexNow通知はクロール・インデックスを保証するものではない。
+
+---
+
 ## V1.4.28 PC版文字サイズ改善
 
 - PC幅（901px以上）の文字サイズを全体的に拡大。
@@ -473,7 +493,7 @@
 - カード下部の操作ボタン「↑」「↓」「×」を横一列に配置
 - PC版や分析ロジック、固定座標・縦走候補データは変更なし
 
-# トラテン｜トラバース天気 V1.4.28
+# トラテン｜トラバース天気 V1.4.29
 
 ## V1.12.56 中央アルプス縦走回廊拡張
 
