@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.4.3';
+const APP_VERSION = '1.4.4';
 
 const providers = [
   {id:'jma',name:'JMA MSM',kind:'openmeteo',endpoint:'https://api.open-meteo.com/v1/jma',model:'jma_msm',forecastDays:4,vars:['temperature_2m','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_direction_10m']},
@@ -4744,6 +4744,7 @@ function pointForecastRow(r,i,total){
   const msg=pointForecastMessage(r);
   const windDeg=r.providerRows?.[0]?.row?.windDir ?? NaN;
   const visEval=visibilityEvaluation(r.visibility);
+  const windDegLabel=Number.isFinite(windDeg)?`(${Math.round((((windDeg%360)+360)%360))}°)`: '風の向き';
   return `<article class="route-forecast-row point-dashboard-card">
     <div class="rf-point-head">
       <div class="rf-point-copy">
@@ -4771,7 +4772,7 @@ function pointForecastRow(r,i,total){
       <div class="rf-direction" data-label="風向">
         <div class="rf-metric-title"><span class="rf-metric-symbol direction">${pointMetricIcon('direction')}</span><b>風向</b></div>
         <div class="rf-direction-main"><strong>${windDirectionArrow(windDeg)}</strong><b>${windDirectionLabel(windDeg)}</b></div>
-        <small>風の向き</small>
+        <small>${windDegLabel}</small>
       </div>
       <div class="rf-metric vis${hazardMetricClass(hz.visibility)}" data-label="視界">
         <div class="rf-metric-title"><span class="rf-metric-symbol visibility">${pointMetricIcon('visibility')}</span><b>視界</b><em class="rf-vis-eval ${visEval.cls}">${visEval.label}</em></div>
