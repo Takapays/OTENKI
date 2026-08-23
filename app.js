@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.4.2';
+const APP_VERSION = '1.4.3';
 
 const providers = [
   {id:'jma',name:'JMA MSM',kind:'openmeteo',endpoint:'https://api.open-meteo.com/v1/jma',model:'jma_msm',forecastDays:4,vars:['temperature_2m','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_direction_10m']},
@@ -4719,67 +4719,74 @@ function metricGauge(kind,value){
   const pct=Number.isFinite(value)?clamp(((value-d.min)/(d.max-d.min))*100,0,100):0;
   return `<div class="rf-gauge" aria-hidden="true"><span class="rf-gauge-edge">${d.left}</span><div class="rf-gauge-track"><span class="rf-gauge-fill gauge-${kind}" style="width:${pct.toFixed(1)}%"></span><span class="rf-gauge-thumb gauge-${kind}" style="left:${pct.toFixed(1)}%"></span></div><span class="rf-gauge-edge">${d.right}</span></div>`;
 }
+function pointMetricIcon(kind){
+  const common='viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"';
+  if(kind==='temp')return `<svg ${common}><path d="M20 9a4 4 0 0 1 8 0v20.5a8 8 0 1 1-8 0V9z"/><path d="M24 15v19"/><circle cx="24" cy="36" r="3"/></svg>`;
+  if(kind==='wind')return `<svg ${common}><path d="M6 17h23c6 0 6-9 0-9-4 0-5 2-5 5"/><path d="M6 25h31c6 0 6 9 0 9-4 0-5-2-5-5"/><path d="M6 33h16"/></svg>`;
+  if(kind==='rain')return `<svg ${common}><path d="M15 28h19a8 8 0 0 0 1-16 12 12 0 0 0-22 4 6 6 0 0 0 2 12z"/><path d="M18 33l-2 5M25 33l-2 5M32 33l-2 5"/></svg>`;
+  if(kind==='direction')return `<svg ${common}><path d="M12 35L36 11"/><path d="M21 11h15v15"/></svg>`;
+  if(kind==='visibility')return `<svg ${common}><path d="M4 24s7-11 20-11 20 11 20 11-7 11-20 11S4 24 4 24z"/><circle cx="24" cy="24" r="5"/></svg>`;
+  return '';
+}
+function pointForecastMessage(r){
+  const g=r.grade||'A';
+  if(g==='A')return {cls:'good',text:'到着時は大きな気象上の注意要素は少ない見込みです。'};
+  if(g==='B')return {cls:'fair',text:'概ね安定していますが、一部の気象要素に注意してください。'};
+  if(g==='C')return {cls:'caution',text:'注意要素があります。到着前に最新予報を再確認してください。'};
+  return {cls:'warning',text:'強い注意要素があります。行動判断は最新情報を確認して慎重に。'};
+}
 function pointForecastRow(r,i,total){
   const hz=Object.fromEntries((r.hazards||[]).map(h=>[h.type,h]));
   const wx=weatherVisual(r);
   const typeLabel=TYPE_LABEL[r.point.type]||r.point.type||'地点';
   const elev=Math.round(r.point.elevation||0);
   const visUnit=Number.isFinite(r.visibility)?(r.visibility>=1000?'km':'m'):' ';
-  const isLast=i===total-1;
-  const topLine=i===0?' hidden':'';
-  const bottomLine=isLast?' hidden':'';
-  return `<article class="route-forecast-row${isLast?' is-last':''}">
-    <div class="rf-track" aria-hidden="true">
-      <span class="rf-line top${topLine}"></span>
-      <span class="rf-dot"></span>
-      <span class="rf-line bottom${bottomLine}"></span>
+  const msg=pointForecastMessage(r);
+  const windDeg=r.providerRows?.[0]?.row?.windDir ?? NaN;
+  const visEval=visibilityEvaluation(r.visibility);
+  return `<article class="route-forecast-row point-dashboard-card">
+    <div class="rf-point-head">
+      <div class="rf-point-copy">
+        <div class="rf-time"><small>${esc(r.point.date||'----/--/--')}</small><strong>${esc(r.point.time||'--:--')}</strong></div>
+        <div class="rf-place"><b>${esc(r.point.name)}</b><small>${esc(typeLabel)} / 標高 ${elev.toLocaleString('ja-JP')}m</small></div>
+      </div>
+      <div class="rf-weather wx-${wx.cls}"><span class="rf-weather-icon" aria-hidden="true">${wx.icon}</span><small>${wx.label}</small></div>
     </div>
-    <div class="rf-time"><small>${esc(r.point.date||'----/--/--')}</small><strong>${esc(r.point.time||'--:--')}</strong></div>
-    <div class="rf-place">
-      <b>${esc(r.point.name)}</b>
-      <small>${esc(typeLabel)} / 標高 ${elev.toLocaleString('ja-JP')}m</small>
+    <div class="rf-metrics-grid">
+      <div class="rf-metric temp${hazardMetricClass(hz.temp)}" data-label="気温">
+        <div class="rf-metric-title"><span class="rf-metric-symbol temp">${pointMetricIcon('temp')}</span><b>気温</b></div>
+        <div class="rf-value-wrap"><strong>${num(r.temp,0)}</strong><small>℃</small></div>
+        ${metricGauge('temp',r.temp)}
+      </div>
+      <div class="rf-metric wind${hazardMetricClass(hz.wind)}" data-label="風">
+        <div class="rf-metric-title"><span class="rf-metric-symbol wind">${pointMetricIcon('wind')}</span><b>風</b></div>
+        <div class="rf-value-wrap"><strong>${num(r.wind,0)}</strong><small>m/s</small></div>
+        ${metricGauge('wind',r.wind)}
+      </div>
+      <div class="rf-metric rain${hazardMetricClass(hz.rain)}" data-label="雨">
+        <div class="rf-metric-title"><span class="rf-metric-symbol rain">${pointMetricIcon('rain')}</span><b>雨</b></div>
+        <div class="rf-value-wrap"><strong>${num(r.rain,1)}</strong><small>mm/h</small></div>
+        ${metricGauge('rain',r.rain)}
+      </div>
+      <div class="rf-direction" data-label="風向">
+        <div class="rf-metric-title"><span class="rf-metric-symbol direction">${pointMetricIcon('direction')}</span><b>風向</b></div>
+        <div class="rf-direction-main"><strong>${windDirectionArrow(windDeg)}</strong><b>${windDirectionLabel(windDeg)}</b></div>
+        <small>風の向き</small>
+      </div>
+      <div class="rf-metric vis${hazardMetricClass(hz.visibility)}" data-label="視界">
+        <div class="rf-metric-title"><span class="rf-metric-symbol visibility">${pointMetricIcon('visibility')}</span><b>視界</b><em class="rf-vis-eval ${visEval.cls}">${visEval.label}</em></div>
+        <div class="rf-value-wrap"><strong>${visibilityShort(r.visibility)}</strong><small>${visUnit}</small></div>
+        ${metricGauge('visibility',r.visibility)}
+      </div>
     </div>
-    <div class="rf-weather wx-${wx.cls}">
-      <span class="rf-weather-icon" aria-hidden="true">${wx.icon}</span>
-      <small>${wx.label}</small>
-    </div>
-    <div class="rf-metric temp${hazardMetricClass(hz.temp)}" data-label="気温">
-      <div class="rf-value-wrap"><strong>${num(r.temp,0)}</strong><small>℃</small></div>
-      ${metricGauge('temp',r.temp)}
-    </div>
-    <div class="rf-metric wind${hazardMetricClass(hz.wind)}" data-label="風">
-      <div class="rf-value-wrap"><strong>${num(r.wind,0)}</strong><small>m/s</small></div>
-      ${metricGauge('wind',r.wind)}
-    </div>
-    <div class="rf-metric rain${hazardMetricClass(hz.rain)}" data-label="雨">
-      <div class="rf-value-wrap"><strong>${num(r.rain,1)}</strong><small>mm/h</small></div>
-      ${metricGauge('rain',r.rain)}
-    </div>
-    <div class="rf-direction" data-label="風向">
-      <div class="rf-value-wrap"><strong>${windDirectionArrow(r.providerRows?.[0]?.row?.windDir ?? NaN)}</strong><small>${windDirectionLabel(r.providerRows?.[0]?.row?.windDir ?? NaN)}</small></div>
-      <div class="rf-direction-note">風の向き</div>
-    </div>
-    <div class="rf-metric vis${hazardMetricClass(hz.visibility)}" data-label="視界">
-      <div class="rf-value-wrap"><strong>${visibilityShort(r.visibility)}</strong><small>${visUnit}</small></div>
-      <div class="rf-vis-eval ${visibilityEvaluation(r.visibility).cls}">${visibilityEvaluation(r.visibility).label}</div>
-      ${metricGauge('visibility',r.visibility)}
-    </div>
+    <div class="rf-point-message ${msg.cls}"><span>✓</span><p>${esc(msg.text)}</p></div>
   </article>`;
 }
+
 function renderPointForecastTimeline(points){
   const el=$('forecastCards');
   if(!el) return;
-  el.innerHTML=`<div class="route-forecast-board">
-    <div class="route-forecast-head">
-      <span class="rf-col-place">地点</span>
-      <span class="rf-col-time">日時</span>
-      <span class="rf-col-weather">天気</span>
-      <span>気温</span>
-      <span>風</span>
-      <span>雨</span>
-      <span>風向</span>
-      <span>視界</span>
-    </div>
+  el.innerHTML=`<div class="route-forecast-board point-dashboard-board">
     <div class="route-forecast-list">${points.map((r,i)=>pointForecastRow(r,i,points.length)).join('')}</div>
     <div class="route-forecast-foot">※ 各地点の通過時刻に対する代表予報値です。詳細なモデル比較は「06 気象モデル詳細」を参照してください。</div>
   </div>`;

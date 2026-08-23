@@ -2111,3 +2111,151 @@ body.install-guide-open{overflow:hidden}
   #forecastCards .rf-vis-eval{font-size:9px;padding:4px 8px}
   #forecastCards .rf-vis-ticks{font-size:7px}
 }
+
+/* V1.4.3 point forecast dashboard - mobile + desktop */
+#forecastCards .point-dashboard-board{border:0!important;background:transparent!important;box-shadow:none!important;overflow:visible!important}
+#forecastCards .route-forecast-list{display:grid!important;gap:14px!important;padding:0!important}
+#forecastCards .point-dashboard-card{
+  display:block!important;
+  width:100%!important;
+  min-height:0!important;
+  padding:18px!important;
+  margin:0!important;
+  border:1px solid #dce6e1!important;
+  border-radius:20px!important;
+  background:#fff!important;
+  box-shadow:0 8px 24px rgba(30,58,46,.07)!important;
+  overflow:hidden!important;
+  box-sizing:border-box!important;
+}
+#forecastCards .point-dashboard-card.is-last{background:#fff!important}
+#forecastCards .rf-track{display:none!important}
+#forecastCards .rf-point-head{display:flex!important;align-items:flex-start!important;justify-content:space-between!important;gap:18px!important;margin-bottom:16px!important}
+#forecastCards .rf-point-copy{min-width:0!important;display:flex!important;flex-direction:column!important;gap:7px!important}
+#forecastCards .rf-time{display:flex!important;flex-direction:row!important;align-items:baseline!important;justify-content:flex-start!important;gap:8px!important;text-align:left!important;padding:0!important;color:#1e352b!important}
+#forecastCards .rf-time small{font-size:14px!important;line-height:1.2!important;font-weight:900!important;color:#11824f!important;letter-spacing:.01em!important}
+#forecastCards .rf-time strong{font-size:14px!important;line-height:1.2!important;font-weight:900!important;color:#11824f!important;letter-spacing:.01em!important}
+#forecastCards .rf-place{padding:0!important}
+#forecastCards .rf-place b{display:block!important;font-size:23px!important;line-height:1.15!important;color:#142b22!important;font-weight:950!important;letter-spacing:-.02em!important}
+#forecastCards .rf-place small{display:block!important;margin-top:6px!important;font-size:12px!important;line-height:1.4!important;color:#72867d!important;font-weight:700!important}
+#forecastCards .rf-weather{display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:5px!important;flex:0 0 80px!important;min-width:80px!important;padding:4px 0!important;border:0!important;background:transparent!important;box-shadow:none!important;overflow:visible!important}
+#forecastCards .rf-weather-icon,#forecastCards .rf-weather-icon svg{display:block!important;width:48px!important;height:48px!important;flex:0 0 48px!important;margin:0!important}
+#forecastCards .rf-weather small{font-size:13px!important;line-height:1.2!important;font-weight:900!important;color:#263b32!important;text-align:center!important;white-space:normal!important}
+#forecastCards .rf-metrics-grid{display:grid!important;grid-template-columns:1fr 1fr 1fr .78fr 1.2fr!important;gap:10px!important;align-items:stretch!important}
+#forecastCards .rf-metric,#forecastCards .rf-direction{
+  position:relative!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:stretch!important;
+  justify-content:flex-start!important;
+  height:auto!important;
+  min-height:154px!important;
+  max-height:none!important;
+  padding:14px!important;
+  border:1px solid #dfe7e3!important;
+  border-radius:16px!important;
+  background:#fff!important;
+  box-shadow:none!important;
+  box-sizing:border-box!important;
+}
+#forecastCards .rf-metric::before,#forecastCards .rf-direction::before{display:none!important;content:none!important}
+#forecastCards .rf-metric-title{display:flex!important;align-items:center!important;gap:8px!important;min-height:24px!important;margin-bottom:12px!important;color:#40564c!important}
+#forecastCards .rf-metric-title>b{font-size:13px!important;line-height:1!important;font-weight:900!important;color:#40564c!important}
+#forecastCards .rf-metric-symbol{display:grid!important;place-items:center!important;width:24px!important;height:24px!important;flex:0 0 24px!important}
+#forecastCards .rf-metric-symbol svg{display:block!important;width:22px!important;height:22px!important}
+#forecastCards .rf-metric-symbol.temp{color:#e0633b!important}
+#forecastCards .rf-metric-symbol.wind{color:#245f93!important}
+#forecastCards .rf-metric-symbol.rain{color:#1680dd!important}
+#forecastCards .rf-metric-symbol.direction{color:#31566f!important}
+#forecastCards .rf-metric-symbol.visibility{color:#31566f!important}
+#forecastCards .rf-value-wrap{display:flex!important;align-items:flex-end!important;justify-content:center!important;gap:6px!important;margin:2px 0 14px!important;min-height:42px!important}
+#forecastCards .rf-metric .rf-value-wrap strong{font-size:34px!important;line-height:.95!important;color:#111!important;font-weight:950!important;letter-spacing:-.025em!important}
+#forecastCards .rf-metric .rf-value-wrap small{font-size:14px!important;line-height:1.15!important;color:#31443b!important;font-weight:850!important;margin-bottom:2px!important}
+#forecastCards .rf-gauge{display:grid!important;grid-template-columns:22px minmax(0,1fr) 22px!important;align-items:center!important;gap:6px!important;margin-top:auto!important}
+#forecastCards .rf-gauge-edge{font-size:10px!important;font-weight:900!important;color:#596e64!important;text-align:center!important}
+#forecastCards .rf-gauge-track{position:relative!important;height:6px!important;border:1px solid #aebcc2!important;border-radius:999px!important;background:#e9eef1!important;overflow:visible!important;box-sizing:border-box!important}
+#forecastCards .rf-gauge-track::after{content:'';position:absolute;inset:-4px 0;pointer-events:none;background:repeating-linear-gradient(90deg,transparent 0,transparent calc(25% - 1px),rgba(121,138,147,.32) calc(25% - 1px),rgba(121,138,147,.32) 25%);opacity:.75}
+#forecastCards .rf-gauge-fill{position:absolute!important;left:0!important;top:-1px!important;height:6px!important;border-radius:999px!important;z-index:2!important}
+#forecastCards .rf-gauge-thumb{position:absolute!important;top:50%!important;width:14px!important;height:14px!important;border-radius:50%!important;border:1.5px solid rgba(0,0,0,.18)!important;box-shadow:0 1px 4px rgba(0,0,0,.16)!important;transform:translate(-50%,-50%)!important;z-index:3!important}
+#forecastCards .rf-gauge-fill.gauge-temp{background:linear-gradient(90deg,#d9f1dc 0%,#2cc33a 70%,#f1b21c 100%)!important}
+#forecastCards .rf-gauge-thumb.gauge-temp{background:#20ae31!important}
+#forecastCards .rf-gauge-fill.gauge-wind,#forecastCards .rf-gauge-fill.gauge-rain{background:#2788df!important}
+#forecastCards .rf-gauge-thumb.gauge-wind,#forecastCards .rf-gauge-thumb.gauge-rain{background:#2788df!important}
+#forecastCards .rf-direction{justify-content:flex-start!important}
+#forecastCards .rf-direction-main{display:flex!important;align-items:center!important;justify-content:center!important;gap:10px!important;min-height:60px!important;margin:4px 0 8px!important}
+#forecastCards .rf-direction-main strong{font-size:31px!important;line-height:1!important;color:#101a16!important;font-weight:800!important}
+#forecastCards .rf-direction-main b{font-size:19px!important;line-height:1.1!important;color:#111!important;font-weight:950!important;white-space:nowrap!important}
+#forecastCards .rf-direction>small{margin-top:auto!important;text-align:center!important;font-size:11px!important;color:#61766c!important;font-weight:800!important}
+#forecastCards .rf-metric.vis{min-width:0!important}
+#forecastCards .rf-metric.vis .rf-metric-title{margin-bottom:3px!important}
+#forecastCards .rf-vis-eval{margin-left:auto!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;padding:6px 11px!important;border-radius:999px!important;font-size:11px!important;line-height:1!important;font-weight:900!important;white-space:nowrap!important}
+#forecastCards .rf-vis-eval.good,#forecastCards .rf-vis-eval.great,#forecastCards .rf-vis-eval.excellent{background:#e9f7ee!important;color:#158342!important}
+#forecastCards .rf-vis-eval.caution{background:#fff6d9!important;color:#a36e00!important}
+#forecastCards .rf-vis-eval.warning,#forecastCards .rf-vis-eval.danger{background:#fff0ed!important;color:#bb4b35!important}
+#forecastCards .rf-metric.vis .rf-value-wrap{margin:2px 0 9px!important}
+#forecastCards .rf-metric.vis .rf-value-wrap strong{font-size:34px!important}
+#forecastCards .rf-gauge-visibility{display:block!important;margin-top:auto!important;padding:0 1px!important}
+#forecastCards .rf-gauge-visibility .rf-gauge-track{height:6px!important}
+#forecastCards .rf-gauge-visibility .rf-gauge-track::after{display:none!important}
+#forecastCards .rf-gauge-zone{display:none!important}
+#forecastCards .rf-gauge-visibility .rf-gauge-track::before{content:'';position:absolute;left:0;top:-1px;height:6px;width:100%;border-radius:999px;background:linear-gradient(90deg,#dfe7ea 0%,#dfe7ea 49%,#20aa3e 49%,#20aa3e 72%,#dfe7ea 72%,#dfe7ea 100%)}
+#forecastCards .rf-gauge-thumb.gauge-visibility{background:#159c39!important}
+#forecastCards .rf-vis-ticks{position:relative!important;display:block!important;height:26px!important;margin-top:5px!important}
+#forecastCards .rf-vis-ticks span{position:absolute!important;top:0!important;transform:translateX(-50%)!important;font-size:9px!important;color:#3f5149!important;font-weight:800!important}
+#forecastCards .rf-vis-ticks::after{content:'悪い       普通       良い       非常に良い';display:block;position:absolute;left:0;right:0;top:14px;font-size:9px;letter-spacing:.01em;color:#61766c;font-weight:800;word-spacing:14px;text-align:center;white-space:pre}
+#forecastCards .rf-point-message{display:flex!important;align-items:center!important;gap:10px!important;margin-top:12px!important;padding:9px 13px!important;border-radius:10px!important;font-size:12px!important;line-height:1.4!important;font-weight:800!important;border:1px solid #cfe7d7!important;background:#f0faf3!important;color:#168145!important}
+#forecastCards .rf-point-message span{display:grid!important;place-items:center!important;width:22px!important;height:22px!important;flex:0 0 22px!important;border-radius:50%!important;background:#19a34a!important;color:#fff!important;font-size:13px!important;font-weight:900!important}
+#forecastCards .rf-point-message p{margin:0!important}
+#forecastCards .rf-point-message.fair{background:#f7fbf7!important;color:#557264!important}
+#forecastCards .rf-point-message.caution{border-color:#eedba7!important;background:#fffaf0!important;color:#a46a00!important}
+#forecastCards .rf-point-message.warning{border-color:#efc8b9!important;background:#fff5f1!important;color:#b34b31!important}
+#forecastCards .route-forecast-foot{margin-top:12px!important;padding:10px 4px!important;border:0!important;background:transparent!important;color:#7a8d84!important;font-size:11px!important;text-align:center!important}
+
+@media(max-width:900px){
+  #forecastCards .route-forecast-list{gap:12px!important}
+  #forecastCards .point-dashboard-card{padding:14px!important;border-radius:18px!important}
+  #forecastCards .rf-point-head{gap:10px!important;margin-bottom:14px!important}
+  #forecastCards .rf-time{gap:6px!important}
+  #forecastCards .rf-time small,#forecastCards .rf-time strong{font-size:13px!important}
+  #forecastCards .rf-place b{font-size:22px!important}
+  #forecastCards .rf-place small{font-size:11px!important}
+  #forecastCards .rf-weather{flex-basis:70px!important;min-width:70px!important}
+  #forecastCards .rf-weather-icon,#forecastCards .rf-weather-icon svg{width:44px!important;height:44px!important;flex-basis:44px!important}
+  #forecastCards .rf-metrics-grid{grid-template-columns:repeat(6,minmax(0,1fr))!important;gap:8px!important}
+  #forecastCards .rf-metric.temp{grid-column:span 2!important}
+  #forecastCards .rf-metric.wind{grid-column:span 2!important}
+  #forecastCards .rf-metric.rain{grid-column:span 2!important}
+  #forecastCards .rf-direction{grid-column:span 2!important}
+  #forecastCards .rf-metric.vis{grid-column:span 4!important}
+  #forecastCards .rf-metric,#forecastCards .rf-direction{min-height:142px!important;padding:12px 10px!important;border-radius:15px!important}
+  #forecastCards .rf-metric-title{gap:6px!important;margin-bottom:8px!important}
+  #forecastCards .rf-metric-title>b{font-size:12px!important}
+  #forecastCards .rf-metric-symbol{width:22px!important;height:22px!important;flex-basis:22px!important}
+  #forecastCards .rf-metric-symbol svg{width:20px!important;height:20px!important}
+  #forecastCards .rf-metric .rf-value-wrap strong{font-size:31px!important}
+  #forecastCards .rf-metric .rf-value-wrap small{font-size:13px!important}
+  #forecastCards .rf-value-wrap{margin:4px 0 12px!important}
+  #forecastCards .rf-direction-main strong{font-size:29px!important}
+  #forecastCards .rf-direction-main b{font-size:18px!important}
+  #forecastCards .rf-vis-eval{padding:5px 9px!important;font-size:10px!important}
+  #forecastCards .rf-metric.vis .rf-value-wrap strong{font-size:31px!important}
+  #forecastCards .rf-point-message{font-size:11px!important;padding:8px 10px!important}
+}
+@media(max-width:430px){
+  #forecastCards .point-dashboard-card{padding:12px 10px!important}
+  #forecastCards .rf-point-head{align-items:flex-start!important}
+  #forecastCards .rf-time small,#forecastCards .rf-time strong{font-size:12px!important}
+  #forecastCards .rf-place b{font-size:20px!important}
+  #forecastCards .rf-weather{min-width:64px!important;flex-basis:64px!important}
+  #forecastCards .rf-weather-icon,#forecastCards .rf-weather-icon svg{width:40px!important;height:40px!important;flex-basis:40px!important}
+  #forecastCards .rf-weather small{font-size:11px!important}
+  #forecastCards .rf-metrics-grid{gap:7px!important}
+  #forecastCards .rf-metric,#forecastCards .rf-direction{min-height:132px!important;padding:10px 8px!important}
+  #forecastCards .rf-metric .rf-value-wrap strong{font-size:28px!important}
+  #forecastCards .rf-metric .rf-value-wrap small{font-size:12px!important}
+  #forecastCards .rf-metric-title>b{font-size:11px!important}
+  #forecastCards .rf-direction-main strong{font-size:26px!important}
+  #forecastCards .rf-direction-main b{font-size:16px!important}
+  #forecastCards .rf-gauge-edge{font-size:9px!important}
+  #forecastCards .rf-vis-ticks span,#forecastCards .rf-vis-ticks::after{font-size:8px!important}
+}
