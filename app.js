@@ -1,5 +1,48 @@
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.4.12';
+const APP_VERSION = '1.4.23';
+
+
+const LAST_ANALYSIS_STORAGE_KEY='traten:last-analysis:v1';
+function loadLastAnalysisSnapshot(){
+  try{
+    const raw=localStorage.getItem(LAST_ANALYSIS_STORAGE_KEY);
+    if(!raw)return null;
+    const data=JSON.parse(raw);
+    if(!data||!data.savedAt||!data.route||!Array.isArray(data.results)||!data.results.length)return null;
+    return data;
+  }catch(_){return null;}
+}
+function saveLastAnalysisSnapshot(mountain,points,results,overnight){
+  try{
+    const route={mountain,points:points.map(p=>({id:p.id||'',name:p.name||'',type:p.type||'peak',date:p.date,time:p.time,stay:!!p.stay,role:p.role||''}))};
+    const payload={savedAt:Date.now(),appVersion:APP_VERSION,route,results,overnight:overnight||[]};
+    localStorage.setItem(LAST_ANALYSIS_STORAGE_KEY,JSON.stringify(payload));
+    refreshLastAnalysisPanel();
+  }catch(e){console.warn('前回分析結果を保存できませんでした',e);}
+}
+function formatLastAnalysisSavedAt(ms){
+  try{return new Date(ms).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});}catch(_){return '';}
+}
+function refreshLastAnalysisPanel(){
+  const panel=$('lastAnalysisPanel'); if(!panel)return;
+  const data=loadLastAnalysisSnapshot();
+  panel.classList.toggle('hidden',!data);
+  if(!data)return;
+  const mountain=data.route?.mountain||'前回ルート';
+  const count=data.route?.points?.length||0;
+  const meta=$('lastAnalysisMeta');
+  if(meta)meta.textContent=`${mountain} / ${count}地点 / ${formatLastAnalysisSavedAt(data.savedAt)} 分析`;
+}
+function showLastAnalysisResult(){
+  const data=loadLastAnalysisSnapshot();
+  if(!data)return setStatus('前回分析結果はありません。',true);
+  try{
+    renderAll(data.results,data.overnight||[]);
+    if($('updatedAt'))$('updatedAt').textContent=`前回分析：${new Date(data.savedAt).toLocaleString('ja-JP')}（保存結果）`;
+    setStatus('前回の分析結果を表示しています。天気を更新する場合は「前回ルートを復元」後に再分析してください。');
+    scrollToSummaryResult();
+  }catch(e){setStatus(`前回分析結果を表示できませんでした：${e.message||e}`,true);}
+}
 
 const providers = [
   {id:'jma',name:'JMA MSM',kind:'openmeteo',endpoint:'https://api.open-meteo.com/v1/jma',model:'jma_msm',forecastDays:4,vars:['temperature_2m','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_direction_10m']},
@@ -281,7 +324,7 @@ const JAPAN_300_MOUNTAINS = [
   "鋸岳",
   "仙丈ヶ岳",
   "アサヨ峰",
-  "地蔵ヶ岳",
+  "地蔵岳(鳳凰)",
   "北岳",
   "間ノ岳",
   "農鳥岳",
@@ -383,6 +426,8 @@ const MOUNTAIN_NAME_ALIAS = {
   '宮ノ浦岳':'宮之浦岳',
   '御嶽':'御嶽山',
   '八ヶ岳（赤岳）':'赤岳',
+  '鳳凰山':'薬師岳(鳳凰)',
+  '地蔵ヶ岳':'地蔵岳(鳳凰)',
   '大山（神奈川）':'大山（神奈川）',
   '朝日岳（群馬）':'朝日岳（群馬）',
   '朝日岳（新潟・富山）':'朝日岳（新潟・富山）',
@@ -831,6 +876,34 @@ Object.assign(REGIONAL_CATALOG, {
     {id:'area-cku-komaho',type:'hut',name:'空木駒峰ヒュッテ',lat:35.719722,lon:137.818333,elevation:2800,source:'固定候補'},
     {id:'area-cku-utsugidaira',type:'hut',name:'空木平避難小屋',lat:35.721111,lon:137.828056,elevation:2517,source:'固定候補'},
     {id:'area-cku-ikeyama',type:'trailhead',name:'池山口登山口',lat:35.736861,lon:137.878032,elevation:1370,source:'固定候補'}
+  ]
+});
+
+// V1.4.16: 剣山〜三嶺 縦走回廊。
+// YAMAPの見ノ越-剣山-次郎笈-三嶺縦走コースと公開座標で確認した主要地点を固定。
+Object.assign(REGIONAL_CATALOG, {
+  shikoku_tsurugi_miune: [
+    {id:'area-tm-minokoshi',type:'trailhead',name:'見ノ越 剣山登山口',lat:33.866558,lon:134.089036,elevation:1394,source:'固定候補'},
+    {id:'area-tm-tsurugi',type:'peak',name:'剣山',lat:33.853611,lon:134.094167,elevation:1955,source:'固定候補'},
+    {id:'area-tm-jirogyu',type:'peak',name:'次郎笈',lat:33.843056,lon:134.086111,elevation:1930,source:'固定候補'},
+    {id:'area-tm-shiraga-hut',type:'hut',name:'白髪避難小屋',lat:33.821944,lon:134.001222,elevation:1666,source:'固定候補'},
+    {id:'area-tm-miune',type:'peak',name:'三嶺',lat:33.839444,lon:133.987778,elevation:1894,source:'固定候補'},
+    {id:'area-tm-miune-hut',type:'hut',name:'三嶺ヒュッテ',lat:33.840556,lon:133.991389,elevation:1845,source:'固定候補'},
+    {id:'area-tm-nagoro',type:'trailhead',name:'名頃登山口 三嶺',lat:33.852472,lon:134.023972,elevation:907,source:'固定候補'}
+  ]
+});
+
+
+// V1.4.17: 燧ヶ岳〜尾瀬ヶ原〜至仏山 縦走回廊。
+// 見晴・龍宮小屋・山ノ鼻を固定し、尾瀬の代表的な縦走動線を同一候補群として提示。
+Object.assign(REGIONAL_CATALOG, {
+  oze_hiuchi_shibutsu: [
+    {id:'area-ohs-hiuchi',type:'peak',name:'燧ヶ岳（柴安嵓）',lat:36.955102,lon:139.285334,elevation:2356,source:'固定候補'},
+    {id:'area-ohs-miharashi',type:'hut',name:'見晴（尾瀬小屋・見晴地区）',lat:36.940556,lon:139.251944,elevation:1418,source:'固定候補'},
+    {id:'area-ohs-ryugu',type:'hut',name:'龍宮小屋',lat:36.932500,lon:139.238333,elevation:1402,source:'固定候補'},
+    {id:'area-ohs-yamanohana',type:'trailhead',name:'山ノ鼻（至仏山東面登山道入口・登り専用）',lat:36.915833,lon:139.198056,elevation:1410,source:'固定候補'},
+    {id:'area-ohs-shibutsu',type:'peak',name:'至仏山',lat:36.903474,lon:139.173248,elevation:2228,source:'固定候補'},
+    {id:'area-ohs-hatomachi',type:'trailhead',name:'鳩待峠',lat:36.888750,lon:139.201027,elevation:1585,source:'固定候補'}
   ]
 });
 
@@ -1580,72 +1653,132 @@ Object.assign(BUILTIN_ROUTE_CATALOG, {
   ]
 });
 
+// V1.4.21: 未確定だった通過ポイントのうち、公開情報で位置を確認できた登山口・交通起点を固定化。
+// 既存固定点と同一地点の別名は CURATED_ACCESS_HINTS 側を既存名称へ統一し、重複表示を避ける。
+Object.assign(BUILTIN_ROUTE_CATALOG, {
+  '利尻山': [
+    {id:'fixed1421-rishiri-kutsugata',type:'trailhead',name:'沓形登山口',lat:45.182222,lon:141.192222,elevation:430,source:'固定候補'}
+  ],
+  '大雪山（旭岳）': [
+    {id:'fixed1421-asahidake-sugatami',type:'trailhead',name:'旭岳ロープウェイ姿見駅',lat:43.661917,lon:142.824767,elevation:1600,source:'固定候補'}
+  ],
+  'オプタテシケ山': [
+    {id:'fixed1421-optateshike-bogakudai',type:'trailhead',name:'望岳台',lat:43.447639,lon:142.649861,elevation:933,source:'固定候補'}
+  ],
+  '十勝岳': [
+    {id:'fixed1421-tokachi-fukiage',type:'trailhead',name:'吹上温泉登山口',lat:43.431750,lon:142.641944,elevation:1010,source:'固定候補'}
+  ],
+  '芦別岳': [
+    {id:'fixed1421-ashibetsu-taiyounosato',type:'trailhead',name:'山部自然公園太陽の里 芦別岳登山口',lat:43.248750,lon:142.340750,elevation:300,source:'固定候補'}
+  ],
+  '後方羊蹄山': [
+    {id:'fixed1421-yotei-kyogoku',type:'trailhead',name:'京極登山口',lat:42.844750,lon:140.854917,elevation:400,source:'固定候補'}
+  ],
+  '八甲田山': [
+    {id:'fixed1421-hakkoda-sancho',type:'trailhead',name:'八甲田ロープウェー山頂公園駅',lat:40.675904,lon:140.858690,elevation:1314,source:'固定候補'}
+  ],
+  '岩木山': [
+    {id:'fixed1421-iwaki-8th',type:'trailhead',name:'岩木山八合目',lat:40.653361,lon:140.292500,elevation:1243,source:'固定候補'}
+  ],
+  '乳頭山（烏帽子岳）': [
+    {id:'fixed1421-nyuto-kuroyu',type:'trailhead',name:'黒湯温泉',lat:39.799167,lon:140.808897,elevation:800,source:'固定候補'},
+    {id:'fixed1421-nyuto-ganiba',type:'trailhead',name:'蟹場温泉',lat:39.806070,lon:140.798740,elevation:786,source:'固定候補'}
+  ],
+  '秋田駒ヶ岳': [
+    {id:'fixed1421-akita-koma-8th',type:'trailhead',name:'八合目小屋 秋田駒ヶ岳',lat:39.768170,lon:140.807412,elevation:1304,source:'固定候補'}
+  ],
+  '栗駒山': [
+    {id:'fixed1421-kurikoma-sukawa',type:'trailhead',name:'須川高原温泉',lat:38.979944,lon:140.769306,elevation:1126,source:'固定候補'}
+  ],
+  '月山': [
+    {id:'fixed1421-gassan-ubasawa',type:'trailhead',name:'姥沢 月山リフト',lat:38.517333,lon:140.007111,elevation:1152,source:'固定候補'}
+  ],
+  '大朝日岳': [
+    {id:'fixed1421-oasahi-higuresawa',type:'trailhead',name:'日暮沢登山口駐車場（日暮沢小屋）',lat:38.320806,lon:139.943667,elevation:617,source:'固定候補'}
+  ],
+  '船形山': [
+    {id:'fixed1421-funagata-otaki',type:'trailhead',name:'大滝キャンプ場・船形山登山口',lat:38.458083,lon:140.644528,elevation:1042,source:'固定候補'}
+  ],
+  '蔵王山（熊野岳）': [
+    {id:'fixed1421-zao-jizo',type:'trailhead',name:'蔵王ロープウェイ地蔵山頂駅',lat:38.154781,lon:140.431075,elevation:1661,source:'固定候補'}
+  ],
+  '飯豊山': [
+    {id:'fixed1421-iide-dainichisugi',type:'trailhead',name:'大日杉登山口',lat:37.851306,lon:139.779833,elevation:610,source:'固定候補'}
+  ],
+  '磐梯山': [
+    {id:'fixed1421-bandai-inawashiro',type:'trailhead',name:'猪苗代登山口（猪苗代スキー場）',lat:37.574117,lon:140.094226,elevation:690,source:'固定候補'}
+  ],
+  '七ヶ岳': [
+    {id:'fixed1421-nanatsugatake-takatsue',type:'trailhead',name:'会津高原たかつえスキー場・七ヶ岳登山口',lat:37.110389,lon:139.614722,elevation:954,source:'固定候補'}
+  ]
+});
+
 // V1.10.0 全国主要山域強化。
 // 座標をハードコードせず、代表登山口・山小屋の「名称」を手登録し、選択時にOSM/Nominatimで座標解決する。
 // これにより全国の三百名山で手登録候補を持ちつつ、施設移転・名称差異にも自動探索で補完できる。
 const CURATED_ACCESS_HINTS = {
   // 北海道
-  '利尻山':{trailheads:['北麓野営場 利尻山登山口','沓形登山口'],huts:['利尻山避難小屋']},
-  '羅臼岳':{trailheads:['岩尾別温泉 羅臼岳登山口'],huts:['羅臼平']},
+  '利尻山':{trailheads:['利尻北麓野営場（鴛泊コース）','沓形登山口'],huts:['利尻山避難小屋']},
+  '羅臼岳':{trailheads:['岩尾別温泉・木下小屋登山口'],huts:['羅臼平']},
   '斜里岳':{trailheads:['清岳荘'],huts:['清岳荘']},
   '雄阿寒岳':{trailheads:['滝口 雄阿寒岳登山口']},
   '天塩岳':{trailheads:['天塩岳ヒュッテ 登山口'],huts:['天塩岳ヒュッテ']},
-  'ニセイカウシュッペ山':{trailheads:['古川林道 ニセイカウシュッペ山登山口']},
-  '大雪山（旭岳）':{trailheads:['旭岳ロープウェイ姿見駅','旭岳温泉'],huts:['旭岳石室']},
-  '石狩岳':{trailheads:['シュナイダーコース登山口','ユニ石狩岳登山口']},
-  'トムラウシ山':{trailheads:['トムラウシ温泉 短縮登山口'],huts:['ヒサゴ沼避難小屋']},
+  'ニセイカウシュッペ山':{trailheads:['ニセイカウシュッペ山登山口（古川林道・西尾根）']},
+  '大雪山（旭岳）':{trailheads:['旭岳ロープウェイ姿見駅','旭岳ロープウェイ山麓駅'],huts:['旭岳石室']},
+  '石狩岳':{trailheads:['シュナイダーコース登山口（音更川二十一ノ沢出合）','ユニ石狩岳登山口']},
+  'トムラウシ山':{trailheads:['トムラウシ短縮コース登山口'],huts:['ヒサゴ沼避難小屋']},
   'オプタテシケ山':{trailheads:['望岳台'],huts:['美瑛富士避難小屋']},
   '十勝岳':{trailheads:['望岳台','吹上温泉登山口'],huts:['十勝岳避難小屋']},
-  'ニペソツ山':{trailheads:['幌加温泉 ニペソツ山登山口']},
-  '幌尻岳':{trailheads:['とよぬか山荘','新冠ポロシリ山荘 登山口'],huts:['幌尻山荘','新冠ポロシリ山荘']},
+  'ニペソツ山':{trailheads:['幌加温泉コース登山口']},
+  '幌尻岳':{trailheads:['とよぬか山荘・シャトルバス乗り場','新冠ポロシリ山荘 登山口'],huts:['幌尻山荘','新冠ポロシリ山荘']},
   'カムイエクウチカウシ山':{trailheads:['札内川ヒュッテ'],huts:['札内川ヒュッテ']},
-  'ペテガリ岳':{trailheads:['神威山荘 ペテガリ岳登山口'],huts:['ペテガリ山荘']},
+  'ペテガリ岳':{trailheads:['神威山荘（ペテガリ岳アプローチ起点）'],huts:['ペテガリ山荘']},
   '神威岳':{trailheads:['神威山荘']},
   '芦別岳':{trailheads:['山部自然公園太陽の里 芦別岳登山口']},
-  '夕張岳':{trailheads:['夕張岳登山口'],huts:['夕張岳ヒュッテ']},
+  '夕張岳':{trailheads:['冷水・馬の背登山口（夕張岳ヒュッテ）'],huts:['夕張岳ヒュッテ']},
   '暑寒別岳':{trailheads:['暑寒荘'],huts:['暑寒荘']},
   '余市岳':{trailheads:['キロロ ゴンドラ山頂駅']},
-  '樽前山':{trailheads:['樽前山七合目登山口']},
-  '後方羊蹄山':{trailheads:['羊蹄山比羅夫登山口','真狩登山口','京極登山口'],huts:['羊蹄山避難小屋']},
-  'ニセコアンヌプリ':{trailheads:['ニセコアンヌプリ五色温泉登山口']},
-  '狩場山':{trailheads:['千走新道登山口']},
-  '渡島駒ヶ岳':{trailheads:['赤井川登山口 駒ヶ岳']},
-  '大千軒岳':{trailheads:['知内川コース登山口 大千軒岳']},
+  '樽前山':{trailheads:['7合目登山口']},
+  '後方羊蹄山':{trailheads:['比羅夫登山口・半月湖畔自然公園','真狩登山口・真狩キャンプ場','京極登山口'],huts:['羊蹄山避難小屋']},
+  'ニセコアンヌプリ':{trailheads:['五色温泉インフォメーションセンター']},
+  '狩場山':{trailheads:['千走登山口']},
+  '渡島駒ヶ岳':{trailheads:['赤井川登山口・6合目駐車場']},
+  '大千軒岳':{trailheads:['奥二股登山口駐車場']},
 
   // 東北
-  '八甲田山':{trailheads:['酸ヶ湯温泉','八甲田ロープウェー山頂公園駅'],huts:['仙人岱避難小屋']},
-  '岩木山':{trailheads:['岩木山八合目','嶽温泉 岩木山登山口']},
+  '八甲田山':{trailheads:['酸ヶ湯登山口','八甲田ロープウェー山頂公園駅'],huts:['仙人岱避難小屋']},
+  '岩木山':{trailheads:['岩木山八合目','嶽温泉・嶽コース登山口']},
   '白神岳':{trailheads:['白神岳登山口'],huts:['白神岳避難小屋']},
-  '八幡平':{trailheads:['八幡平山頂レストハウス']},
+  '八幡平':{trailheads:['八幡平見返峠・山頂レストハウス']},
   '乳頭山（烏帽子岳）':{trailheads:['黒湯温泉','蟹場温泉']},
   '秋田駒ヶ岳':{trailheads:['八合目小屋 秋田駒ヶ岳'],huts:['阿弥陀池避難小屋']},
   '岩手山':{trailheads:['馬返し登山口 岩手山','焼走り登山口'],huts:['八合目避難小屋']},
   '姫神山':{trailheads:['一本杉登山口 姫神山']},
   '早池峰山':{trailheads:['小田越登山口'],huts:['早池峰山避難小屋']},
   '五葉山':{trailheads:['赤坂峠 五葉山登山口'],huts:['石楠花荘']},
-  '和賀岳':{trailheads:['甘露水登山口 和賀岳']},
+  '和賀岳':{trailheads:['甘露水口・薬師岳登山口駐車場']},
   '焼石岳':{trailheads:['中沼登山口'],huts:['銀明水避難小屋']},
   '栗駒山':{trailheads:['いわかがみ平','須川高原温泉']},
   '神室山':{trailheads:['西ノ又登山口 神室山']},
   '森吉山':{trailheads:['阿仁ゴンドラ山頂駅']},
   '太平山':{trailheads:['旭又登山口 太平山']},
-  '鳥海山':{trailheads:['鉾立 鳥海山登山口','湯ノ台口'],huts:['御浜小屋','大物忌神社参籠所']},
+  '鳥海山':{trailheads:['鉾立登山口（象潟口）','湯ノ台口'],huts:['御浜小屋','大物忌神社参籠所']},
   '月山':{trailheads:['月山八合目','姥沢 月山リフト'],huts:['佛生池小屋']},
-  '摩耶山':{trailheads:['越沢登山口 摩耶山 山形']},
-  '以東岳':{trailheads:['泡滝ダム'],huts:['以東岳避難小屋','大鳥小屋']},
-  '大朝日岳':{trailheads:['古寺鉱泉 朝日岳登山口','日暮沢小屋'],huts:['大朝日小屋','竜門小屋']},
-  '祝瓶山':{trailheads:['祝瓶山荘 登山口'],huts:['祝瓶山荘']},
-  '船形山':{trailheads:['大滝キャンプ場 船形山登山口','旗坂キャンプ場'],huts:['升沢避難小屋']},
+  '摩耶山':{trailheads:['越沢口']},
+  '以東岳':{trailheads:['泡滝ダム・大鳥登山口'],huts:['以東岳避難小屋','大鳥小屋']},
+  '大朝日岳':{trailheads:['古寺案内センター（古寺コース）','日暮沢登山口駐車場（日暮沢小屋）'],huts:['大朝日小屋','竜門小屋']},
+  '祝瓶山':{trailheads:['祝瓶山荘駐車場・桑住平ルート'],huts:['祝瓶山荘']},
+  '船形山':{trailheads:['大滝キャンプ場・船形山登山口','旗坂キャンプ場駐車場（升沢コース）'],huts:['升沢避難小屋']},
   '泉ヶ岳':{trailheads:['泉ヶ岳大駐車場']},
   '蔵王山（熊野岳）':{trailheads:['蔵王ロープウェイ地蔵山頂駅','刈田峠']},
-  '飯豊山':{trailheads:['御沢登山口 飯豊山','大日杉登山口'],huts:['三国小屋','切合小屋','本山小屋']},
+  '飯豊山':{trailheads:['御沢登山口・御沢野営場','大日杉登山口'],huts:['三国小屋','切合小屋','本山小屋']},
   '西吾妻山':{trailheads:['天元台高原リフト北望台','グランデコ ゴンドラ山頂駅'],huts:['西吾妻小屋']},
   '一切経山':{trailheads:['浄土平'],huts:['酸ヶ平避難小屋']},
-  '安達太良山':{trailheads:['あだたら山ロープウェイ山頂駅','奥岳登山口'],huts:['くろがね小屋']},
-  '磐梯山':{trailheads:['八方台登山口','猪苗代登山口'],huts:['弘法清水小屋']},
+  '安達太良山':{trailheads:['あだたら山ロープウェイ山頂駅','奥岳登山口・あだたら山ロープウェイ'],huts:['くろがね小屋']},
+  '磐梯山':{trailheads:['八方台登山口','猪苗代登山口（猪苗代スキー場）'],huts:['弘法清水小屋']},
   '二岐山':{trailheads:['御鍋神社登山口 二岐山']},
-  '七ヶ岳':{trailheads:['たかつえスキー場 七ヶ岳登山口']},
-  '荒海山':{trailheads:['八総鉱山跡 荒海山登山口']},
+  '七ヶ岳':{trailheads:['会津高原たかつえスキー場・七ヶ岳登山口']},
+  '荒海山':{trailheads:['八総鉱山跡・荒海山登山駐車場']},
   '帝釈山':{trailheads:['馬坂峠 帝釈山登山口']},
   '会津駒ヶ岳':{trailheads:['滝沢登山口 会津駒ヶ岳'],huts:['駒の小屋']},
   '会津朝日岳':{trailheads:['赤倉沢登山口 会津朝日岳']},
@@ -1653,10 +1786,10 @@ const CURATED_ACCESS_HINTS = {
   '大滝根山':{trailheads:['仙台平 大滝根山登山口']},
 
   // 関東（代表的な未補強山）
-  '筑波山':{trailheads:['筑波山神社入口','筑波山つつじヶ丘駐車場','つつじヶ丘駅 筑波山ロープウェイ'],huts:[]},
+  '筑波山':{trailheads:['筑波山神社入口','筑波山つつじヶ丘駐車場','つつじヶ丘登山口'],huts:[]},
 
   // 近畿
-  '伊吹山':{trailheads:['伊吹山登山口 三之宮神社','伊吹山ドライブウェイ山頂駐車場']},
+  '伊吹山':{trailheads:['伊吹山 上野登山口（三之宮神社）','伊吹山ドライブウェイ山頂駐車場']},
   '藤原岳':{trailheads:['大貝戸登山口 藤原岳','孫太尾根登山口'],huts:['藤原山荘']},
   '御在所岳':{trailheads:['中登山道口 御在所岳','御在所ロープウエイ山上公園駅']},
   '倶留尊山':{trailheads:['曽爾高原 倶留尊山登山口']},
@@ -1673,7 +1806,7 @@ const CURATED_ACCESS_HINTS = {
   '金剛山':{trailheads:['千早本道登山口','水越峠 金剛山']},
   '武奈ヶ岳':{trailheads:['坊村 武奈ヶ岳登山口','イン谷口']},
   '蓬来山':{trailheads:['びわ湖バレイ山頂駅','蓬莱駅 登山口']},
-  '比叡山':{trailheads:['坂本ケーブル延暦寺駅','修学院 比叡山登山口']},
+  '比叡山':{trailheads:['坂本ケーブル延暦寺駅','雲母坂登山口（修学院）']},
   '愛宕山':{trailheads:['清滝 愛宕山登山口']},
   '六甲山':{trailheads:['芦屋川 高座の滝','有馬温泉 六甲山登山口']},
 
@@ -1792,7 +1925,11 @@ const MOUNTAIN_REGION = {
   '薬師岳':'yakushi_kurobe','黒部五郎岳':'yakushi_kurobe',
   // V1.12.56 中央アルプス縦走回廊
   '木曽駒ヶ岳':'central_kisokoma_utsugi','宝剣岳':'central_kisokoma_utsugi','檜尾岳':'central_kisokoma_utsugi',
-  '熊沢岳':'central_kisokoma_utsugi','東川岳':'central_kisokoma_utsugi','空木岳':'central_kisokoma_utsugi'
+  '熊沢岳':'central_kisokoma_utsugi','東川岳':'central_kisokoma_utsugi','空木岳':'central_kisokoma_utsugi',
+  // V1.4.16 四国 剣山〜三嶺縦走回廊
+  '剣山':'shikoku_tsurugi_miune','三嶺':'shikoku_tsurugi_miune',
+  // V1.4.17 尾瀬 燧ヶ岳〜至仏山縦走回廊
+  '燧ヶ岳':'oze_hiuchi_shibutsu','至仏山':'oze_hiuchi_shibutsu'
 };
 // typo-safe alias for the ura-ginza key used above.
 MOUNTAIN_REGION['鷲羽岳']='ushiroginza';
@@ -1976,6 +2113,16 @@ function regionalCandidates(mountain){
   // V1.12.56 木曽駒ヶ岳〜宝剣岳〜檜尾岳〜熊沢岳〜東川岳〜空木岳を同一回廊として提示。
   if(['木曽駒ヶ岳','宝剣岳','檜尾岳','熊沢岳','東川岳','空木岳'].includes(mountain)){
     return mergeRegionalCatalogs('central_kisokoma_utsugi');
+  }
+
+  // V1.4.16 剣山〜次郎笈〜白髪避難小屋〜三嶺を同一回廊として提示。
+  if(['剣山','三嶺'].includes(mountain)){
+    return mergeRegionalCatalogs('shikoku_tsurugi_miune');
+  }
+
+  // V1.4.17 燧ヶ岳〜見晴〜龍宮小屋〜山ノ鼻〜至仏山を同一回廊として提示。
+  if(['燧ヶ岳','至仏山'].includes(mountain)){
+    return mergeRegionalCatalogs('oze_hiuchi_shibutsu');
   }
   return REGIONAL_CATALOG[key]||[];
 }
@@ -2642,6 +2789,66 @@ for (const [mountain,pts] of Object.entries(V1228_NORTHERN_ALPS_ACCESS)) {
 }
 
 let pointSeq=0;
+
+// V1.4.23: くじゅう連山の主要4山頂追加 + 鳳凰三山の山頂名整理。
+// 山頂座標は国土地理院「日本の主な山岳」掲載値を採用。
+// 旧名称は MOUNTAIN_NAME_ALIAS で互換維持し、UIからは新名称のみ表示する。
+Object.assign(MOUNTAIN_PRESETS, {
+  '中岳(くじゅう)': {latitude:33.085833, longitude:131.248889},
+  '三俣山': {latitude:33.103889, longitude:131.246389},
+  '星生山': {latitude:33.090833, longitude:131.232500},
+  '薬師岳(鳳凰)': {latitude:35.696111, longitude:138.311667},
+  '観音岳(鳳凰)': {latitude:35.701667, longitude:138.304722},
+  '地蔵岳(鳳凰)': {latitude:35.712222, longitude:138.298611}
+});
+
+const V1423_KUJU_PEAKS = [
+  {id:'v1423-kuju-kuju',type:'peak',name:'久住山',lat:33.082187,lon:131.240871,elevation:1786,source:'固定候補'},
+  {id:'v1423-kuju-naka',type:'peak',name:'中岳(くじゅう)',lat:33.085833,lon:131.248889,elevation:1791,source:'固定候補'},
+  {id:'v1423-kuju-mimata',type:'peak',name:'三俣山',lat:33.103889,lon:131.246389,elevation:1744,source:'固定候補'},
+  {id:'v1423-kuju-taisen',type:'peak',name:'大船山',lat:33.095000,lon:131.280556,elevation:1786,source:'固定候補'},
+  {id:'v1423-kuju-hossho',type:'peak',name:'星生山',lat:33.090833,lon:131.232500,elevation:1762,source:'固定候補'}
+];
+const V1423_KUJU_ACCESS = [
+  {id:'v1423-kuju-makinoto',type:'trailhead',name:'牧ノ戸峠',lat:33.096111,lon:131.207861,elevation:1330,source:'固定候補'},
+  {id:'v1423-kuju-chojabaru',type:'trailhead',name:'長者原',lat:33.118694,lon:131.229583,elevation:1036,source:'固定候補'},
+  // YAMAPランドマークで位置確認し、大分県公式の「久住分かれにある久住山避難小屋」と照合。
+  {id:'v1423-kuju-wakare',type:'hut',name:'久住分かれ避難小屋',lat:33.086028,lon:131.238806,elevation:1638,source:'固定候補'},
+  {id:'v1423-kuju-hokkein',type:'hut',name:'法華院温泉山荘',lat:33.096353,lon:131.255433,elevation:1303,source:'固定候補'}
+];
+for (const mountainName of ['久住山','大船山','中岳(くじゅう)','三俣山','星生山']) {
+  const old=BUILTIN_ROUTE_CATALOG[mountainName]||[];
+  const merged=[...V1423_KUJU_PEAKS,...V1423_KUJU_ACCESS,...old];
+  const seen=new Set();
+  BUILTIN_ROUTE_CATALOG[mountainName]=merged.filter(p=>{
+    const k=`${p.type}:${p.name}`;
+    if(seen.has(k))return false;
+    seen.add(k); return true;
+  });
+}
+
+const V1423_HOUOU_COMMON = [
+  {id:'v1423-houou-yashajin',type:'trailhead',name:'夜叉神峠登山口',lat:35.652800,lon:138.331000,elevation:1380,source:'固定候補'},
+  {id:'v1423-houou-minamiomuro',type:'hut',name:'南御室小屋',lat:35.684900,lon:138.309200,elevation:2420,source:'固定候補'},
+  {id:'v1423-houou-yakushi',type:'peak',name:'薬師岳(鳳凰)',lat:35.696111,lon:138.311667,elevation:2780,source:'固定候補'},
+  {id:'v1423-houou-kannon',type:'peak',name:'観音岳(鳳凰)',lat:35.701667,lon:138.304722,elevation:2841,source:'固定候補'},
+  {id:'v1423-houou-jizo',type:'peak',name:'地蔵岳(鳳凰)',lat:35.712222,lon:138.298611,elevation:2764,source:'固定候補'}
+];
+Object.assign(BUILTIN_ROUTE_CATALOG, {
+  '薬師岳(鳳凰)': [...V1423_HOUOU_COMMON],
+  '観音岳(鳳凰)': [...V1423_HOUOU_COMMON],
+  '地蔵岳(鳳凰)': [
+    {id:'v1423-houou-jizo-th',type:'trailhead',name:'夜叉神峠登山口',lat:35.652800,lon:138.331000,elevation:1380,source:'固定候補'},
+    {id:'v1423-houou-jizo-hut',type:'hut',name:'南御室小屋',lat:35.684900,lon:138.309200,elevation:2420,source:'固定候補'},
+    {id:'v1423-houou-jizo-yakushi',type:'peak',name:'薬師岳(鳳凰)',lat:35.696111,lon:138.311667,elevation:2780,source:'固定候補'},
+    {id:'v1423-houou-jizo-kannon',type:'peak',name:'観音岳(鳳凰)',lat:35.701667,lon:138.304722,elevation:2841,source:'固定候補'},
+    {id:'v1423-houou-jizo-peak',type:'peak',name:'地蔵岳(鳳凰)',lat:35.712222,lon:138.298611,elevation:2764,source:'固定候補'}
+  ]
+});
+// 旧キーは過去保存ルート復元用に残すが、新規UIでは非表示。
+BUILTIN_ROUTE_CATALOG['鳳凰山']=BUILTIN_ROUTE_CATALOG['薬師岳(鳳凰)'];
+BUILTIN_ROUTE_CATALOG['地蔵ヶ岳']=BUILTIN_ROUTE_CATALOG['地蔵岳(鳳凰)'];
+
 const sessionId=(crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2));
 
 document.addEventListener('DOMContentLoaded',init);
@@ -2656,7 +2863,8 @@ const MOUNTAIN_UI_AREAS = [
 const EXTRA_MOUNTAIN_UI_AREA = {
   '蝶ヶ岳':'northern_alps','西穂高岳':'northern_alps','南岳':'northern_alps','北穂高岳':'northern_alps','前穂高岳':'northern_alps',
   '赤岳':'yatsugatake_chushin','横岳（八ヶ岳）':'yatsugatake_chushin','硫黄岳（八ヶ岳）':'yatsugatake_chushin','阿弥陀岳':'yatsugatake_chushin','権現岳':'yatsugatake_chushin','編笠山':'yatsugatake_chushin','北横岳':'yatsugatake_chushin',
-  '鳳凰山':'southern_alps','御嶽山':'central_alps_ontake','宮之浦岳':'kyushu','大山':'chugoku'
+  '薬師岳(鳳凰)':'southern_alps','観音岳(鳳凰)':'southern_alps','御嶽山':'central_alps_ontake','宮之浦岳':'kyushu','大山':'chugoku',
+  '中岳(くじゅう)':'kyushu','三俣山':'kyushu','星生山':'kyushu'
 };
 function mountainUiArea(name){
   if(EXTRA_MOUNTAIN_UI_AREA[name])return EXTRA_MOUNTAIN_UI_AREA[name];
@@ -2730,7 +2938,8 @@ function init(){
   const search=$('mountainSearch');
   const list=$('mountainPresetList');
   const existing=Object.keys(MOUNTAIN_PRESETS);
-  const extra=existing.filter(n=>!JAPAN_300_MOUNTAINS.includes(n));
+  const hiddenCompat=new Set(['鳳凰山','地蔵ヶ岳']);
+  const extra=existing.filter(n=>!JAPAN_300_MOUNTAINS.includes(n)&&!hiddenCompat.has(n));
   const all=[...JAPAN_300_MOUNTAINS,...extra];
   area.innerHTML=`<option value="">山域を選択してください</option>${MOUNTAIN_UI_AREAS.map(([k,n])=>`<option value="${k}">${n}</option>`).join('')}`;
   list.innerHTML=all.map(n=>`<option value="${esc(n)}"></option>`).join('');
@@ -2747,12 +2956,14 @@ function init(){
   $('loadPoiBtn').addEventListener('click',loadCandidates);
   $('addPointBtn').addEventListener('click',()=>addManualPointRow());
   $('analyzeBtn').addEventListener('click',analyze);
+  $('lastResultBtn')?.addEventListener('click',showLastAnalysisResult);
+  refreshLastAnalysisPanel();
 
   const resetForMountainChange=()=>{
     candidates=[];
     $('points').innerHTML=''; pointSeq=0;
     const selected=!!select.value.trim();
-    $('candidateState').textContent=selected?'「この山のルート候補を読み込む」を押してください':'';
+    $('candidateState').textContent=selected?'「通過ポイントを読み込む」を押してください':'';
     updateLoadButtonAppearance(false);
     updateForecastHorizon();
     renderRouteMaps();
@@ -2779,6 +2990,29 @@ function init(){
     resetForMountainChange();
     return true;
   };
+  $('lastRouteBtn')?.addEventListener('click',async()=>{
+    const data=loadLastAnalysisSnapshot();
+    if(!data?.route?.mountain)return setStatus('復元できる前回ルートがありません。',true);
+    const mountain=data.route.mountain;
+    if(!chooseFromSearch(mountain,true))return setStatus(`${mountain} を現在の山一覧から復元できませんでした。`,true);
+    try{
+      await loadCandidates();
+      $('points').innerHTML=''; pointSeq=0;
+      for(const saved of data.route.points||[]){
+        let hit=candidates.find(p=>String(p.id)===String(saved.id));
+        if(!hit)hit=candidates.find(p=>p.type===saved.type&&p.name===saved.name);
+        if(!hit)continue;
+        addPointRow(saved.type,hit.id,saved.role||'',{date:saved.date,time:saved.time});
+        const row=$('points').lastElementChild;
+        if(row?.querySelector('.point-stay'))row.querySelector('.point-stay').checked=!!saved.stay;
+        updateMeta(row);
+      }
+      updateForecastHorizon(); renderRouteMaps();
+      setStatus(`前回ルート「${mountain}」を復元しました。最新の天気で再分析できます。`);
+      $('points')?.scrollIntoView({behavior:'smooth',block:'start'});
+    }catch(e){setStatus(`前回ルートを復元できませんでした：${e.message||e}`,true);}
+  });
+
   search.addEventListener('input',()=>{
     const q=search.value.trim();
     if(!q){area.value='';populateMountainSelect('');resetForMountainChange();return;}
@@ -3074,7 +3308,7 @@ async function loadCandidates(){
   const mountain=canonicalMountainName(label);
   const btn=$('loadPoiBtn');
   const before=btn.textContent;
-  btn.disabled=true; btn.textContent='基本候補を表示中…';
+  btn.disabled=true; btn.textContent='通過ポイントを出力中…';
   try{
     const center=await resolveMountainCenter(label);
     if(!MOUNTAIN_PRESETS[mountain])MOUNTAIN_PRESETS[mountain]=center;
@@ -3083,62 +3317,55 @@ async function loadCandidates(){
     const embeddedNames=new Set(embeddedBase.map(p=>`${p.type}|${accessNameKey(p.name,mountain)}`));
     const fixedNameFallback=fixedNameFallbackCandidates(mountain).filter(p=>!embeddedNames.has(`${p.type}|${accessNameKey(p.name,mountain)}`));
     const staticBase=[...embeddedBase,...fixedNameFallback];
-    const fullCacheKey=`full:${mountainCacheKey(mountain)}`;
-    const cachedFull=routeCacheGet(fullCacheKey,7*24*60*60*1000);
+    // V1.4.20: 座標未確定の固定候補はユーザーに表示しない。
+    // 未確定候補は内部データには残し、公開情報で確認できた時点で固定候補へ昇格する。
+    const resolvedStaticBase=staticBase.filter(hasResolvedCoord);
 
-    if(Array.isArray(cachedFull)&&cachedFull.length){
-      candidates=[...staticBase,...cachedFull];
+    // 確定済み固定候補が1件でもあれば、それを即時出力して外部の追加候補探索は行わない。
+    // 日本三百名山は固定登山口300/300を整備済みのため、通常はこちらを通る。
+    if(resolvedStaticBase.length){
+      candidates=[...resolvedStaticBase];
       renderCandidateRows(label,center,{resetPoints:true});
-      const trailCount=candidates.filter(p=>p.type==='trailhead').length, hutCount=candidates.filter(p=>p.type==='hut').length, peakCount=candidates.filter(p=>p.type==='peak').length;
-      $('candidateState').textContent=`${label}：登山口 ${trailCount} / 山小屋・避難小屋 ${hutCount} / 山頂・周辺ピーク ${peakCount}（キャッシュから高速表示）`;
+      $('candidateState').textContent='通過ポイント出力済み';
       updateLoadButtonAppearance(true);
-      logEvent('route_candidates_loaded',{success:true,mountain:label,metadata:{candidate_count:candidates.length,cache_hit:true}});
+      logEvent('route_candidates_loaded',{success:true,mountain:label,metadata:{candidate_count:candidates.length,hidden_unresolved_count:staticBase.length-resolvedStaticBase.length,source:'fixed',external_search:false}});
       return;
     }
 
-    // まずローカル固定データだけで即表示。外部検索待ちでUIを止めない。
-    candidates=[...staticBase];
-    renderCandidateRows(label,center,{resetPoints:true});
-    const initialCount=candidates.length;
-    $('candidateState').textContent=`${label}：固定候補 ${initialCount}件を即時表示しました。追加候補を探索中…`;
-    updateLoadButtonAppearance(true);
-    btn.textContent='追加候補を検索中…';
+    // 固定候補がまったく無い山だけ、非常用フォールバックとして従来の外部探索を実施。
+    $('candidateState').textContent='固定ポイントがないため通過ポイントを検索中…';
+    btn.textContent='通過ポイントを検索中…';
+    const fullCacheKey=`full:${mountainCacheKey(mountain)}`;
+    const cachedFull=routeCacheGet(fullCacheKey,7*24*60*60*1000);
+    if(Array.isArray(cachedFull)&&cachedFull.length){
+      candidates=[...cachedFull];
+      renderCandidateRows(label,center,{resetPoints:true});
+      $('candidateState').textContent='通過ポイント出力済み';
+      updateLoadButtonAppearance(true);
+      logEvent('route_candidates_loaded',{success:true,mountain:label,metadata:{candidate_count:candidates.length,cache_hit:true,source:'external_fallback'}});
+      return;
+    }
 
-    // 手登録名称の座標解決と24km探索を並行化。
-    const [curated,dynamicPrimary]=await Promise.all([
-      resolveCuratedCandidates(mountain,center),
-      discoverNearbyCandidates(center,24000)
-    ]);
-    let dynamic=[...dynamicPrimary];
+    let dynamic=await discoverNearbyCandidates(center,24000);
     let trailSearchStage='24km';
     const hasTrailIn=(arr)=>arr.some(p=>p.type==='trailhead');
-    if(!hasTrailIn([...staticBase,...curated,...dynamic])){
-      const extended=await discoverNearbyCandidates(center,45000);
-      dynamic=[...dynamic,...extended];
+    if(!hasTrailIn(dynamic)){
+      dynamic=[...dynamic,...await discoverNearbyCandidates(center,45000)];
       trailSearchStage='45km';
     }
-    if(!hasTrailIn([...staticBase,...curated,...dynamic])){
-      const named=await discoverTrailheadsByName(label,center);
-      dynamic=[...dynamic,...named];
+    if(!hasTrailIn(dynamic)){
+      dynamic=[...dynamic,...await discoverTrailheadsByName(label,center)];
       trailSearchStage='山名検索';
     }
-
-    const resolvedNames=new Set(curated.map(p=>`${p.type}|${p.name}`));
-    const staticResolved=staticBase.filter(p=>!p.unresolved||!resolvedNames.has(`${p.type}|${p.name}`));
-    candidates=[...staticResolved,...curated,...dynamic];
-    renderCandidateRows(label,center,{resetPoints:false});
-    routeCachePut(fullCacheKey,[...curated,...dynamic]);
-
-    const trailCount=candidates.filter(p=>p.type==='trailhead').length, hutCount=candidates.filter(p=>p.type==='hut').length, peakCount=candidates.filter(p=>p.type==='peak').length;
-    const resolvedTrailCount=candidates.filter(p=>p.type==='trailhead'&&hasResolvedCoord(p)).length;
-    const trailNote=resolvedTrailCount?`登山口探索 ${trailSearchStage}`:(trailCount?'固定候補あり・一部座標確認中':'登山口候補を検出できませんでした');
-    $('candidateState').textContent=`${label}：登山口 ${trailCount} / 山小屋・避難小屋 ${hutCount} / 山頂・周辺ピーク ${peakCount}（追加探索完了 / 固定候補 ${curated.length}件 / ${trailNote}）`;
-    if(!trailCount)setStatus(`${label} の登山口候補が見つかりませんでした。`,true);
-    else if(!resolvedTrailCount)setStatus(`${label} は代表登山口名を固定候補として表示しています。座標確認が完了した候補を選んでください。`,false);
-    updateLoadButtonAppearance(true);
-    logEvent('route_candidates_loaded',{success:true,mountain:label,metadata:{candidate_count:candidates.length,dynamic_count:dynamic.length,curated_count:curated.length,cache_hit:false}});
+    candidates=[...dynamic];
+    renderCandidateRows(label,center,{resetPoints:true});
+    routeCachePut(fullCacheKey,dynamic);
+    $('candidateState').textContent=candidates.length?'通過ポイント出力済み':'通過ポイント候補を検出できませんでした';
+    if(!candidates.length)setStatus(`${label} の通過ポイント候補が見つかりませんでした。`,true);
+    updateLoadButtonAppearance(!!candidates.length);
+    logEvent('route_candidates_loaded',{success:!!candidates.length,mountain:label,metadata:{candidate_count:candidates.length,source:'external_fallback',trail_search_stage:trailSearchStage}});
   }catch(e){
-    $('candidateState').textContent=`${label}：候補を読み込めませんでした（${e.message||e}）`;
+    $('candidateState').textContent=`${label}：通過ポイントを読み込めませんでした（${e.message||e}）`;
     setStatus(`山頂座標の取得に失敗しました：${e.message||e}`,true);
     updateLoadButtonAppearance(false);
   }finally{
@@ -3180,72 +3407,10 @@ function formatLocalTime(dt){
 
 function typeOptions(selected){return Object.entries(TYPE_LABEL).map(([v,l])=>`<option value="${v}" ${v===selected?'selected':''}>${l}</option>`).join('');}
 
-async function resolveSingleCandidateCoordinate(candidate,mountainLabel){
-  if(!candidate||hasResolvedCoord(candidate))return candidate;
-  const mountain=canonicalMountainName(mountainLabel||$('mountainPreset')?.value||'');
-  let center=null;
-  try{center=await resolveMountainCenter(mountain);}catch(_){ }
-  const terms=[
-    `${candidate.name} ${mountain} 日本`,
-    `${candidate.name} 日本`,
-    candidate.name
-  ];
-  let best=null;
-  for(const term of terms){
-    try{
-      const url=`https://nominatim.openstreetmap.org/search?format=jsonv2&countrycodes=jp&limit=8&addressdetails=1&q=${encodeURIComponent(term)}`;
-      const res=await proxyFetch(url);
-      if(!res.ok)continue;
-      const rows=await res.json();
-      const found=(Array.isArray(rows)?rows:[]).map(r=>({r,lat:Number(r.lat),lon:Number(r.lon)})).filter(x=>Number.isFinite(x.lat)&&Number.isFinite(x.lon));
-      if(center){
-        found.sort((a,b)=>haversineMeters(center.latitude,center.longitude,a.lat,a.lon)-haversineMeters(center.latitude,center.longitude,b.lat,b.lon));
-        best=found.find(x=>haversineMeters(center.latitude,center.longitude,x.lat,x.lon)<=70000)||null;
-      }else best=found[0]||null;
-      if(best)break;
-    }catch(_){ }
-  }
-  if(!best)return null;
-  candidate.lat=best.lat;
-  candidate.lon=best.lon;
-  candidate.unresolved=false;
-  candidate.source='固定候補（座標取得済み）';
-  const cacheKey=`singlecoord:${mountainCacheKey(mountain)}:${candidate.name}`;
-  routeCachePut(cacheKey,{lat:best.lat,lon:best.lon});
-  return candidate;
-}
-
-async function ensureCandidateCoordinateForRow(row,{manual=false}={}){
-  const select=row?.querySelector('.point-select');
-  const meta=row?.querySelector('.point-meta');
-  const p=selectedCandidate(select?.value);
-  if(!p||hasResolvedCoord(p)){ updateMeta(row); return !!p; }
-  const mountain=$('mountainPreset')?.value?.trim()||'';
-  const cacheKey=`singlecoord:${mountainCacheKey(mountain)}:${p.name}`;
-  const cached=routeCacheGet(cacheKey,365*24*60*60*1000);
-  if(cached&&Number.isFinite(Number(cached.lat))&&Number.isFinite(Number(cached.lon))){
-    p.lat=Number(cached.lat); p.lon=Number(cached.lon); p.unresolved=false; p.source='固定候補（キャッシュ）';
-    refreshPointCandidateOptions(); updateMeta(row); return true;
-  }
-  if(meta)meta.innerHTML=`<span class="coord-loading">${esc(p.name)} / 座標を取得中…</span>`;
-  const resolved=await resolveSingleCandidateCoordinate(p,mountain);
-  if(resolved){
-    refreshPointCandidateOptions();
-    updateMeta(row);
-    setStatus(`${p.name} の座標を取得しました。`);
-    renderRouteMaps();
-    return true;
-  }
-  if(meta)meta.innerHTML=`<span>${esc(p.name)} / 固定候補・座標未確定</span><button class="coord-retry-btn" type="button">座標を再取得</button>`;
-  const retry=meta?.querySelector('.coord-retry-btn');
-  retry?.addEventListener('click',()=>ensureCandidateCoordinateForRow(row,{manual:true}));
-  if(manual)setStatus(`${p.name} の座標を取得できませんでした。時間をおいて再試行するか、別の候補を選択してください。`,true);
-  renderRouteMaps();
-  return false;
-}
+// V1.4.20: 座標未確定候補はUIに出さないため、個別の再取得処理は廃止。
 
 function candidateOptions(type,selected=''){
-  const list=candidates.filter(p=>p.type===type);
+  const list=candidates.filter(p=>p.type===type&&hasResolvedCoord(p));
   return `<option value="">地点を選択</option>`+list.map(p=>`<option value="${esc(p.id)}" ${p.id===selected?'selected':''}>${esc(p.name)}${p.elevation?` / ${p.elevation}m`:''}</option>`).join('');
 }
 
@@ -3282,7 +3447,7 @@ function addPointRow(type='peak',selected='',roleLabel='',initialDateTime=null){
     const p=selectedCandidate(pointSel.value);
     if(p){
       logPointSelected(row,p);
-      if(!hasResolvedCoord(p))ensureCandidateCoordinateForRow(row);
+      ensureNextPointIsLater(row);
     }
   }));
   const dateInput=row.querySelector('.point-date'), timeInput=row.querySelector('.point-time');
@@ -3321,6 +3486,21 @@ function formatJstInput(ms){
   const pad=n=>String(n).padStart(2,'0');
   return {date:`${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}`,time:`${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`};
 }
+function ensureNextPointIsLater(row){
+  const next=row?.nextElementSibling;
+  const current=rowDateTimeValue(row);
+  if(!next||!current)return;
+  const currentMs=new Date(current).getTime();
+  if(Number.isNaN(currentMs))return;
+  const nextValue=rowDateTimeValue(next);
+  const nextMs=nextValue?new Date(nextValue).getTime():NaN;
+  // 次のポイントが未設定、同時刻、または前の時刻の場合だけ自動補正する。
+  // すでにユーザーが後の時刻を設定している場合は上書きしない。
+  if(!nextValue||Number.isNaN(nextMs)||nextMs<=currentMs){
+    syncNextPointInitialTime(row);
+  }
+}
+
 function syncNextPointInitialTime(row){
   const next=row.nextElementSibling;
   const current=rowDateTimeValue(row);
@@ -3370,8 +3550,7 @@ function updateMeta(row){
     renderRouteMaps();
     return;
   }
-  meta.innerHTML=`<span>${esc(p.name)} / 固定候補・座標未確定</span><button class="coord-retry-btn" type="button">座標を再取得</button>`;
-  meta.querySelector('.coord-retry-btn')?.addEventListener('click',()=>ensureCandidateCoordinateForRow(row,{manual:true}));
+  meta.textContent=`${p.name} / 座標未確定のため利用対象外`;
   renderRouteMaps();
 }
 function collectPoints(){
@@ -3380,7 +3559,7 @@ function collectPoints(){
     if(!p) return null; // 最初から表示する4枠は、使わない枠を空欄のままにできる
     const date=row.querySelector('.point-date').value, time=row.querySelector('.point-time').value;
     if(!date||!time) throw new Error(`${p.name} の通過日・通過時刻を入力してください。`);
-    if(!hasResolvedCoord(p)) throw new Error(`${p.name} の座標がまだ確定していません。地点欄の「座標を再取得」を押してください。`);
+    if(!hasResolvedCoord(p)) throw new Error(`${p.name} の座標が確定していないため利用できません。別の確定済み地点を選択してください。`);
     return {...p,date,time,type:row.querySelector('.point-type').value,stay:!!row.querySelector('.point-stay')?.checked,role:row.dataset.role||''};
   }).filter(Boolean);
 }
@@ -3572,7 +3751,7 @@ async function analyze(){
       setStatus(`宿泊分析：${stayPoints.length}泊分をまとめて取得しています…`);
       try{overnight=await analyzeOvernightsBatch(stayPoints);}catch(e){overnightWarning=` / 宿泊詳細は取得できませんでした（${e?.message||'取得失敗'}）`;}
     }
-    renderAll(results,overnight); setStatus(`分析完了：${points.length}地点${stayPoints.length?` / 宿泊 ${stayPoints.length}泊`:''}${overnightWarning}（一括取得）`,false); scrollToSummaryResult();
+    renderAll(results,overnight); saveLastAnalysisSnapshot(mountain,points,results,overnight); setStatus(`分析完了：${points.length}地点${stayPoints.length?` / 宿泊 ${stayPoints.length}泊`:''}${overnightWarning}（一括取得）`,false); scrollToSummaryResult();
     const mountain=currentMountainLabel();
     points.forEach(p=>logEvent('route_point_used',{success:true,mountain,metadata:{point_name:p.name||'',point_type:p.type||'other',point_role:p.role||'',source:p.source||''}}));
     logEvent('weather_analysis',{success:true,duration_ms:performance.now()-started,mountain,route_points:points.length,stay_count:stayPoints.length,metadata:{provider_count:providers.length,manual_datetime:true,batch_weather:true}});
@@ -4314,12 +4493,14 @@ function renderOvernights(items){
       ${renderMilkyDetail(o)}
       ${renderMorningScene(o)}
       <div class="overnight-dawn-strip-v69 ${esc(dawn.cls||'partly')}">
-        <div class="ods69-icon">${overnightIcon(dawnIcon)}</div>
-        <div class="ods69-item ods69-main"><small>朝5時の空</small><b>${timeOnly(dawn.time)||'05:00'}</b></div>
-        <div class="ods69-item"><small>天気</small><b>${esc(dawn.label||'--')}</b></div>
-        <div class="ods69-item"><small>気温</small><b>${num(dawn.temp,1)}℃</b></div>
-        <div class="ods69-item"><small>風</small><b>${num(dawn.wind,1)}m/s</b></div>
-        <div class="ods69-item"><small>雨</small><b>${num(dawn.rain,1)}mm/h</b></div>
+        <div class="ods69-hero">
+          <div class="ods69-icon">${overnightIcon(dawnIcon)}</div>
+          <div class="ods69-item ods69-main"><small>朝5時の空</small><b>${timeOnly(dawn.time)||'05:00'}</b></div>
+        </div>
+        <div class="ods69-item ods69-weather"><small>天気</small><b>${esc(dawn.label||'--')}</b></div>
+        <div class="ods69-item ods69-temp"><small>気温</small><b>${num(dawn.temp,1)}℃</b></div>
+        <div class="ods69-item ods69-wind"><small>風</small><b>${num(dawn.wind,1)}m/s</b></div>
+        <div class="ods69-item ods69-rain"><small>雨</small><b>${num(dawn.rain,1)}mm/h</b></div>
       </div>
       <div class="overnight-v2-metrics">
         ${overnightMetric('thermometer','到着時気温',`${num(o.arrivalTemp)}℃`,`${o.point.time||'--:--'} 到着`,'green')}
@@ -4854,6 +5035,26 @@ async function proxyFetch(url){return fetch(`/api/proxy?url=${encodeURIComponent
 function setStatus(t,e=false){const els=[$('statusDesktop'),$('statusMobile')].filter(Boolean);if(!els.length){console.warn('status elements missing:',t);return;}els.forEach(el=>{el.textContent=t;el.classList.remove('hidden');el.classList.toggle('error',e);});}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);}
 function todayLocal(){const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10);}
+
+
+// V1.4.17: 燧ヶ岳〜至仏山縦走回廊を両山の固定候補にも追加。
+Object.assign(BUILTIN_ROUTE_CATALOG, {
+  '燧ヶ岳': [
+    ...(BUILTIN_ROUTE_CATALOG['燧ヶ岳']||[]),
+    {id:'fixed1417-oze-miharashi',type:'hut',name:'見晴（尾瀬小屋・見晴地区）',lat:36.940556,lon:139.251944,elevation:1418,source:'固定候補'},
+    {id:'fixed1417-oze-ryugu',type:'hut',name:'龍宮小屋',lat:36.932500,lon:139.238333,elevation:1402,source:'固定候補'},
+    {id:'fixed1417-oze-yamanohana',type:'trailhead',name:'山ノ鼻（至仏山東面登山道入口・登り専用）',lat:36.915833,lon:139.198056,elevation:1410,source:'固定候補'},
+    {id:'fixed1417-oze-shibutsu-link',type:'peak',name:'至仏山',lat:36.903474,lon:139.173248,elevation:2228,source:'固定候補'}
+  ],
+  '至仏山': [
+    ...(BUILTIN_ROUTE_CATALOG['至仏山']||[]),
+    {id:'fixed1417-oze-yamanohana-rev',type:'trailhead',name:'山ノ鼻（至仏山東面登山道入口・登り専用）',lat:36.915833,lon:139.198056,elevation:1410,source:'固定候補'},
+    {id:'fixed1417-oze-ryugu-rev',type:'hut',name:'龍宮小屋',lat:36.932500,lon:139.238333,elevation:1402,source:'固定候補'},
+    {id:'fixed1417-oze-miharashi-rev',type:'hut',name:'見晴（尾瀬小屋・見晴地区）',lat:36.940556,lon:139.251944,elevation:1418,source:'固定候補'},
+    {id:'fixed1417-oze-hiuchi-link',type:'peak',name:'燧ヶ岳（柴安嵓）',lat:36.955102,lon:139.285334,elevation:2356,source:'固定候補'}
+  ]
+});
+
 function logEvent(event_name,details={}){fetch('/api/event',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sessionId,app_version:APP_VERSION,event_name,...details})}).catch(()=>{});}
 
 
@@ -4928,13 +5129,19 @@ Object.assign(BUILTIN_ROUTE_CATALOG, {
     {id:'fixed16-shikoku-tsurugi-minokoshi',type:'trailhead',name:'見ノ越 剣山登山口',lat:33.866558,lon:134.089036,elevation:1394,source:'固定候補'},
     {id:'fixed16-shikoku-tsurugi-nishijima',type:'trailhead',name:'剣山観光登山リフト西島駅',lat:33.860656,lon:134.092260,elevation:1750,source:'固定候補'},
     {id:'fixed16-shikoku-tsurugi-hutte',type:'hut',name:'剣山頂上ヒュッテ',lat:33.855000,lon:134.096111,elevation:1939,source:'固定候補'},
-    {id:'fixed16-shikoku-tsurugi-peak',type:'peak',name:'剣山',lat:33.853611,lon:134.094167,elevation:1955,source:'固定候補'}
+    {id:'fixed16-shikoku-tsurugi-peak',type:'peak',name:'剣山',lat:33.853611,lon:134.094167,elevation:1955,source:'固定候補'},
+    {id:'fixed1416-shikoku-jirogyu',type:'peak',name:'次郎笈',lat:33.843056,lon:134.086111,elevation:1930,source:'固定候補'},
+    {id:'fixed1416-shikoku-shiraga-hut',type:'hut',name:'白髪避難小屋',lat:33.821944,lon:134.001222,elevation:1666,source:'固定候補'},
+    {id:'fixed1416-shikoku-miune-link',type:'peak',name:'三嶺',lat:33.839444,lon:133.987778,elevation:1894,source:'固定候補'}
   ],
   '三嶺': [
     {id:'fixed16-shikoku-miune-nagoro',type:'trailhead',name:'名頃登山口 三嶺',lat:33.852472,lon:134.023972,elevation:907,source:'固定候補'},
     {id:'fixed16-shikoku-miune-hikariishi',type:'trailhead',name:'光石登山口',lat:33.804472,lon:133.971694,elevation:910,source:'固定候補'},
     {id:'fixed16-shikoku-miune-hut',type:'hut',name:'三嶺ヒュッテ',lat:33.840556,lon:133.991389,elevation:1845,source:'固定候補'},
-    {id:'fixed16-shikoku-miune-peak',type:'peak',name:'三嶺',lat:33.839444,lon:133.987778,elevation:1894,source:'固定候補'}
+    {id:'fixed16-shikoku-miune-peak',type:'peak',name:'三嶺',lat:33.839444,lon:133.987778,elevation:1894,source:'固定候補'},
+    {id:'fixed1416-shikoku-shiraga-hut-rev',type:'hut',name:'白髪避難小屋',lat:33.821944,lon:134.001222,elevation:1666,source:'固定候補'},
+    {id:'fixed1416-shikoku-jirogyu-rev',type:'peak',name:'次郎笈',lat:33.843056,lon:134.086111,elevation:1930,source:'固定候補'},
+    {id:'fixed1416-shikoku-tsurugi-link',type:'peak',name:'剣山',lat:33.853611,lon:134.094167,elevation:1955,source:'固定候補'}
   ],
   '東赤石山': [
     {id:'fixed16-shikoku-higashiakaishi-seba',type:'trailhead',name:'瀬場登山口 東赤石山',lat:33.853278,lon:133.390639,elevation:652,source:'固定候補'},
@@ -5722,4 +5929,47 @@ MOUNTAIN_REGION['ジャンダルム'] = 'nishiho_yake';
   const gendarmePoint={id:'fixed37-hotaka-gendarme',type:'peak',name:'ジャンダルム',lat:V1237_GENDARME.latitude,lon:V1237_GENDARME.longitude,elevation:V1237_GENDARME.elevation,source:'固定候補'};
   const old=REGIONAL_CATALOG.nishiho_yake||[];
   if(!old.some(p=>p.name==='ジャンダルム')) REGIONAL_CATALOG.nishiho_yake=[...old,gendarmePoint];
+}
+
+// V1.4.23 final enforcement: later legacy Object.assign blocks must not remove the new traverse candidates.
+// Keep this block after all historical catalog patches.
+{
+  const kujuPeaks = [
+    {id:'v1423-final-kuju-kuju',type:'peak',name:'久住山',lat:33.082187,lon:131.240871,elevation:1786,source:'固定候補'},
+    {id:'v1423-final-kuju-naka',type:'peak',name:'中岳(くじゅう)',lat:33.085833,lon:131.248889,elevation:1791,source:'固定候補'},
+    {id:'v1423-final-kuju-mimata',type:'peak',name:'三俣山',lat:33.103889,lon:131.246389,elevation:1744,source:'固定候補'},
+    {id:'v1423-final-kuju-taisen',type:'peak',name:'大船山',lat:33.095000,lon:131.280556,elevation:1786,source:'固定候補'},
+    {id:'v1423-final-kuju-hossho',type:'peak',name:'星生山',lat:33.090833,lon:131.232500,elevation:1762,source:'固定候補'}
+  ];
+  const kujuShared = [
+    {id:'v1423-final-kuju-wakare',type:'hut',name:'久住分かれ避難小屋',lat:33.086028,lon:131.238806,elevation:1638,source:'固定候補'}
+  ];
+  for (const mountainName of ['久住山','大船山','中岳(くじゅう)','三俣山','星生山']) {
+    const old=BUILTIN_ROUTE_CATALOG[mountainName]||[];
+    const merged=[...kujuPeaks,...kujuShared,...old];
+    const seen=new Set();
+    BUILTIN_ROUTE_CATALOG[mountainName]=merged.filter(p=>{
+      const k=`${p.type}:${p.name}`;
+      if(seen.has(k)) return false;
+      seen.add(k); return true;
+    });
+  }
+
+  const hououCommon = [
+    {id:'v1423-final-houou-yakushi',type:'peak',name:'薬師岳(鳳凰)',lat:35.696111,lon:138.311667,elevation:2780,source:'固定候補'},
+    {id:'v1423-final-houou-kannon',type:'peak',name:'観音岳(鳳凰)',lat:35.701667,lon:138.304722,elevation:2841,source:'固定候補'},
+    {id:'v1423-final-houou-jizo',type:'peak',name:'地蔵岳(鳳凰)',lat:35.712222,lon:138.298611,elevation:2764,source:'固定候補'}
+  ];
+  for (const mountainName of ['薬師岳(鳳凰)','観音岳(鳳凰)','地蔵岳(鳳凰)']) {
+    const old=BUILTIN_ROUTE_CATALOG[mountainName]||[];
+    const merged=[...hououCommon,...old];
+    const seen=new Set();
+    BUILTIN_ROUTE_CATALOG[mountainName]=merged.filter(p=>{
+      const k=`${p.type}:${p.name}`;
+      if(seen.has(k)) return false;
+      seen.add(k); return true;
+    });
+  }
+  BUILTIN_ROUTE_CATALOG['鳳凰山']=BUILTIN_ROUTE_CATALOG['薬師岳(鳳凰)'];
+  BUILTIN_ROUTE_CATALOG['地蔵ヶ岳']=BUILTIN_ROUTE_CATALOG['地蔵岳(鳳凰)'];
 }

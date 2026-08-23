@@ -27,7 +27,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.4.12"
+APP_VERSION = "1.4.23"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -81,12 +81,12 @@ OVERPASS_ENDPOINTS = [
 
 UA = os.environ.get(
     "UPSTREAM_USER_AGENT",
-    "TraverseWeatherDecision/1.4.12",
+    "TraverseWeatherDecision/1.4.21",
 )
 
 METNO_USER_AGENT = os.environ.get(
     "METNO_USER_AGENT",
-    "TRATEN/1.4.12 https://juusoutenki.onrender.com",
+    "TRATEN/1.4.21 https://juusoutenki.onrender.com",
 )
 
 NOAA_GFS_FILTER = os.environ.get(
@@ -393,6 +393,44 @@ def _usage_dashboard_summary(events: list[dict[str, Any]]) -> dict[str, Any]:
     analyses_ok = sum(1 for e in events if e.get("event_name") == "weather_analysis" and e.get("success") is True)
     analyses_failed = sum(1 for e in events if e.get("event_name") == "weather_analysis" and e.get("success") is False)
 
+    # Day-by-day usage trend in Japan Standard Time.
+    jst = timezone(timedelta(hours=9))
+    daily_map: dict[str, dict[str, Any]] = {}
+    for e in events:
+        raw_created = str(e.get("created_at") or "")
+        try:
+            created_dt = datetime.fromisoformat(raw_created.replace("Z", "+00:00"))
+            if created_dt.tzinfo is None:
+                created_dt = created_dt.replace(tzinfo=timezone.utc)
+            day = created_dt.astimezone(jst).date().isoformat()
+        except Exception:
+            continue
+        row = daily_map.setdefault(day, {
+            "date": day, "sessions": set(), "page_views": 0,
+            "analyses_ok": 0, "analyses_failed": 0,
+        })
+        session_id = str(e.get("session_id") or "")
+        if session_id:
+            row["sessions"].add(session_id)
+        event_name = str(e.get("event_name") or "")
+        if event_name == "page_view":
+            row["page_views"] += 1
+        if event_name == "weather_analysis" and e.get("success") is True:
+            row["analyses_ok"] += 1
+        if event_name == "weather_analysis" and e.get("success") is False:
+            row["analyses_failed"] += 1
+
+    daily_trend = []
+    for day in sorted(daily_map):
+        row = daily_map[day]
+        daily_trend.append({
+            "date": row["date"],
+            "unique_sessions": len(row["sessions"]),
+            "page_views": row["page_views"],
+            "analyses_ok": row["analyses_ok"],
+            "analyses_failed": row["analyses_failed"],
+        })
+
     mountain_map: dict[str, dict[str, Any]] = {}
     place_map: dict[tuple[str, str, str], dict[str, Any]] = {}
 
@@ -446,6 +484,9 @@ def _usage_dashboard_summary(events: list[dict[str, Any]]) -> dict[str, Any]:
     mountains = []
     for row in mountain_map.values():
         row["unique_sessions"] = len(row.pop("sessions"))
+        # Do not show incidental mountain context unless it was actually selected or analyzed.
+        if row["selected_count"] <= 0 and row["analysis_count"] <= 0:
+            continue
         mountains.append(row)
     mountains.sort(key=lambda x: (-x["analysis_count"], -x["selected_count"], x["mountain"]))
 
@@ -474,6 +515,7 @@ def _usage_dashboard_summary(events: list[dict[str, Any]]) -> dict[str, Any]:
         },
         "mountains": mountains,
         "places": places,
+        "daily_trend": daily_trend,
         "recent_failures": recent_failures,
     }
 

@@ -3006,3 +3006,139 @@ body.install-guide-open{overflow:hidden}
   .overnight-card.overnight-v2 .ods69-item b{font-size:14px !important;}
   .overnight-card.overnight-v2 .ods69-main b{font-size:20px !important;}
 }
+
+
+/* V1.4.14 admin dashboard links */
+.topbar-admin-link{display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none;border:1px solid #d9e4dc;background:#f7fbf8;color:#285b42;padding:7px 11px;border-radius:999px;font-size:11px;font-weight:900;line-height:1;white-space:nowrap;transition:.18s ease}
+.topbar-admin-link:hover,.topbar-admin-link:focus-visible{background:#edf8f1;border-color:#b8d8c5;transform:translateY(-1px);outline:none}
+.topbar-admin-link svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.footer-guide-row{gap:8px;flex-wrap:wrap}
+.footer-admin-link{background:rgba(255,255,255,.04)}
+@media(min-width:901px){.topbar-guide-link{right:126px!important}.topbar-admin-link{position:absolute;right:22px;top:14px;z-index:4}}
+@media(max-width:900px){.topbar-admin-link{order:2;padding:7px 9px}.mobile-topbar-version{margin-left:0!important}}
+@media(max-width:520px){.topbar-admin-link span{display:none}.topbar-admin-link{width:34px;height:34px;padding:0;border-radius:50%}.topbar-admin-link svg{width:17px;height:17px}}
+
+
+/* V1.4.15 dawn strip structural fix: real mobile 2-column layout */
+.overnight-card.overnight-v2 .ods69-hero{display:contents}
+@media (max-width:700px){
+  .overnight-card.overnight-v2 .overnight-dawn-strip-v69{
+    display:grid !important;
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    grid-template-rows:auto auto auto !important;
+    gap:10px !important;
+    align-items:stretch !important;
+    width:100% !important;
+    min-width:0 !important;
+    max-width:100% !important;
+    height:auto !important;
+    min-height:0 !important;
+    max-height:none !important;
+    padding:12px !important;
+    overflow:hidden !important;
+    box-sizing:border-box !important;
+  }
+  .overnight-card.overnight-v2 .ods69-hero{
+    display:flex !important;
+    grid-column:1 / -1 !important;
+    grid-row:1 !important;
+    align-items:center !important;
+    gap:12px !important;
+    min-width:0 !important;
+    padding:2px 2px 4px !important;
+  }
+  .overnight-card.overnight-v2 .ods69-hero .ods69-icon{
+    position:static !important;
+    grid-column:auto !important;
+    grid-row:auto !important;
+    width:46px !important;
+    height:46px !important;
+    min-width:46px !important;
+    min-height:46px !important;
+    flex:0 0 46px !important;
+    margin:0 !important;
+    padding:8px !important;
+    align-self:center !important;
+    justify-self:auto !important;
+  }
+  .overnight-card.overnight-v2 .ods69-hero .ods69-main{
+    position:static !important;
+    grid-column:auto !important;
+    grid-row:auto !important;
+    flex:1 1 auto !important;
+    min-width:0 !important;
+    padding:2px 0 !important;
+    border:0 !important;
+    background:transparent !important;
+    overflow:visible !important;
+  }
+  .overnight-card.overnight-v2 .ods69-weather{grid-column:1 !important;grid-row:2 !important;}
+  .overnight-card.overnight-v2 .ods69-temp{grid-column:2 !important;grid-row:2 !important;}
+  .overnight-card.overnight-v2 .ods69-wind{grid-column:1 !important;grid-row:3 !important;}
+  .overnight-card.overnight-v2 .ods69-rain{grid-column:2 !important;grid-row:3 !important;}
+  .overnight-card.overnight-v2 .overnight-dawn-strip-v69 > .ods69-item:not(.ods69-main){
+    display:flex !important;
+    flex-direction:column !important;
+    justify-content:center !important;
+    min-width:0 !important;
+    min-height:72px !important;
+    padding:11px 13px !important;
+    border:1px solid #d9e5ef !important;
+    border-radius:14px !important;
+    background:#fff !important;
+    overflow:hidden !important;
+    box-sizing:border-box !important;
+  }
+  .overnight-card.overnight-v2 .overnight-dawn-strip-v69 > .ods69-item small{
+    display:block !important;
+    margin:0 0 5px !important;
+    font-size:12px !important;
+    line-height:1.15 !important;
+    color:#5f7184 !important;
+    white-space:nowrap !important;
+    overflow:hidden !important;
+    text-overflow:ellipsis !important;
+  }
+  .overnight-card.overnight-v2 .overnight-dawn-strip-v69 > .ods69-item b{
+    display:block !important;
+    margin:0 !important;
+    font-size:18px !important;
+    line-height:1.2 !important;
+    color:#172330 !important;
+    white-space:nowrap !important;
+    overflow:hidden !important;
+    text-overflow:ellipsis !important;
+  }
+  .overnight-card.overnight-v2 .ods69-hero .ods69-main small{
+    display:block !important;
+    margin:0 0 3px !important;
+    font-size:12px !important;
+    line-height:1.15 !important;
+    color:#61758a !important;
+    white-space:nowrap !important;
+  }
+  .overnight-card.overnight-v2 .ods69-hero .ods69-main b{
+    display:block !important;
+    margin:0 !important;
+    font-size:25px !important;
+    line-height:1 !important;
+    color:#235ea8 !important;
+    white-space:nowrap !important;
+    overflow:visible !important;
+  }
+}
+@media (max-width:430px){
+  .overnight-card.overnight-v2 .overnight-dawn-strip-v69{gap:8px !important;padding:10px !important;}
+  .overnight-card.overnight-v2 .ods69-hero{gap:10px !important;}
+  .overnight-card.overnight-v2 .ods69-hero .ods69-icon{width:42px !important;height:42px !important;min-width:42px !important;min-height:42px !important;flex-basis:42px !important;}
+  .overnight-card.overnight-v2 .overnight-dawn-strip-v69 > .ods69-item:not(.ods69-main){min-height:68px !important;padding:10px 11px !important;}
+  .overnight-card.overnight-v2 .overnight-dawn-strip-v69 > .ods69-item b{font-size:17px !important;}
+  .overnight-card.overnight-v2 .ods69-hero .ods69-main b{font-size:23px !important;}
+}
+
+/* V1.4.22 前回ルート・前回分析結果 */
+.last-analysis-panel{margin-top:16px;padding:14px;border:1px solid #cfe0d8;border-radius:16px;background:linear-gradient(180deg,#f8fbfa,#f1f7f4);display:grid;gap:10px}
+.last-analysis-panel.hidden{display:none}
+.last-analysis-copy{display:flex;align-items:baseline;justify-content:space-between;gap:12px}.last-analysis-copy strong{font-size:15px;color:#193c31}.last-analysis-copy small{font-size:12px;color:#667d74;text-align:right}
+.last-analysis-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.last-analysis-actions button{min-height:44px;border-radius:11px;font-size:13px}.last-analysis-panel p{margin:0;font-size:11px;line-height:1.55;color:#71867e}
+@media(max-width:600px){.last-analysis-copy{display:block}.last-analysis-copy small{display:block;margin-top:4px;text-align:left}.last-analysis-actions{grid-template-columns:1fr}.last-analysis-actions button{font-size:14px}}
