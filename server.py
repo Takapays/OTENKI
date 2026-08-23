@@ -27,7 +27,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.4.11"
+APP_VERSION = "1.4.12"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -81,12 +81,12 @@ OVERPASS_ENDPOINTS = [
 
 UA = os.environ.get(
     "UPSTREAM_USER_AGENT",
-    "TraverseWeatherDecision/1.4.11",
+    "TraverseWeatherDecision/1.4.12",
 )
 
 METNO_USER_AGENT = os.environ.get(
     "METNO_USER_AGENT",
-    "TRATEN/1.4.11 https://juusoutenki.onrender.com",
+    "TRATEN/1.4.12 https://juusoutenki.onrender.com",
 )
 
 NOAA_GFS_FILTER = os.environ.get(
@@ -299,6 +299,21 @@ def _usage_row(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _supabase_headers(*, accept_json: bool = False) -> dict[str, str]:
+    """Build Data API headers for both new sb_secret_* keys and legacy service_role JWTs."""
+    headers = {
+        "apikey": SUPABASE_SERVICE_ROLE_KEY,
+        "User-Agent": UA,
+    }
+    # New Supabase secret keys are not JWTs and must not be sent as Bearer tokens.
+    # Legacy service_role keys are JWTs and can continue to use Authorization.
+    if SUPABASE_SERVICE_ROLE_KEY and not SUPABASE_SERVICE_ROLE_KEY.startswith("sb_secret_"):
+        headers["Authorization"] = f"Bearer {SUPABASE_SERVICE_ROLE_KEY}"
+    if accept_json:
+        headers["Accept"] = "application/json"
+    return headers
+
+
 def _write_supabase_event(row: dict[str, Any]) -> bool:
     if not (SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY):
         return False
@@ -309,11 +324,9 @@ def _write_supabase_event(row: dict[str, Any]) -> bool:
         data=body,
         method="POST",
         headers={
-            "apikey": SUPABASE_SERVICE_ROLE_KEY,
-            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            **_supabase_headers(),
             "Content-Type": "application/json",
             "Prefer": "return=minimal",
-            "User-Agent": UA,
         },
     )
     with urllib.request.urlopen(req, timeout=USAGE_EVENT_TIMEOUT) as resp:
@@ -359,12 +372,9 @@ def _supabase_read_usage_events(days: int | None) -> list[dict[str, Any]]:
         req = urllib.request.Request(
             url,
             headers={
-                "apikey": SUPABASE_SERVICE_ROLE_KEY,
-                "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-                "Accept": "application/json",
+                **_supabase_headers(accept_json=True),
                 "Range": f"{offset}-{end}",
                 "Range-Unit": "items",
-                "User-Agent": UA,
             },
         )
         with urllib.request.urlopen(req, timeout=max(USAGE_EVENT_TIMEOUT, 15)) as resp:
@@ -918,6 +928,13 @@ def usage_dashboard_data():
         response.headers["Cache-Control"] = "no-store"
         response.headers["X-Robots-Tag"] = "noindex, nofollow"
         return response
+    except urllib.error.HTTPError as exc:
+        detail = ""
+        try:
+            detail = exc.read().decode("utf-8", errors="replace")[:700]
+        except Exception:
+            detail = ""
+        return jsonify(ok=False, error=f"Supabase HTTP {exc.code}", detail=detail), 502
     except Exception as exc:
         return jsonify(ok=False, error=str(exc)[:500]), 502
 
