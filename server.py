@@ -9,6 +9,7 @@ Designed to run locally with `python server.py` and in production with Gunicorn.
 from __future__ import annotations
 
 import gzip
+import hmac
 import heapq
 import json
 import math
@@ -26,7 +27,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.4.8"
+APP_VERSION = "1.4.11"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -42,6 +43,9 @@ SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 USAGE_LOG_STDOUT = os.environ.get("USAGE_LOG_STDOUT", "1").lower() not in {"0", "false", "no"}
 USAGE_EVENT_TIMEOUT = int(os.environ.get("USAGE_EVENT_TIMEOUT", "8"))
 USAGE_EVENT_MAX_BYTES = int(os.environ.get("USAGE_EVENT_MAX_BYTES", str(32 * 1024)))
+USAGE_DASHBOARD_USERNAME = os.environ.get("USAGE_DASHBOARD_USERNAME", "admin")
+USAGE_DASHBOARD_PASSWORD = os.environ.get("USAGE_DASHBOARD_PASSWORD", "")
+USAGE_DASHBOARD_MAX_EVENTS = int(os.environ.get("USAGE_DASHBOARD_MAX_EVENTS", "50000"))
 
 ALLOWED_EVENT_NAMES = {
     "page_view",
@@ -50,6 +54,9 @@ ALLOWED_EVENT_NAMES = {
     "trail_route_calculated",
     "arrival_times_calculated",
     "weather_analysis",
+    "mountain_selected",
+    "point_selected",
+    "route_point_used",
 }
 
 ALLOWED_HOSTS = {
@@ -74,12 +81,12 @@ OVERPASS_ENDPOINTS = [
 
 UA = os.environ.get(
     "UPSTREAM_USER_AGENT",
-    "TraverseWeatherDecision/1.4.8",
+    "TraverseWeatherDecision/1.4.11",
 )
 
 METNO_USER_AGENT = os.environ.get(
     "METNO_USER_AGENT",
-    "TRATEN/1.4.8 https://juusoutenki.onrender.com",
+    "TRATEN/1.4.11 https://juusoutenki.onrender.com",
 )
 
 NOAA_GFS_FILTER = os.environ.get(
@@ -311,6 +318,155 @@ def _write_supabase_event(row: dict[str, Any]) -> bool:
     )
     with urllib.request.urlopen(req, timeout=USAGE_EVENT_TIMEOUT) as resp:
         return 200 <= resp.status < 300
+
+def _dashboard_auth_ok() -> bool:
+    if not USAGE_DASHBOARD_PASSWORD:
+        return False
+    auth = request.authorization
+    if not auth:
+        return False
+    return hmac.compare_digest(auth.username or "", USAGE_DASHBOARD_USERNAME) and hmac.compare_digest(auth.password or "", USAGE_DASHBOARD_PASSWORD)
+
+
+def _dashboard_unauthorized():
+    if not USAGE_DASHBOARD_PASSWORD:
+        return Response(
+            "USAGE_DASHBOARD_PASSWORD is not configured on the server.",
+            status=503,
+            content_type="text/plain; charset=utf-8",
+        )
+    response = Response("Authentication required", status=401, content_type="text/plain; charset=utf-8")
+    response.headers["WWW-Authenticate"] = 'Basic realm="TRATEN Usage Dashboard", charset="UTF-8"'
+    return response
+
+
+def _supabase_read_usage_events(days: int | None) -> list[dict[str, Any]]:
+    if not (SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY):
+        raise RuntimeError("Supabase is not configured")
+    params = {
+        "select": "created_at,session_id,event_name,success,mountain,duration_ms,route_points,stay_count,error_message,metadata",
+        "order": "created_at.desc",
+    }
+    if days is not None:
+        since = datetime.now(timezone.utc) - timedelta(days=days)
+        params["created_at"] = "gte." + since.isoformat().replace("+00:00", "Z")
+    query = urllib.parse.urlencode(params, safe=",.:+-")
+    url = f"{SUPABASE_URL}/rest/v1/usage_events?{query}"
+    events: list[dict[str, Any]] = []
+    page_size = 1000
+    for offset in range(0, USAGE_DASHBOARD_MAX_EVENTS, page_size):
+        end = min(offset + page_size - 1, USAGE_DASHBOARD_MAX_EVENTS - 1)
+        req = urllib.request.Request(
+            url,
+            headers={
+                "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                "Accept": "application/json",
+                "Range": f"{offset}-{end}",
+                "Range-Unit": "items",
+                "User-Agent": UA,
+            },
+        )
+        with urllib.request.urlopen(req, timeout=max(USAGE_EVENT_TIMEOUT, 15)) as resp:
+            rows = json.loads(resp.read().decode("utf-8"))
+        if not isinstance(rows, list):
+            break
+        events.extend(rows)
+        if len(rows) < page_size:
+            break
+    return events
+
+
+def _usage_dashboard_summary(events: list[dict[str, Any]]) -> dict[str, Any]:
+    sessions = {str(e.get("session_id") or "") for e in events if e.get("session_id")}
+    page_views = sum(1 for e in events if e.get("event_name") == "page_view")
+    analyses_ok = sum(1 for e in events if e.get("event_name") == "weather_analysis" and e.get("success") is True)
+    analyses_failed = sum(1 for e in events if e.get("event_name") == "weather_analysis" and e.get("success") is False)
+
+    mountain_map: dict[str, dict[str, Any]] = {}
+    place_map: dict[tuple[str, str, str], dict[str, Any]] = {}
+
+    def mountain_row(name: str):
+        return mountain_map.setdefault(name, {
+            "mountain": name, "selected_count": 0, "analysis_count": 0,
+            "sessions": set(), "last_used": "",
+        })
+
+    for e in events:
+        event = str(e.get("event_name") or "")
+        meta = e.get("metadata") if isinstance(e.get("metadata"), dict) else {}
+        mountain = str(e.get("mountain") or meta.get("mountain") or "").strip()
+        session = str(e.get("session_id") or "")
+        created = str(e.get("created_at") or "")
+
+        if mountain and event in {"mountain_selected", "weather_analysis", "route_candidates_loaded", "route_point_used", "point_selected"}:
+            mr = mountain_row(mountain)
+            if event == "mountain_selected":
+                mr["selected_count"] += 1
+            if event == "weather_analysis" and e.get("success") is True:
+                mr["analysis_count"] += 1
+            if session:
+                mr["sessions"].add(session)
+            if created > mr["last_used"]:
+                mr["last_used"] = created
+
+        if event not in {"point_selected", "route_point_used"}:
+            continue
+        point_name = str(meta.get("point_name") or "").strip()
+        point_type = str(meta.get("point_type") or "other").strip() or "other"
+        if not point_name:
+            continue
+        key = (mountain, point_name, point_type)
+        pr = place_map.setdefault(key, {
+            "mountain": mountain, "point_name": point_name, "point_type": point_type,
+            "role": str(meta.get("point_role") or ""), "source": str(meta.get("source") or ""),
+            "selected_count": 0, "used_count": 0, "sessions": set(), "last_used": "",
+        })
+        if event == "point_selected":
+            pr["selected_count"] += 1
+        else:
+            pr["used_count"] += 1
+        if session:
+            pr["sessions"].add(session)
+        if created > pr["last_used"]:
+            pr["last_used"] = created
+        if not pr["role"] and meta.get("point_role"):
+            pr["role"] = str(meta.get("point_role"))
+
+    mountains = []
+    for row in mountain_map.values():
+        row["unique_sessions"] = len(row.pop("sessions"))
+        mountains.append(row)
+    mountains.sort(key=lambda x: (-x["analysis_count"], -x["selected_count"], x["mountain"]))
+
+    places = []
+    for row in place_map.values():
+        row["unique_sessions"] = len(row.pop("sessions"))
+        places.append(row)
+    places.sort(key=lambda x: (-x["used_count"], -x["selected_count"], x["mountain"], x["point_name"]))
+
+    recent_failures = [
+        {
+            "created_at": e.get("created_at"), "event_name": e.get("event_name"),
+            "mountain": e.get("mountain"), "error_message": e.get("error_message"),
+        }
+        for e in events if e.get("success") is False
+    ][:100]
+
+    return {
+        "ok": True,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "events_loaded": len(events),
+        "truncated": len(events) >= USAGE_DASHBOARD_MAX_EVENTS,
+        "summary": {
+            "unique_sessions": len(sessions), "page_views": page_views,
+            "analyses_ok": analyses_ok, "analyses_failed": analyses_failed,
+        },
+        "mountains": mountains,
+        "places": places,
+        "recent_failures": recent_failures,
+    }
+
 
 def _cache_get(key: str):
     now = time.time()
@@ -732,9 +888,59 @@ def overpass():
     return jsonify(error="Overpass取得失敗", detail=" / ".join(errors)), 502
 
 
+@app.get("/usage-dashboard")
+def usage_dashboard():
+    if not _dashboard_auth_ok():
+        return _dashboard_unauthorized()
+    response = send_from_directory(BASE, "usage-dashboard.html")
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["X-Robots-Tag"] = "noindex, nofollow"
+    return response
+
+
+@app.get("/api/admin/usage-summary")
+def usage_dashboard_data():
+    if not _dashboard_auth_ok():
+        return _dashboard_unauthorized()
+    raw_days = request.args.get("days", "30").strip().lower()
+    if raw_days in {"all", "0"}:
+        days = None
+    else:
+        try:
+            days = max(1, min(3650, int(raw_days)))
+        except ValueError:
+            days = 30
+    try:
+        events = _supabase_read_usage_events(days)
+        payload = _usage_dashboard_summary(events)
+        payload["days"] = days
+        response = jsonify(payload)
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["X-Robots-Tag"] = "noindex, nofollow"
+        return response
+    except Exception as exc:
+        return jsonify(ok=False, error=str(exc)[:500]), 502
+
+
 @app.get("/")
 def index():
-    return send_from_directory(BASE, "index.html")
+    response = send_from_directory(BASE, "index.html")
+    response.headers["Cache-Control"] = "no-cache, max-age=0, must-revalidate"
+    return response
+
+
+@app.get("/robots.txt")
+def robots_txt():
+    response = send_from_directory(BASE, "robots.txt", mimetype="text/plain")
+    response.headers["Cache-Control"] = "no-store, no-cache, max-age=0, must-revalidate"
+    return response
+
+
+@app.get("/sitemap.xml")
+def sitemap_xml():
+    response = send_from_directory(BASE, "sitemap.xml", mimetype="application/xml")
+    response.headers["Cache-Control"] = "no-store, no-cache, max-age=0, must-revalidate"
+    return response
 
 
 PUBLIC_FILES = {"app.js", "styles.css", "favicon.ico", "robots.txt", "sitemap.xml", "guide.html", "manifest.json", "google5a7b3dfd79ff97f0.html"}
@@ -760,6 +966,8 @@ def security_headers(response: Response):
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
     response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
     response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+    if request.path in {"/", "/guide.html"}:
+        response.headers.setdefault("X-Robots-Tag", "index, follow, max-image-preview:large")
     return response
 
 

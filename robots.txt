@@ -1,5 +1,19 @@
+# Traten crawl policy
+# Googlebot (including smartphone crawler) may crawl all public pages.
+User-agent: Googlebot
+Allow: /
+Disallow: /api/
+Disallow: /usage-dashboard
+
+User-agent: Googlebot-Image
+Allow: /
+Disallow: /api/
+Disallow: /usage-dashboard
+
+# Other search engines may also crawl public pages.
 User-agent: *
 Allow: /
 Disallow: /api/
+Disallow: /usage-dashboard
 
 Sitemap: https://otenki.onrender.com/sitemap.xml

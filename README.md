@@ -1,3 +1,36 @@
+## V1.4.11 Supabase 使用状況ダッシュボード
+
+- 管理者専用 `/usage-dashboard` を追加。Supabase の匿名 `usage_events` を集計表示。
+- 山はランキング上位だけでなく、選択・分析された**全ての山**を一覧表示。
+- 山頂・山小屋・避難小屋・登山口・下山口・経由地点も**全件**を表示。
+- 地点ごとに「選択回数」「分析使用回数」「ユニークセッション」「最終利用日時」を表示。
+- 山ごとに「選択回数」「分析回数」「ユニークセッション」「最終利用日時」を表示。
+- 地点選択時に `point_selected`、分析成功時に各地点を `route_point_used`、山選択時に `mountain_selected` として記録。
+- ダッシュボードは HTTP Basic 認証で保護。Supabase service-role key はブラウザへ出さず、server.py だけが読み取る。
+- 検索エンジンには `noindex, nofollow`。
+
+### Render で必要な環境変数
+
+- `SUPABASE_URL`（既存）
+- `SUPABASE_SERVICE_ROLE_KEY`（既存）
+- `USAGE_DASHBOARD_USERNAME`（任意。未設定時 `admin`）
+- `USAGE_DASHBOARD_PASSWORD`（必須。推測されにくいもの）
+
+デプロイ後は `https://otenki.onrender.com/usage-dashboard` を開きます。
+地点別の集計は V1.4.11 以降から蓄積され、過去ログに地点情報が無い分は遡及復元されません。
+
+## V1.4.10 スマホ操作安定化・朝5時表示修正
+- 通過ポイント選択時の画面ジャンプを抑止し、入力中の位置を保持。
+- スマホ版の朝5時表示を専用2列グリッドで再固定（PC版は変更なし）。
+
+## V1.4.9 Googlebotクロール許可強化
+
+- `robots.txt` に Googlebot / Googlebot-Image の明示的な許可ルールを追加。
+- 公開ページは `Allow: /`、APIのみ `Disallow: /api/` として検索エンジンのクロール対象を明確化。
+- `robots.txt` と `sitemap.xml` を専用ルートで配信し、クロール設定ファイルをキャッシュさせないようにした。
+- トップページと `guide.html` に `X-Robots-Tag: index, follow` をHTTPヘッダーでも付与。
+- Search Consoleの過去クロール結果に残った robots.txt ブロック判定の再取得に備えた。
+
 ## V1.4.8 Google Search Console 所有権確認
 
 - Google Search Console の HTML ファイル確認用 `google5a7b3dfd79ff97f0.html` を追加。
@@ -324,7 +357,7 @@
 - カード下部の操作ボタン「↑」「↓」「×」を横一列に配置
 - PC版や分析ロジック、固定座標・縦走候補データは変更なし
 
-# トラテン｜トラバース天気 V1.4.8
+# トラテン｜トラバース天気 V1.4.11
 
 ## V1.12.56 中央アルプス縦走回廊拡張
 

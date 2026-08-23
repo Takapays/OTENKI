@@ -24,3 +24,12 @@ services:
 
       - key: USAGE_LOG_STDOUT
         value: "1"
+
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: USAGE_DASHBOARD_USERNAME
+        value: "admin"
+      - key: USAGE_DASHBOARD_PASSWORD
+        sync: false

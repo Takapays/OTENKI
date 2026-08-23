@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.4.8';
+const APP_VERSION = '1.4.11';
 
 const providers = [
   {id:'jma',name:'JMA MSM',kind:'openmeteo',endpoint:'https://api.open-meteo.com/v1/jma',model:'jma_msm',forecastDays:4,vars:['temperature_2m','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_direction_10m']},
@@ -2709,6 +2709,20 @@ function setupInstallApp(){
   document.addEventListener('keydown',e=>{if(e.key==='Escape')closeInstallGuide();});
 }
 
+function currentMountainLabel(){return $('mountainPreset')?.value?.trim()||$('mountainSearch')?.value?.trim()||'';}
+function logMountainSelected(source='select'){
+  const mountain=currentMountainLabel();
+  if(!mountain)return;
+  logEvent('mountain_selected',{success:true,mountain,metadata:{source}});
+}
+function logPointSelected(row,p){
+  if(!p)return;
+  logEvent('point_selected',{success:true,mountain:currentMountainLabel(),metadata:{
+    point_name:p.name||'',point_type:row?.querySelector('.point-type')?.value||p.type||'other',
+    point_role:row?.dataset?.role||'',source:p.source||''
+  }});
+}
+
 function init(){
   setupInstallApp();
   const area=$('mountainArea');
@@ -2752,6 +2766,7 @@ function init(){
   select.addEventListener('change',()=>{
     search.value=select.value;
     resetForMountainChange();
+    logMountainSelected('mountain_select');
   });
   const chooseFromSearch=(q,commit=false)=>{
     if(!q){area.value='';populateMountainSelect('');resetForMountainChange();return false;}
@@ -2769,7 +2784,7 @@ function init(){
     if(!q){area.value='';populateMountainSelect('');resetForMountainChange();return;}
     chooseFromSearch(q,false);
   });
-  search.addEventListener('change',()=>chooseFromSearch(search.value.trim(),true));
+  search.addEventListener('change',()=>{if(chooseFromSearch(search.value.trim(),true))logMountainSelected('mountain_search');});
   $('candidateState').textContent='';
   updateLoadButtonAppearance(false);
   updateForecastHorizon();
@@ -3077,7 +3092,7 @@ async function loadCandidates(){
       const trailCount=candidates.filter(p=>p.type==='trailhead').length, hutCount=candidates.filter(p=>p.type==='hut').length, peakCount=candidates.filter(p=>p.type==='peak').length;
       $('candidateState').textContent=`${label}：登山口 ${trailCount} / 山小屋・避難小屋 ${hutCount} / 山頂・周辺ピーク ${peakCount}（キャッシュから高速表示）`;
       updateLoadButtonAppearance(true);
-      logEvent('route_candidates_loaded',{success:true,metadata:{mountain:label,candidate_count:candidates.length,cache_hit:true}});
+      logEvent('route_candidates_loaded',{success:true,mountain:label,metadata:{candidate_count:candidates.length,cache_hit:true}});
       return;
     }
 
@@ -3121,7 +3136,7 @@ async function loadCandidates(){
     if(!trailCount)setStatus(`${label} の登山口候補が見つかりませんでした。`,true);
     else if(!resolvedTrailCount)setStatus(`${label} は代表登山口名を固定候補として表示しています。座標確認が完了した候補を選んでください。`,false);
     updateLoadButtonAppearance(true);
-    logEvent('route_candidates_loaded',{success:true,metadata:{mountain:label,candidate_count:candidates.length,dynamic_count:dynamic.length,curated_count:curated.length,cache_hit:false}});
+    logEvent('route_candidates_loaded',{success:true,mountain:label,metadata:{candidate_count:candidates.length,dynamic_count:dynamic.length,curated_count:curated.length,cache_hit:false}});
   }catch(e){
     $('candidateState').textContent=`${label}：候補を読み込めませんでした（${e.message||e}）`;
     setStatus(`山頂座標の取得に失敗しました：${e.message||e}`,true);
@@ -3233,6 +3248,21 @@ function candidateOptions(type,selected=''){
   const list=candidates.filter(p=>p.type===type);
   return `<option value="">地点を選択</option>`+list.map(p=>`<option value="${esc(p.id)}" ${p.id===selected?'selected':''}>${esc(p.name)}${p.elevation?` / ${p.elevation}m`:''}</option>`).join('');
 }
+
+function preservePointRowViewport(row,action){
+  if(!row||typeof action!=='function'){ action?.(); return; }
+  const anchorTop=row.getBoundingClientRect().top;
+  action();
+  const restore=()=>{
+    if(!row.isConnected)return;
+    const nowTop=row.getBoundingClientRect().top;
+    const delta=nowTop-anchorTop;
+    if(Math.abs(delta)>1)window.scrollBy({top:delta,left:0,behavior:'auto'});
+  };
+  requestAnimationFrame(()=>requestAnimationFrame(restore));
+  setTimeout(restore,90);
+  setTimeout(restore,260);
+}
 function addPointRow(type='peak',selected='',roleLabel='',initialDateTime=null){
   pointSeq++;
   const row=document.createElement('div'); row.className='point-row'; row.dataset.id=String(pointSeq); row.dataset.role=roleLabel||'';
@@ -3246,8 +3276,15 @@ function addPointRow(type='peak',selected='',roleLabel='',initialDateTime=null){
     <div class="point-meta">地点を選択してください</div>`;
   $('points').appendChild(row); renumber();
   const typeSel=row.querySelector('.point-type'), pointSel=row.querySelector('.point-select'), stay=row.querySelector('.stay-option');
-  typeSel.addEventListener('change',()=>{pointSel.innerHTML=candidateOptions(typeSel.value); stay.classList.toggle('hidden',typeSel.value!=='hut'); if(typeSel.value!=='hut')row.querySelector('.point-stay').checked=false; updateMeta(row);});
-  pointSel.addEventListener('change',()=>{updateMeta(row); const p=selectedCandidate(pointSel.value); if(p&&!hasResolvedCoord(p))ensureCandidateCoordinateForRow(row);});
+  typeSel.addEventListener('change',()=>preservePointRowViewport(row,()=>{pointSel.innerHTML=candidateOptions(typeSel.value); stay.classList.toggle('hidden',typeSel.value!=='hut'); if(typeSel.value!=='hut')row.querySelector('.point-stay').checked=false; updateMeta(row);}));
+  pointSel.addEventListener('change',()=>preservePointRowViewport(row,()=>{
+    updateMeta(row);
+    const p=selectedCandidate(pointSel.value);
+    if(p){
+      logPointSelected(row,p);
+      if(!hasResolvedCoord(p))ensureCandidateCoordinateForRow(row);
+    }
+  }));
   const dateInput=row.querySelector('.point-date'), timeInput=row.querySelector('.point-time');
   const pickerBtn=row.querySelector('.date-picker-btn');
   const openDatePicker=()=>{
@@ -3536,8 +3573,10 @@ async function analyze(){
       try{overnight=await analyzeOvernightsBatch(stayPoints);}catch(e){overnightWarning=` / 宿泊詳細は取得できませんでした（${e?.message||'取得失敗'}）`;}
     }
     renderAll(results,overnight); setStatus(`分析完了：${points.length}地点${stayPoints.length?` / 宿泊 ${stayPoints.length}泊`:''}${overnightWarning}（一括取得）`,false); scrollToSummaryResult();
-    logEvent('weather_analysis',{success:true,duration_ms:performance.now()-started,route_points:points.length,metadata:{provider_count:providers.length,manual_datetime:true,batch_weather:true}});
-  }catch(e){setStatus(e.message||String(e),true);logEvent('weather_analysis',{success:false,duration_ms:performance.now()-started,route_points:points.length,error_message:e.message||String(e)});}
+    const mountain=currentMountainLabel();
+    points.forEach(p=>logEvent('route_point_used',{success:true,mountain,metadata:{point_name:p.name||'',point_type:p.type||'other',point_role:p.role||'',source:p.source||''}}));
+    logEvent('weather_analysis',{success:true,duration_ms:performance.now()-started,mountain,route_points:points.length,stay_count:stayPoints.length,metadata:{provider_count:providers.length,manual_datetime:true,batch_weather:true}});
+  }catch(e){setStatus(e.message||String(e),true);logEvent('weather_analysis',{success:false,duration_ms:performance.now()-started,mountain:currentMountainLabel(),route_points:points.length,error_message:e.message||String(e)});}
   finally{$('analyzeBtn').disabled=false;}
 }
 function analyzeOvernightJson(point,nightNo,j){
