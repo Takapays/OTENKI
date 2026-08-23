@@ -3142,3 +3142,76 @@ body.install-guide-open{overflow:hidden}
 .last-analysis-copy{display:flex;align-items:baseline;justify-content:space-between;gap:12px}.last-analysis-copy strong{font-size:15px;color:#193c31}.last-analysis-copy small{font-size:12px;color:#667d74;text-align:right}
 .last-analysis-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.last-analysis-actions button{min-height:44px;border-radius:11px;font-size:13px}.last-analysis-panel p{margin:0;font-size:11px;line-height:1.55;color:#71867e}
 @media(max-width:600px){.last-analysis-copy{display:block}.last-analysis-copy small{display:block;margin-top:4px;text-align:left}.last-analysis-actions{grid-template-columns:1fr}.last-analysis-actions button{font-size:14px}}
+
+/* V1.4.27 mobile previous-trip panel placement */
+@media(max-width:900px){
+  .plan-panel>.panel-kicker{margin-bottom:10px}
+  .plan-panel>#lastAnalysisPanel{margin:0 0 18px;padding:14px}
+  .plan-panel>#lastAnalysisPanel+.section-title{margin-top:0}
+}
+
+/* V1.4.28 desktop readability */
+@media(min-width:901px){
+  body{font-size:16px;line-height:1.55}
+  .panel-kicker,.welcome-kicker{font-size:12px}
+  .brand-copy strong{font-size:29px}
+  .brand-copy span{font-size:14px}
+  .brand-copy small{font-size:11px}
+  .topbar-badges span{font-size:12px;padding:8px 11px}
+
+  .section-title h2{font-size:24px;line-height:1.3}
+  .section-title p{font-size:14px;line-height:1.55}
+  .mountain-area-label,.mountain-select-label,.mountain-search-label{font-size:13px}
+  .mountain-area-label select,.mountain-select-label select,.mountain-search-label input[type=search]{font-size:15px;min-height:46px}
+  .mountain-count,.state{font-size:13px;line-height:1.55}
+  .mountain-row #loadPoiBtn{font-size:15px;min-height:46px}
+
+  .forecast-horizon-head strong{font-size:17px}
+  .forecast-horizon-head small{font-size:13px;line-height:1.45}
+  .horizon-chip b{font-size:14px}
+  .horizon-chip small{font-size:12px;line-height:1.35}
+  .forecast-horizon-note{font-size:12px;line-height:1.5}
+
+  .points-head h3{font-size:19px}
+  .points-head small{font-size:12px;line-height:1.45}
+  .planner-rail .point-row>label{font-size:13px}
+  .planner-rail .point-row select,.planner-rail .point-row input{font-size:14px;min-height:42px}
+  .planner-rail .point-meta{font-size:11px!important;line-height:1.45}
+  .planner-rail .stay-toggle b{font-size:13px}
+  .planner-rail .move,.planner-rail .remove{font-size:13px;min-height:37px}
+  .route-actions #addPointBtn,.route-actions #analyzeBtn{font-size:16px;min-height:50px}
+
+  .welcome-hero p{font-size:16px;line-height:1.65}
+  .welcome-risk-grid small{font-size:12px}
+  .welcome-risk-grid b{font-size:13px}
+  .preview-head small{font-size:12px}
+  .preview-head strong{font-size:20px}
+  .preview-head>span{font-size:12px}
+  .preview-route b{font-size:13px}
+  .preview-route small{font-size:11px}
+
+  .summary article small{font-size:12px}
+  .summary article b{font-size:17px;line-height:1.45}
+  #verdict{font-size:17px;line-height:1.5}
+  .route-alert-title b{font-size:16px}
+  .route-alert-title small,.route-alert-title em{font-size:12px;line-height:1.45}
+  .route-alert-chip b,.route-alert-chip span{font-size:13px}
+  .route-alert-chip small{font-size:11px;line-height:1.4}
+  .route-alerts>p{font-size:12px;line-height:1.5}
+
+  .card-head h3,.model-block h3,.chart-head h3{font-size:18px}
+  .card-head span,.card-head small,.model-block small,.model-note,.chart-head small{font-size:13px;line-height:1.45}
+  .metrics span{font-size:12px}
+  .metrics b{font-size:15px}
+  table{font-size:14px}
+  th,td{padding:11px}
+  .overnight-head h3{font-size:21px}
+  .overnight-head small{font-size:13px}
+  .night-badge{font-size:12px}
+  .astro-strip span{font-size:12px}
+  .astro-strip b{font-size:16px}
+  .overnight-metrics span{font-size:11px}
+  .overnight-metrics b{font-size:14px}
+  .night-note{font-size:12px}
+  footer,footer strong{font-size:12px}
+}

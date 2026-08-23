@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.4.26';
+const APP_VERSION = '1.4.28';
 
 
 const LAST_ANALYSIS_STORAGE_KEY='traten:last-analysis:v1';
