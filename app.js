@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.3.6';
+const APP_VERSION = '1.4.2';
 
 const providers = [
   {id:'jma',name:'JMA MSM',kind:'openmeteo',endpoint:'https://api.open-meteo.com/v1/jma',model:'jma_msm',forecastDays:4,vars:['temperature_2m','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_direction_10m']},
@@ -2669,7 +2669,48 @@ function mountainUiArea(name){
   if(i<=268)return 'chugoku'; if(i<=277)return 'shikoku'; return 'kyushu';
 }
 
+let deferredInstallPrompt=null;
+function isStandaloneApp(){
+  return window.matchMedia?.('(display-mode: standalone)')?.matches || window.navigator.standalone===true;
+}
+function isMobileDevice(){return window.matchMedia?.('(max-width: 900px)')?.matches;}
+function isIosDevice(){return /iphone|ipad|ipod/i.test(navigator.userAgent||'');}
+function openInstallGuide(){
+  const guide=$('installGuide');if(!guide)return;
+  const ios=$('installGuideIos'),generic=$('installGuideGeneric');
+  if(ios)ios.classList.toggle('hidden',!isIosDevice());
+  if(generic)generic.classList.toggle('hidden',isIosDevice());
+  guide.classList.remove('hidden');
+  document.body.classList.add('install-guide-open');
+}
+function closeInstallGuide(){
+  $('installGuide')?.classList.add('hidden');
+  document.body.classList.remove('install-guide-open');
+}
+function setupInstallApp(){
+  const btn=$('installAppBtn');if(!btn)return;
+  const refresh=()=>btn.classList.toggle('hidden',!isMobileDevice()||isStandaloneApp());
+  refresh();
+  window.addEventListener('resize',refresh,{passive:true});
+  window.addEventListener('beforeinstallprompt',e=>{
+    e.preventDefault();deferredInstallPrompt=e;refresh();
+  });
+  window.addEventListener('appinstalled',()=>{deferredInstallPrompt=null;btn.classList.add('hidden');closeInstallGuide();});
+  btn.addEventListener('click',async()=>{
+    if(isStandaloneApp()){btn.classList.add('hidden');return;}
+    if(deferredInstallPrompt){
+      const prompt=deferredInstallPrompt;deferredInstallPrompt=null;
+      try{await prompt.prompt();await prompt.userChoice;}catch(_){ }
+      refresh();return;
+    }
+    openInstallGuide();
+  });
+  document.querySelectorAll('[data-install-close]').forEach(el=>el.addEventListener('click',closeInstallGuide));
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')closeInstallGuide();});
+}
+
 function init(){
+  setupInstallApp();
   const area=$('mountainArea');
   const select=$('mountainPreset');
   const search=$('mountainSearch');
@@ -3812,6 +3853,97 @@ function compass16(deg){
   const dirs=['北','北北東','北東','東北東','東','東南東','南東','南南東','南','南南西','南西','西南西','西','西北西','北西','北北西'];
   return dirs[Math.round(((Number(deg)%360)+360)%360/22.5)%16];
 }
+const TERRAIN_RAY_DISTANCES_KM=[0.25,0.5,1,2,3,5,7.5,10,15,20,30];
+const TERRAIN_RAY_OFFSETS_DEG=[-4,0,4];
+const terrainHorizonCache=new Map();
+function destinationPoint(lat,lon,bearingDeg,distanceKm){
+  const R=6371,rad=Math.PI/180,br=Number(bearingDeg)*rad,d=Number(distanceKm)/R,p1=Number(lat)*rad,l1=Number(lon)*rad;
+  const p2=Math.asin(Math.sin(p1)*Math.cos(d)+Math.cos(p1)*Math.sin(d)*Math.cos(br));
+  const l2=l1+Math.atan2(Math.sin(br)*Math.sin(d)*Math.cos(p1),Math.cos(d)-Math.sin(p1)*Math.sin(p2));
+  return {lat:p2/rad,lon:((l2/rad+540)%360)-180};
+}
+function terrainOpening(angle){
+  if(!Number.isFinite(Number(angle)))return {label:'判定不可',mark:'–',score:70};
+  const a=Number(angle);
+  if(a<=1.5)return {label:'開けている',mark:'◎',score:100};
+  if(a<=4)return {label:'比較的開けている',mark:'○',score:82};
+  if(a<=8)return {label:'稜線の影響あり',mark:'△',score:55};
+  return {label:'大きく遮られる',mark:'×',score:25};
+}
+function terrainProfileFromSamples(point,azimuth,samples){
+  const obs=Number(point.elevation),R=6371000;
+  if(!Number.isFinite(obs)||!samples.length)return {available:false,opening:terrainOpening(NaN)};
+  let maxAngle=-90,dominant=null;
+  for(const s of samples){
+    const d=Number(s.distanceKm)*1000,e=Number(s.elevation);
+    if(!Number.isFinite(d)||d<=0||!Number.isFinite(e))continue;
+    const curvature=(d*d)/(2*R);
+    const apparentRise=e-obs-curvature;
+    const angle=Math.atan2(apparentRise,d)*180/Math.PI;
+    if(angle>maxAngle){maxAngle=angle;dominant={...s,angle};}
+  }
+  if(!dominant)return {available:false,opening:terrainOpening(NaN)};
+  const effective=Math.max(0,maxAngle),opening=terrainOpening(effective);
+  return {available:true,azimuth:Number(azimuth),horizonAngle:effective,rawHorizonAngle:maxAngle,opening,dominant};
+}
+async function fetchTerrainHorizonForOvernight(o){
+  const next=addDays(o.point.date,1),morningAz=sunriseAzimuthApprox(next,o.point.lat),eveningAz=sunsetAzimuthApprox(o.point.date,o.point.lat);
+  const key=[Number(o.point.lat).toFixed(4),Number(o.point.lon).toFixed(4),Math.round(Number(o.point.elevation)||0),Math.round(morningAz),Math.round(eveningAz)].join('|');
+  if(terrainHorizonCache.has(key))return terrainHorizonCache.get(key);
+  const requests=[];
+  for(const scene of [{name:'morning',az:morningAz},{name:'evening',az:eveningAz}]){
+    for(const off of TERRAIN_RAY_OFFSETS_DEG){
+      for(const distanceKm of TERRAIN_RAY_DISTANCES_KM){
+        const bearing=(scene.az+off+360)%360,p=destinationPoint(o.point.lat,o.point.lon,bearing,distanceKm);
+        requests.push({scene:scene.name,az:scene.az,bearing,distanceKm,lat:p.lat,lon:p.lon});
+      }
+    }
+  }
+  try{
+    const q=new URLSearchParams({latitude:requests.map(x=>x.lat.toFixed(6)).join(','),longitude:requests.map(x=>x.lon.toFixed(6)).join(',')});
+    const r=await proxyFetch(`https://api.open-meteo.com/v1/elevation?${q}`);
+    if(!r.ok)throw new Error(`HTTP ${r.status}`);
+    const j=await r.json(),elev=Array.isArray(j?.elevation)?j.elevation:[];
+    const grouped={morning:[],evening:[]};
+    requests.forEach((req,i)=>{const e=Number(elev[i]);if(Number.isFinite(e))grouped[req.scene].push({...req,elevation:e});});
+    const result={morning:terrainProfileFromSamples(o.point,morningAz,grouped.morning),evening:terrainProfileFromSamples(o.point,eveningAz,grouped.evening),source:'Copernicus DEM GLO-90 / Open-Meteo'};
+    terrainHorizonCache.set(key,result);return result;
+  }catch(e){
+    const result={morning:{available:false,opening:terrainOpening(NaN)},evening:{available:false,opening:terrainOpening(NaN)},source:'取得不可',error:e?.message||String(e)};
+    terrainHorizonCache.set(key,result);return result;
+  }
+}
+function solarAltitudeApprox(date,lat,lon){
+  const rad=Math.PI/180,jst=new Date(date.getTime()+9*3600000),year=jst.getUTCFullYear(),start=Date.UTC(year,0,0),day=Math.floor((Date.UTC(year,jst.getUTCMonth(),jst.getUTCDate())-start)/86400000);
+  const hour=jst.getUTCHours()+jst.getUTCMinutes()/60+jst.getUTCSeconds()/3600;
+  const gamma=2*Math.PI/365*(day-1+(hour-12)/24);
+  const eq=229.18*(0.000075+0.001868*Math.cos(gamma)-0.032077*Math.sin(gamma)-0.014615*Math.cos(2*gamma)-0.040849*Math.sin(2*gamma));
+  const dec=0.006918-0.399912*Math.cos(gamma)+0.070257*Math.sin(gamma)-0.006758*Math.cos(2*gamma)+0.000907*Math.sin(2*gamma)-0.002697*Math.cos(3*gamma)+0.00148*Math.sin(3*gamma);
+  let tst=hour*60+eq+4*Number(lon)-60*9;tst=((tst%1440)+1440)%1440;
+  let ha=tst/4-180;if(ha<-180)ha+=360;
+  const phi=Number(lat)*rad,cosz=Math.sin(phi)*Math.sin(dec)+Math.cos(phi)*Math.cos(dec)*Math.cos(ha*rad);
+  return 90-Math.acos(clamp(cosz,-1,1))/rad;
+}
+function terrainAdjustedSolarTime(baseIso,point,terrain,isSunrise){
+  const base=new Date(baseIso).getTime();
+  if(!Number.isFinite(base)||!terrain?.available||Number(terrain.horizonAngle)<=1.5)return {time:baseIso,deltaMin:0,adjusted:false};
+  const threshold=Number(terrain.horizonAngle),start=isSunrise?base:base-180*60000,end=isSunrise?base+180*60000:base;
+  let found=null;
+  for(let t=start;t<=end;t+=60000){
+    if(solarAltitudeApprox(new Date(t),point.lat,point.lon)>=threshold){if(isSunrise){found=t;break;}found=t;}
+  }
+  if(found===null)return {time:baseIso,deltaMin:0,adjusted:false};
+  const delta=Math.round((found-base)/60000);
+  return {time:new Date(found).toISOString(),deltaMin:delta,adjusted:Math.abs(delta)>=2};
+}
+function terrainSceneAdvice(terrain,solar){
+  if(!terrain?.available)return '周辺地形データを取得できなかったため、地形遮蔽は評価に含めていません。';
+  const a=Number(terrain.horizonAngle),open=terrain.opening;
+  if(a<=1.5)return `地形開放度は${open.mark}${open.label}で、周辺稜線による大きな遮蔽は少ない見込みです。`;
+  const timing=solar?.adjusted?` 地形を考慮すると太陽が見える目安は ${timeOnly(solar.time)} 頃です。`:'';
+  return `地形開放度は${open.mark}${open.label}（遮蔽角 約${a.toFixed(1)}°）です。${timing}`;
+}
+
 function sunriseGlowScore(row){
   if(!row)return 0;
   const total=Number(row.cloud),low=Number(row.lowCloud),mid=Number(row.midCloud),high=Number(row.highCloud),rain=Number(row.rain),vis=Number(row.visibility);
@@ -3831,13 +3963,15 @@ function sunriseScore(row,view){
   return clamp(s,0,100);
 }
 function morningSceneLabel(score){return score>=80?'期待大':score>=65?'期待できる':score>=50?'可能性あり':score>=35?'条件次第':'厳しい';}
-function buildMorningScene(o){
+function buildMorningScene(o,terrain=null){
   const rows=Array.isArray(o._morningRows)?o._morningRows:[];
   const sunriseMs=new Date(o.sunrise).getTime();
   const near=rows.filter(r=>Math.abs(new Date(r.time).getTime()-sunriseMs)<=90*60000);
   const sunriseRow=rows[nearestTimeIndex(rows.map(r=>r.time),o.sunrise)]||near[0]||null;
   const cloudSea=buildCloudSeaAnalysis(o);
-  const riseScore=sunriseScore(sunriseRow,o.sunriseView),glowScore=sunriseGlowScore(sunriseRow);
+  const riseWeatherScore=sunriseScore(sunriseRow,o.sunriseView),glowScore=sunriseGlowScore(sunriseRow);
+  const terrainScore=terrain?.available?Number(terrain.opening?.score):null;
+  const riseScore=terrain?.available?clamp(riseWeatherScore*.72+terrainScore*.28,0,100):riseWeatherScore;
   const combined=clamp(riseScore*.4+(cloudSea.score||0)*.4+glowScore*.2,0,100);
   const next=addDays(o.point.date,1),az=sunriseAzimuthApprox(next,o.point.lat);
   const windowStart=new Date(sunriseMs-30*60000).toISOString(),windowEnd=new Date(sunriseMs+45*60000).toISOString();
@@ -3846,9 +3980,20 @@ function buildMorningScene(o){
   if(riseScore>=65)adviceBits.push('日の出は見えやすい条件'); else if(riseScore<40)adviceBits.push('日の出方向の雲に注意');
   if(cloudSea.score>=65)adviceBits.push('雲海も期待'); else if(cloudSea.score>=50)adviceBits.push('雲海の可能性あり');
   if(glowScore>=65)adviceBits.push('朝焼けにも期待');
-  const advice=`${adviceBits.length?adviceBits.join('・'):'朝景条件はやや不安定'}です。${cloudSea.score>=65&&riseScore>=65?'日の出と雲海を同時に楽しめる可能性があります。':riseScore>=65?'日の出を中心に狙いやすい予報です。':cloudSea.score>=65?'雲海条件は良好ですが、日の出そのものは雲の影響を受ける可能性があります。':'現時点では大きな好条件は揃っていません。'}`;
-  return {score:combined,label:morningSceneLabel(combined),sunriseScore:riseScore,glowScore,cloudSea,azimuth:az,azimuthLabel:compass16(az),windowStart,windowEnd,temp,apparent,wind,rain,visibility:vis,lowCloud:low,advice};
+  const terrainSolar=terrainAdjustedSolarTime(o.sunrise,o.point,terrain,true);
+  const baseAdvice=`${adviceBits.length?adviceBits.join('・'):'朝景条件はやや不安定'}です。${cloudSea.score>=65&&riseScore>=65?'日の出と雲海を同時に楽しめる可能性があります。':riseScore>=65?'日の出を中心に狙いやすい予報です。':cloudSea.score>=65?'雲海条件は良好ですが、日の出そのものは雲の影響を受ける可能性があります。':'現時点では大きな好条件は揃っていません。'}`;
+  const advice=`${baseAdvice} ${terrainSceneAdvice(terrain,terrainSolar)}`;
+  return {score:combined,label:morningSceneLabel(combined),sunriseScore:riseScore,sunriseWeatherScore:riseWeatherScore,glowScore,cloudSea,azimuth:az,azimuthLabel:compass16(az),windowStart,windowEnd,temp,apparent,wind,rain,visibility:vis,lowCloud:low,terrain,terrainSolar,advice};
 }
+function renderSceneTerrainStrip(terrain,solar,scene){
+  const isMorning=scene==='morning',label=isMorning?'地形を考慮した日の出':'地形を考慮した日の入り';
+  if(!terrain?.available)return `<div class="scene-terrain-strip unavailable"><div><small>地形開放度</small><b>– 判定不可</b></div><div><small>遮蔽角</small><b>--</b></div><div><small>${label}</small><b>地形データ取得不可</b></div></div>`;
+  const opening=terrain.opening||terrainOpening(terrain.horizonAngle),delta=Number(solar?.deltaMin)||0;
+  let deltaText='天文時刻とほぼ同じ';
+  if(solar?.adjusted)deltaText=isMorning?`天文時刻より約${Math.abs(delta)}分後`:`天文時刻より約${Math.abs(delta)}分前`;
+  return `<div class="scene-terrain-strip"><div><small>地形開放度</small><b>${opening.mark} ${esc(opening.label)}</b></div><div><small>地形遮蔽角</small><b>${Number(terrain.horizonAngle).toFixed(1)}°</b><span>${terrain.dominant?`${num(terrain.dominant.distanceKm,1)}km先の稜線が最大`:'周辺稜線を解析'}</span></div><div><small>${label}</small><b>${timeOnly(solar?.time)}</b><span>${esc(deltaText)}</span></div></div>`;
+}
+
 function morningSceneIcon(){return '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 34h38"/><path d="M10 31l9-11 6 7 5-5 8 9"/><path d="M17 17a8 8 0 0 1 14 0"/><path d="M24 6v5M10 16h5M33 16h5"/></svg>';}
 function renderMorningScene(o){
   const m=o.morningScene;if(!m)return '';const c=m.cloudSea||{},d=c.bestDetail||{};
@@ -3862,6 +4007,7 @@ function renderMorningScene(o){
       <div><small>雲海期待度</small><b>${Math.round(c.score||0)} / 100</b><span>${esc(c.label||'--')}</span></div>
       <div><small>朝焼け期待度</small><b>${Math.round(m.glowScore)} / 100</b><span>${m.glowScore>=65?'期待できる':m.glowScore>=45?'可能性あり':'弱め'}</span></div>
     </div>
+    ${renderSceneTerrainStrip(m.terrain,m.terrainSolar,'morning')}
     <div class="morning-scene-grid">
       <div><small>東側・低層雲</small><b>${Number.isFinite(m.lowCloud)?Math.round(m.lowCloud)+'%':'--'}</b></div>
       <div><small>視界</small><b>${vis}</b></div>
@@ -3869,7 +4015,7 @@ function renderMorningScene(o){
       <div><small>風 / 降水</small><b>${num(m.wind,1)}m/s / ${num(m.rain,1)}mm/h</b></div>
     </div>
     <div class="morning-scene-advice"><strong>☀ 朝景の見どころ</strong><p>${esc(m.advice)}</p></div>
-    <p class="morning-scene-note">※ 朝景分析は日の出時刻周辺の雲・視界・風・降水と雲海条件を組み合わせた目安です。実際の地平線遮蔽や局地雲、谷地形によって見え方は変わります。</p>
+    <p class="morning-scene-note">※ 朝景分析は気象条件に加え、周辺山岳地形による日の出方向の遮蔽を評価します。地形標高は Copernicus DEM GLO-90（Open-Meteo、約90m解像度）を使用。建物・樹木・直近の岩壁や局地雲は反映されません。</p>
   </section>`;
 }
 
@@ -3909,11 +4055,13 @@ function sunsetSceneScore(row,view){
   return clamp(s,0,100);
 }
 function eveningSceneLabel(score){return score>=80?'期待大':score>=65?'期待できる':score>=50?'可能性あり':score>=35?'条件次第':'厳しい';}
-function buildEveningScene(o){
+function buildEveningScene(o,terrain=null){
   const rows=Array.isArray(o._eveningRows)?o._eveningRows:[];
   const sunsetMs=new Date(o.sunset).getTime();
   const sunsetRow=rows[nearestTimeIndex(rows.map(r=>r.time),o.sunset)]||null;
-  const sunScore=sunsetSceneScore(sunsetRow,o.sunsetView),glowScore=sunsetGlowScore(sunsetRow);
+  const sunWeatherScore=sunsetSceneScore(sunsetRow,o.sunsetView),glowScore=sunsetGlowScore(sunsetRow);
+  const terrainScore=terrain?.available?Number(terrain.opening?.score):null;
+  const sunScore=terrain?.available?clamp(sunWeatherScore*.72+terrainScore*.28,0,100):sunWeatherScore;
   const scored=rows.filter(r=>{const dt=new Date(r.time).getTime()-sunsetMs;return dt>=-60*60000&&dt<=75*60000;}).map(r=>{
     const proximity=Math.max(0,1-Math.abs(new Date(r.time).getTime()-sunsetMs)/(90*60000));
     return {row:r,score:clamp(sunsetSceneScore(r,horizonVisibility(r))*.45+sunsetGlowScore(r)*.45+proximity*10,0,100)};
@@ -3933,8 +4081,10 @@ function buildEveningScene(o){
   if(glowScore>=70)bits.push('夕焼けは期待大');else if(glowScore>=55)bits.push('夕焼けにも期待');
   if(Number.isFinite(upper)&&upper>=25&&upper<=70)bits.push('中高層雲が色づきやすい');
   if(Number.isFinite(low)&&low>65)bits.push('低層雲が多め');
-  const advice=`${bits.length?bits.join('・'):'夕景条件はやや不安定'}です。${sunScore>=65&&glowScore>=65?'夕日から日没後の夕焼けまで連続して楽しめる可能性があります。':glowScore>=65?'夕日そのものより、日没後の空の色づきに期待できます。':sunScore>=65?'夕日を中心に狙いやすい予報です。':'雲の切れ間や局地的な変化に左右されやすい条件です。'}`;
-  return {score:combined,label:eveningSceneLabel(combined),sunsetScore:sunScore,glowScore,azimuth:az,azimuthLabel:compass16(az),windowStart,windowEnd,temp,apparent,wind,rain,visibility:vis,lowCloud:low,upperCloud:upper,civil,nautical,astro,advice};
+  const terrainSolar=terrainAdjustedSolarTime(o.sunset,o.point,terrain,false);
+  const baseAdvice=`${bits.length?bits.join('・'):'夕景条件はやや不安定'}です。${sunScore>=65&&glowScore>=65?'夕日から日没後の夕焼けまで連続して楽しめる可能性があります。':glowScore>=65?'夕日そのものより、日没後の空の色づきに期待できます。':sunScore>=65?'夕日を中心に狙いやすい予報です。':'雲の切れ間や局地的な変化に左右されやすい条件です。'}`;
+  const advice=`${baseAdvice} ${terrainSceneAdvice(terrain,terrainSolar)}`;
+  return {score:combined,label:eveningSceneLabel(combined),sunsetScore:sunScore,sunsetWeatherScore:sunWeatherScore,glowScore,azimuth:az,azimuthLabel:compass16(az),windowStart,windowEnd,temp,apparent,wind,rain,visibility:vis,lowCloud:low,upperCloud:upper,civil,nautical,astro,terrain,terrainSolar,advice};
 }
 function eveningSceneIcon(){return '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 34h38"/><path d="M9 31l10-10 6 7 6-5 8 8"/><path d="M17 25a8 8 0 0 0 14 0"/><path d="M24 8v5M10 18h5M33 18h5"/></svg>';}
 function renderEveningScene(o){
@@ -3950,6 +4100,7 @@ function renderEveningScene(o){
       <div><small>夕焼け期待度</small><b>${Math.round(e.glowScore)} / 100</b><span>${e.glowScore>=70?'期待大':e.glowScore>=55?'期待できる':'弱め'}</span></div>
       <div><small>中高層雲</small><b>${Number.isFinite(e.upperCloud)?Math.round(e.upperCloud)+'%':'--'}</b><span>${Number(e.upperCloud)>=25&&Number(e.upperCloud)<=70?'色づき好条件':Number(e.upperCloud)>70?'多め':'少なめ'}</span></div>
     </div>
+    ${renderSceneTerrainStrip(e.terrain,e.terrainSolar,'evening')}
     <div class="evening-scene-grid">
       <div><small>西側地平線・雲目安</small><b>${Number.isFinite(e.lowCloud)?Math.round(e.lowCloud)+'%':'--'}</b></div>
       <div><small>視界</small><b>${vis}</b></div>
@@ -3958,12 +4109,15 @@ function renderEveningScene(o){
     </div>
     <div class="evening-scene-twilight"><small>日没後の薄明</small><b>${esc(twilight||'--')}</b></div>
     <div class="evening-scene-advice"><strong>☀ 夕景の見どころ</strong><p>${esc(e.advice)}</p></div>
-    <p class="evening-scene-note">※ 夕景分析は日の入り時刻周辺の低層雲・中高層雲・視界・風・降水を組み合わせた目安です。「西側地平線・雲目安」は地点の低層雲量を代用しており、方角別の実測雲量ではありません。地形遮蔽や局地雲によって見え方は変わります。</p>
+    <p class="evening-scene-note">※ 夕景分析は気象条件に加え、周辺山岳地形による日の入り方向の遮蔽を評価します。地形標高は Copernicus DEM GLO-90（Open-Meteo、約90m解像度）を使用。「西側地平線・雲目安」は低層雲量の代用値です。建物・樹木・直近の岩壁や局地雲は反映されません。</p>
   </section>`;
 }
 
 async function enrichOvernightsWithMilky(items){
-  const airResults=await Promise.all(items.map(async o=>{try{return await fetchAirQualityForPoint(o.point);}catch(_){return null;}}));
+  const [airResults,terrainResults]=await Promise.all([
+    Promise.all(items.map(async o=>{try{return await fetchAirQualityForPoint(o.point);}catch(_){return null;}})),
+    Promise.all(items.map(async o=>{try{return await fetchTerrainHorizonForOvernight(o);}catch(_){return {morning:{available:false,opening:terrainOpening(NaN)},evening:{available:false,opening:terrainOpening(NaN)}};}}))
+  ]);
   return items.map((o,i)=>{
     const rows=Array.isArray(o._astroRows)?o._astroRows:[];
     const start=Number(o._darkStart)||new Date(o.sunset).getTime()+90*60000,end=Number(o._darkEnd)||new Date(o.sunrise).getTime()-90*60000;
@@ -3976,9 +4130,10 @@ async function enrichOvernightsWithMilky(items){
     const windowStart=goodRows[0]?.time||galactic?.visibleStart||best?.time||null,windowEnd=goodRows[goodRows.length-1]?.time||galactic?.visibleEnd||best?.time||null;
     const milky={score,best,bestDetail,galactic,moon,air,light,windowStart,windowEnd,advice:null};milky.advice=milkyAdvice(milky);
     const cloudSea=buildCloudSeaAnalysis(o);
-    const morningScene=buildMorningScene({...o,cloudSea});
-    const eveningScene=buildEveningScene(o);
-    const clean={...o,best,score,milkyLabel:milkyLabelFromScore(score),milky,cloudSea,morningScene,eveningScene};delete clean._astroRows;delete clean._morningRows;delete clean._eveningRows;delete clean._darkStart;delete clean._darkEnd;return clean;
+    const terrain=terrainResults[i]||{};
+    const morningScene=buildMorningScene({...o,cloudSea},terrain.morning);
+    const eveningScene=buildEveningScene(o,terrain.evening);
+    const clean={...o,best,score,milkyLabel:milkyLabelFromScore(score),milky,cloudSea,morningScene,eveningScene,terrain};delete clean._astroRows;delete clean._morningRows;delete clean._eveningRows;delete clean._darkStart;delete clean._darkEnd;return clean;
   });
 }
 
@@ -4079,6 +4234,7 @@ function milkyDetailIcon(kind){
   if(kind==='light')return '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M17 31h14M19 36h10M20 40h8"/><path d="M15 21a9 9 0 1 1 18 0c0 5-4 7-6 10h-6c-2-3-6-5-6-10z"/><path d="M24 4v4M8 21H4M44 21h-4M11 8l3 3M37 8l-3 3"/></svg>';
   return overnightIcon('cloud');
 }
+function milkySceneIcon(){return '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 33c3-8 11-13 20-13 4 0 7 1 10 3-3 0-6 2-7 5 0 2 1 4 3 5H8z"/><path d="M31 12l1.2 2.8L35 16l-2.8 1.2L31 20l-1.2-2.8L27 16l2.8-1.2L31 12z"/><path d="M15 11l.9 2 2 .9-2 .9-.9 2-.9-2-2-.9 2-.9.9-2z"/><path d="M22 7l.7 1.6 1.6.7-1.6.7-.7 1.6-.7-1.6-1.6-.7 1.6-.7L22 7z"/></svg>';}
 function renderMilkyDetail(o){
   const m=o.milky;if(!m)return '';
   const moon=m.moon||{},air=m.air||{},light=m.light||{},g=m.galactic||{};
@@ -4086,14 +4242,19 @@ function renderMilkyDetail(o){
   const airSub=air.available?`PM2.5 ${num(air.pm25,1)} μg/m³${Number.isFinite(air.aod)?` / AOD ${num(air.aod,2)}`:''}`:'空気質APIを取得できませんでした';
   const near=light.nearest?`${light.nearest.name} 約${Math.round(light.nearest.km)}km`:'周辺市街地から推定';
   return `<section class="milky-detail-panel">
-    <div class="milky-detail-head"><div><small>星空・天の川 詳細分析</small><b>${Math.round(m.score)} / 100　${esc(o.milkyLabel)}</b></div><span><em>見頃時間</em>${formatTimeRange(m.windowStart,m.windowEnd)}</span></div>
+    <div class="milky-detail-head"><div class="milky-detail-title"><div class="milky-detail-symbol">${milkySceneIcon()}</div><div><small>星空・天の川分析</small><b>${Math.round(m.score)} / 100　${esc(o.milkyLabel)}</b></div></div><span><em>見頃時間</em>${formatTimeRange(m.windowStart,m.windowEnd)}</span></div>
+    <div class="milky-detail-summary">
+      <div><small>天の川スコア</small><b>${Math.round(m.score)} / 100</b><span>${esc(o.milkyLabel)}</span></div>
+      <div><small>おすすめ時間帯</small><b>${formatTimeRange(m.windowStart,m.windowEnd)}</b><span>${Number.isFinite(g.maxAltitude)?`銀河中心が高い時間帯`:'観察条件が良い時間帯'}</span></div>
+      <div><small>月明かり</small><b>${esc(moon.impact||'判定不可')}</b><span>${esc(o.moon.phase)} ${Math.round(o.moon.illum)}% / ${moonEvent}</span></div>
+    </div>
     <div class="milky-detail-grid">
-      <div class="milky-detail-card tone-purple"><div class="milky-detail-icon">${milkyDetailIcon('galaxy')}</div><div><small>銀河中心が最も高い時刻</small><b>${timeOnly(g.peakTime)}</b><span>最大高度 ${Number.isFinite(g.maxAltitude)?Math.round(g.maxAltitude)+'°':'--'}</span></div></div>
-      <div class="milky-detail-card tone-moon"><div class="milky-detail-icon">${milkyDetailIcon('moon')}</div><div><small>月明かり</small><b>${esc(moon.impact||'判定不可')}</b><span>${esc(o.moon.phase)} ${Math.round(o.moon.illum)}% / ${moonEvent}</span></div></div>
+      <div class="milky-detail-card tone-purple"><div class="milky-detail-icon">${milkyDetailIcon('galaxy')}</div><div><small>天頂に近づく時刻</small><b>${timeOnly(g.peakTime)}</b><span>最大高度 ${Number.isFinite(g.maxAltitude)?Math.round(g.maxAltitude)+'°':'--'}</span></div></div>
       <div class="milky-detail-card tone-air"><div class="milky-detail-icon">${milkyDetailIcon('air')}</div><div><small>空気質・透明度</small><b>${esc(air.label||'取得不可')}</b><span>${esc(airSub)}</span></div></div>
       <div class="milky-detail-card tone-light"><div class="milky-detail-icon">${milkyDetailIcon('light')}</div><div><small>光害目安</small><b>${esc(light.label||'判定不可')}</b><span>${esc(near)} / 簡易推定</span></div></div>
     </div>
     <div class="milky-detail-advice"><span>✦</span><p><b>観察の目安</b>${esc(m.advice||'')}</p></div>
+    <p class="milky-detail-note">※ 天の川スコアは、雲・雨、銀河中心の高度、月明かり、空気質、光害目安を組み合わせた観察条件の総合評価です。光害は周辺市街地等からの簡易推定で、地形遮蔽や局地雲は反映しません。</p>
   </section>`;
 }
 
@@ -4133,9 +4294,8 @@ function renderOvernights(items){
         ${overnightMetric('fog','ガス・霧',esc(o.fogRisk),'','blue')}
         ${overnightMetric('moon','月明かり',`${esc(o.moon.phase)} ${Math.round(o.moon.illum)}%`,'','purple')}
       </div>
-      <div class="overnight-v2-footer">
+      <div class="overnight-v2-footer solo">
         <div class="comfort-box"><div class="footer-icon">${overnightIcon('shield')}</div><div><small>総合快適度（到着〜翌朝）</small><div class="comfort-stars">${overnightStars(comfort.score)}</div><b>${comfort.label}</b><p>${comfort.note}</p></div></div>
-        <div class="milky-note"><div class="bulb-mark">☼</div><div><small>天の川スコアについて</small><p>雲・雨、銀河中心の高度、月明かり、空気質、光害目安を組み合わせた観察条件スコアです。光害は周辺市街地等からの簡易推定で、地形遮蔽や局地雲は反映しません。</p></div></div>
       </div>
     </article>`;
   }).join('');
@@ -4346,8 +4506,31 @@ function collectRouteMapPointsFromForm(){
     },index);
   }).filter(Boolean);
 }
+function routePointTypeIcon(type){
+  if(type==='peak')return '<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 31 16 12l6 9 4-5 10 15H4z"/><path d="m13 17 3-5 3 5"/></svg>';
+  if(type==='hut')return '<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 17 20 7l14 10v16H6V17z"/><path d="M15 33V22h10v11"/><path d="M20 18v4"/></svg>';
+  return '<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 31h26"/><path d="m9 30 8-14 5 7 4-5 6 12"/><circle cx="10" cy="10" r="3"/><path d="m12 13 5 4-3 6m3-6 5-2"/></svg>';
+}
+function routePointDateParts(point){
+  const date=String(point?.date||'').trim();
+  const time=String(point?.time||'').trim();
+  if(!date&&!time)return {date:'日時未設定',time:''};
+  return {date:date||'日付未設定',time:time||'時刻未設定'};
+}
 function routeMapListHtml(points){
-  return points.map(point=>`<span class="route-point-pill type-${esc(point.type||'peak')}"><b>${String(point.order).padStart(2,'0')}</b><strong>${esc(point.name||'地点')}</strong><small>${esc(routeTypeBadgeLabel(point.type))} / ${esc(routePointDateTime(point))}</small></span>`).join('');
+  const head=`<div class="route-point-list-head"><div><span class="route-list-pin" aria-hidden="true">⌖</span><strong>通過ポイント</strong></div><b>${String(points.length).padStart(2,'0')} <small>ポイント</small></b></div>`;
+  const rows=points.map((point,index)=>{
+    const type=point.type||'peak',dt=routePointDateParts(point),last=index===points.length-1;
+    return `<article class="route-point-pill type-${esc(type)}${last?' is-last':''}">
+      <div class="route-point-rail" aria-hidden="true"><span class="route-point-dot"></span></div>
+      <div class="route-point-no">${String(point.order).padStart(2,'0')}</div>
+      <div class="route-point-type-icon">${routePointTypeIcon(type)}</div>
+      <div class="route-point-copy"><strong>${esc(point.name||'地点')}</strong><small>${esc(routeTypeBadgeLabel(type))}${point.stay?' ・ 宿泊':''}</small></div>
+      <div class="route-point-datetime"><span class="route-date-icon" aria-hidden="true">▦</span><div><b>${esc(dt.date)}</b><small>${esc(dt.time)}</small></div></div>
+      <span class="route-point-chevron" aria-hidden="true">›</span>
+    </article>`;
+  }).join('');
+  return head+`<div class="route-point-timeline">${rows}</div>`;
 }
 function routeMapPopupHtml(point){
   const role=point.role?`<div>${esc(point.role)}</div>`:'';
@@ -4387,14 +4570,21 @@ function invalidateRouteMap(state,callback=null){
     requestAnimationFrame(()=>{if(typeof callback==='function')callback();});
   });
 }
+const MOBILE_ROUTE_MAP_INITIAL_ZOOM=13;
 function fitRouteMapToPoints(state,latlngs){
   if(!state?.map||!latlngs.length)return;
   try{
     if(latlngs.length===1){
-      state.map.setView(latlngs[0],13,{animate:false});
+      state.map.setView(latlngs[0],MOBILE_ROUTE_MAP_INITIAL_ZOOM,{animate:false});
       return;
     }
     const bounds=L.latLngBounds(latlngs);
+    if(window.matchMedia?.('(max-width: 900px)')?.matches){
+      // Smartphone: keep a consistent, close initial scale like the route-map reference image.
+      // Users can still zoom with the +/- controls afterwards.
+      state.map.setView(bounds.getCenter(),MOBILE_ROUTE_MAP_INITIAL_ZOOM,{animate:false});
+      return;
+    }
     state.map.fitBounds(bounds,{padding:[28,28],maxZoom:13,animate:false});
   }catch(_){}
 }
@@ -4493,6 +4683,42 @@ function visibilityShort(v){
   if(v>=1000) return `${(v/1000).toFixed(1)}`;
   return `${Math.round(v)}`;
 }
+function visibilityEvaluation(v){
+  if(!Number.isFinite(v)) return {label:'判定不可',cls:'unknown'};
+  const km=v/1000;
+  if(km<0.5)return {label:'危険',cls:'danger'};
+  if(km<1)return {label:'警戒',cls:'warning'};
+  if(km<3)return {label:'注意',cls:'caution'};
+  if(km<10)return {label:'良好',cls:'good'};
+  if(km<20)return {label:'かなり良好',cls:'great'};
+  return {label:'絶景期待',cls:'excellent'};
+}
+function visibilityGaugePct(value){
+  if(!Number.isFinite(value)) return 0;
+  const km=Math.max(0,value/1000);
+  const knots=[[0,0],[0.5,18],[1,32],[3,50],[10,72],[20,92],[40,100]];
+  for(let i=1;i<knots.length;i++){
+    if(km<=knots[i][0]){
+      const [x0,p0]=knots[i-1],[x1,p1]=knots[i];
+      return p0+(p1-p0)*((km-x0)/(x1-x0));
+    }
+  }
+  return 100;
+}
+function metricGauge(kind,value){
+  if(kind==='visibility'){
+    const pct=visibilityGaugePct(value);
+    return `<div class="rf-gauge rf-gauge-visibility" aria-hidden="true"><div class="rf-gauge-track"><span class="rf-gauge-zone z-danger"></span><span class="rf-gauge-zone z-warning"></span><span class="rf-gauge-zone z-caution"></span><span class="rf-gauge-zone z-good"></span><span class="rf-gauge-zone z-great"></span><span class="rf-gauge-zone z-excellent"></span><span class="rf-gauge-thumb gauge-visibility" style="left:${pct.toFixed(1)}%"></span></div><div class="rf-vis-ticks"><span style="left:18%">0.5</span><span style="left:32%">1</span><span style="left:50%">3</span><span style="left:72%">10</span><span style="left:92%">20+</span></div></div>`;
+  }
+  const defs={
+    temp:{min:-10,max:35,left:'低',right:'高'},
+    wind:{min:0,max:20,left:'弱',right:'強'},
+    rain:{min:0,max:10,left:'少',right:'多'}
+  };
+  const d=defs[kind]||defs.temp;
+  const pct=Number.isFinite(value)?clamp(((value-d.min)/(d.max-d.min))*100,0,100):0;
+  return `<div class="rf-gauge" aria-hidden="true"><span class="rf-gauge-edge">${d.left}</span><div class="rf-gauge-track"><span class="rf-gauge-fill gauge-${kind}" style="width:${pct.toFixed(1)}%"></span><span class="rf-gauge-thumb gauge-${kind}" style="left:${pct.toFixed(1)}%"></span></div><span class="rf-gauge-edge">${d.right}</span></div>`;
+}
 function pointForecastRow(r,i,total){
   const hz=Object.fromEntries((r.hazards||[]).map(h=>[h.type,h]));
   const wx=weatherVisual(r);
@@ -4508,23 +4734,36 @@ function pointForecastRow(r,i,total){
       <span class="rf-dot"></span>
       <span class="rf-line bottom${bottomLine}"></span>
     </div>
+    <div class="rf-time"><small>${esc(r.point.date||'----/--/--')}</small><strong>${esc(r.point.time||'--:--')}</strong></div>
     <div class="rf-place">
       <b>${esc(r.point.name)}</b>
       <small>${esc(typeLabel)} / 標高 ${elev.toLocaleString('ja-JP')}m</small>
     </div>
-    <div class="rf-time"><small>${esc(r.point.date||'----/--/--')}</small><strong>${esc(r.point.time||'--:--')}</strong></div>
     <div class="rf-weather wx-${wx.cls}">
       <span class="rf-weather-icon" aria-hidden="true">${wx.icon}</span>
       <small>${wx.label}</small>
     </div>
-    <div class="rf-metric temp${hazardMetricClass(hz.temp)}" data-label="気温"><strong>${num(r.temp,0)}</strong><small>℃</small></div>
-    <div class="rf-metric wind${hazardMetricClass(hz.wind)}" data-label="風"><strong>${num(r.wind,0)}</strong><small>m/s</small></div>
-    <div class="rf-metric rain${hazardMetricClass(hz.rain)}" data-label="雨"><strong>${num(r.rain,1)}</strong><small>mm/h</small></div>
-    <div class="rf-direction" data-label="風向">
-      <strong>${windDirectionArrow(r.providerRows?.[0]?.row?.windDir ?? NaN)}</strong>
-      <small>${windDirectionLabel(r.providerRows?.[0]?.row?.windDir ?? NaN)}</small>
+    <div class="rf-metric temp${hazardMetricClass(hz.temp)}" data-label="気温">
+      <div class="rf-value-wrap"><strong>${num(r.temp,0)}</strong><small>℃</small></div>
+      ${metricGauge('temp',r.temp)}
     </div>
-    <div class="rf-metric vis${hazardMetricClass(hz.visibility)}" data-label="視界"><strong>${visibilityShort(r.visibility)}</strong><small>${visUnit}</small></div>
+    <div class="rf-metric wind${hazardMetricClass(hz.wind)}" data-label="風">
+      <div class="rf-value-wrap"><strong>${num(r.wind,0)}</strong><small>m/s</small></div>
+      ${metricGauge('wind',r.wind)}
+    </div>
+    <div class="rf-metric rain${hazardMetricClass(hz.rain)}" data-label="雨">
+      <div class="rf-value-wrap"><strong>${num(r.rain,1)}</strong><small>mm/h</small></div>
+      ${metricGauge('rain',r.rain)}
+    </div>
+    <div class="rf-direction" data-label="風向">
+      <div class="rf-value-wrap"><strong>${windDirectionArrow(r.providerRows?.[0]?.row?.windDir ?? NaN)}</strong><small>${windDirectionLabel(r.providerRows?.[0]?.row?.windDir ?? NaN)}</small></div>
+      <div class="rf-direction-note">風の向き</div>
+    </div>
+    <div class="rf-metric vis${hazardMetricClass(hz.visibility)}" data-label="視界">
+      <div class="rf-value-wrap"><strong>${visibilityShort(r.visibility)}</strong><small>${visUnit}</small></div>
+      <div class="rf-vis-eval ${visibilityEvaluation(r.visibility).cls}">${visibilityEvaluation(r.visibility).label}</div>
+      ${metricGauge('visibility',r.visibility)}
+    </div>
   </article>`;
 }
 function renderPointForecastTimeline(points){

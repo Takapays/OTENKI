@@ -1232,6 +1232,7 @@ footer{background:#073d68;color:#bcd1dd;margin-top:12px;padding:22px}footer stro
 .overnight-v2-metric.tone-green .metric-icon{color:#248a5e}.overnight-v2-metric.tone-purple .metric-icon{color:#6745c2}
 .overnight-v2-metric small{display:block;font-size:12px;font-weight:850;color:#52636f;margin-bottom:8px}.overnight-v2-metric b{display:block;color:#172330;font-size:21px;line-height:1.08}.overnight-v2-metric em{display:block;font-style:normal;color:#71818c;font-size:11px;margin-top:7px}
 .overnight-v2-footer{display:grid;grid-template-columns:.9fr 1.25fr;gap:12px}
+.overnight-v2-footer.solo{grid-template-columns:1fr}
 .comfort-box,.milky-note{border:1px solid #dce6e1;border-radius:19px;background:linear-gradient(180deg,#fbfdfc,#fff);padding:17px 18px;display:flex;gap:14px;align-items:flex-start}.comfort-box .footer-icon{width:42px;height:42px;color:#248a5e;flex:0 0 42px}.comfort-box .footer-icon svg{width:100%;height:100%}.comfort-box small,.milky-note small{font-size:13px;font-weight:900;color:#2d7654}.comfort-stars{display:flex;gap:4px;margin:8px 0 5px;font-size:22px;line-height:1}.comfort-stars span{color:#d5dfda}.comfort-stars span.on{color:#2e9868}.comfort-box b{display:block;font-size:22px;color:#183128;margin-bottom:5px}.comfort-box p,.milky-note p{margin:0;color:#5f6f79;font-size:13px;line-height:1.7}.milky-note .bulb-mark{width:42px;height:42px;flex:0 0 42px;border:2px solid #e7a700;color:#e7a700;border-radius:50%;display:grid;place-items:center;font-size:22px}
 @media(max-width:1150px){.overnight-v2-hero{grid-template-columns:repeat(2,minmax(0,1fr))}.overnight-v2-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.overnight-v2-footer{grid-template-columns:1fr}}
 @media(max-width:700px){.overnight-card.overnight-v2{padding:18px!important;border-radius:22px!important}.overnight-v2-place .hut-mark{width:56px;height:56px;font-size:30px}.overnight-v2-place h3{font-size:28px}.overnight-v2-place p{font-size:13px}.overnight-v2-hero{grid-template-columns:1fr 1fr;gap:10px}.overnight-v2-key{min-height:150px;padding:15px}.overnight-v2-key small{font-size:13px}.overnight-v2-key>b{font-size:25px}.overnight-v2-key.key-milky>b{font-size:23px}.overnight-v2-key.key-dawn .dawn-copy{max-width:70%}.overnight-v2-key.key-dawn .dawn-copy b{font-size:24px}.overnight-v2-metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.overnight-v2-metric{min-height:94px;padding:12px}.overnight-v2-metric .metric-icon{width:30px;height:30px;flex-basis:30px}.overnight-v2-metric b{font-size:19px}.comfort-box,.milky-note{padding:14px}}
@@ -1610,34 +1611,45 @@ footer{display:flex;flex-direction:column;align-items:center;justify-content:cen
   background:linear-gradient(180deg,#fcfbff 0%,#f7f8fe 100%);
   box-shadow:0 8px 22px rgba(60,58,110,.05);
 }
-.milky-detail-head{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin-bottom:14px}
-.milky-detail-head small{display:block;margin-bottom:3px;color:#716d8d;font-size:11px;font-weight:900;letter-spacing:.04em}
+.milky-detail-head{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:14px}
+.milky-detail-title{display:flex;align-items:center;gap:11px;min-width:0}
+.milky-detail-symbol{width:48px;height:48px;flex:0 0 48px;padding:8px;box-sizing:border-box;border-radius:15px;background:linear-gradient(180deg,#f1ecff,#f9f8ff);color:#6a57d9}
+.milky-detail-symbol svg{display:block;width:100%;height:100%}
+.milky-detail-head small,.milky-detail-summary small,.milky-detail-card small{display:block;margin-bottom:3px;color:#716d8d;font-size:11px;font-weight:900;letter-spacing:.04em}
 .milky-detail-head b{display:block;color:#332f66;font-size:20px;line-height:1.25}
 .milky-detail-head>span{flex:0 0 auto;padding:7px 10px;border-radius:999px;background:#ece8ff;color:#5a4cc3;font-size:12px;font-weight:900}
-.milky-detail-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.milky-detail-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:10px}
+.milky-detail-summary>div{padding:13px 14px;border:1px solid #e0def3;border-radius:15px;background:rgba(255,255,255,.92);min-width:0}
+.milky-detail-summary b{display:block;font-size:19px;color:#332f66;line-height:1.2;margin-bottom:3px}
+.milky-detail-summary span{display:block;font-size:11px;font-weight:750;color:#786fa0;line-height:1.45}
+.milky-detail-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .milky-detail-card{display:flex;align-items:flex-start;gap:10px;min-width:0;padding:13px 12px;border:1px solid #e2e4eb;border-radius:15px;background:#fff}
 .milky-detail-icon{display:grid;place-items:center;flex:0 0 38px;width:38px;height:38px;border-radius:12px;background:#f1efff;color:#6a57d9}
 .milky-detail-icon svg{display:block;width:23px;height:23px}
 .milky-detail-card>div:last-child{min-width:0}
-.milky-detail-card small{display:block;margin-bottom:3px;color:#6c7b74;font-size:10px;font-weight:850;line-height:1.25}
+.milky-detail-card small{color:#6c7b74;font-size:10px;font-weight:850;line-height:1.25}
 .milky-detail-card b{display:block;margin-bottom:3px;color:#1b362d;font-size:16px;line-height:1.25}
 .milky-detail-card span{display:block;color:#708079;font-size:10px;line-height:1.45;overflow-wrap:anywhere}
-.milky-detail-card.tone-moon .milky-detail-icon{background:#f4efff;color:#7552c9}
 .milky-detail-card.tone-air .milky-detail-icon{background:#edf7ff;color:#2a83c7}
 .milky-detail-card.tone-light .milky-detail-icon{background:#fff6df;color:#d79200}
 .milky-detail-advice{display:flex;align-items:flex-start;gap:10px;margin-top:12px;padding:11px 13px;border-radius:13px;background:#f0f6f2;color:#315c48}
 .milky-detail-advice>span{font-size:18px;line-height:1.2;color:#6b58d3}
 .milky-detail-advice p{margin:0;font-size:11px;line-height:1.6;font-weight:700}
 .milky-detail-advice b{display:block;margin-bottom:1px;color:#214c39;font-size:11px}
+.milky-detail-note{margin:9px 2px 0;color:#807a96;font-size:10px;line-height:1.55}
 @media(max-width:900px){
-  .milky-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .milky-detail-summary,.milky-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media(max-width:700px){
   .milky-detail-panel{padding:14px 12px;border-radius:17px}
-  .milky-detail-head{align-items:flex-start;flex-direction:column;gap:7px}
+  .milky-detail-head{align-items:flex-start;gap:8px;flex-wrap:wrap}
+  .milky-detail-title{flex:1 1 calc(100% - 115px)}
+  .milky-detail-symbol{width:42px;height:42px;flex-basis:42px;border-radius:12px}
   .milky-detail-head b{font-size:18px}
   .milky-detail-head>span{font-size:11px}
-  .milky-detail-grid{gap:8px}
+  .milky-detail-summary,.milky-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .milky-detail-summary>div{padding:11px 10px}
+  .milky-detail-summary b{font-size:17px}
   .milky-detail-card{padding:10px 9px;gap:8px;border-radius:13px}
   .milky-detail-icon{flex-basis:32px;width:32px;height:32px;border-radius:10px}
   .milky-detail-icon svg{width:20px;height:20px}
@@ -1646,7 +1658,7 @@ footer{display:flex;flex-direction:column;align-items:center;justify-content:cen
   .milky-detail-card span{font-size:9px}
 }
 @media(max-width:390px){
-  .milky-detail-grid{grid-template-columns:1fr}
+  .milky-detail-summary,.milky-detail-grid{grid-template-columns:1fr}
 }
 
 /* V1.3.1 cloud sea forecast */
@@ -1821,4 +1833,281 @@ footer{display:flex;flex-direction:column;align-items:center;justify-content:cen
  .evening-scene-summary>div{padding:11px 10px}.evening-scene-summary b{font-size:17px}
  .evening-scene-grid>div{padding:10px}.evening-scene-grid b{font-size:14px}
  .evening-scene-twilight b{font-size:11px}
+}
+
+
+/* V1.3.7 terrain horizon analysis for morning/evening scenes */
+.scene-terrain-strip{display:grid;grid-template-columns:1fr 1fr 1.35fr;gap:10px;margin:0 0 10px;padding:11px 12px;border:1px solid #d8e3de;border-radius:14px;background:rgba(255,255,255,.94)}
+.evening-scene-panel .scene-terrain-strip{border-color:#eaded3;background:rgba(255,255,255,.94)}
+.scene-terrain-strip>div{min-width:0;padding:1px 8px;border-left:1px solid #e5ece8}.scene-terrain-strip>div:first-child{border-left:0}
+.scene-terrain-strip small{display:block;margin-bottom:3px;font-size:10px;font-weight:850;color:#71827b}
+.scene-terrain-strip b{display:block;font-size:15px;line-height:1.25;color:#24483a;white-space:normal}
+.evening-scene-panel .scene-terrain-strip b{color:#5a3b2c}
+.scene-terrain-strip span{display:block;margin-top:2px;font-size:10px;line-height:1.35;color:#7b8b85;font-weight:700}
+.scene-terrain-strip.unavailable{opacity:.76}
+@media(max-width:700px){
+ .scene-terrain-strip{grid-template-columns:repeat(2,minmax(0,1fr));gap:0;padding:10px}
+ .scene-terrain-strip>div{padding:7px 8px;border-left:0;border-top:1px solid #e6ede9}
+ .scene-terrain-strip>div:nth-child(-n+2){border-top:0}
+ .scene-terrain-strip>div:last-child{grid-column:1/-1;border-top:1px solid #e6ede9;margin-top:3px;padding-top:9px}
+ .scene-terrain-strip b{font-size:14px}
+}
+
+/* V1.3.8 mobile point forecast redesign */
+.rf-value-wrap{display:flex;align-items:flex-end;justify-content:center;gap:4px}
+.rf-direction .rf-value-wrap{flex-direction:column;align-items:center;gap:2px}
+.rf-gauge,.rf-direction-note{display:none}
+@media(max-width:900px){
+  #forecastCards .route-forecast-board{background:linear-gradient(180deg,#ffffff 0%,#fbfdfc 100%) !important}
+  #forecastCards .route-forecast-list{padding:10px !important}
+  #forecastCards .route-forecast-row{
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    grid-template-rows:auto auto auto auto auto auto !important;
+    grid-template-areas:
+      'time time'
+      'place place'
+      'weather weather'
+      'temp wind'
+      'rain dir'
+      'vis vis' !important;
+    column-gap:10px !important;
+    row-gap:10px !important;
+    padding:14px 12px !important;
+    border-radius:20px !important;
+    border:1px solid #dfe9e3 !important;
+    box-shadow:0 10px 24px rgba(28,65,44,.05) !important;
+  }
+  #forecastCards .rf-track{display:none !important}
+  #forecastCards .rf-time{
+    grid-area:time !important;
+    justify-self:start !important;
+    align-self:start !important;
+    display:flex !important;
+    flex-direction:column !important;
+    align-items:flex-start !important;
+    justify-content:flex-start !important;
+    text-align:left !important;
+    padding:0 !important;
+    gap:2px !important;
+  }
+  #forecastCards .rf-time small{font-size:12px !important;line-height:1.15 !important;font-weight:900 !important;color:#748d81 !important}
+  #forecastCards .rf-time strong{font-size:30px !important;line-height:1 !important;font-weight:900 !important;letter-spacing:.01em !important}
+  #forecastCards .rf-place{grid-area:place !important;padding:0 0 2px !important}
+  #forecastCards .rf-place b{font-size:22px !important;line-height:1.2 !important}
+  #forecastCards .rf-place small{margin-top:6px !important;font-size:11px !important;line-height:1.45 !important}
+  #forecastCards .rf-weather{
+    grid-area:weather !important;
+    display:flex !important;
+    flex-direction:row !important;
+    align-items:center !important;
+    justify-content:flex-start !important;
+    gap:10px !important;
+    padding:10px 12px !important;
+    border:1px solid #e6efea !important;
+    border-radius:16px !important;
+    background:linear-gradient(180deg,#fcfefd 0%,#f7fbf8 100%) !important;
+  }
+  #forecastCards .rf-weather-icon,
+  #forecastCards .rf-weather-icon svg{width:38px !important;height:38px !important;flex:0 0 38px !important}
+  #forecastCards .rf-weather small{max-width:none !important;font-size:13px !important;line-height:1.3 !important;text-align:left !important;font-weight:900 !important}
+  #forecastCards .rf-metric,
+  #forecastCards .rf-direction{
+    min-height:96px !important;
+    height:auto !important;
+    max-height:none !important;
+    padding:28px 10px 10px !important;
+    border-radius:18px !important;
+    border:1px solid #dde8e1 !important;
+    border-left:1px solid #dde8e1 !important;
+    background:#f8fbf9 !important;
+    box-shadow:0 6px 16px rgba(28,65,44,.04) !important;
+  }
+  #forecastCards .rf-metric.temp{background:linear-gradient(180deg,#fcfcf8 0%,#f6fbf4 100%) !important}
+  #forecastCards .rf-metric.wind{background:linear-gradient(180deg,#fbfdff 0%,#f4f9fd 100%) !important}
+  #forecastCards .rf-metric.rain{background:linear-gradient(180deg,#fcfdff 0%,#f3f8fd 100%) !important}
+  #forecastCards .rf-metric.vis{background:linear-gradient(180deg,#fbfefc 0%,#f4faf6 100%) !important}
+  #forecastCards .rf-direction{background:linear-gradient(180deg,#fbfcff 0%,#f5f8fc 100%) !important}
+  #forecastCards .rf-metric::before,
+  #forecastCards .rf-direction::before{top:9px !important;left:10px !important;font-size:11px !important;color:#7b9186 !important;letter-spacing:.03em !important}
+  #forecastCards .rf-value-wrap{display:flex !important;align-items:flex-end !important;justify-content:space-between !important;gap:8px !important;margin-bottom:10px !important}
+  #forecastCards .rf-metric strong{font-size:29px !important;line-height:1 !important}
+  #forecastCards .rf-metric small{font-size:15px !important;line-height:1.1 !important;font-weight:850 !important;color:#647b70 !important}
+  #forecastCards .rf-direction .rf-value-wrap{flex-direction:column !important;justify-content:center !important;align-items:center !important;gap:2px !important;margin-bottom:8px !important}
+  #forecastCards .rf-direction strong{font-size:30px !important;line-height:1 !important}
+  #forecastCards .rf-direction small{font-size:16px !important;line-height:1.15 !important;font-weight:900 !important;color:#364f42 !important}
+  #forecastCards .rf-gauge{display:grid !important;grid-template-columns:22px minmax(0,1fr) 22px !important;align-items:center !important;gap:6px !important;margin-top:auto !important}
+  #forecastCards .rf-gauge-edge{font-size:10px !important;font-weight:900 !important;color:#7e9388 !important;text-align:center !important}
+  #forecastCards .rf-gauge-track{position:relative !important;height:6px !important;border-radius:999px !important;background:#dce7e1 !important;overflow:visible !important}
+  #forecastCards .rf-gauge-fill{position:absolute !important;left:0 !important;top:0 !important;bottom:0 !important;border-radius:999px !important}
+  #forecastCards .rf-gauge-thumb{position:absolute !important;top:50% !important;width:12px !important;height:12px !important;border-radius:50% !important;border:2px solid #fff !important;box-shadow:0 2px 7px rgba(32,67,49,.18) !important;transform:translate(-50%,-50%) !important}
+  #forecastCards .rf-gauge-fill.gauge-temp{background:linear-gradient(90deg,#87b96c 0%,#d99e34 100%) !important}
+  #forecastCards .rf-gauge-fill.gauge-wind{background:linear-gradient(90deg,#8bb8ef 0%,#347ec8 100%) !important}
+  #forecastCards .rf-gauge-fill.gauge-rain{background:linear-gradient(90deg,#9cc6ee 0%,#4f8fd7 100%) !important}
+  #forecastCards .rf-gauge-fill.gauge-visibility{background:linear-gradient(90deg,#9fcfb0 0%,#3f9c68 100%) !important}
+  #forecastCards .rf-gauge-thumb.gauge-temp{background:#d29a2e !important}
+  #forecastCards .rf-gauge-thumb.gauge-wind{background:#3b7fca !important}
+  #forecastCards .rf-gauge-thumb.gauge-rain{background:#4f90d9 !important}
+  #forecastCards .rf-gauge-thumb.gauge-visibility{background:#3f9c68 !important}
+  #forecastCards .rf-direction-note{display:block !important;padding-top:7px !important;border-top:1px solid #e7efea !important;color:#7c9187 !important;font-size:10px !important;line-height:1.2 !important;font-weight:900 !important;text-align:center !important}
+}
+@media(max-width:430px){
+  #forecastCards .route-forecast-row{padding:12px 10px !important;row-gap:9px !important;column-gap:8px !important}
+  #forecastCards .rf-time small{font-size:11px !important}
+  #forecastCards .rf-time strong{font-size:28px !important}
+  #forecastCards .rf-place b{font-size:20px !important}
+  #forecastCards .rf-weather small{font-size:12px !important}
+  #forecastCards .rf-metric,
+  #forecastCards .rf-direction{padding:26px 9px 9px !important;min-height:92px !important}
+  #forecastCards .rf-metric strong{font-size:26px !important}
+  #forecastCards .rf-direction strong{font-size:28px !important}
+  #forecastCards .rf-metric small{font-size:14px !important}
+  #forecastCards .rf-direction small{font-size:15px !important}
+}
+
+
+/* V1.4.0 mobile home-screen install link + fixed mobile route-map scale */
+.mobile-install-app{display:none}
+.install-guide.hidden{display:none!important}
+.install-guide{position:fixed;inset:0;z-index:10000;display:grid;place-items:end center;padding:18px;box-sizing:border-box}
+.install-guide-backdrop{position:absolute;inset:0;background:rgba(12,31,24,.46);backdrop-filter:blur(3px)}
+.install-guide-card{position:relative;z-index:1;width:min(100%,460px);box-sizing:border-box;padding:22px 20px 20px;border:1px solid #d6e4dd;border-radius:24px;background:#fff;box-shadow:0 22px 60px rgba(17,45,34,.22);color:#1b352b}
+.install-guide-close{position:absolute;right:14px;top:12px;width:36px;height:36px;border:0;border-radius:50%;background:#f0f6f3;color:#526d61;font-size:24px;line-height:1;cursor:pointer}
+.install-guide-icon{width:62px;height:62px;margin:0 auto 10px;border-radius:16px;overflow:hidden;box-shadow:0 8px 18px rgba(19,79,55,.14)}
+.install-guide-icon img{display:block;width:100%;height:100%;object-fit:cover}
+.install-guide-card h2{margin:0;text-align:center;color:#173a2c;font-size:20px}
+.install-guide-steps{margin-top:16px;padding:14px 15px;border-radius:16px;background:#f6faf8;border:1px solid #dce9e2}
+.install-guide-steps p{margin:0 0 9px;color:#61786d;font-size:13px;line-height:1.6}
+.install-guide-steps ol{margin:0;padding-left:22px;color:#254a3a;font-size:14px;line-height:2}
+.install-guide-steps b{font-weight:900;color:#176b49}
+.share-glyph{display:inline-grid;place-items:center;width:24px;height:24px;margin:0 2px;border:1px solid #9ebcb0;border-radius:7px;color:#176b49;font-size:17px;line-height:1}
+.install-guide-card>small{display:block;margin-top:12px;text-align:center;color:#7a9086;font-size:11px;line-height:1.5}
+body.install-guide-open{overflow:hidden}
+@media(max-width:900px){
+  .mobile-install-app{order:4;display:inline-flex;align-items:center;justify-content:center;gap:7px;flex:0 0 100%;width:100%;min-height:40px;margin:3px 0 0;padding:8px 12px;border:1px solid #c7dfd3;border-radius:13px;background:linear-gradient(180deg,#f8fcfa,#eef8f3);color:#1b7854;font:inherit;font-size:12px;font-weight:900;letter-spacing:.02em;cursor:pointer}
+  .mobile-install-app.hidden{display:none!important}
+  .mobile-install-app svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .route-map-head:after{content:'初期縮尺固定';display:inline-flex;margin-top:8px;margin-left:7px;padding:5px 8px;border-radius:999px;background:#f1f7f4;color:#658075;font-size:10px;font-weight:850;vertical-align:middle}
+}
+@media(min-width:901px){.install-guide{display:none!important}}
+
+/* V1.4.1 route point timeline redesign */
+.route-map-point-list{display:block;margin-top:16px}
+.route-point-list-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 12px;padding:0 4px}
+.route-point-list-head>div{display:flex;align-items:center;gap:8px;color:#1e392f}
+.route-list-pin{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:9px;background:#eef8f2;color:#2b8d61;font-size:17px;font-weight:900}
+.route-point-list-head strong{font-size:16px;line-height:1.2}
+.route-point-list-head>b{color:#2d8b64;font-size:17px;line-height:1;font-weight:900}
+.route-point-list-head>b small{font-size:11px;font-weight:850;color:#638075}
+.route-point-timeline{display:grid;gap:10px}
+.route-point-pill{position:relative;display:grid;grid-template-columns:54px 38px minmax(0,1fr) minmax(138px,auto) 18px;align-items:center;gap:11px;min-width:0;padding:13px 14px 13px 18px;border-radius:18px;border:1px solid #dde7e2;background:#fff;box-shadow:0 8px 18px rgba(26,56,43,.06);overflow:visible}
+.route-point-pill.type-trailhead,.route-point-pill.type-peak,.route-point-pill.type-hut{background:#fff}
+.route-point-rail{display:none}
+.route-point-no{display:grid;place-items:center;width:48px;height:48px;border-radius:15px;color:#fff;font-size:17px;font-weight:900;box-shadow:0 6px 14px rgba(0,0,0,.10)}
+.route-point-type-icon{width:34px;height:34px;display:grid;place-items:center}
+.route-point-type-icon svg{display:block;width:32px;height:32px}
+.route-point-copy{min-width:0}
+.route-point-copy strong{display:block;color:#19342a;font-size:16px;line-height:1.25;font-weight:900;word-break:break-word}
+.route-point-copy small{display:block;margin-top:5px;color:#71877d;font-size:11px;line-height:1.35;font-weight:700}
+.route-point-datetime{display:flex;align-items:center;gap:8px;justify-self:end;min-width:138px;padding:9px 11px;border-radius:13px}
+.route-date-icon{font-size:19px;line-height:1;font-weight:900}
+.route-point-datetime div{min-width:0}
+.route-point-datetime b,.route-point-datetime small{display:block;white-space:nowrap}
+.route-point-datetime b{font-size:12px;line-height:1.2}
+.route-point-datetime small{margin-top:3px;font-size:15px;line-height:1;font-weight:900}
+.route-point-chevron{font-size:28px;line-height:1;color:#687a72;font-weight:500}
+.route-point-pill.type-trailhead .route-point-no{background:linear-gradient(180deg,#55a3d7,#287db6)}
+.route-point-pill.type-trailhead .route-point-type-icon,.route-point-pill.type-trailhead .route-date-icon{color:#2d83bd}
+.route-point-pill.type-trailhead .route-point-datetime{background:#eef7fe;color:#2d83bd}
+.route-point-pill.type-hut .route-point-no{background:linear-gradient(180deg,#57b77d,#2f9461)}
+.route-point-pill.type-hut .route-point-type-icon,.route-point-pill.type-hut .route-date-icon{color:#3a9a67}
+.route-point-pill.type-hut .route-point-datetime{background:#eef8f2;color:#3a8f61}
+.route-point-pill.type-peak .route-point-no{background:linear-gradient(180deg,#ee7180,#d94c5d)}
+.route-point-pill.type-peak .route-point-type-icon,.route-point-pill.type-peak .route-date-icon{color:#dc5362}
+.route-point-pill.type-peak .route-point-datetime{background:#fff0f2;color:#d84d5b}
+@media(max-width:900px){
+  .route-map-point-list{margin-top:16px!important}
+  .route-point-list-head{margin-bottom:12px;padding:0 2px}
+  .route-point-list-head strong{font-size:18px}
+  .route-point-list-head>b{font-size:20px}
+  .route-point-list-head>b small{font-size:12px}
+  .route-point-timeline{position:relative;gap:10px;padding-left:26px}
+  .route-point-timeline:before{content:'';position:absolute;left:11px;top:24px;bottom:24px;width:2px;background:repeating-linear-gradient(to bottom,#d7e2dc 0 7px,transparent 7px 13px)}
+  .route-point-pill{grid-template-columns:54px 38px minmax(0,1fr) 132px 16px;gap:9px;padding:13px 12px 13px 16px;border-radius:18px;box-shadow:0 8px 18px rgba(31,60,47,.07)}
+  .route-point-rail{display:block;position:absolute;left:-26px;top:0;bottom:0;width:26px}
+  .route-point-dot{position:absolute;left:3px;top:50%;width:13px;height:13px;border-radius:50%;background:#fff;border:3px solid #7b9c8c;transform:translateY(-50%);box-shadow:0 0 0 4px #fff}
+  .route-point-pill.type-trailhead .route-point-dot{border-color:#408fc6}
+  .route-point-pill.type-hut .route-point-dot{border-color:#3d9b67}
+  .route-point-pill.type-peak .route-point-dot{border-color:#df5665}
+  .route-point-no{width:48px;height:48px;border-radius:15px;font-size:17px}
+  .route-point-type-icon{width:34px;height:34px}
+  .route-point-copy strong{font-size:17px}
+  .route-point-copy small{font-size:11px}
+  .route-point-datetime{min-width:128px;padding:9px 10px}
+  .route-point-datetime b{font-size:11px}
+  .route-point-datetime small{font-size:15px}
+}
+@media(max-width:620px){
+  .route-point-timeline{padding-left:22px}
+  .route-point-timeline:before{left:9px}
+  .route-point-pill{grid-template-columns:46px 32px minmax(0,1fr) 110px 12px;gap:7px;padding:12px 9px 12px 12px}
+  .route-point-rail{left:-22px;width:22px}
+  .route-point-dot{left:2px;width:12px;height:12px;border-width:3px}
+  .route-point-no{width:44px;height:44px;border-radius:14px;font-size:16px}
+  .route-point-type-icon,.route-point-type-icon svg{width:29px;height:29px}
+  .route-point-copy strong{font-size:16px}
+  .route-point-copy small{font-size:10px;margin-top:4px}
+  .route-point-datetime{min-width:104px;padding:8px 8px;gap:6px}
+  .route-date-icon{font-size:16px}
+  .route-point-datetime b{font-size:9px}
+  .route-point-datetime small{font-size:14px}
+  .route-point-chevron{font-size:24px}
+}
+@media(max-width:430px){
+  .route-point-timeline{padding-left:20px;gap:9px}
+  .route-point-timeline:before{left:8px}
+  .route-point-pill{grid-template-columns:42px 28px minmax(0,1fr);grid-template-areas:'no icon copy' 'date date date';gap:7px 8px;padding:12px;border-radius:17px}
+  .route-point-rail{left:-20px;width:20px}
+  .route-point-dot{left:1px}
+  .route-point-no{grid-area:no;width:40px;height:40px;border-radius:13px;font-size:15px}
+  .route-point-type-icon{grid-area:icon;width:28px;height:28px}
+  .route-point-type-icon svg{width:27px;height:27px}
+  .route-point-copy{grid-area:copy}
+  .route-point-copy strong{font-size:15px}
+  .route-point-datetime{grid-area:date;justify-self:stretch;min-width:0;margin-top:2px;padding:8px 10px}
+  .route-point-datetime div{display:flex;align-items:baseline;gap:8px}
+  .route-point-datetime b{font-size:11px}
+  .route-point-datetime small{margin-top:0;font-size:14px}
+  .route-point-chevron{display:none}
+}
+
+/* V1.4.2 mountain visibility evaluation */
+.rf-vis-eval{display:none}
+@media(max-width:900px){
+  #forecastCards .rf-metric.vis{min-height:118px !important}
+  #forecastCards .rf-metric.vis .rf-value-wrap{margin-bottom:4px !important}
+  #forecastCards .rf-vis-eval{display:inline-flex;align-items:center;justify-content:center;align-self:flex-start;margin:0 0 9px;padding:4px 9px;border-radius:999px;font-size:10px;font-weight:950;line-height:1;letter-spacing:.02em}
+  #forecastCards .rf-vis-eval.danger{background:#fde8e6;color:#b63a32}
+  #forecastCards .rf-vis-eval.warning{background:#fff0e2;color:#b8621e}
+  #forecastCards .rf-vis-eval.caution{background:#fff6d9;color:#8c6a00}
+  #forecastCards .rf-vis-eval.good{background:#eaf7ef;color:#28754d}
+  #forecastCards .rf-vis-eval.great{background:#e4f5ec;color:#177345}
+  #forecastCards .rf-vis-eval.excellent{background:#daf3e5;color:#086a3a}
+  #forecastCards .rf-vis-eval.unknown{background:#edf2ef;color:#6d7f76}
+  #forecastCards .rf-gauge-visibility{display:block !important;position:relative !important;margin-top:0 !important;padding-bottom:17px !important}
+  #forecastCards .rf-gauge-visibility .rf-gauge-track{height:7px !important;background:transparent !important;overflow:hidden !important;display:block !important}
+  #forecastCards .rf-gauge-visibility .rf-gauge-zone{position:absolute;top:0;bottom:0}
+  #forecastCards .rf-gauge-visibility .z-danger{left:0;width:18%;background:#e16c62}
+  #forecastCards .rf-gauge-visibility .z-warning{left:18%;width:14%;background:#e59b57}
+  #forecastCards .rf-gauge-visibility .z-caution{left:32%;width:18%;background:#d7bd55}
+  #forecastCards .rf-gauge-visibility .z-good{left:50%;width:22%;background:#87bf8b}
+  #forecastCards .rf-gauge-visibility .z-great{left:72%;width:20%;background:#52a975}
+  #forecastCards .rf-gauge-visibility .z-excellent{left:92%;width:8%;background:#238b58}
+  #forecastCards .rf-gauge-visibility .rf-gauge-thumb{z-index:2;width:13px !important;height:13px !important;background:#173d2c !important}
+  #forecastCards .rf-vis-ticks{position:absolute;left:0;right:0;bottom:0;height:13px;color:#73877e;font-size:8px;font-weight:900;line-height:1}
+  #forecastCards .rf-vis-ticks span{position:absolute;transform:translateX(-50%);white-space:nowrap}
+}
+@media(max-width:430px){
+  #forecastCards .rf-metric.vis{min-height:114px !important}
+  #forecastCards .rf-vis-eval{font-size:9px;padding:4px 8px}
+  #forecastCards .rf-vis-ticks{font-size:7px}
 }
