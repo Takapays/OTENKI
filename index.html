@@ -7,9 +7,9 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="トラテン">
-  <link rel="apple-touch-icon" sizes="180x180" href="traten-icon-180.png?v=1.4.25">
-  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=1.4.25">
-  <link rel="manifest" href="manifest.json?v=1.4.25">
+  <link rel="apple-touch-icon" sizes="180x180" href="traten-icon-180.png?v=1.4.26">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=1.4.26">
+  <link rel="manifest" href="manifest.json?v=1.4.26">
   <title>トラテン｜登山ルート・到着時刻で見る山岳天気予報</title>
   <meta name="description" content="トラテンは日本三百名山対応の山岳天気・登山ルート予報ツール。登山口・山頂・山小屋など各地点の到着予定時刻に合わせ、天気・気温・風・雨・雷・視界を分析。JMA・ECMWF・GFS・ICONを比較し、山小屋泊・テント泊では夕景、星空・天の川、雲海、日の出まで確認できます。">
   <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
@@ -72,24 +72,24 @@
   }
   </script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
-  <link rel="stylesheet" href="styles.css?v=1.4.25">
+  <link rel="stylesheet" href="styles.css?v=1.4.26">
 </head>
 <body>
 <header class="app-topbar">
   <div class="topbar-inner">
     <div class="brand-lockup">
-      <img src="traten-logo.png?v=1.4.25" alt="トラテン｜トラバース天気">
+      <img src="traten-logo.png?v=1.4.26" alt="トラテン｜トラバース天気">
     </div>
     <div class="topbar-center">
       <h1>その時、その場所の空を読む。</h1>
       <div class="topbar-badges">
-        <span>V1.4.25</span>
+        <span>V1.4.26</span>
         <span>日本三百名山 300座</span>
         <span>5系統アラート</span>
       </div>
     </div>
     <div class="mobile-topbar-copy">その時、その場所の空を読む。</div>
-    <span class="mobile-topbar-version">V1.4.25</span>
+    <span class="mobile-topbar-version">V1.4.26</span>
     <a class="topbar-guide-link" href="guide.html" aria-label="トラテンの使い方を見る">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 5.5h6.5a3 3 0 0 1 3 3v10a3.6 3.6 0 0 0-3-2H4.5z"/><path d="M19.5 5.5H13a3 3 0 0 0-3 3"/><path d="M13.5 5.5h6v11H13a3.6 3.6 0 0 0-3 2"/></svg>
       <span>使い方</span>
@@ -117,6 +117,15 @@
   <aside class="planner-rail">
     <section class="panel plan-panel">
       <div class="panel-kicker">ROUTE PLAN</div>
+      <section id="lastAnalysisPanel" class="last-analysis-panel hidden" aria-label="前回の分析">
+        <div class="last-analysis-copy"><strong>前回の山行</strong><small id="lastAnalysisMeta"></small></div>
+        <div class="last-analysis-actions">
+          <button id="lastRouteBtn" class="secondary" type="button">前回ルートを復元</button>
+          <button id="lastResultBtn" class="secondary" type="button">前回の分析結果を表示</button>
+        </div>
+        <p>この端末・このブラウザに保存された前回データです。結果は保存時点の天気です。</p>
+      </section>
+
       <div class="section-title compact-title">
         <span>01</span>
         <div><h2>山行設定</h2><p>山と通過予定地点を設定</p></div>
@@ -144,15 +153,6 @@
         <div><h3>通過ポイント</h3><small>登山口・山頂・山小屋・下山口</small></div>
       </div>
       <div id="points" class="points"></div>
-
-      <section id="lastAnalysisPanel" class="last-analysis-panel hidden" aria-label="前回の分析">
-        <div class="last-analysis-copy"><strong>前回の山行</strong><small id="lastAnalysisMeta"></small></div>
-        <div class="last-analysis-actions">
-          <button id="lastRouteBtn" class="secondary" type="button">前回ルートを復元</button>
-          <button id="lastResultBtn" class="secondary" type="button">前回の分析結果を表示</button>
-        </div>
-        <p>この端末・このブラウザに保存された前回データです。結果は保存時点の天気です。</p>
-      </section>
 
       <div class="actions route-actions">
         <button id="addPointBtn" class="secondary" type="button">＋ 地点を追加</button>
@@ -283,7 +283,7 @@
   <section class="install-guide-card">
     <button class="install-guide-close" type="button" data-install-close="1" aria-label="閉じる">×</button>
     <div class="install-guide-icon">
-      <img src="traten-icon-192.png?v=1.4.25" alt="">
+      <img src="traten-icon-192.png?v=1.4.26" alt="">
     </div>
     <h2 id="installGuideTitle">トラテンをホーム画面に追加</h2>
     <div id="installGuideIos" class="install-guide-steps">
@@ -316,6 +316,6 @@
   </div>
 </footer>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-<script src="app.js?v=1.4.25"></script>
+<script src="app.js?v=1.4.26"></script>
 </body>
 </html>
