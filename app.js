@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.4.68';
+const APP_VERSION = '1.4.70';
 
 
 
@@ -4324,9 +4324,8 @@ function refreshRepresentativeCourseButton(){
   }
   const course=representativeCourseFor(mountain);
   const pathText=representativeCoursePathText(course);
-  const tooltip=course?`${course.label}\n${pathText}`:'';
-  btn.title=tooltip;
-  btn.dataset.courseTooltip=tooltip;
+  btn.removeAttribute('title');
+  delete btn.dataset.courseTooltip;
   if(preview){
     preview.textContent=pathText;
     preview.classList.toggle('hidden',!hasCourse||!pathText);

@@ -3216,20 +3216,16 @@ body.install-guide-open{overflow:hidden}
   footer,footer strong{font-size:12px}
 }
 
-/* V1.4.68 代表コース入力：PC省スペース＋hover内容、スマホ常時内容表示 */
+/* V1.4.69 代表コース入力：PC/スマホともコース内容を常時表示 */
 .mountain-route-actions{display:grid;grid-template-columns:minmax(180px,1fr) minmax(180px,.9fr) minmax(170px,.8fr);gap:8px;margin-top:10px;align-items:center;overflow:visible}
 .mountain-route-actions #loadPoiBtn,.mountain-route-actions #representativeCourseBtn{width:100%;min-width:0;margin:0;min-height:38px;height:38px;padding:6px 12px;border-radius:10px;white-space:nowrap}
-#representativeCourseBtn{font-weight:800;border-color:#b8d4c7;background:#eef7f2;color:#174d39;position:relative}
+#representativeCourseBtn{font-weight:800;border-color:#b8d4c7;background:#eef7f2;color:#174d39}
 #representativeCourseBtn:hover{background:#e3f2ea}
 #representativeCourseBtn:disabled{opacity:.5;cursor:not-allowed}
-#representativeCourseBtn:not(.hidden):not(:disabled)[data-course-tooltip]:hover::after{content:attr(data-course-tooltip);position:absolute;z-index:40;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);width:max-content;max-width:min(560px,70vw);padding:9px 11px;border-radius:9px;background:#20342b;color:#fff;font-size:12px;font-weight:700;line-height:1.45;text-align:left;white-space:pre-line;box-shadow:0 8px 24px rgba(20,45,35,.2);pointer-events:none}
-#representativeCourseBtn:not(.hidden):not(:disabled)[data-course-tooltip]:hover::before{content:'';position:absolute;z-index:41;left:50%;bottom:calc(100% + 2px);transform:translateX(-50%);border:6px solid transparent;border-top-color:#20342b;pointer-events:none}
-.representative-course-preview{display:none}
+.representative-course-preview:not(.hidden){grid-column:1/-1;display:block;padding:7px 10px;border:1px solid #d7e5dd;border-radius:9px;background:#f7fbf9;color:#50685c;font-size:11px;font-weight:700;line-height:1.45}
 @media(max-width:700px){
   .mountain-route-actions{grid-template-columns:1fr;gap:8px}
   .mountain-route-actions #loadPoiBtn,.mountain-route-actions #representativeCourseBtn{min-height:46px;height:auto;font-size:15px;white-space:normal}
-  #representativeCourseBtn:hover::after,#representativeCourseBtn:hover::before{display:none!important}
-  .representative-course-preview:not(.hidden){display:block;padding:8px 10px;border:1px solid #d7e5dd;border-radius:9px;background:#f7fbf9;color:#50685c;font-size:11px;font-weight:700;line-height:1.45}
 }
 
 
