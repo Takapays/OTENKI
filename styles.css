@@ -3215,3 +3215,21 @@ body.install-guide-open{overflow:hidden}
   .night-note{font-size:12px}
   footer,footer strong{font-size:12px}
 }
+
+/* V1.4.63 代表コース入力 */
+.mountain-route-actions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-top:10px}
+.mountain-route-actions #loadPoiBtn,.mountain-route-actions #representativeCourseBtn{width:100%;min-width:0;margin:0;min-height:44px;border-radius:11px}
+#representativeCourseBtn{font-weight:800;border-color:#b8d4c7;background:#eef7f2;color:#174d39}
+#representativeCourseBtn:hover{background:#e3f2ea}
+#representativeCourseBtn:disabled{opacity:.5;cursor:not-allowed}
+@media(max-width:520px){.mountain-route-actions{grid-template-columns:1fr}.mountain-route-actions #loadPoiBtn,.mountain-route-actions #representativeCourseBtn{min-height:48px;font-size:15px}}
+
+
+/* V1.4.64 CT missing marker beside waypoint time */
+.time-control-with-ct{display:flex;align-items:center;gap:7px;min-width:0;position:relative}
+.course-time-missing-badge{display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;padding:3px 7px;border-radius:999px;background:#fff3df;border:1px solid #efc982;color:#9a5b00;font-size:10px;font-weight:900;line-height:1.2;letter-spacing:.01em}
+.course-time-missing-badge.hidden{display:none!important}
+@media(max-width:700px){
+  .planner-rail .time-control-with-ct{width:104px;overflow:visible}
+  .planner-rail .course-time-missing-badge{position:absolute;left:calc(100% + 5px);top:50%;transform:translateY(-50%);padding:3px 5px;font-size:9px}
+}
