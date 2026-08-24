@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.4.65';
+const APP_VERSION = '1.4.68';
 
 
 
@@ -982,8 +982,14 @@ function composedCourseTimeInfo(fromName,toName){
 }
 function courseTimeInfo(fromPoint,toPoint){
   if(!fromPoint||!toPoint)return null;
-  const fromName=normalizeCourseTimePointName(fromPoint.name);
-  const toName=normalizeCourseTimePointName(toPoint.name);
+  const rawFrom=String(fromPoint.name||'').trim();
+  const rawTo=String(toPoint.name||'').trim();
+  // V1.4.66: 固定地点名とCT端点が完全一致する場合は、名称正規化より先に生の名称を優先する。
+  // 括弧の全角/半角変換などで確認済みCTキーを取りこぼすのを防ぐ。
+  const rawInfo=directCourseTimeInfoByNames(rawFrom,rawTo)||composedCourseTimeInfo(rawFrom,rawTo);
+  if(rawInfo)return rawInfo;
+  const fromName=normalizeCourseTimePointName(rawFrom);
+  const toName=normalizeCourseTimePointName(rawTo);
   return directCourseTimeInfoByNames(fromName,toName)||composedCourseTimeInfo(fromName,toName)||null;
 }
 function formatCourseTimeMinutes(minutes){
@@ -3945,6 +3951,7 @@ function init(){
   refreshRepresentativeCourseButton();
   $('loadPoiBtn').addEventListener('click',loadCandidates);
   $('representativeCourseBtn')?.addEventListener('click',applyRepresentativeCourse);
+  $('representativeCourseSelect')?.addEventListener('change',refreshRepresentativeCourseButton);
   $('addPointBtn').addEventListener('click',()=>addManualPointRow());
   $('analyzeBtn').addEventListener('click',analyze);
   $('lastResultBtn')?.addEventListener('click',showLastAnalysisResult);
@@ -4071,7 +4078,7 @@ function ensureCenterPeak(list,label,center){
   }
   return list;
 }
-// V1.4.65: 北・中央・南アルプス＋八ヶ岳の代表コース。
+// V1.4.66: 北・中央・南アルプス＋八ヶ岳の代表コース。
 // ここには固定候補の『地点順』だけを保持し、時刻は既存の確認済みCTから都度計算する。
 // 各隣接区間でCTが解決できない場合は代表コース自動入力自体を中止し、+1時間フォールバックを使わない。
 const REPRESENTATIVE_COURSES = Object.freeze({
@@ -4110,7 +4117,7 @@ const REPRESENTATIVE_COURSES = Object.freeze({
     ['trailhead','折立登山口','登山口'],['hut','太郎平小屋','山小屋・避難小屋'],['peak','黒部五郎岳','山頂']
   ]},
 
-  // 中央アルプス（V1.4.65）
+  // 中央アルプス（V1.4.66）
   '木曽駒ヶ岳': {label:'千畳敷ルート', points:[
     ['trailhead','千畳敷','登山口'],['peak','木曽駒ヶ岳','山頂']
   ]},
@@ -4130,7 +4137,7 @@ const REPRESENTATIVE_COURSES = Object.freeze({
     ['trailhead','千畳敷','登山口'],['peak','宝剣岳','山頂'],['peak','檜尾岳','山頂'],['peak','熊沢岳','山頂'],['peak','東川岳','山頂'],['hut','木曽殿山荘','山小屋・避難小屋'],['peak','空木岳','山頂']
   ]},
 
-  // 南アルプス（V1.4.65）
+  // 南アルプス（V1.4.66）
   '甲斐駒ヶ岳': {label:'北沢峠ルート', points:[
     ['trailhead','北沢峠','登山口'],['peak','甲斐駒ヶ岳','山頂']
   ]},
@@ -4162,7 +4169,7 @@ const REPRESENTATIVE_COURSES = Object.freeze({
     ['trailhead','椹島','登山口'],['hut','千枚小屋','山小屋・避難小屋'],['peak','荒川岳','山頂']
   ]},
 
-  // 八ヶ岳（V1.4.65）
+  // 八ヶ岳（V1.4.66）
   '編笠山': {label:'観音平ルート', points:[
     ['trailhead','観音平','登山口'],['peak','編笠山','山頂']
   ]},
@@ -4180,17 +4187,150 @@ const REPRESENTATIVE_COURSES = Object.freeze({
   ]}
 });
 
+// V1.4.66: 三百名山一括監査で確認済みCTが連続する代表コースを追加。
+const AUTO_REPRESENTATIVE_COURSES_V1466 = Object.freeze({
+  '雄阿寒岳': [{label:'滝口・雄阿寒岳ルート', points:[['trailhead','滝口・雄阿寒岳登山口','登山口'],['peak','雄阿寒岳','山頂']]}],
+  '天塩岳': [{label:'天塩岳ヒュッテルート', points:[['trailhead','天塩岳ヒュッテ登山口','登山口'],['peak','天塩岳','山頂']]}],
+  'ニセイカウシュッペ山': [{label:'ニセイカウシュッペ山（古川林道・西尾根）ルート', points:[['trailhead','ニセイカウシュッペ山登山口（古川林道・西尾根）','登山口'],['peak','ニセイカウシュッペ山','山頂']]}],
+  '石狩岳': [{label:'シュナイダーコース（音更川二十一ノ沢出合）ルート', points:[['trailhead','シュナイダーコース登山口（音更川二十一ノ沢出合）','登山口'],['peak','石狩岳','山頂']]}],
+  'トムラウシ山': [{label:'トムラウシ短縮コースルート', points:[['trailhead','トムラウシ短縮コース登山口','登山口'],['peak','トムラウシ山','山頂']]}],
+  '夕張岳': [{label:'冷水・馬の背（夕張岳ヒュッテ）ルート', points:[['trailhead','冷水・馬の背登山口（夕張岳ヒュッテ）','登山口'],['peak','夕張岳','山頂']]}],
+  '暑寒別岳': [{label:'暑寒荘・暑寒別岳ルート', points:[['trailhead','暑寒荘・暑寒別岳登山口','登山口'],['peak','暑寒別岳','山頂']]}],
+  '樽前山': [{label:'7合目ルート', points:[['trailhead','7合目登山口','登山口'],['peak','樽前山','山頂']]}],
+  'ニセコアンヌプリ': [{label:'五色温泉インフォメーションセンタールート', points:[['trailhead','五色温泉インフォメーションセンター','登山口'],['peak','ニセコアンヌプリ','山頂']]}],
+  '狩場山': [{label:'千走ルート', points:[['trailhead','千走登山口','登山口'],['peak','狩場山','山頂']]}],
+  '岩木山': [{label:'岩木山八合目ルート', points:[['trailhead','岩木山八合目','登山口'],['peak','岩木山','山頂']]}],
+  '白神岳': [{label:'白神岳駐車場ルート', points:[['trailhead','白神岳登山口駐車場','登山口'],['peak','白神岳','山頂']]}],
+  '八幡平': [{label:'八幡平見返峠・山頂レストハウスルート', points:[['trailhead','八幡平見返峠・山頂レストハウス','登山口'],['peak','八幡平','山頂']]}],
+  '早池峰山': [{label:'小田越ルート', points:[['trailhead','小田越登山口','登山口'],['peak','早池峰山','山頂']]}],
+  '焼石岳': [{label:'中沼ルート', points:[['trailhead','中沼登山口','登山口'],['peak','焼石岳','山頂']]}],
+  '神室山': [{label:'有屋ルート', points:[['trailhead','有屋登山口','登山口'],['peak','神室山','山頂']]}],
+  '祝瓶山': [{label:'祝瓶山荘駐車場・桑住平ルートルート', points:[['trailhead','祝瓶山荘駐車場・桑住平ルート','登山口'],['peak','祝瓶山','山頂']]}],
+  '蔵王山（熊野岳）': [{label:'蔵王ロープウェイ地蔵山頂駅ルート', points:[['trailhead','蔵王ロープウェイ地蔵山頂駅','登山口'],['peak','蔵王山（熊野岳）','山頂']]}],
+  '一切経山': [{label:'浄土平ルート', points:[['trailhead','浄土平','登山口'],['peak','一切経山','山頂']]}],
+  '安達太良山': [{label:'奥岳・あだたら山ロープウェイルート', points:[['trailhead','奥岳登山口・あだたら山ロープウェイ','登山口'],['peak','安達太良山','山頂']]}],
+  '帝釈山': [{label:'馬坂峠ルート', points:[['trailhead','馬坂峠','登山口'],['peak','帝釈山','山頂']]}],
+  '会津駒ヶ岳': [{label:'滝沢ルート', points:[['trailhead','滝沢登山口','登山口'],['peak','会津駒ヶ岳','山頂']]}],
+  '二王子岳': [{label:'二王子神社ルート', points:[['trailhead','二王子神社登山口','登山口'],['peak','二王子岳','山頂']]}],
+  '粟ヶ岳': [{label:'粟ヶ岳中央（県民休養地）ルート', points:[['trailhead','粟ヶ岳中央登山口（県民休養地）','登山口'],['peak','粟ヶ岳','山頂']]}],
+  '御神楽岳': [{label:'室谷ルート', points:[['trailhead','室谷登山口','登山口'],['peak','御神楽岳','山頂']]}],
+  '守門岳': [{label:'二口ルート', points:[['trailhead','二口登山口','登山口'],['peak','守門岳','山頂']]},{label:'保久礼ルート', points:[['trailhead','保久礼登山口','登山口'],['peak','守門岳','山頂']]}],
+  '浅草岳': [{label:'ネズモチ平駐車場ルート', points:[['trailhead','ネズモチ平登山口駐車場','登山口'],['peak','浅草岳','山頂']]}],
+  '平ヶ岳': [{label:'鷹ノ巣・平ヶ岳ルート', points:[['trailhead','鷹ノ巣・平ヶ岳登山口','登山口'],['peak','平ヶ岳','山頂']]}],
+  '越後駒ヶ岳': [{label:'枝折峠ルート', points:[['trailhead','枝折峠','登山口'],['peak','越後駒ヶ岳','山頂']]}],
+  '中ノ岳': [{label:'十字峡登山センタールート', points:[['trailhead','十字峡登山センター','登山口'],['peak','中ノ岳','山頂']]}],
+  '苗場山': [{label:'小赤沢三合目ルート', points:[['trailhead','小赤沢三合目登山口','登山口'],['peak','苗場山','山頂']]}],
+  '佐武流山': [{label:'ドロノ木平ルート', points:[['trailhead','ドロノ木平登山口','登山口'],['peak','佐武流山','山頂']]}],
+  '鳥甲山': [{label:'ムジナ平ルート', points:[['trailhead','ムジナ平登山口','登山口'],['peak','鳥甲山','山頂']]},{label:'屋敷口ルート', points:[['trailhead','屋敷口','登山口'],['peak','鳥甲山','山頂']]}],
+  '金北山': [{label:'白雲台交流センタールート', points:[['trailhead','白雲台交流センター','登山口'],['peak','金北山','山頂']]}],
+  '米山': [{label:'大平ルート', points:[['trailhead','大平登山口','登山口'],['peak','米山','山頂']]}],
+  '至仏山': [{label:'鳩待峠ルート', points:[['trailhead','鳩待峠','登山口'],['peak','至仏山','山頂']]}],
+  '男体山': [{label:'二荒山神社中宮祠ルート', points:[['trailhead','二荒山神社中宮祠登山口','登山口'],['peak','男体山','山頂']]}],
+  '太郎山': [{label:'山王峠・太郎山ルート', points:[['trailhead','山王峠・太郎山登山口','登山口'],['peak','太郎山','山頂']]}],
+  '武尊山': [{label:'川場谷野営場ルート', points:[['trailhead','川場谷野営場登山口','登山口'],['peak','武尊山','山頂']]}],
+  '赤城山（黒檜山）': [{label:'黒檜山ルート', points:[['trailhead','黒檜山登山口','登山口'],['peak','赤城山（黒檜山）','山頂']]}],
+  '浅間隠山': [{label:'浅間隠山（二度上峠付近）ルート', points:[['trailhead','浅間隠山登山口（二度上峠付近）','登山口'],['peak','浅間隠山','山頂']]}],
+  '巻機山': [{label:'桜坂ルート', points:[['trailhead','桜坂登山口','登山口'],['peak','巻機山','山頂']]}],
+  '四阿山': [{label:'菅平牧場ルート', points:[['trailhead','菅平牧場登山口','登山口'],['peak','四阿山','山頂']]}],
+  '入笠山': [{label:'沢入ルート', points:[['trailhead','沢入登山口','登山口'],['peak','入笠山','山頂']]}],
+  '霧ヶ峰（車山）': [{label:'車山肩ルート', points:[['trailhead','車山肩','登山口'],['peak','霧ヶ峰（車山）','山頂']]}],
+  '鉢伏山': [{label:'扉温泉ルート', points:[['trailhead','扉温泉','登山口'],['peak','鉢伏山','山頂']]}],
+  '飯縄山': [{label:'一の鳥居苑地・飯縄山登山者駐車場ルート', points:[['trailhead','一の鳥居苑地・飯縄山登山者駐車場','登山口'],['peak','飯縄山','山頂']]}],
+  '戸隠山': [{label:'戸隠神社奥社ルート', points:[['trailhead','戸隠神社奥社登山口','登山口'],['peak','戸隠山','山頂']]}],
+  '高妻山': [{label:'戸隠キャンプ場・高妻山登山者駐車場ルート', points:[['trailhead','戸隠キャンプ場・高妻山登山者駐車場','登山口'],['peak','高妻山','山頂']]}],
+  '妙高山': [{label:'笹ヶ峰ルート', points:[['trailhead','笹ヶ峰登山口','登山口'],['peak','妙高山','山頂']]}],
+  '火打山': [{label:'笹ヶ峰ルート', points:[['trailhead','笹ヶ峰登山口','登山口'],['hut','高谷池ヒュッテ','山小屋・避難小屋'],['peak','火打山','山頂']]}],
+  '雨飾山': [{label:'雨飾高原キャンプ場ルート', points:[['trailhead','雨飾高原キャンプ場登山口','登山口'],['peak','雨飾山','山頂']]}],
+  '鹿島槍ヶ岳': [{label:'アルプス平ルート', points:[['trailhead','アルプス平','登山口'],['hut','五竜山荘','山小屋・避難小屋'],['peak','五竜岳','山頂'],['hut','キレット小屋','山小屋・避難小屋'],['peak','鹿島槍ヶ岳','山頂']]}],
+  '野口五郎岳': [{label:'高瀬ダムルート', points:[['trailhead','高瀬ダム','登山口'],['hut','烏帽子小屋','山小屋・避難小屋'],['peak','野口五郎岳','山頂']]}],
+  '三俣蓮華岳': [{label:'新穂高温泉ルート', points:[['trailhead','新穂高温泉','登山口'],['hut','鏡平山荘','山小屋・避難小屋'],['hut','双六小屋','山小屋・避難小屋'],['peak','三俣蓮華岳','山頂']]}],
+  '小秀山': [{label:'乙女渓谷（小秀山）ルート', points:[['trailhead','乙女渓谷（小秀山登山口）','登山口'],['peak','小秀山','山頂']]}],
+  '奥三界岳': [{label:'川上林道ゲート（夕森渓谷）ルート', points:[['trailhead','川上林道ゲート（夕森渓谷）','登山口'],['peak','奥三界岳','山頂']]}],
+  '経ヶ岳（長野）': [{label:'権兵衛峠ルート', points:[['trailhead','権兵衛峠登山口','登山口'],['peak','経ヶ岳','山頂']]}],
+  '恵那山': [{label:'神坂峠ルート', points:[['trailhead','神坂峠登山口','登山口'],['peak','恵那山','山頂']]}],
+  '武甲山': [{label:'生川・一の鳥居ルート', points:[['trailhead','生川・一の鳥居','登山口'],['peak','武甲山','山頂']]}],
+  '両神山': [{label:'日向大谷口ルート', points:[['trailhead','日向大谷口','登山口'],['peak','両神山','山頂']]}],
+  '雲取山': [{label:'鴨沢ルート', points:[['trailhead','鴨沢登山口','登山口'],['peak','雲取山','山頂']]}],
+  '甲武信ヶ岳': [{label:'毛木平ルート', points:[['trailhead','毛木平登山口','登山口'],['peak','甲武信ヶ岳','山頂']]}],
+  '国師ヶ岳': [{label:'大弛峠ルート', points:[['trailhead','大弛峠','登山口'],['peak','国師ヶ岳','山頂']]}],
+  '金峰山': [{label:'大弛峠ルート', points:[['trailhead','大弛峠','登山口'],['peak','金峰山','山頂']]}],
+  '瑞牆山': [{label:'瑞牆山荘・富士見平口ルート', points:[['trailhead','瑞牆山荘・富士見平口','登山口'],['peak','瑞牆山','山頂']]}],
+  '茅ヶ岳': [{label:'深田記念公園・茅ヶ岳ルート', points:[['trailhead','深田記念公園・茅ヶ岳登山口','登山口'],['peak','茅ヶ岳','山頂']]}],
+  '乾徳山': [{label:'徳和・乾徳山ルート', points:[['trailhead','徳和・乾徳山登山口','登山口'],['peak','乾徳山','山頂']]}],
+  '大菩薩嶺': [{label:'上日川峠ルート', points:[['trailhead','上日川峠','登山口'],['peak','大菩薩嶺','山頂']]}],
+  '大山（神奈川）': [{label:'ヤビツ峠ルート', points:[['trailhead','ヤビツ峠','登山口'],['peak','大山（神奈川）','山頂']]}],
+  '塔ノ岳': [{label:'大倉ルート', points:[['trailhead','大倉登山口','登山口'],['peak','塔ノ岳','山頂']]}],
+  '山伏': [{label:'百畳峠（百畳平）駐車場・山伏ルート', points:[['trailhead','百畳峠（百畳平）駐車場・山伏登山口','登山口'],['peak','山伏','山頂']]}],
+  '御正体山': [{label:'道坂トンネル都留側駐車場・御正体山ルート', points:[['trailhead','道坂トンネル都留側駐車場・御正体山登山口','登山口'],['peak','御正体山','山頂']]}],
+  '赤石岳': [{label:'椹島ルート', points:[['trailhead','椹島','登山口'],['hut','千枚小屋','山小屋・避難小屋'],['peak','荒川岳','山頂'],['hut','荒川小屋','山小屋・避難小屋'],['peak','赤石岳','山頂']]}],
+  '白木峰': [{label:'白木峰8合目駐車場ルート', points:[['trailhead','白木峰8合目駐車場','登山口'],['peak','白木峰','山頂']]}],
+  '人形山': [{label:'人形堂・中根平ルート', points:[['trailhead','人形堂・中根平登山口','登山口'],['peak','人形山','山頂']]}],
+  '経ヶ岳（福井）': [{label:'奥越高原青少年自然の家ルート', points:[['trailhead','奥越高原青少年自然の家','登山口'],['peak','経ヶ岳（福井）','山頂']]}],
+  '大日ヶ岳': [{label:'桧峠 大日ヶ岳ルート', points:[['trailhead','桧峠 大日ヶ岳登山口','登山口'],['peak','大日ヶ岳','山頂']]}],
+  '鷲ヶ岳': [{label:'鷲ヶ岳立石キャンプ場（林道ルート起点）ルート', points:[['trailhead','鷲ヶ岳立石キャンプ場（林道ルート起点）','登山口'],['peak','鷲ヶ岳','山頂']]}],
+  '位山': [{label:'ダナ平林道ルート', points:[['trailhead','ダナ平林道登山口','登山口'],['peak','位山','山頂']]}],
+  '荒島岳': [{label:'勝原コースルート', points:[['trailhead','勝原コース登山口','登山口'],['peak','荒島岳','山頂']]},{label:'中出コースルート', points:[['trailhead','中出コース登山口','登山口'],['peak','荒島岳','山頂']]}],
+  '冠山': [{label:'冠山峠ルート', points:[['trailhead','冠山峠','登山口'],['peak','冠山','山頂']]}],
+  '高見山': [{label:'高見峠ルート', points:[['trailhead','高見峠','登山口'],['peak','高見山','山頂']]}],
+  '八経ヶ岳': [{label:'行者還トンネル西口ルート', points:[['trailhead','行者還トンネル西口','登山口'],['hut','弥山小屋','山小屋・避難小屋'],['peak','八経ヶ岳','山頂']]}],
+  '大和葛城山': [{label:'水越峠ルート', points:[['trailhead','水越峠','登山口'],['peak','大和葛城山','山頂']]}],
+  '瓶ヶ森': [{label:'瓶ヶ森駐車場ルート', points:[['trailhead','瓶ヶ森駐車場','登山口'],['peak','瓶ヶ森','山頂']]}],
+  '久住山': [{label:'牧ノ戸峠ルート', points:[['trailhead','牧ノ戸峠','登山口'],['hut','久住分かれ避難小屋','山小屋・避難小屋'],['peak','久住山','山頂']]}],
+});
+
+// V1.4.66: 主要山の複数代表コース。
+const EXTRA_REPRESENTATIVE_COURSES_V1466 = Object.freeze({
+  '槍ヶ岳': [
+    {label:'新穂高・槍平ルート', points:[['trailhead','新穂高温泉','登山口'],['hut','槍平小屋','山小屋・避難小屋'],['hut','槍ヶ岳山荘','山小屋・避難小屋'],['peak','槍ヶ岳','山頂']]}
+  ],
+  '五竜岳': [
+    {label:'八方尾根・唐松岳経由ルート', points:[['trailhead','八方池山荘','登山口'],['hut','唐松岳頂上山荘','山小屋・避難小屋'],['hut','五竜山荘','山小屋・避難小屋'],['peak','五竜岳','山頂']]}
+  ]
+});
+
+function representativeCourseOptions(mountain){
+  const key=canonicalMountainName(mountain);
+  const manual=REPRESENTATIVE_COURSES[key];
+  const base=manual?(Array.isArray(manual)?manual:[manual]):(AUTO_REPRESENTATIVE_COURSES_V1466[key]||[]);
+  const extra=EXTRA_REPRESENTATIVE_COURSES_V1466[key]||[];
+  return [...base,...extra];
+}
 function representativeCourseFor(mountain){
-  return REPRESENTATIVE_COURSES[canonicalMountainName(mountain)]||null;
+  const options=representativeCourseOptions(mountain);
+  const sel=$('representativeCourseSelect');
+  const idx=sel&&!sel.classList.contains('hidden')?Math.max(0,Number(sel.value)||0):0;
+  return options[idx]||options[0]||null;
+}
+function representativeCoursePathText(course){
+  if(!course||!Array.isArray(course.points))return '';
+  return course.points.map(([,name])=>name).join(' → ');
 }
 function refreshRepresentativeCourseButton(){
   const btn=$('representativeCourseBtn');
+  const sel=$('representativeCourseSelect');
+  const preview=$('representativeCoursePreview');
   if(!btn)return;
   const mountain=currentMountainLabel();
+  const options=representativeCourseOptions(mountain);
+  const hasCourse=options.length>0;
+  btn.classList.toggle('hidden',!hasCourse);
+  btn.disabled=!hasCourse;
+  if(sel){
+    const prev=sel.value;
+    sel.innerHTML=options.map((course,i)=>`<option value="${i}">${escapeHtml(course.label)}</option>`).join('');
+    if(prev&&options[Number(prev)])sel.value=prev;else sel.value='0';
+    sel.classList.toggle('hidden',options.length<=1);
+    sel.disabled=options.length<=1;
+  }
   const course=representativeCourseFor(mountain);
-  btn.classList.toggle('hidden',!course);
-  btn.disabled=!course;
-  btn.title=course?`${course.label} を入力します`:'';
+  const pathText=representativeCoursePathText(course);
+  const tooltip=course?`${course.label}\n${pathText}`:'';
+  btn.title=tooltip;
+  btn.dataset.courseTooltip=tooltip;
+  if(preview){
+    preview.textContent=pathText;
+    preview.classList.toggle('hidden',!hasCourse||!pathText);
+  }
 }
 function representativeCandidate(type,name){
   return candidates.find(p=>p.type===type&&p.name===name&&hasResolvedCoord(p))||null;
@@ -5848,8 +5988,35 @@ function renderDecisionCommentary(points){
   el.innerHTML=`<div class="decision-commentary-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M9 9h30v22H22l-9 8v-8H9Z"/><path d="M17 20h2m5 0h2m5 0h2"/></svg></div><div class="decision-commentary-copy"><small>分析結果から自動生成</small><b>${esc(c.title)}</b>${highlight}<p>${esc(c.body)}</p><em>✓ 最新の予報をもとに自動生成した解説です。登山可否を保証するものではありません。</em></div>`;
 }
 function assessConfidence(rows){const spread=k=>{const v=rows.map(x=>x[k]).filter(Number.isFinite);return v.length>1?Math.max(...v)-Math.min(...v):0;};if(spread('wind')>7||spread('rain')>4||spread('temp')>6)return'LOW';if(spread('wind')>3.5||spread('rain')>1.5||spread('temp')>3)return'MEDIUM';return'HIGH';}
+
+// V1.4.67: 地点別予測の予測信頼度。
+// 的中率ではなく、モデル一致度・比較モデル数・予報リードタイムをまとめた相対指標。
+function pointForecastConfidence(result){
+  const rows=Array.isArray(result?.providerRows)?result.providerRows:[];
+  const lead=Math.max(0,daysAhead(result?.point?.date||todayLocal()));
+  const fallbackOnly=rows.length>0&&rows.every(x=>x.provider?.kind==='fallback');
+  let level=result?.confidence==='LOW'?'LOW':result?.confidence==='MEDIUM'?'MEDIUM':'HIGH';
+  const reasons=[];
+  if(fallbackOnly){
+    level='LOW';
+    reasons.push('予備モデル中心');
+  }else{
+    if(rows.length<=1){level='LOW';reasons.push('比較1モデル');}
+    else if(rows.length===2&&level==='HIGH'){level='MEDIUM';reasons.push('比較2モデル');}
+    else reasons.push(`${rows.length}モデル比較`);
+    if(result?.confidence==='LOW')reasons.push('モデル差が大きい');
+    else if(result?.confidence==='MEDIUM')reasons.push('モデルにばらつき');
+    else if(rows.length>=2)reasons.push('モデル一致度良好');
+  }
+  if(lead>=12){level='LOW';reasons.push(`${lead}日先`);}
+  else if(lead>=8){if(level==='HIGH')level='MEDIUM';reasons.push(`${lead}日先`);}
+  else if(lead>=4){reasons.push(`${lead}日先`);}
+  else reasons.push(lead===0?'当日':`${lead}日先`);
+  const label={HIGH:'高',MEDIUM:'中',LOW:'低'}[level]||'中';
+  return {level,label,reason:reasons.slice(0,3).join('・'),lead,modelCount:rows.length};
+}
 function gradeRank(g){return({A:1,B:2,C:3,D:4,E:5})[g]||9;} function verdict(g){return({A:'かなり良好',B:'概ね登山可能',C:'注意が必要',D:'かなり厳しい',E:'中止推奨'})[g]||'–';}
-function maxThunder(v){const r={LOW:1,MEDIUM:2,HIGH:3,EXTREME:4};return [...v].sort((a,b)=>r[b]-r[a])[0]||'LOW';} function overallConfidence(v){return v.includes('LOW')?'LOW':v.includes('MEDIUM')?'MEDIUM':'HIGH';}
+function maxThunder(v){const r={LOW:1,MEDIUM:2,HIGH:3,EXTREME:4};return [...v].sort((a,b)=>r[b]-r[a])[0]||'LOW';} function overallConfidence(v){return v.includes('LOW')||v.includes('FALLBACK')?'LOW':v.includes('MEDIUM')?'MEDIUM':'HIGH';}
 function num(v,d=1){return Number.isFinite(v)?v.toFixed(d):'–';}
 
 
@@ -6192,11 +6359,12 @@ function pointForecastRow(r,i,total){
   const windDeg=r.providerRows?.[0]?.row?.windDir ?? NaN;
   const visEval=visibilityEvaluation(r.visibility);
   const windDegLabel=Number.isFinite(windDeg)?`(${Math.round((((windDeg%360)+360)%360))}°)`: '風の向き';
+  const conf=pointForecastConfidence(r);
   return `<article class="route-forecast-row point-dashboard-card">
     <div class="rf-point-head">
       <div class="rf-point-copy">
         <div class="rf-time"><small>${esc(r.point.date||'----/--/--')}</small><strong>${esc(r.point.time||'--:--')}</strong></div>
-        <div class="rf-place"><b>${esc(r.point.name)}</b><small>${esc(typeLabel)} / 標高 ${elev.toLocaleString('ja-JP')}m</small></div>
+        <div class="rf-place"><b>${esc(r.point.name)}</b><small>${esc(typeLabel)} / 標高 ${elev.toLocaleString('ja-JP')}m</small><div class="rf-confidence rf-confidence-${conf.level.toLowerCase()}" title="予測信頼度はモデル一致度・比較モデル数・予報までの日数から算出した相対指標です"><span>予測信頼度</span><b>${conf.label}</b><small>${esc(conf.reason)}</small></div></div>
       </div>
       <div class="rf-weather wx-${wx.cls}"><span class="rf-weather-icon" aria-hidden="true">${wx.icon}</span><small>${wx.label}</small></div>
     </div>
@@ -6236,7 +6404,7 @@ function renderPointForecastTimeline(points){
   if(!el) return;
   el.innerHTML=`<div class="route-forecast-board point-dashboard-board">
     <div class="route-forecast-list">${points.map((r,i)=>pointForecastRow(r,i,points.length)).join('')}</div>
-    <div class="route-forecast-foot">※ 各地点の通過時刻に対する代表予報値です。詳細なモデル比較は「06 気象モデル詳細」を参照してください。</div>
+    <div class="route-forecast-foot">※ 各地点の通過時刻に対する代表予報値です。「予測信頼度」はモデル一致度・比較モデル数・予報までの日数から算出する相対指標で、的中率を保証するものではありません。詳細なモデル比較は「06 気象モデル詳細」を参照してください。</div>
   </div>`;
 }
 

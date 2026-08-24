@@ -72,7 +72,7 @@
   }
   </script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
-  <link rel="stylesheet" href="styles.css?v=1.4.60">
+  <link rel="stylesheet" href="styles.css?v=1.4.68">
 </head>
 <body>
 <header class="app-topbar">
@@ -83,13 +83,13 @@
     <div class="topbar-center">
       <h1>その時、その場所の空を読む。</h1>
       <div class="topbar-badges">
-        <span>V1.4.65</span>
+        <span>V1.4.68</span>
         <span>日本三百名山 300座</span>
         <span>5系統アラート</span>
       </div>
     </div>
     <div class="mobile-topbar-copy">その時、その場所の空を読む。</div>
-    <span class="mobile-topbar-version">V1.4.65</span>
+    <span class="mobile-topbar-version">V1.4.68</span>
     <a class="topbar-guide-link" href="guide.html" aria-label="トラテンの使い方を見る">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 5.5h6.5a3 3 0 0 1 3 3v10a3.6 3.6 0 0 0-3-2H4.5z"/><path d="M19.5 5.5H13a3 3 0 0 0-3 3"/><path d="M13.5 5.5h6v11H13a3.6 3.6 0 0 0-3 2"/></svg>
       <span>使い方</span>
@@ -148,6 +148,8 @@
         <div class="mountain-route-actions">
           <button id="loadPoiBtn" class="secondary" type="button">通過ポイントを読み込む</button>
           <button id="representativeCourseBtn" class="secondary representative-course-btn hidden" type="button">代表コースを入力</button>
+          <select id="representativeCourseSelect" class="representative-course-select hidden" aria-label="代表コースを選択"></select>
+          <div id="representativeCoursePreview" class="representative-course-preview hidden" aria-live="polite"></div>
         </div>
         <div id="candidateState" class="state"></div>
       </div>
@@ -319,6 +321,6 @@
   </div>
 </footer>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-<script src="app.js?v=1.4.60"></script>
+<script src="app.js?v=1.4.68"></script>
 </body>
 </html>

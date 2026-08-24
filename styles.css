@@ -3216,13 +3216,21 @@ body.install-guide-open{overflow:hidden}
   footer,footer strong{font-size:12px}
 }
 
-/* V1.4.63 代表コース入力 */
-.mountain-route-actions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-top:10px}
-.mountain-route-actions #loadPoiBtn,.mountain-route-actions #representativeCourseBtn{width:100%;min-width:0;margin:0;min-height:44px;border-radius:11px}
-#representativeCourseBtn{font-weight:800;border-color:#b8d4c7;background:#eef7f2;color:#174d39}
+/* V1.4.68 代表コース入力：PC省スペース＋hover内容、スマホ常時内容表示 */
+.mountain-route-actions{display:grid;grid-template-columns:minmax(180px,1fr) minmax(180px,.9fr) minmax(170px,.8fr);gap:8px;margin-top:10px;align-items:center;overflow:visible}
+.mountain-route-actions #loadPoiBtn,.mountain-route-actions #representativeCourseBtn{width:100%;min-width:0;margin:0;min-height:38px;height:38px;padding:6px 12px;border-radius:10px;white-space:nowrap}
+#representativeCourseBtn{font-weight:800;border-color:#b8d4c7;background:#eef7f2;color:#174d39;position:relative}
 #representativeCourseBtn:hover{background:#e3f2ea}
 #representativeCourseBtn:disabled{opacity:.5;cursor:not-allowed}
-@media(max-width:520px){.mountain-route-actions{grid-template-columns:1fr}.mountain-route-actions #loadPoiBtn,.mountain-route-actions #representativeCourseBtn{min-height:48px;font-size:15px}}
+#representativeCourseBtn:not(.hidden):not(:disabled)[data-course-tooltip]:hover::after{content:attr(data-course-tooltip);position:absolute;z-index:40;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);width:max-content;max-width:min(560px,70vw);padding:9px 11px;border-radius:9px;background:#20342b;color:#fff;font-size:12px;font-weight:700;line-height:1.45;text-align:left;white-space:pre-line;box-shadow:0 8px 24px rgba(20,45,35,.2);pointer-events:none}
+#representativeCourseBtn:not(.hidden):not(:disabled)[data-course-tooltip]:hover::before{content:'';position:absolute;z-index:41;left:50%;bottom:calc(100% + 2px);transform:translateX(-50%);border:6px solid transparent;border-top-color:#20342b;pointer-events:none}
+.representative-course-preview{display:none}
+@media(max-width:700px){
+  .mountain-route-actions{grid-template-columns:1fr;gap:8px}
+  .mountain-route-actions #loadPoiBtn,.mountain-route-actions #representativeCourseBtn{min-height:46px;height:auto;font-size:15px;white-space:normal}
+  #representativeCourseBtn:hover::after,#representativeCourseBtn:hover::before{display:none!important}
+  .representative-course-preview:not(.hidden){display:block;padding:8px 10px;border:1px solid #d7e5dd;border-radius:9px;background:#f7fbf9;color:#50685c;font-size:11px;font-weight:700;line-height:1.45}
+}
 
 
 /* V1.4.64 CT missing marker beside waypoint time */
@@ -3233,3 +3241,19 @@ body.install-guide-open{overflow:hidden}
   .planner-rail .time-control-with-ct{width:104px;overflow:visible}
   .planner-rail .course-time-missing-badge{position:absolute;left:calc(100% + 5px);top:50%;transform:translateY(-50%);padding:3px 5px;font-size:9px}
 }
+
+/* V1.4.66 representative course selector */
+.representative-course-select{grid-column:auto;width:100%;min-height:38px;height:38px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;padding:5px 9px;font:inherit;color:#243447}
+@media(max-width:700px){.representative-course-select{grid-column:1/-1;min-height:44px;height:44px}}
+.representative-course-select.hidden{display:none}
+
+
+/* V1.4.67 地点別予測：予測信頼度 */
+#forecastCards .rf-confidence{display:flex;align-items:center;flex-wrap:wrap;gap:5px 7px;margin-top:9px;line-height:1.2}
+#forecastCards .rf-confidence>span{font-size:10px;font-weight:800;color:#71847b}
+#forecastCards .rf-confidence>b{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:20px;padding:0 7px;border-radius:999px;font-size:11px;font-weight:900}
+#forecastCards .rf-confidence>small{flex-basis:100%;margin:0!important;font-size:10px!important;line-height:1.35!important;color:#71847b!important}
+#forecastCards .rf-confidence-high>b{color:#17633d;background:#e3f5ea;border:1px solid #b7e1c7}
+#forecastCards .rf-confidence-medium>b{color:#805d12;background:#fff4d8;border:1px solid #edd38f}
+#forecastCards .rf-confidence-low>b{color:#9a3b2e;background:#fde7e2;border:1px solid #efbcb1}
+@media(max-width:520px){#forecastCards .rf-confidence{margin-top:7px;gap:4px 6px}#forecastCards .rf-confidence>span,#forecastCards .rf-confidence>small{font-size:9px!important}#forecastCards .rf-confidence>b{height:19px;min-width:24px;font-size:10px}}
