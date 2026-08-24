@@ -1,6 +1,871 @@
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.4.30';
+const APP_VERSION = '1.4.59';
 
+
+
+
+// V1.4.34: 北アルプス全域の主要区間 標準コースタイム（分）。
+// 公開情報で方向別所要時間を確認できた区間だけを登録する。推測値は使用しない。
+// 北アルプス山小屋友交会「主なルート（所要時間）」「北アルプス 夏山コースタイム」準拠。
+const NORTH_ALPS_COURSE_TIMES = Object.freeze({
+  '上高地→槍沢ロッヂ': {minutes:260, source:'北アルプス山小屋友交会・槍沢ロッヂ'},
+  '槍沢ロッヂ→上高地': {minutes:240, source:'北アルプス山小屋友交会・槍沢ロッヂ'},
+  '槍沢ロッヂ→槍ヶ岳山荘': {minutes:280, source:'北アルプス山小屋友交会・槍沢ロッヂ'},
+  '槍ヶ岳山荘→槍沢ロッヂ': {minutes:210, source:'北アルプス山小屋友交会・槍沢ロッヂ'},
+  '三股→蝶ヶ岳': {minutes:330, source:'北アルプス山小屋友交会・蝶ヶ岳ヒュッテ'},
+  '蝶ヶ岳→三股': {minutes:190, source:'北アルプス山小屋友交会・蝶ヶ岳ヒュッテ'},
+  '横尾→蝶ヶ岳': {minutes:270, source:'北アルプス山小屋友交会・蝶ヶ岳ヒュッテ'},
+  '蝶ヶ岳→横尾': {minutes:180, source:'北アルプス山小屋友交会・蝶ヶ岳ヒュッテ'},
+  '常念小屋→常念山頂': {minutes:90, source:'北アルプス山小屋友交会・蝶ヶ岳ヒュッテ'},
+  '常念山頂→常念小屋': {minutes:90, source:'北アルプス山小屋友交会・蝶ヶ岳ヒュッテ'},
+  '常念山頂→蝶ヶ岳': {minutes:270, source:'北アルプス山小屋友交会・蝶ヶ岳ヒュッテ'},
+  '蝶ヶ岳→常念山頂': {minutes:300, source:'北アルプス山小屋友交会・蝶ヶ岳ヒュッテ'},
+  '燕山荘→大天荘': {minutes:210, source:'北アルプス山小屋友交会・大天荘'},
+  '高瀬ダム→烏帽子小屋': {minutes:360, source:'北アルプス山小屋友交会・夏山コースタイム'},
+  '烏帽子小屋→高瀬ダム': {minutes:240, source:'北アルプス山小屋友交会・夏山コースタイム'},
+  '烏帽子小屋→野口五郎岳': {minutes:210, source:'北アルプス山小屋友交会・夏山コースタイム'},
+  '野口五郎岳→烏帽子小屋': {minutes:150, source:'北アルプス山小屋友交会・夏山コースタイム'},
+  '野口五郎岳→水晶小屋': {minutes:180, source:'北アルプス山小屋友交会・夏山コースタイム'},
+  '水晶小屋→野口五郎岳': {minutes:150, source:'北アルプス山小屋友交会・夏山コースタイム'},
+  '水晶小屋→三俣山荘': {minutes:150, source:'北アルプス山小屋友交会・夏山コースタイム'},
+  '三俣山荘→水晶小屋': {minutes:180, source:'北アルプス山小屋友交会・夏山コースタイム'},
+  '三俣山荘→三俣蓮華岳': {minutes:60, source:'北アルプス山小屋友交会・夏山コースタイム'},
+  '三俣蓮華岳→三俣山荘': {minutes:40, source:'北アルプス山小屋友交会・夏山コースタイム'},
+  '三俣蓮華岳→双六小屋': {minutes:90, source:'北アルプス山小屋友交会・夏山コースタイム'},
+  '双六小屋→三俣蓮華岳': {minutes:120, source:'北アルプス山小屋友交会・夏山コースタイム'},
+  // V1.4.33: 表銀座（燕山荘グループ公式の現行案内で区間時間を確認）
+  '中房→合戦小屋': {minutes:240, source:'燕山荘グループ・合戦小屋/ルートマップ'},
+  '合戦小屋→燕山荘': {minutes:90, source:'燕山荘グループ・合戦小屋/ルートマップ'},
+  '燕山荘→燕岳': {minutes:30, source:'燕山荘グループ・ルートマップ'},
+  // V1.4.33: 新穂高〜双六（双六小屋グループ公式FAQ）
+  '新穂高温泉→わさび平小屋': {minutes:80, source:'双六小屋グループ・FAQ'},
+  'わさび平小屋→鏡平山荘': {minutes:240, source:'双六小屋グループ・FAQ'},
+  '鏡平山荘→双六小屋': {minutes:130, source:'双六小屋グループ・鏡平山荘（現行案内）'},
+  // V1.4.33: 槍・穂高主要区間（北アルプス山小屋友交会・夏山コースタイム）
+  '上高地→横尾': {minutes:175, source:'北アルプス山小屋友交会・夏山コースタイム'},
+  '横尾→上高地': {minutes:175, source:'北アルプス山小屋友交会・夏山コースタイム'},
+  '横尾→涸沢ヒュッテ': {minutes:180, source:'北アルプス山小屋友交会・夏山コースタイム'},
+  '涸沢ヒュッテ→横尾': {minutes:120, source:'北アルプス山小屋友交会・夏山コースタイム'},
+  '新穂高温泉→槍平小屋': {minutes:270, source:'北アルプス山小屋友交会・夏山コースタイム'},
+  '槍平小屋→新穂高温泉': {minutes:210, source:'北アルプス山小屋友交会・夏山コースタイム'},
+  '槍平小屋→槍ヶ岳山荘': {minutes:240, source:'北アルプス山小屋友交会・夏山コースタイム'},
+  '槍ヶ岳山荘→槍平小屋': {minutes:150, source:'北アルプス山小屋友交会・夏山コースタイム'},
+  '槍ヶ岳山荘→南岳小屋': {minutes:120, source:'北アルプス山小屋友交会・夏山コースタイム'},
+  '南岳小屋→槍ヶ岳山荘': {minutes:120, source:'北アルプス山小屋友交会・夏山コースタイム'},
+  '南岳小屋→北穂高小屋': {minutes:180, source:'北アルプス山小屋友交会・夏山コースタイム'},
+  '北穂高小屋→南岳小屋': {minutes:180, source:'北アルプス山小屋友交会・夏山コースタイム'},
+  '北穂高小屋→涸沢ヒュッテ': {minutes:105, source:'北アルプス山小屋友交会・夏山コースタイム'},
+  '涸沢ヒュッテ→北穂高小屋': {minutes:180, source:'北アルプス山小屋友交会・夏山コースタイム'},
+
+  // V1.4.34: 白馬・朝日・後立山（白馬村公式モデルコース）
+  '猿倉→白馬尻小屋': {minutes:90, source:'白馬村公式観光サイト・モデルコース'},
+  '白馬尻小屋→白馬山荘': {minutes:320, source:'白馬村公式観光サイト・モデルコース（公式区間合算）'},
+  '白馬山荘→白馬岳': {minutes:15, source:'白馬村公式観光サイト・モデルコース'},
+  '白馬岳→白馬山荘': {minutes:10, source:'白馬村公式観光サイト・モデルコース'},
+  '白馬岳→小蓮華山': {minutes:90, source:'白馬村公式観光サイト・モデルコース（公式区間合算）'},
+  '小蓮華山→白馬岳': {minutes:95, source:'白馬村公式観光サイト・モデルコース（公式区間合算）'},
+  '小蓮華山→白馬大池山荘': {minutes:90, source:'白馬村公式観光サイト・モデルコース'},
+  '白馬大池山荘→小蓮華山': {minutes:130, source:'白馬村公式観光サイト・モデルコース'},
+  '白馬大池山荘→栂池自然園': {minutes:170, source:'白馬村公式観光サイト・モデルコース（公式区間合算）'},
+  '栂池自然園→白馬大池山荘': {minutes:235, source:'白馬村公式観光サイト・モデルコース（公式区間合算）'},
+  '白馬大池山荘→蓮華温泉': {minutes:140, source:'白馬村公式観光サイト・モデルコース'},
+  '白馬山荘→杓子岳': {minutes:75, source:'白馬村公式観光サイト・モデルコース（公式区間合算）'},
+  '杓子岳→白馬鑓ヶ岳': {minutes:60, source:'白馬村公式観光サイト・モデルコース'},
+  '白馬鑓ヶ岳→天狗山荘': {minutes:50, source:'白馬村公式観光サイト・モデルコース'},
+  '天狗山荘→不帰キレット': {minutes:120, source:'白馬村公式観光サイト・モデルコース'},
+  '不帰キレット→唐松岳': {minutes:180, source:'白馬村公式観光サイト・モデルコース'},
+  '唐松岳→唐松岳頂上山荘': {minutes:20, source:'白馬村公式観光サイト・モデルコース'},
+  '唐松岳頂上山荘→唐松岳': {minutes:20, source:'白馬村公式観光サイト・モデルコース'},
+  '八方池山荘→唐松岳頂上山荘': {minutes:250, source:'白馬村公式観光サイト・モデルコース（公式区間合算）'},
+  '唐松岳頂上山荘→八方池山荘': {minutes:200, source:'白馬村公式観光サイト・モデルコース（公式区間合算）'},
+  '唐松岳頂上山荘→五竜山荘': {minutes:180, source:'白馬村公式観光サイト・モデルコース'},
+  '五竜山荘→五竜岳': {minutes:60, source:'白馬村公式観光サイト・モデルコース'},
+  '五竜岳→五竜山荘': {minutes:45, source:'白馬村公式観光サイト・モデルコース'},
+  'アルプス平→五竜山荘': {minutes:350, source:'白馬村公式観光サイト・モデルコース（公式区間合算）'},
+  '五竜山荘→アルプス平': {minutes:260, source:'白馬村公式観光サイト・モデルコース（公式区間合算）'},
+  '五竜岳→キレット小屋': {minutes:240, source:'白馬村公式観光サイト・モデルコース'},
+  'キレット小屋→鹿島槍ヶ岳': {minutes:180, source:'白馬村公式観光サイト・モデルコース'},
+  '鹿島槍ヶ岳→冷池山荘': {minutes:90, source:'白馬村公式観光サイト・モデルコース'},
+  '冷池山荘→爺ヶ岳': {minutes:120, source:'白馬村公式観光サイト・モデルコース'},
+  '爺ヶ岳→種池山荘': {minutes:30, source:'白馬村公式観光サイト・モデルコース'},
+  '種池山荘→扇沢': {minutes:180, source:'白馬村公式観光サイト・モデルコース'},
+  '白馬岳→雪倉岳': {minutes:135, source:'白馬村公式観光サイト・モデルコース（公式区間合算）'},
+  '雪倉岳→朝日小屋': {minutes:240, source:'白馬村公式観光サイト・モデルコース'},
+  '朝日小屋→朝日岳': {minutes:60, source:'白馬村公式観光サイト・モデルコース'},
+  '朝日岳→蓮華温泉': {minutes:320, source:'白馬村公式観光サイト・モデルコース（公式区間合算）'},
+
+  // V1.4.34: 針ノ木・船窪（各小屋公式）
+  '扇沢→針ノ木小屋': {minutes:240, source:'針ノ木小屋公式・登山道情報'},
+  '針ノ木小屋→蓮華岳': {minutes:40, source:'船窪小屋公式・登山ルート'},
+  '蓮華岳→針ノ木小屋': {minutes:40, source:'船窪小屋公式・登山ルート'},
+  '七倉→船窪小屋': {minutes:360, source:'船窪小屋公式・登山ルート'},
+  '船窪小屋→七倉': {minutes:240, source:'船窪小屋公式・登山ルート'},
+
+  // V1.4.34: 立山・剱（立山黒部アルペンルート／早月小屋公式）
+  '室堂→一の越山荘': {minutes:60, source:'立山黒部アルペンルート公式・雄山モデルコース'},
+  '一の越山荘→立山（雄山）': {minutes:50, source:'立山黒部アルペンルート公式・雄山モデルコース'},
+  '立山（雄山）→一の越山荘': {minutes:50, source:'立山黒部アルペンルート公式・雄山モデルコース'},
+  '一の越山荘→室堂': {minutes:60, source:'立山黒部アルペンルート公式・雄山モデルコース'},
+  '馬場島→早月小屋': {minutes:360, source:'早月小屋公式・アクセス'},
+
+  // V1.4.34: 常念山脈（北アルプス山小屋友交会）
+  '一ノ沢→常念小屋': {minutes:300, source:'北アルプス山小屋友交会・常念小屋'},
+  '大天井岳→常念小屋': {minutes:180, source:'北アルプス山小屋友交会・常念小屋'},
+
+  // V1.4.34: 西穂・焼岳／穂高（北アルプス山小屋友交会）
+  '上高地→焼岳小屋': {minutes:150, source:'北アルプス山小屋友交会・焼岳小屋'},
+  '西穂山荘→焼岳小屋': {minutes:150, source:'北アルプス山小屋友交会・夏山コースタイム'},
+  '焼岳小屋→西穂山荘': {minutes:210, source:'北アルプス山小屋友交会・夏山コースタイム'},
+  '涸沢ヒュッテ→穂高岳山荘': {minutes:150, source:'北アルプス山小屋友交会・夏山コースタイム'},
+  '穂高岳山荘→涸沢ヒュッテ': {minutes:105, source:'北アルプス山小屋友交会・夏山コースタイム'},
+  '穂高岳山荘→奥穂高岳': {minutes:40, source:'北アルプス山小屋友交会・夏山コースタイム'},
+  '奥穂高岳→穂高岳山荘': {minutes:60, source:'北アルプス山小屋友交会・夏山コースタイム'},
+  '奥穂高岳→前穂高岳': {minutes:120, source:'北アルプス山小屋友交会・夏山コースタイム'},
+  '前穂高岳→奥穂高岳': {minutes:120, source:'北アルプス山小屋友交会・夏山コースタイム'},
+  '穂高岳山荘→北穂高小屋': {minutes:130, source:'北アルプス山小屋友交会・夏山コースタイム'},
+  '北穂高小屋→穂高岳山荘': {minutes:150, source:'北アルプス山小屋友交会・夏山コースタイム'},
+  '涸沢ヒュッテ→北穂高岳': {minutes:190, source:'北アルプス山小屋友交会・北穂高小屋'},
+
+  // V1.4.34: 薬師岳（薬師岳山荘公式）
+  '折立登山口→太郎平小屋': {minutes:270, source:'薬師岳山荘公式・登山ルート（公式区間合算）'},
+  '太郎平小屋→薬師岳山荘': {minutes:150, source:'薬師岳山荘公式・登山ルート（公式区間合算）'},
+  '薬師岳山荘→薬師岳': {minutes:50, source:'薬師岳山荘公式・登山ルート'},
+  '薬師岳→薬師岳山荘': {minutes:40, source:'薬師岳山荘公式・登山ルート'},
+  '薬師岳山荘→太郎平小屋': {minutes:90, source:'薬師岳山荘公式・登山ルート'},
+  '太郎平小屋→折立登山口': {minutes:210, source:'薬師岳山荘公式・登山ルート'},
+
+  // V1.4.34: 双六・笠・黒部五郎（双六小屋グループ公式）
+  '新穂高温泉→鏡平山荘': {minutes:300, source:'双六小屋グループ・鏡平山荘'},
+  '鏡平山荘→笠ヶ岳山荘': {minutes:330, source:'双六小屋グループ・鏡平山荘'},
+  '双六小屋→黒部五郎小舎': {minutes:210, source:'双六小屋グループ・黒部五郎小舎'}
+});
+
+
+
+
+
+
+
+// V1.4.39: 北海道・東北・関東・甲信越の主要区間 標準コースタイム（分）。
+// 公式情報を優先し、細区間はヤマレコ公開「山行計画」の標準CTで複数確認できる値のみ補助利用。
+// 推測値・実歩行記録の実績時間は使用しない。
+const EAST_NORTH_COURSE_TIMES = Object.freeze({
+  // 関東：男体山（日光市観光協会公式 2026）
+  '二荒山神社中宮祠登山口→男体山': {minutes:230, source:'日光市観光協会公式・男体山コースタイム'},
+  '男体山→二荒山神社中宮祠登山口': {minutes:160, source:'日光市観光協会公式・男体山コースタイム'},
+
+  // 関東：谷川岳（天神尾根）
+  '天神平→熊穴沢避難小屋': {minutes:35, source:'ヤマレコ・谷川岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '熊穴沢避難小屋→谷川岳オキノ耳': {minutes:115, source:'ヤマレコ・谷川岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '熊穴沢避難小屋→天神平': {minutes:52, source:'ヤマレコ・谷川岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+
+  // 関東：雲取山（鴨沢）
+  '鴨沢登山口→雲取山': {minutes:440, source:'ヤマレコ・雲取山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '雲取山→雲取山荘': {minutes:22, source:'ヤマレコ・雲取山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '雲取山荘→雲取山': {minutes:40, source:'ヤマレコ・雲取山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '雲取山→鴨沢登山口': {minutes:297, source:'ヤマレコ・雲取山 山行計画（標準CT補完）', sourceType:'yamareco'},
+
+  // 東北：岩手山（馬返し）
+  '馬返し登山口岩手山→八合目避難小屋': {minutes:255, source:'ヤマレコ・岩手山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '八合目避難小屋→岩手山': {minutes:65, source:'ヤマレコ・岩手山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '岩手山→八合目避難小屋': {minutes:27, source:'ヤマレコ・岩手山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '八合目避難小屋→馬返し登山口岩手山': {minutes:145, source:'ヤマレコ・岩手山 山行計画（標準CT補完）', sourceType:'yamareco'},
+
+  // 東北：早池峰山（小田越）
+  '小田越登山口→早池峰山': {minutes:154, source:'ヤマレコ・早池峰山 山行計画（標準CT補完）', sourceType:'yamareco'},
+
+  // 東北：磐梯山（八方台）
+  '八方台登山口→弘法清水小屋': {minutes:125, source:'ヤマレコ・磐梯山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '弘法清水小屋→磐梯山': {minutes:40, source:'ヤマレコ・磐梯山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '磐梯山→弘法清水小屋': {minutes:22, source:'ヤマレコ・磐梯山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '弘法清水小屋→八方台登山口': {minutes:86, source:'ヤマレコ・磐梯山 山行計画（標準CT補完）', sourceType:'yamareco'},
+
+  // 北海道：大雪山・旭岳
+  '旭岳ロープウェイ姿見駅→旭岳石室': {minutes:20, source:'ヤマレコ・旭岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '旭岳石室→大雪山（旭岳）': {minutes:140, source:'ヤマレコ・旭岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '大雪山（旭岳）→旭岳石室': {minutes:77, source:'ヤマレコ・旭岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '旭岳石室→旭岳ロープウェイ姿見駅': {minutes:22, source:'ヤマレコ・旭岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+
+  // 北海道：十勝岳（望岳台）
+  '望岳台→十勝岳避難小屋': {minutes:95, source:'ヤマレコ・十勝岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '十勝岳避難小屋→十勝岳': {minutes:173, source:'ヤマレコ・十勝岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '十勝岳→十勝岳避難小屋': {minutes:99, source:'ヤマレコ・十勝岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '十勝岳避難小屋→望岳台': {minutes:58, source:'ヤマレコ・十勝岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+
+  // 北海道：羅臼岳（岩尾別温泉）
+  '岩尾別温泉・木下小屋登山口→羅臼平': {minutes:276, source:'ヤマレコ・羅臼岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '羅臼平→羅臼岳': {minutes:71, source:'ヤマレコ・羅臼岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '羅臼岳→羅臼平': {minutes:39, source:'ヤマレコ・羅臼岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '羅臼平→岩尾別温泉・木下小屋登山口': {minutes:164, source:'ヤマレコ・羅臼岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+
+  // 北海道：斜里岳
+  '清岳荘→斜里岳': {minutes:221, source:'ヤマレコ・斜里岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '斜里岳→清岳荘': {minutes:139, source:'ヤマレコ・斜里岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+
+  // 甲信越：火打山（笹ヶ峰）
+  '笹ヶ峰登山口→高谷池ヒュッテ': {minutes:212, source:'ヤマレコ・火打山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '高谷池ヒュッテ→火打山': {minutes:103, source:'ヤマレコ・火打山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '火打山→高谷池ヒュッテ': {minutes:67, source:'ヤマレコ・火打山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '高谷池ヒュッテ→笹ヶ峰登山口': {minutes:137, source:'ヤマレコ・火打山 山行計画（標準CT補完）', sourceType:'yamareco'},
+
+  // V1.4.40: 全国CT未登録山の機械抽出後に追加した第1波。
+  // 北海道は行政・環境省の公開コースタイムを優先。
+  '利尻北麓野営場（鴛泊コース）→利尻山': {minutes:310, source:'環境省・利尻山鴛泊コース登山モデル（休憩時間を除く歩行時間）'},
+  '利尻山→利尻北麓野営場（鴛泊コース）': {minutes:220, source:'環境省・利尻山鴛泊コース登山モデル（休憩時間を除く歩行時間）'},
+  '比羅夫登山口・半月湖畔自然公園→後方羊蹄山（羊蹄山）': {minutes:310, source:'倶知安町公式・羊蹄山 倶知安ひらふコース'},
+  '7合目登山口→樽前山': {minutes:50, source:'苫小牧市公式・樽前山登山案内'},
+
+  // 東北：ヤマレコ標準計画を複数照合した区間のみ補完。
+  '酸ヶ湯登山口→八甲田山（大岳）': {minutes:179, source:'ヤマレコ・八甲田大岳 山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '八甲田山（大岳）→酸ヶ湯登山口': {minutes:121, source:'ヤマレコ・八甲田大岳 山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '八合目小屋 秋田駒ヶ岳→秋田駒ヶ岳（男女岳）': {minutes:102, source:'ヤマレコ・秋田駒ヶ岳 男女岳 山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  // 関東：標準計画の区間時間を複数照合。
+  'つつじヶ丘登山口→筑波山（女体山）': {minutes:89, source:'ヤマレコ・筑波山 女体山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '筑波山（女体山）→つつじヶ丘登山口': {minutes:56, source:'ヤマレコ・筑波山 女体山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '黒檜山登山口→赤城山（黒檜山）': {minutes:102, source:'ヤマレコ・赤城山 黒檜山 山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  // 甲信越：公開コースデータで上り・下りを確認。
+  '雨飾高原キャンプ場登山口→雨飾山': {minutes:240, source:'日本アルプス登山案内・雨飾山 小谷温泉コース'},
+  '雨飾山→雨飾高原キャンプ場登山口': {minutes:185, source:'日本アルプス登山案内・雨飾山 小谷温泉コース'},
+  '戸隠キャンプ場・高妻山登山者駐車場→高妻山': {minutes:290, source:'日本百名山登山コースデータ・高妻山 戸隠コース'},
+  '高妻山→戸隠キャンプ場・高妻山登山者駐車場': {minutes:200, source:'日本百名山登山コースデータ・高妻山 戸隠コース'},
+  '笹ヶ峰登山口→妙高山': {minutes:290, source:'日本百名山登山コースデータ・妙高山 笹ヶ峰コース'},
+  '妙高山→笹ヶ峰登山口': {minutes:230, source:'日本百名山登山コースデータ・妙高山 笹ヶ峰コース'},
+
+  // V1.4.41: 全国CT未登録山の穴埋め第2波（北海道・東北）。
+  // 公式値を最優先し、公式CTが得にくい区間のみヤマレコ公開「山行計画」の標準CTを複数照合。
+  '滝口・雄阿寒岳登山口→雄阿寒岳': {minutes:200, source:'環境省・阿寒摩周国立公園 雄阿寒岳登山コース'},
+  '雄阿寒岳→滝口・雄阿寒岳登山口': {minutes:140, source:'環境省・阿寒摩周国立公園 雄阿寒岳登山コース'},
+  '五色温泉インフォメーションセンター→ニセコアンヌプリ': {minutes:110, source:'ニセコ町公式観光パンフレット・五色温泉コース'},
+  'ニセコアンヌプリ→五色温泉インフォメーションセンター': {minutes:70, source:'ニセコ町公式観光パンフレット・五色温泉コース'},
+  'トムラウシ短縮コース登山口→トムラウシ山': {minutes:357, source:'ヤマレコ・トムラウシ山 短縮コース山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  'トムラウシ山→トムラウシ短縮コース登山口': {minutes:242, source:'ヤマレコ・トムラウシ山 短縮コース山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  'シュナイダーコース登山口（音更川二十一ノ沢出合）→石狩岳': {minutes:285, source:'ヤマレコ・石狩岳 シュナイダーコース山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '石狩岳→シュナイダーコース登山口（音更川二十一ノ沢出合）': {minutes:174, source:'ヤマレコ・石狩岳 シュナイダーコース山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '岩木山八合目→岩木山': {minutes:86, source:'ヤマレコ・岩木山 八合目コース山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '岩木山→岩木山八合目': {minutes:49, source:'ヤマレコ・岩木山 八合目コース山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '鉾立登山口（象潟口）→鳥海山（新山）': {minutes:306, source:'ヤマレコ・鳥海山 鉾立コース山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '鳥海山（新山）→鉾立登山口（象潟口）': {minutes:203, source:'ヤマレコ・鳥海山 鉾立コース山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '月山八合目登山口→月山': {minutes:156, source:'ヤマレコ・月山 八合目コース山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '月山→月山八合目登山口': {minutes:103, source:'ヤマレコ・月山 八合目コース山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '蔵王ロープウェイ地蔵山頂駅→蔵王山（熊野岳）': {minutes:60, source:'ヤマレコ・熊野岳 地蔵山頂駅コース山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  // V1.4.42: 全国CT未登録山の穴埋め第3波（北海道・東北）。
+  // 同一路線の標準CTを複数の公開山行計画で照合。ルート差がある山は採用ルートをsourceに明記。
+  '天塩岳ヒュッテ登山口→天塩岳': {minutes:268, source:'ヤマレコ・天塩岳 前天塩岳経由 山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '天塩岳→天塩岳ヒュッテ登山口': {minutes:184, source:'ヤマレコ・天塩岳 新道側下山 山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  '暑寒荘→暑寒別岳': {minutes:311, source:'ヤマレコ・暑寒別岳 暑寒ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '暑寒別岳→暑寒荘': {minutes:194, source:'ヤマレコ・暑寒別岳 暑寒ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '暑寒荘・暑寒別岳登山口→暑寒別岳': {minutes:311, source:'ヤマレコ・暑寒別岳 暑寒ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '暑寒別岳→暑寒荘・暑寒別岳登山口': {minutes:194, source:'ヤマレコ・暑寒別岳 暑寒ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  'いわかがみ平→栗駒山': {minutes:122, source:'ヤマレコ・栗駒山 いわかがみ平中央コース山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '栗駒山→いわかがみ平': {minutes:72, source:'ヤマレコ・栗駒山 いわかがみ平中央コース山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  '浄土平→一切経山': {minutes:101, source:'ヤマレコ・一切経山 浄土平コース山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '一切経山→浄土平': {minutes:65, source:'ヤマレコ・一切経山 浄土平コース山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  '滝沢登山口→会津駒ヶ岳': {minutes:241, source:'ヤマレコ・会津駒ヶ岳 滝沢登山口コース山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '会津駒ヶ岳→滝沢登山口': {minutes:139, source:'ヤマレコ・会津駒ヶ岳 滝沢登山口コース山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  // V1.4.43: 全国CT未登録山の穴埋め第4波（北海道・東北）。
+  // 固定ポイント名称と公開標準CTの端点が一致する区間を優先。CT差が大きい山は保留。
+  'ニセイカウシュッペ山登山口（古川林道・西尾根）→ニセイカウシュッペ山': {minutes:197, source:'ヤマレコ・ニセイカウシュッペ山 山行計画（標準CT確認）', sourceType:'yamareco'},
+  'ニセイカウシュッペ山→ニセイカウシュッペ山登山口（古川林道・西尾根）': {minutes:124, source:'ヤマレコ・ニセイカウシュッペ山 山行計画（標準CT確認）', sourceType:'yamareco'},
+
+  '冷水・馬の背登山口（夕張岳ヒュッテ）→夕張岳': {minutes:271, source:'ヤマレコ・夕張岳 冷水コース山行計画（夕張岳ヒュッテ起点区間を複数照合）', sourceType:'yamareco'},
+  '夕張岳→冷水・馬の背登山口（夕張岳ヒュッテ）': {minutes:175, source:'ヤマレコ・夕張岳 冷水コース山行計画（夕張岳ヒュッテ終点区間を複数照合）', sourceType:'yamareco'},
+
+  '千走登山口→狩場山': {minutes:207, source:'ヤマレコ・狩場山 千走コース山行計画（標準CT確認）', sourceType:'yamareco'},
+  '狩場山→千走登山口': {minutes:125, source:'ヤマレコ・狩場山 千走コース山行計画（標準CT確認）', sourceType:'yamareco'},
+
+  '白神岳登山口駐車場→白神岳': {minutes:288, source:'ヤマレコ・白神岳 蟶山コース山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '白神岳→白神岳登山口駐車場': {minutes:181, source:'ヤマレコ・白神岳 蟶山コース山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  '祝瓶山荘駐車場・桑住平ルート→祝瓶山': {minutes:225, source:'ヤマレコ・祝瓶山 祝瓶山荘・桑住平ルート山行計画（標準CT確認）', sourceType:'yamareco'},
+  '祝瓶山→祝瓶山荘駐車場・桑住平ルート': {minutes:178, source:'ヤマレコ・祝瓶山 祝瓶山荘・桑住平ルート山行計画（標準CT確認）', sourceType:'yamareco'},
+
+  '馬坂峠→帝釈山': {minutes:60, source:'ヤマレコ・帝釈山 馬坂峠ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '帝釈山→馬坂峠': {minutes:34, source:'ヤマレコ・帝釈山 馬坂峠ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  // V1.4.44: 全国CT未登録山の穴埋め第5波（北陸・関東・上信越）。
+  // 白山・荒島岳・武尊山は自治体/県の公開標準CTを優先。能郷白山はヤマレコ標準計画を複数照合。
+  '別当出合→白山室堂': {minutes:270, source:'白山市公式・白山 砂防新道 標準時間（休憩含まず）'},
+  '白山室堂→別当出合': {minutes:140, source:'白山市公式・白山 砂防新道 標準時間（休憩含まず）'},
+  '白山室堂→白山（御前峰）': {minutes:40, source:'石川県・白山のグレーディング／登山マップ2026'},
+  '白山（御前峰）→白山室堂': {minutes:30, source:'石川県・白山のグレーディング／登山マップ2026'},
+
+  '勝原コース登山口→荒島岳': {minutes:210, source:'大野市公式・荒島岳 勝原コース'},
+  '荒島岳→勝原コース登山口': {minutes:150, source:'大野市公式・荒島岳 勝原コース'},
+  '中出コース登山口→荒島岳': {minutes:220, source:'大野市公式・荒島岳 中出コース'},
+  '荒島岳→中出コース登山口': {minutes:160, source:'大野市公式・荒島岳 中出コース'},
+
+  '川場谷野営場登山口→武尊山': {minutes:275, source:'群馬県公開・川場村観光ガイド 武尊山 川場谷野営場コース'},
+  '武尊山→川場谷野営場登山口': {minutes:225, source:'群馬県公開・川場村観光ガイド 武尊山 川場谷野営場コース'},
+
+  '温見峠→能郷白山（権現山）': {minutes:145, source:'ヤマレコ・能郷白山 温見峠ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '能郷白山（権現山）→温見峠': {minutes:85, source:'ヤマレコ・能郷白山 温見峠ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  // V1.4.45: 全国CT未登録山の穴埋め第6波（上信越・越後）。
+  // 新潟県・魚沼市観光協会・上田市等の公式CTを優先し、方向別CTが不足する山のみヤマレコ標準計画を複数照合。
+  '桜坂登山口→巻機山': {minutes:307, source:'ヤマレコ・巻機山 井戸尾根コース山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '巻機山→桜坂登山口': {minutes:187, source:'ヤマレコ・巻機山 井戸尾根コース山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  '小赤沢三合目登山口→苗場山': {minutes:200, source:'ヤマレコ・苗場山 小赤沢三合目コース山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '苗場山→小赤沢三合目登山口': {minutes:136, source:'ヤマレコ・苗場山 小赤沢三合目コース山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  '枝折峠→越後駒ヶ岳': {minutes:360, source:'魚沼市観光協会公式・越後駒ヶ岳 枝折峠コース'},
+  '越後駒ヶ岳→枝折峠': {minutes:330, source:'魚沼市観光協会公式・越後駒ヶ岳 枝折峠コース'},
+
+  '鷹ノ巣・平ヶ岳登山口→平ヶ岳': {minutes:390, source:'魚沼市観光協会公式・平ヶ岳 鷹ノ巣コース'},
+  '平ヶ岳→鷹ノ巣・平ヶ岳登山口': {minutes:240, source:'魚沼市観光協会公式・平ヶ岳 鷹ノ巣コース'},
+
+  '菅平牧場登山口→四阿山': {minutes:180, source:'上田市公式・菅平牧場 四阿山コース'},
+
+  '十字峡登山センター→中ノ岳': {minutes:360, source:'新潟県公式観光情報・中ノ岳 十字峡登山口コース'},
+
+  // V1.4.46: 全国CT未登録山の穴埋め第7波（北信・秋山郷）。
+  // 地点名と実際の起終点が一致する区間のみ採用。浅間山・黒姫山は地点差/規制・ルート差のため今回は保留。
+  'ドロノ木平登山口→佐武流山': {minutes:404, source:'ヤマレコ・佐武流山 ドロノキ平ルート山行計画（標準CT確認）', sourceType:'yamareco'},
+  '佐武流山→ドロノ木平登山口': {minutes:293, source:'ヤマレコ・佐武流山 ドロノキ平ルート山行計画（標準CT確認）', sourceType:'yamareco'},
+
+  'ムジナ平登山口→鳥甲山': {minutes:270, source:'津南町観光協会公式・鳥甲山 ムジナ平ルート'},
+  '屋敷口→鳥甲山': {minutes:300, source:'津南町観光協会公式・鳥甲山 屋敷ルート'},
+
+  '一の鳥居苑地・飯縄山登山者駐車場→飯縄山': {minutes:150, source:'長野市公式・飯縄山 南登山道'},
+  '飯縄山→一の鳥居苑地・飯縄山登山者駐車場': {minutes:120, source:'長野市公式・飯縄山 南登山道'},
+
+  '戸隠神社奥社登山口→戸隠山': {minutes:130, source:'ヤマレコ・戸隠山 山行計画（奥社→八方睨→戸隠山、標準CT複数照合）', sourceType:'yamareco'},
+  '戸隠山→一不動避難小屋': {minutes:89, source:'ヤマレコ・戸隠山 山行計画（戸隠山→九頭龍山→一不動、標準CT複数照合）', sourceType:'yamareco'},
+
+  // V1.4.47: 全国CT未登録山の穴埋め第8波（越後・佐渡）。
+  // 公式・自治体の標準CTを優先。金北山の上りのみヤマレコ標準計画を複数照合。
+  '白雲台交流センター→金北山': {minutes:125, source:'ヤマレコ・金北山 白雲台登山口ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '金北山→白雲台交流センター': {minutes:80, source:'さど観光ナビ公式・ドンデン高原～白雲台縦走ルート'},
+  '大平登山口→米山': {minutes:150, source:'柏崎市公式・米山 大平コース（休憩含まず）'},
+  '保久礼登山口→守門岳': {minutes:210, source:'魚沼市観光協会公式・守門岳 保久礼コース'},
+  '二口登山口→守門岳': {minutes:180, source:'魚沼市観光協会公式・守門岳 二口コース'},
+  'ネズモチ平登山口駐車場→浅草岳': {minutes:135, source:'魚沼市観光協会公式・浅草岳 ネズモチ平コース'},
+  '粟ヶ岳中央登山口（県民休養地）→粟ヶ岳': {minutes:180, source:'加茂市公式・粟ヶ岳 中央登山道'},
+  '室谷登山口→御神楽岳': {minutes:240, source:'新潟県公式観光情報・御神楽岳 室谷登山口'},
+
+  // V1.4.48: 全国CT未登録山の穴埋め第9波（北陸・飛騨）。
+  // 固定地点と公開CTの起終点が一致するルートのみ採用。八海山は山麓駅と山頂駅の起点差があるため保留。
+  '人形堂・中根平登山口→人形山': {minutes:251, source:'ヤマレコ・人形山 中根平登山口ルート山行計画（標準CT区間合算）', sourceType:'yamareco'},
+  '人形山→人形堂・中根平登山口': {minutes:166, source:'ヤマレコ・人形山 中根平登山口ルート山行計画（標準CT区間合算）', sourceType:'yamareco'},
+
+  '栃谷登山口金剛堂山→金剛堂山': {minutes:227, source:'ヤマレコ・金剛堂山 栃谷登山口ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '金剛堂山→栃谷登山口金剛堂山': {minutes:142, source:'ヤマレコ・金剛堂山 栃谷登山口ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  'ブナオ峠大門山登山口→大門山': {minutes:130, source:'日本アルプス登山案内・大門山 ブナオ峠コース'},
+  '大門山→ブナオ峠大門山登山口': {minutes:100, source:'日本アルプス登山案内・大門山 ブナオ峠コース'},
+
+  '山之口登山口川上岳→川上岳': {minutes:218, source:'ヤマレコ・川上岳 山之口登山口ルート山行計画（標準CT区間合算）', sourceType:'yamareco'},
+  '川上岳→山之口登山口川上岳': {minutes:144, source:'ヤマレコ・川上岳 山之口登山口ルート山行計画（標準CT区間合算）', sourceType:'yamareco'},
+
+  '冠山峠→冠山': {minutes:45, source:'ヤマレコ・冠山 冠山峠ルート山行計画（標準CT区間合算）', sourceType:'yamareco'},
+  '冠山→冠山峠': {minutes:34, source:'ヤマレコ・冠山 冠山峠ルート山行計画（標準CT区間合算）', sourceType:'yamareco'},
+
+  // V1.4.49: 全国CT未登録山の穴埋め第10波（福井・岐阜・北陸）。
+  // 固定候補と公開CTの起終点が一致する区間のみ採用。公式値を優先し、不足方向のみ補助CTを利用。
+  '桧峠 大日ヶ岳登山口→大日ヶ岳': {minutes:260, source:'TABITABI郡上公式・大日ヶ岳 ウイングヒルズ白鳥リゾートコース'},
+  '大日ヶ岳→桧峠 大日ヶ岳登山口': {minutes:180, source:'TABITABI郡上公式・大日ヶ岳 ウイングヒルズ白鳥リゾートコース'},
+
+  'ダナ平林道登山口→位山': {minutes:60, source:'高山市公式・位山 巨石群登山道'},
+  '位山→ダナ平林道登山口': {minutes:50, source:'高山市公式・位山 巨石群登山道'},
+
+  '西尾平駐車場→医王山（奥医王山）': {minutes:103, source:'ヤマレコ・奥医王山 西尾平ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '医王山（奥医王山）→西尾平駐車場': {minutes:80, source:'ヤマレコ・奥医王山 西尾平ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  '奥越高原青少年自然の家→経ヶ岳（福井）': {minutes:270, source:'福井県公式・経ヶ岳登山道地図（一般的な所要時間・登り区間合算）'},
+  '経ヶ岳（福井）→奥越高原青少年自然の家': {minutes:183, source:'ヤマレコ・経ヶ岳 奥越高原青少年自然の家ルート山行計画（標準CT区間合算）', sourceType:'yamareco'},
+
+  '乙女渓谷（小秀山登山口）→小秀山': {minutes:283, source:'ヤマレコ・小秀山 乙女渓谷二ノ谷ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '小秀山→乙女渓谷（小秀山登山口）': {minutes:192, source:'ヤマレコ・小秀山 三ノ谷下山ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  // V1.4.50: 全国CT未登録山の穴埋め第11波（北陸～中央アルプス北端）。
+  // 固定地点と公開CTの起終点が一致する区間のみ採用。奥三界岳は現行の通行規制とは分離してCT自体を保持。
+  '川上林道ゲート（夕森渓谷）→奥三界岳': {minutes:307, source:'ヤマレコ・奥三界岳 川上林道ゲート山行計画（標準CT区間合算）', sourceType:'yamareco'},
+  '奥三界岳→川上林道ゲート（夕森渓谷）': {minutes:205, source:'ヤマレコ・奥三界岳 川上林道ゲート山行計画（標準CT区間合算）', sourceType:'yamareco'},
+
+  '権兵衛峠登山口→経ヶ岳': {minutes:240, source:'ヤマレコ・経ヶ岳 権兵衛峠ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '経ヶ岳→権兵衛峠登山口': {minutes:164, source:'ヤマレコ・経ヶ岳 権兵衛峠ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  '鷲ヶ岳立石キャンプ場（林道ルート起点）→鷲ヶ岳': {minutes:80, source:'マウンテンシティ・鷲ヶ岳キャンプ場ルート（一般コースタイム）'},
+  '鷲ヶ岳→鷲ヶ岳立石キャンプ場（林道ルート起点）': {minutes:60, source:'マウンテンシティ・鷲ヶ岳キャンプ場ルート（一般コースタイム）'},
+
+  // V1.4.51: 全国CT未登録山の穴埋め第12波（中央アルプス・御嶽／奥秩父）。
+  // 固定地点と標準CTの端点が一致する区間のみ採用。御嶽・奥秩父はヤマレコ標準CTを複数照合。
+  '田の原登山口→御嶽山（剣ヶ峰）': {minutes:202, source:'ヤマレコ・御嶽山 田の原ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '御嶽山（剣ヶ峰）→田の原登山口': {minutes:116, source:'ヤマレコ・御嶽山 田の原ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  '神坂峠登山口→恵那山': {minutes:300, source:'中津川市公式・恵那山 神坂峠ルート'},
+  '恵那山→神坂峠登山口': {minutes:270, source:'中津川市公式・恵那山 神坂峠ルート'},
+
+  '上日川峠→大菩薩嶺': {minutes:122, source:'ヤマレコ・大菩薩嶺 上日川峠ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '大菩薩嶺→上日川峠': {minutes:74, source:'ヤマレコ・大菩薩嶺 上日川峠ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  '大弛峠→金峰山': {minutes:128, source:'ヤマレコ・金峰山 大弛峠ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '金峰山→大弛峠': {minutes:105, source:'ヤマレコ・金峰山 大弛峠ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  '瑞牆山荘・富士見平口→富士見平小屋': {minutes:66, source:'ヤマレコ・瑞牆山 瑞牆山荘ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '富士見平小屋→瑞牆山': {minutes:118, source:'ヤマレコ・瑞牆山 瑞牆山荘ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '瑞牆山→富士見平小屋': {minutes:76, source:'ヤマレコ・瑞牆山 瑞牆山荘ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '富士見平小屋→瑞牆山荘・富士見平口': {minutes:37, source:'ヤマレコ・瑞牆山 瑞牆山荘ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '瑞牆山荘・富士見平口→瑞牆山': {minutes:184, source:'ヤマレコ・瑞牆山 瑞牆山荘ルート山行計画（標準CT区間合算）', sourceType:'yamareco'},
+  '瑞牆山→瑞牆山荘・富士見平口': {minutes:113, source:'ヤマレコ・瑞牆山 瑞牆山荘ルート山行計画（標準CT区間合算）', sourceType:'yamareco'},
+
+  // V1.4.52: 全国CT未登録山の穴埋め第13波（奥秩父～関東）。
+  // 公式CTを優先し、公式で逆方向が得られない区間のみヤマレコ公開「山行計画」の標準CTを複数照合して補完。
+  '日向大谷口→両神山': {minutes:300, source:'ヤマレコ・両神山 日向大谷ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '両神山→日向大谷口': {minutes:197, source:'ヤマレコ・両神山 日向大谷ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  '毛木平登山口→甲武信ヶ岳': {minutes:240, source:'川上村公式・甲武信ヶ岳 毛木平～千曲川源流ルート'},
+  '甲武信ヶ岳→毛木平登山口': {minutes:168, source:'ヤマレコ・甲武信ヶ岳 毛木平ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  '深田記念公園・茅ヶ岳登山口→茅ヶ岳': {minutes:140, source:'北杜市観光協会・茅ヶ岳 深田記念公園ルート'},
+  '茅ヶ岳→深田記念公園・茅ヶ岳登山口': {minutes:103, source:'ヤマレコ・茅ヶ岳 深田公園ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  '徳和・乾徳山登山口→乾徳山': {minutes:294, source:'ヤマレコ・乾徳山 徳和・オソバ沢ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '乾徳山→徳和・乾徳山登山口': {minutes:171, source:'ヤマレコ・乾徳山 徳和・オソバ沢ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  '生川・一の鳥居→武甲山': {minutes:130, source:'横瀬町観光協会公式・武甲山 表参道ルート'},
+  '武甲山→生川・一の鳥居': {minutes:104, source:'ヤマレコ・武甲山 一の鳥居表参道ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  // V1.4.53: 全国CT未登録山の穴埋め第14波（関東・山梨・伊豆を一括拡張）。
+  // 今回は8座・18方向。公式値を優先し、方向別CTがない区間はヤマレコ公開「山行計画」の標準CTを複数照合。
+  '大弛峠→国師ヶ岳': {minutes:60, source:'山梨市公式・国師ヶ岳（大弛峠から山頂まで約1時間）'},
+  '国師ヶ岳→大弛峠': {minutes:35, source:'ヤマレコ・国師ヶ岳 大弛峠ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  '大倉登山口→塔ノ岳': {minutes:309, source:'ヤマレコ・塔ノ岳 大倉尾根ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '塔ノ岳→大倉登山口': {minutes:192, source:'ヤマレコ・塔ノ岳 大倉尾根ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  '公時神社（金時神社）登山口→金時山': {minutes:116, source:'ヤマレコ・金時山 公時神社ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '金時山→公時神社（金時神社）登山口': {minutes:65, source:'ヤマレコ・金時山 公時神社ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '金時見晴パーキング→金時山': {minutes:83, source:'ヤマレコ・金時山 金時見晴パーキングルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '金時山→金時見晴パーキング': {minutes:48, source:'ヤマレコ・金時山 金時見晴パーキングルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  '三ツ峠登山口→三ッ峠山': {minutes:110, source:'西桂町公式・三ツ峠山 裏登山口コース'},
+  '三ッ峠山→三ツ峠登山口': {minutes:80, source:'西桂町公式・三ツ峠山 裏登山口コース'},
+
+  '十里木高原登山口→愛鷹山（越前岳）': {minutes:146, source:'ヤマレコ・越前岳 十里木高原ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '愛鷹山（越前岳）→十里木高原登山口': {minutes:82, source:'ヤマレコ・越前岳 十里木高原ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  '百畳峠（百畳平）駐車場・山伏登山口→山伏': {minutes:59, source:'ヤマレコ・山伏 百畳峠ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '山伏→百畳峠（百畳平）駐車場・山伏登山口': {minutes:34, source:'ヤマレコ・山伏 百畳峠ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  '道坂トンネル都留側駐車場・御正体山登山口→御正体山': {minutes:247, source:'ヤマレコ・御正体山 道坂トンネルルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '御正体山→道坂トンネル都留側駐車場・御正体山登山口': {minutes:180, source:'ヤマレコ・御正体山 道坂トンネルルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  'ヤビツ峠→大山（神奈川）': {minutes:122, source:'ヤマレコ・大山 ヤビツ峠ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '大山（神奈川）→ヤビツ峠': {minutes:73, source:'ヤマレコ・大山 ヤビツ峠ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  // V1.4.54: 全国CT未登録山の穴埋め第15波（東北・北関東を一括拡張）。
+  // 8座・15方向。公式値を優先し、端点一致が確認できるヤマレコ標準計画のみ補助利用。逆方向が不明確な区間は登録しない。
+  '八幡平見返峠・山頂レストハウス→八幡平': {minutes:25, source:'ヤマレコ・八幡平 山頂レストハウス周回山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '八幡平→八幡平見返峠・山頂レストハウス': {minutes:21, source:'ヤマレコ・八幡平 山頂レストハウス周回山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  '中沼登山口→焼石岳': {minutes:215, source:'ヤマレコ・焼石岳 中沼コース山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '焼石岳→中沼登山口': {minutes:140, source:'ヤマレコ・焼石岳 中沼コース山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  '有屋登山口→神室山': {minutes:267, source:'ヤマレコ・神室山 有屋口ルート山行計画（標準CT確認）', sourceType:'yamareco'},
+  '神室山→有屋登山口': {minutes:173, source:'ヤマレコ・神室山 有屋口ルート山行計画（標準CT確認）', sourceType:'yamareco'},
+
+  '奥岳登山口・あだたら山ロープウェイ→安達太良山': {minutes:150, source:'二本松市観光連盟公式・安達太良山 奥岳登山口 五葉松平コース'},
+
+  '山王峠・太郎山登山口→太郎山': {minutes:219, source:'ヤマレコ・太郎山 山王峠ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '太郎山→山王峠・太郎山登山口': {minutes:154, source:'ヤマレコ・太郎山 山王峠ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  '浅間隠山登山口（二度上峠付近）→浅間隠山': {minutes:107, source:'ヤマレコ・浅間隠山 二度上峠ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '浅間隠山→浅間隠山登山口（二度上峠付近）': {minutes:64, source:'ヤマレコ・浅間隠山 二度上峠ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  '榛名公園ビジターセンター登山口→榛名富士': {minutes:70, source:'ヤマレコ・榛名富士 ビジターセンタールート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '榛名富士→榛名公園ビジターセンター登山口': {minutes:36, source:'ヤマレコ・榛名富士 ビジターセンタールート山行計画（標準CT確認）', sourceType:'yamareco'},
+
+  '内山峠登山口→荒船山（経塚山）': {minutes:181, source:'ヤマレコ・荒船山 内山峠ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '荒船山（経塚山）→内山峠登山口': {minutes:146, source:'ヤマレコ・荒船山 内山峠ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  // V1.4.55: 全国CT未登録山の穴埋め第16波（北東北・阿武隈を追加）。
+  // 固定候補と公開標準CTの端点が一致する区間のみ採用。異なる下山路を使う大滝根山は登り方向のみ登録。
+  '一本杉登山口 姫神山→姫神山': {minutes:138, source:'ヤマレコ・姫神山 一本杉登山口ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '姫神山→一本杉登山口 姫神山': {minutes:77, source:'ヤマレコ・姫神山 一本杉登山口ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  '赤坂峠 五葉山登山口→五葉山': {minutes:156, source:'ヤマレコ・五葉山 赤坂峠ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '五葉山→赤坂峠 五葉山登山口': {minutes:96, source:'ヤマレコ・五葉山 赤坂峠ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '石楠花荘→五葉山': {minutes:13, source:'ヤマレコ・五葉山 赤坂峠ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '五葉山→石楠花荘': {minutes:11, source:'ヤマレコ・五葉山 赤坂峠ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  '阿仁ゴンドラ山頂駅→森吉山': {minutes:83, source:'ヤマレコ・森吉山 阿仁ゴンドラ山頂駅ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '森吉山→阿仁ゴンドラ山頂駅': {minutes:57, source:'ヤマレコ・森吉山 阿仁ゴンドラ山頂駅ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  '仙台平 大滝根山登山口→大滝根山': {minutes:125, source:'ヤマレコ・大滝根山 仙台平・鬼穴ルート山行計画（標準CT確認）', sourceType:'yamareco'},
+
+  // V1.4.56: 全国CT未登録山の穴埋め第17波（東北南部〜会津）。
+  // 固定座標の端点と公開CTの端点が一致した区間のみ追加。飯豊山・西吾妻山・荒海山・七ヶ岳・会津朝日岳は端点差/固定小屋未確定のため保留。
+  '古寺案内センター（古寺コース）→大朝日岳': {minutes:370, source:'山と高原地図Web・古寺案内センターから大朝日岳へ'},
+  '大朝日岳→古寺案内センター（古寺コース）': {minutes:245, source:'山と高原地図Web・古寺案内センターから大朝日岳へ'},
+
+  '御鍋神社登山口→二岐山（男岳）': {minutes:127, source:'ヤマレコ・二岐山 御鍋神社登山口ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '二岐山（男岳）→御鍋神社登山口': {minutes:71, source:'ヤマレコ・二岐山 御鍋神社登山口ルート山行計画（標準CT確認）', sourceType:'yamareco'},
+
+  // V1.4.57: 全国CT未登録山の穴埋め第18波（北陸・越後を横断して端点一致区間を追加）。
+  // 公開公式CTを優先し、公式資料同士で値が割れる方向は登録しない。
+  '二王子神社登山口→二王子岳': {minutes:240, source:'新潟県観光協会公式・二王子岳 二王子神社登山口コース'},
+  '白木峰8合目駐車場→白木峰': {minutes:60, source:'富山市公式・白木峰 登山道ルート'},
+  '三方岩岳→三方岩駐車場': {minutes:40, source:'石川県林業公社・三方岩トレッキングコース（下り）'},
+
+  // V1.4.58: 全国CT未登録方向の穴埋め第19波（尾瀬・越後の逆方向補完）。
+  // 固定地点名とヤマレコ公開「山行計画」の端点名が一致し、標準CTを確認できた方向のみ追加。
+  '鳩待峠→至仏山': {minutes:173, source:'ヤマレコ・至仏山 鳩待峠ルート山行計画（標準CT複数照合・区間合算）', sourceType:'yamareco'},
+  '至仏山→鳩待峠': {minutes:111, source:'ヤマレコ・至仏山 鳩待峠ルート山行計画（標準CT複数照合・区間合算）', sourceType:'yamareco'},
+
+  '米山→大平登山口': {minutes:101, source:'ヤマレコ・米山 大平登山口ルート山行計画（標準CT複数照合・区間合算）', sourceType:'yamareco'},
+  '中ノ岳→十字峡登山センター': {minutes:232, source:'ヤマレコ・中ノ岳 十字峡登山センタールート山行計画（標準CT複数照合・区間合算）', sourceType:'yamareco'},
+  '御神楽岳→室谷登山口': {minutes:155, source:'ヤマレコ・御神楽岳 室谷登山口ルート山行計画（標準CT確認・区間合算）', sourceType:'yamareco'}
+});
+
+// V1.4.38: 九州・四国・近畿・中国の主要区間 標準コースタイム（分）。
+// 公式情報を優先し、細区間で公式CTが得にくい箇所のみヤマレコ公開「山行計画」の標準CTを補助利用。
+// 速度倍率が明記された計画・実歩行実績は採用しない。推測値は使用しない。
+const WEST_JAPAN_COURSE_TIMES = Object.freeze({
+  // 九州：由布・祖母・雲仙
+  '由布岳正面登山口→由布岳': {minutes:187, source:'ヤマレコ・由布岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '由布岳→由布岳正面登山口': {minutes:107, source:'ヤマレコ・由布岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '北谷登山口→祖母山': {minutes:155, source:'ヤマレコ・祖母山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '祖母山→北谷登山口': {minutes:127, source:'ヤマレコ・祖母山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '仁田峠→雲仙岳（普賢岳）': {minutes:90, source:'ヤマレコ・普賢岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+
+  // 九州：くじゅう・霧島
+  '牧ノ戸峠→久住分かれ避難小屋': {minutes:113, source:'ヤマレコ・牧ノ戸峠〜久住山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '久住分かれ避難小屋→久住山': {minutes:37, source:'ヤマレコ・牧ノ戸峠〜久住山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '韓国岳登山口→霧島山（韓国岳）': {minutes:123, source:'ヤマレコ・韓国岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '霧島山（韓国岳）→韓国岳登山口': {minutes:74, source:'ヤマレコ・韓国岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '高千穂河原→高千穂峰': {minutes:145, source:'ヤマレコ・高千穂峰 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '高千穂峰→高千穂河原': {minutes:85, source:'ヤマレコ・高千穂峰 山行計画（標準CT補完）', sourceType:'yamareco'},
+
+  // 四国：剣山〜三嶺
+  '見の越→西島駅': {minutes:64, source:'ヤマレコ・剣山/次郎笈 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '西島駅→剣山頂上ヒュッテ': {minutes:50, source:'ヤマレコ・剣山/次郎笈 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '剣山頂上ヒュッテ→剣山': {minutes:7, source:'ヤマレコ・剣山/次郎笈 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '剣山→剣山頂上ヒュッテ': {minutes:7, source:'ヤマレコ・剣山縦走 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '剣山→次郎笈': {minutes:63, source:'ヤマレコ・剣山/次郎笈 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '次郎笈→剣山': {minutes:66, source:'ヤマレコ・剣山〜三嶺 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '白髪避難小屋→三嶺': {minutes:122, source:'ヤマレコ・剣山〜三嶺 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '三嶺→白髪避難小屋': {minutes:112, source:'ヤマレコ・三嶺〜剣山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '三嶺ヒュッテ→三嶺': {minutes:14, source:'ヤマレコ・三嶺 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '三嶺→三嶺ヒュッテ': {minutes:9, source:'ヤマレコ・三嶺 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '名頃登山口→三嶺ヒュッテ': {minutes:223, source:'ヤマレコ・三嶺 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '三嶺ヒュッテ→名頃登山口': {minutes:131, source:'ヤマレコ・三嶺 山行計画（標準CT補完）', sourceType:'yamareco'},
+
+  // 四国：石鎚山（石鎚山系公式）
+  '石鎚ロープウェイ山頂成就駅→石鎚山（弥山）': {minutes:210, source:'石鎚山・石鎚山系公式 初心者向けルート'},
+  '石鎚山（弥山）→石鎚ロープウェイ山頂成就駅': {minutes:180, source:'石鎚山・石鎚山系公式 初心者向けルート'},
+  '土小屋登山口→石鎚山（弥山）': {minutes:150, source:'石鎚山・石鎚山系公式 初心者向けルート'},
+  '石鎚山（弥山）→土小屋登山口': {minutes:120, source:'石鎚山・石鎚山系公式 初心者向けルート'},
+
+  // 近畿：大峰・比良
+  '行者還トンネル西口→弥山小屋': {minutes:205, source:'ヤマレコ・八経ヶ岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '弥山小屋→八経ヶ岳': {minutes:34, source:'ヤマレコ・八経ヶ岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '八経ヶ岳→弥山小屋': {minutes:30, source:'ヤマレコ・八経ヶ岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '弥山小屋→行者還トンネル西口': {minutes:131, source:'ヤマレコ・八経ヶ岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '坊村→武奈ヶ岳': {minutes:232, source:'ヤマレコ・武奈ヶ岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '武奈ヶ岳→坊村': {minutes:143, source:'ヤマレコ・武奈ヶ岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+
+  // 中国：大山・氷ノ山・蒜山・道後山・三瓶山
+  '夏山登山口→六合目避難小屋': {minutes:128, source:'ヤマレコ・大山弥山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '六合目避難小屋→大山頂上避難小屋': {minutes:73, source:'ヤマレコ・大山弥山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '大山頂上避難小屋→大山（弥山）': {minutes:3, source:'ヤマレコ・大山弥山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '大山（弥山）→六合目避難小屋': {minutes:53, source:'ヤマレコ・大山弥山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '福定親水公園→氷ノ山': {minutes:221, source:'ヤマレコ・氷ノ山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '氷ノ山→福定親水公園': {minutes:133, source:'ヤマレコ・氷ノ山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '氷ノ山→氷ノ山山頂避難小屋': {minutes:1, source:'ヤマレコ・氷ノ山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '上蒜山登山口駐車場→上蒜山': {minutes:166, source:'ヤマレコ・上蒜山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '上蒜山→上蒜山登山口駐車場': {minutes:103, source:'ヤマレコ・上蒜山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '月見ヶ丘→道後山': {minutes:109, source:'ヤマレコ・道後山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '道後山→月見ヶ丘': {minutes:78, source:'ヤマレコ・道後山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '東の原登山口→三瓶山（男三瓶山）': {minutes:227, source:'ヤマレコ・男三瓶山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '三瓶山（男三瓶山）→東の原登山口': {minutes:132, source:'ヤマレコ・男三瓶山 山行計画（標準CT補完）', sourceType:'yamareco'},
+
+  // V1.4.57: 近畿の未登録固定地点。固定地点と公開CT端点の一致を確認できた区間のみ追加。
+  'みつえ青少年旅行村（三峰山登山口）→三峰山': {minutes:120, source:'御杖村観光協会公式・三峰山 登尾ルート（片道約2時間）'},
+
+  // 藤原岳：山と高原地図Webの登り標準CT。逆方向はヤマレコ公開「山行計画」の標準CTを複数照合。
+  '大貝戸登山口→藤原山荘': {minutes:180, source:'山と高原地図Web・藤原岳 大貝戸登山道'},
+  '藤原山荘→藤原岳': {minutes:20, source:'山と高原地図Web・藤原岳 大貝戸登山道'},
+  '大貝戸登山口→藤原岳': {minutes:200, source:'山と高原地図Web・藤原岳 大貝戸登山道（区間合算）'},
+  '藤原岳→藤原山荘': {minutes:19, source:'ヤマレコ・藤原岳 大貝戸登山口ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '藤原山荘→大貝戸登山口': {minutes:114, source:'ヤマレコ・藤原岳 大貝戸登山口ルート山行計画（標準CT複数照合・区間合算）', sourceType:'yamareco'},
+  '藤原岳→大貝戸登山口': {minutes:133, source:'ヤマレコ・藤原岳 大貝戸登山口ルート山行計画（標準CT複数照合・区間合算）', sourceType:'yamareco'},
+
+
+  // V1.4.59: 全国CT残り一括穴埋め。固定地点と公開CT端点が一致する区間のみ追加。
+  // 近畿：高見山・大和葛城山
+  '高見峠→高見山': {minutes:76, source:'ヤマレコ・高見山 高見峠ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '高見山→高見峠': {minutes:41, source:'ヤマレコ・高見山 高見峠ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '水越峠→大和葛城山': {minutes:120, source:'ヤマレコ・大和葛城山 水越峠ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  '大和葛城山→水越峠': {minutes:77, source:'ヤマレコ・大和葛城山 水越峠ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
+
+  // 四国：瓶ヶ森（観光協会モデルコースの片道所要時間）
+  '瓶ヶ森駐車場→瓶ヶ森': {minutes:50, source:'西条市観光物産協会・瓶ヶ森モデルコース', sourceType:'official'},
+
+  // 九州：宮之浦岳。屋久島町公式の淀川登山口－宮之浦岳ルートの方向別所要時間。
+  '淀川登山口→淀川小屋': {minutes:50, source:'屋久島町・屋久島山岳登山ルート（淀川登山口－宮之浦岳）', sourceType:'official'},
+  '淀川小屋→淀川登山口': {minutes:50, source:'屋久島町・屋久島山岳登山ルート（淀川登山口－宮之浦岳）', sourceType:'official'},
+  '淀川小屋→宮之浦岳': {minutes:270, source:'屋久島町・屋久島山岳登山ルート（公式区間合算）', sourceType:'official'},
+  '宮之浦岳→淀川小屋': {minutes:235, source:'屋久島町・屋久島山岳登山ルート（公式区間合算）', sourceType:'official'},
+  '淀川登山口→宮之浦岳': {minutes:320, source:'屋久島町・屋久島山岳登山ルート', sourceType:'official'},
+  '宮之浦岳→淀川登山口': {minutes:285, source:'屋久島町・屋久島山岳登山ルート', sourceType:'official'}
+});
+
+// V1.4.37: 八ヶ岳・中信の主要区間 標準コースタイム（分）。
+// 公式情報で細かな方向別CTを確認できない区間は、ヤマレコ公開「山行計画」の標準CTを補助利用。
+// 速度倍率が明記された計画・実歩行実績は採用しない。
+const YATSUGATAKE_CHUSHIN_COURSE_TIMES = Object.freeze({
+  // 南八ヶ岳：行者小屋〜赤岳・阿弥陀、硫黄〜横岳縦走
+  '行者小屋→赤岳': {minutes:119, source:'ヤマレコ・赤岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '赤岳→行者小屋': {minutes:65, source:'ヤマレコ・赤岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '赤岳→赤岳天望荘': {minutes:20, source:'ヤマレコ・赤岳/横岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '赤岳天望荘→赤岳': {minutes:38, source:'ヤマレコ・赤岳/横岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '赤岳天望荘→横岳（八ヶ岳）': {minutes:50, source:'ヤマレコ・赤岳/横岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '横岳（八ヶ岳）→赤岳天望荘': {minutes:50, source:'ヤマレコ・赤岳/横岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '横岳（八ヶ岳）→硫黄岳山荘': {minutes:30, source:'ヤマレコ・横岳/硫黄岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '硫黄岳山荘→横岳（八ヶ岳）': {minutes:46, source:'ヤマレコ・横岳/硫黄岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '硫黄岳山荘→硫黄岳（八ヶ岳）': {minutes:26, source:'ヤマレコ・横岳/硫黄岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '硫黄岳（八ヶ岳）→硫黄岳山荘': {minutes:16, source:'ヤマレコ・横岳/硫黄岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '赤岳鉱泉→硫黄岳（八ヶ岳）': {minutes:128, source:'ヤマレコ・硫黄岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '硫黄岳（八ヶ岳）→赤岳鉱泉': {minutes:72, source:'ヤマレコ・硫黄岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '赤岳鉱泉→行者小屋': {minutes:43, source:'ヤマレコ・赤岳鉱泉/行者小屋 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '行者小屋→赤岳鉱泉': {minutes:29, source:'ヤマレコ・赤岳鉱泉/行者小屋 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '行者小屋→阿弥陀岳': {minutes:91, source:'ヤマレコ・赤岳/阿弥陀岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '阿弥陀岳→行者小屋': {minutes:48, source:'ヤマレコ・赤岳/阿弥陀岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+
+  // 南八ヶ岳南端：観音平〜編笠〜青年小屋〜権現
+  '観音平→編笠山': {minutes:174, source:'ヤマレコ・編笠山/権現岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '編笠山→青年小屋': {minutes:14, source:'ヤマレコ・編笠山/権現岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '青年小屋→権現岳': {minutes:66, source:'ヤマレコ・編笠山/権現岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+
+  // 北八ヶ岳：天狗岳
+  '渋の湯→黒百合ヒュッテ': {minutes:137, source:'ヤマレコ・天狗岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '黒百合ヒュッテ→渋の湯': {minutes:101, source:'ヤマレコ・天狗岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '黒百合ヒュッテ→天狗岳': {minutes:82, source:'ヤマレコ・天狗岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '天狗岳→黒百合ヒュッテ': {minutes:52, source:'ヤマレコ・天狗岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+
+  // 北横岳
+  '北八ヶ岳ロープウェイ山頂駅→北横岳ヒュッテ': {minutes:35, source:'ヤマレコ・北横岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '北横岳ヒュッテ→北八ヶ岳ロープウェイ山頂駅': {minutes:34, source:'ヤマレコ・北横岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '北横岳ヒュッテ→北横岳': {minutes:22, source:'ヤマレコ・北横岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '北横岳→北横岳ヒュッテ': {minutes:13, source:'ヤマレコ・北横岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+
+  // 蓼科山
+  '蓼科山七合目登山口→蓼科山頂ヒュッテ': {minutes:140, source:'ヤマレコ・蓼科山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '蓼科山頂ヒュッテ→蓼科山七合目登山口': {minutes:78, source:'ヤマレコ・蓼科山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '女神茶屋→蓼科山頂ヒュッテ': {minutes:183, source:'ヤマレコ・蓼科山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '蓼科山頂ヒュッテ→女神茶屋': {minutes:105, source:'ヤマレコ・蓼科山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '蓼科山頂ヒュッテ→蓼科山': {minutes:3, source:'ヤマレコ・蓼科山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '蓼科山→蓼科山頂ヒュッテ': {minutes:2, source:'ヤマレコ・蓼科山 山行計画（標準CT補完）', sourceType:'yamareco'},
+
+  // 中信：入笠山・霧ヶ峰・美ヶ原・鉢伏山
+  '沢入登山口→入笠山': {minutes:131, source:'ヤマレコ・入笠山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '入笠山→沢入登山口': {minutes:81, source:'ヤマレコ・入笠山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '車山肩→霧ヶ峰（車山）': {minutes:40, source:'ヤマレコ・霧ヶ峰/車山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '霧ヶ峰（車山）→車山肩': {minutes:30, source:'ヤマレコ・霧ヶ峰/車山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '八島ヶ原湿原→霧ヶ峰（車山）': {minutes:127, source:'ヤマレコ・霧ヶ峰/車山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '霧ヶ峰（車山）→八島ヶ原湿原': {minutes:94, source:'ヤマレコ・霧ヶ峰/車山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '山本小屋ふる里館→美ヶ原': {minutes:55, source:'ヤマレコ・美ヶ原/王ヶ頭 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '美ヶ原→山本小屋ふる里館': {minutes:49, source:'ヤマレコ・美ヶ原/王ヶ頭 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '扉温泉→鉢伏山': {minutes:231, source:'ヤマレコ・鉢伏山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '鉢伏山→扉温泉': {minutes:132, source:'ヤマレコ・鉢伏山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '鉢伏山荘→鉢伏山': {minutes:23, source:'ヤマレコ・鉢伏山 山行計画（標準CT補完）', sourceType:'yamareco'}
+});
+
+// V1.4.35: 中央アルプス・南アルプス主要区間 標準コースタイム（分）。
+// 公開情報で所要時間を確認できた区間のみ登録。推測値は使用しない。
+const CENTRAL_SOUTH_ALPS_COURSE_TIMES = Object.freeze({
+  // 中央アルプス（中央アルプス駒ヶ岳ロープウェイ／駒ヶ根観光協会／空木駒峰ヒュッテ）
+  '千畳敷→木曽駒ヶ岳': {minutes:120, source:'中央アルプス駒ヶ岳ロープウェイ・登山コース（公式区間合算）'},
+  '木曽駒ヶ岳→千畳敷': {minutes:110, source:'中央アルプス駒ヶ岳ロープウェイ・登山コース（公式区間合算）'},
+  '空木岳→檜尾岳': {minutes:320, source:'駒ヶ根観光協会・中央アルプス登山案内'},
+  '空木駒峰ヒュッテ→空木岳': {minutes:10, source:'空木駒峰ヒュッテ公式・池山尾根コース'},
+
+  // 南アルプス北部：甲斐駒ヶ岳・仙丈ヶ岳（南アルプス市芦安山岳館）
+  '北沢峠→長衛小屋': {minutes:10, source:'南アルプス市芦安山岳館・甲斐駒ヶ岳/仙水峠コース'},
+  '長衛小屋→北沢峠': {minutes:15, source:'南アルプス市芦安山岳館・甲斐駒ヶ岳/仙水峠コース'},
+  '長衛小屋→仙水小屋': {minutes:40, source:'南アルプス市芦安山岳館・仙水峠'},
+  '仙水小屋→長衛小屋': {minutes:30, source:'南アルプス市芦安山岳館・仙水峠'},
+  '北沢峠→甲斐駒ヶ岳': {minutes:260, source:'南アルプス市芦安山岳館・北沢峠-駒津峰コース（公式区間合算）'},
+  '甲斐駒ヶ岳→北沢峠': {minutes:195, source:'南アルプス市芦安山岳館・北沢峠-駒津峰コース（公式区間合算）'},
+  '北沢峠→仙丈ヶ岳': {minutes:240, source:'南アルプス市芦安山岳館・小仙丈コース（公式区間合算）'},
+  '仙丈ヶ岳→北沢峠': {minutes:160, source:'南アルプス市芦安山岳館・小仙丈コース（公式区間合算）'},
+  '馬の背ヒュッテ→仙丈小屋': {minutes:60, source:'南アルプス市芦安山岳館・藪沢コース'},
+  '仙丈小屋→馬の背ヒュッテ': {minutes:40, source:'南アルプス市芦安山岳館・藪沢コース'},
+  '仙丈小屋→仙丈ヶ岳': {minutes:30, source:'南アルプス市芦安山岳館・藪沢コース'},
+  '仙丈ヶ岳→仙丈小屋': {minutes:20, source:'南アルプス市芦安山岳館・藪沢コース'},
+
+  // 白峰三山・塩見（南アルプス市芦安山岳館）
+  '広河原→白根御池小屋': {minutes:180, source:'南アルプス市芦安山岳館・北岳 草すべりコース'},
+  '白根御池小屋→広河原': {minutes:90, source:'南アルプス市芦安山岳館・北岳 草すべりコース'},
+  '白根御池小屋→北岳肩の小屋': {minutes:180, source:'南アルプス市芦安山岳館・北岳 草すべりコース（公式区間合算）'},
+  '北岳肩の小屋→白根御池小屋': {minutes:110, source:'南アルプス市芦安山岳館・北岳 草すべりコース（公式区間合算）'},
+  '北岳肩の小屋→北岳': {minutes:50, source:'南アルプス市芦安山岳館・北岳 草すべりコース'},
+  '北岳→北岳肩の小屋': {minutes:40, source:'南アルプス市芦安山岳館・北岳 草すべりコース'},
+  '北岳→北岳山荘': {minutes:50, source:'南アルプス市芦安山岳館・北岳-間ノ岳縦走コース'},
+  '北岳山荘→北岳': {minutes:75, source:'南アルプス市芦安山岳館・北岳-間ノ岳縦走コース'},
+  '北岳山荘→間ノ岳': {minutes:100, source:'南アルプス市芦安山岳館・北岳-間ノ岳縦走コース'},
+  '間ノ岳→北岳山荘': {minutes:80, source:'南アルプス市芦安山岳館・北岳-間ノ岳縦走コース'},
+  '間ノ岳→農鳥小屋': {minutes:60, source:'南アルプス市芦安山岳館・農鳥岳縦走コース'},
+  '農鳥小屋→間ノ岳': {minutes:90, source:'南アルプス市芦安山岳館・農鳥岳縦走コース'},
+  '農鳥小屋→農鳥岳': {minutes:90, source:'南アルプス市芦安山岳館・農鳥岳縦走コース（公式区間合算）'},
+  '農鳥岳→農鳥小屋': {minutes:70, source:'南アルプス市芦安山岳館・農鳥岳縦走コース（公式区間合算）'},
+  '間ノ岳→熊ノ平小屋': {minutes:120, source:'南アルプス市芦安山岳館・間ノ岳-塩見岳縦走コース'},
+  '熊ノ平小屋→間ノ岳': {minutes:180, source:'南アルプス市芦安山岳館・間ノ岳-塩見岳縦走コース'},
+  '熊ノ平小屋→塩見岳': {minutes:180, source:'南アルプス市芦安山岳館・間ノ岳-塩見岳縦走コース'},
+  '塩見岳→熊ノ平小屋': {minutes:225, source:'南アルプス市芦安山岳館・間ノ岳-塩見岳縦走コース'},
+  '塩見岳→三伏峠小屋': {minutes:210, source:'南アルプス市芦安山岳館・間ノ岳-塩見岳縦走コース'},
+  '三伏峠小屋→塩見岳': {minutes:270, source:'南アルプス市芦安山岳館・間ノ岳-塩見岳縦走コース'},
+  '鳥倉登山口→塩見小屋': {minutes:390, source:'伊那市観光協会・塩見小屋案内（現行案内）'},
+
+  // 鳳凰三山（南アルプス市芦安山岳館）
+  '夜叉神峠登山口→南御室小屋': {minutes:340, source:'南アルプス市芦安山岳館・鳳凰山 夜叉神コース（公式区間合算）'},
+  '南御室小屋→夜叉神峠登山口': {minutes:230, source:'南アルプス市芦安山岳館・鳳凰山 夜叉神コース（公式区間合算）'},
+  '南御室小屋→薬師岳(鳳凰)': {minutes:90, source:'南アルプス市芦安山岳館・鳳凰山 夜叉神コース'},
+  '薬師岳(鳳凰)→南御室小屋': {minutes:70, source:'南アルプス市芦安山岳館・鳳凰山 夜叉神コース'},
+  '薬師岳(鳳凰)→観音岳(鳳凰)': {minutes:40, source:'南アルプス市芦安山岳館・鳳凰山 夜叉神コース'},
+  '観音岳(鳳凰)→薬師岳(鳳凰)': {minutes:30, source:'南アルプス市芦安山岳館・鳳凰山 夜叉神コース'},
+
+  // 南アルプス南部（静岡市公式「南アルプスへの交通案内」モデルコース／南プス）
+  '椹島→千枚小屋': {minutes:420, source:'静岡市公式・南アルプス南部モデルコース'},
+  '千枚小屋→荒川小屋': {minutes:300, source:'静岡市公式・南アルプス南部モデルコース'},
+  '荒川小屋→赤石小屋': {minutes:330, source:'静岡市公式・南アルプス南部モデルコース'},
+  '赤石小屋→椹島': {minutes:210, source:'静岡市公式・南アルプス南部モデルコース'},
+  '赤石小屋→赤石岳': {minutes:180, source:'静岡市公式・南アルプス南部案内（赤石小屋から赤石岳まで約3時間）'},
+  '光岳小屋→光岳': {minutes:15, source:'静岡市公式・南アルプス山小屋一覧'},
+  '茶臼小屋→茶臼岳': {minutes:30, source:'静岡市 南プス・茶臼小屋案内'},
+  '茶臼小屋→上河内岳': {minutes:120, source:'静岡市 南プス・茶臼小屋案内'}
+});
+
+
+
+// V1.4.36: 公式情報だけでは分割できなかった主要区間の補完CT。
+// 補助ソースはヤマケイオンライン、次いでヤマレコの公開「山行計画」標準CTを使用。
+// ヤマレコは速度倍率が明記された計画や実歩行実績を採用せず、複数の標準計画で整合する値を優先する。
+const SUPPLEMENTAL_COURSE_TIMES = Object.freeze({
+  // 中央アルプス：木曽駒〜宝剣〜空木縦走（ヤマレコ標準山行計画の区間CT）
+  '千畳敷→宝剣岳': {minutes:77, source:'ヤマレコ・山行計画（標準CT補完）', sourceType:'yamareco'},
+  '木曽駒ヶ岳→宝剣岳': {minutes:55, source:'ヤマレコ・山行計画（標準CT補完）', sourceType:'yamareco'},
+  '宝剣岳→木曽駒ヶ岳': {minutes:54, source:'ヤマレコ・山行計画（標準CT補完）', sourceType:'yamareco'},
+  '宝剣岳→檜尾岳': {minutes:156, source:'ヤマレコ・山行計画（標準CT補完）', sourceType:'yamareco'},
+  '檜尾岳→宝剣岳': {minutes:195, source:'ヤマレコ・山行計画（標準CT補完）', sourceType:'yamareco'},
+  '檜尾岳→檜尾小屋': {minutes:10, source:'ヤマレコ・山行計画（標準CT補完）', sourceType:'yamareco'},
+  '檜尾小屋→檜尾岳': {minutes:14, source:'ヤマレコ・山行計画（標準CT補完）', sourceType:'yamareco'},
+  '檜尾岳→熊沢岳': {minutes:107, source:'ヤマレコ・山行計画（標準CT補完）', sourceType:'yamareco'},
+  '熊沢岳→檜尾岳': {minutes:118, source:'ヤマレコ・山行計画（標準CT補完）', sourceType:'yamareco'},
+  '熊沢岳→東川岳': {minutes:89, source:'ヤマレコ・山行計画（標準CT補完）', sourceType:'yamareco'},
+  '東川岳→熊沢岳': {minutes:120, source:'ヤマレコ・山行計画（標準CT補完）', sourceType:'yamareco'},
+  '東川岳→木曽殿山荘': {minutes:21, source:'ヤマレコ・山行計画（標準CT補完）', sourceType:'yamareco'},
+  '木曽殿山荘→東川岳': {minutes:41, source:'ヤマレコ・山行計画（標準CT補完）', sourceType:'yamareco'},
+  '木曽殿山荘→空木岳': {minutes:91, source:'ヤマレコ・山行計画（標準CT補完）', sourceType:'yamareco'},
+  '空木岳→木曽殿山荘': {minutes:59, source:'ヤマレコ・山行計画（標準CT補完）', sourceType:'yamareco'},
+  '空木岳→空木駒峰ヒュッテ': {minutes:8, source:'ヤマレコ・山行計画（標準CT補完）', sourceType:'yamareco'},
+  '空木駒峰ヒュッテ→空木平避難小屋': {minutes:35, source:'ヤマレコ・山行計画（標準CT補完）', sourceType:'yamareco'},
+
+  // 鳳凰三山：公式ページで直接分割されていなかった観音岳〜地蔵岳
+  '観音岳(鳳凰)→地蔵岳(鳳凰)': {minutes:66, source:'ヤマレコ・鳳凰三山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '地蔵岳(鳳凰)→観音岳(鳳凰)': {minutes:79, source:'ヤマレコ・鳳凰三山 山行計画（標準CT補完）', sourceType:'yamareco'},
+
+  // 塩見岳：鳥倉〜三伏峠〜塩見小屋を標準計画の分割値で補完
+  '鳥倉登山口→三伏峠小屋': {minutes:205, source:'ヤマレコ・塩見岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '三伏峠小屋→鳥倉登山口': {minutes:129, source:'ヤマレコ・塩見岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '三伏峠小屋→塩見小屋': {minutes:161, source:'ヤマレコ・塩見岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '塩見小屋→三伏峠小屋': {minutes:142, source:'ヤマレコ・塩見岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '塩見小屋→塩見岳': {minutes:79, source:'ヤマレコ・塩見岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '塩見岳→塩見小屋': {minutes:48, source:'ヤマレコ・塩見岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+
+  // 荒川三山〜赤石岳：既存の小屋間公式値を山頂ポイントまで細分化
+  '千枚小屋→荒川岳': {minutes:139, source:'ヤマレコ・荒川三山/赤石岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '荒川岳→荒川小屋': {minutes:135, source:'ヤマレコ・荒川三山/赤石岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '荒川小屋→荒川岳': {minutes:178, source:'ヤマレコ・荒川三山/赤石岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '荒川小屋→赤石岳': {minutes:150, source:'ヤマレコ・荒川三山/赤石岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '赤石岳→荒川小屋': {minutes:102, source:'ヤマレコ・荒川三山/赤石岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '赤石岳→赤石小屋': {minutes:135, source:'ヤマレコ・荒川三山/赤石岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+
+  // 南アルプス南部：聖〜上河内〜茶臼〜光
+  '聖平小屋→聖岳': {minutes:179, source:'ヤマレコ・聖岳/光岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '聖岳→聖平小屋': {minutes:104, source:'ヤマレコ・聖岳/光岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '聖平小屋→上河内岳': {minutes:154, source:'ヤマレコ・聖岳/光岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '上河内岳→聖平小屋': {minutes:81, source:'ヤマレコ・聖岳/光岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '上河内岳→茶臼小屋': {minutes:77, source:'ヤマレコ・聖岳/光岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '茶臼小屋→光岳': {minutes:283, source:'ヤマレコ・聖岳/光岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '光岳→茶臼小屋': {minutes:268, source:'ヤマレコ・聖岳/光岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '光岳→光岳小屋': {minutes:12, source:'ヤマレコ・光岳 山行計画（標準CT補完）', sourceType:'yamareco'}
+});
+
+function normalizeCourseTimePointName(name){
+  const raw=String(name||'').normalize('NFKC').replace(/\s+/g,'').trim();
+  const aliases={
+    '三股登山口':'三股',
+    '横尾山荘':'横尾',
+    '常念岳':'常念山頂',
+    '中房温泉登山口':'中房',
+    '中房登山口':'中房',
+    '中房登山口(燕岳・大天井岳表銀座ルート)':'中房',
+    '中房登山口（燕岳・大天井岳表銀座ルート）':'中房',
+    '白馬尻小屋跡':'白馬尻小屋',
+    '扇沢登山口':'扇沢',
+    '馬場島（早月尾根登山口）':'馬場島',
+    '一ノ沢登山口':'一ノ沢',
+    '一の沢登山口':'一ノ沢',
+    '朝日岳（新潟・富山）':'朝日岳',
+    '椹島ロッヂ':'椹島',
+    'ホテル千畳敷':'千畳敷',
+    '千畳敷駅':'千畳敷',
+    '南アルプス市長衛小屋':'長衛小屋',
+    '薬師岳（鳳凰）':'薬師岳(鳳凰)',
+    '観音岳（鳳凰）':'観音岳(鳳凰)',
+    '赤岳（八ヶ岳最高峰）':'赤岳',
+    '天狗岳（東天狗岳）':'天狗岳',
+    '女乃神茶屋（蓼科山登山口）':'女神茶屋',
+    '女乃神茶屋・蓼科山登山口':'女神茶屋',
+    '入笠山登山口（沢入）':'沢入登山口',
+    '山本小屋ふる里館・町営駐車場':'山本小屋ふる里館',
+    '美ヶ原（王ヶ頭）':'美ヶ原'
+    ,'えびの高原・韓国岳登山口':'韓国岳登山口'
+    ,'えびの高原 韓国岳登山口':'韓国岳登山口'
+    ,'高千穂河原駐車場・高千穂峰登山口':'高千穂河原'
+    ,'見ノ越 剣山登山口':'見の越'
+    ,'見ノ越':'見の越'
+    ,'剣山観光登山リフト西島駅':'西島駅'
+    ,'剣山観光登山リフト 西島駅':'西島駅'
+    ,'名頃登山口 三嶺':'名頃登山口'
+    ,'坊村 武奈ヶ岳登山口':'坊村'
+    ,'夏山登山口 大山':'夏山登山口'
+    ,'夏山登山道・南光河原':'夏山登山口'
+    ,'福定親水公園 氷ノ山登山口':'福定親水公園'
+    ,'福定親水公園登山口':'福定親水公園'
+    ,'上蒜山登山口駐車場（上蒜山スキー場）':'上蒜山登山口駐車場'
+    ,'上蒜山登山口':'上蒜山登山口駐車場'
+    ,'月見ヶ丘登山口駐車場':'月見ヶ丘'
+    ,'月見ヶ丘駐車場 道後山':'月見ヶ丘'
+    ,'東の原登山口（さんべ観光リフト）':'東の原登山口'
+    ,'東の原 三瓶山':'東の原登山口'
+    ,'由布岳正面登山口駐車場':'由布岳正面登山口'
+    ,'北谷登山口 祖母山':'北谷登山口'
+    ,'北谷登山口駐車場・北谷登山口':'北谷登山口'
+    ,'仁田峠第一展望所駐車場・普賢岳登山口':'仁田峠'
+    ,'二分登山口':'二口登山口'
+  };
+  return aliases[raw]||raw;
+}
+function courseTimeInfo(fromPoint,toPoint){
+  if(!fromPoint||!toPoint)return null;
+  const key=`${normalizeCourseTimePointName(fromPoint.name)}→${normalizeCourseTimePointName(toPoint.name)}`;
+  return NORTH_ALPS_COURSE_TIMES[key]||CENTRAL_SOUTH_ALPS_COURSE_TIMES[key]||YATSUGATAKE_CHUSHIN_COURSE_TIMES[key]||WEST_JAPAN_COURSE_TIMES[key]||EAST_NORTH_COURSE_TIMES[key]||SUPPLEMENTAL_COURSE_TIMES[key]||null;
+}
+function formatCourseTimeMinutes(minutes){
+  const m=Math.max(0,Number(minutes)||0), h=Math.floor(m/60), r=m%60;
+  return h?`${h}:${String(r).padStart(2,'0')}`:`0:${String(r).padStart(2,'0')}`;
+}
 
 const LAST_ANALYSIS_STORAGE_KEY='traten:last-analysis:v1';
 function loadLastAnalysisSnapshot(){
@@ -2256,7 +3121,7 @@ const FIXED_ECHIGO_OZE_V11224 = {
   '守門岳': [
     {id:'fixed24-sumon-peak',type:'peak',name:'守門岳',lat:37.397778,lon:139.136667,elevation:1537,source:'固定候補'},
     {id:'fixed24-sumon-hokkure',type:'trailhead',name:'保久礼登山口',lat:37.410139,lon:139.095361,elevation:781,source:'固定候補'},
-    {id:'fixed24-sumon-nibun',type:'trailhead',name:'二分登山口',lat:37.403806,lon:139.091944,elevation:586,source:'固定候補'}
+    {id:'fixed24-sumon-nibun',type:'trailhead',name:'二口登山口',lat:37.403806,lon:139.091944,elevation:586,source:'固定候補'}
   ],
   '浅草岳': [
     {id:'fixed24-asakusa-peak',type:'peak',name:'浅草岳',lat:37.343611,lon:139.233611,elevation:1585,source:'固定候補'},
@@ -3442,11 +4307,14 @@ function addPointRow(type='peak',selected='',roleLabel='',initialDateTime=null){
   const typeSel=row.querySelector('.point-type'), pointSel=row.querySelector('.point-select'), stay=row.querySelector('.stay-option');
   typeSel.addEventListener('change',()=>preservePointRowViewport(row,()=>{pointSel.innerHTML=candidateOptions(typeSel.value); stay.classList.toggle('hidden',typeSel.value!=='hut'); if(typeSel.value!=='hut')row.querySelector('.point-stay').checked=false; updateMeta(row);}));
   pointSel.addEventListener('change',()=>preservePointRowViewport(row,()=>{
-    updateMeta(row);
     const p=selectedCandidate(pointSel.value);
     if(p){
       logPointSelected(row,p);
+      applyCourseTimeFromPrevious(row,{announce:true});
+      updateMeta(row);
       ensureNextPointIsLater(row);
+    }else{
+      updateMeta(row);
     }
   }));
   const dateInput=row.querySelector('.point-date'), timeInput=row.querySelector('.point-time');
@@ -3500,6 +4368,26 @@ function ensureNextPointIsLater(row){
   }
 }
 
+function applyCourseTimeFromPrevious(row,{announce=false}={}){
+  const prev=row?.previousElementSibling;
+  if(!prev||prev.querySelector('.point-stay')?.checked)return false;
+  const from=selectedCandidate(prev.querySelector('.point-select')?.value);
+  const to=selectedCandidate(row.querySelector('.point-select')?.value);
+  const info=courseTimeInfo(from,to);
+  const baseValue=rowDateTimeValue(prev);
+  if(!info||!baseValue)return false;
+  const base=new Date(baseValue);
+  if(Number.isNaN(base.getTime()))return false;
+  const shifted=formatJstInput(base.getTime()+info.minutes*60*1000);
+  row.querySelector('.point-date').value=shifted.date;
+  row.querySelector('.point-time').value=shifted.time;
+  row.dataset.datetimeBefore=`${shifted.date}T${shifted.time}:00+09:00`;
+  row.dataset.courseTimeAuto='1';
+  if(announce)setStatus(`${from.name} → ${to.name}：標準CT ${formatCourseTimeMinutes(info.minutes)}${info.sourceType==='yamareco'?'（補助ソース）':''} を加算して ${shifted.time} にしました。`);
+  updateForecastHorizon();
+  return true;
+}
+
 function syncNextPointInitialTime(row){
   const next=row.nextElementSibling;
   const current=rowDateTimeValue(row);
@@ -3513,12 +4401,14 @@ function syncNextPointInitialTime(row){
     next.querySelector('.point-date').value=nextDate;
     next.querySelector('.point-time').value='05:00';
     next.dataset.datetimeBefore=`${nextDate}T05:00:00+09:00`;
+    next.dataset.courseTimeAuto='';
     setStatus(`宿泊の次のポイントを翌朝 5:00 にしました。`);
-  }else{
+  }else if(!applyCourseTimeFromPrevious(next)){
     const shifted=formatJstInput(dt.getTime()+60*60*1000);
     next.querySelector('.point-date').value=shifted.date;
     next.querySelector('.point-time').value=shifted.time;
     next.dataset.datetimeBefore=`${shifted.date}T${shifted.time}:00+09:00`;
+    next.dataset.courseTimeAuto='';
   }
 }
 function updateForecastHorizon(){
@@ -3545,7 +4435,11 @@ function updateMeta(row){
   const meta=row.querySelector('.point-meta');
   if(!p){meta.textContent='地点を選択してください';renderRouteMaps();return;}
   if(hasResolvedCoord(p)){
-    meta.textContent=`${p.name} / ${p.elevation||'標高自動'}m / ${Number(p.lat).toFixed(4)}, ${Number(p.lon).toFixed(4)}`;
+    const prev=row.previousElementSibling;
+    const from=prev?selectedCandidate(prev.querySelector('.point-select')?.value):null;
+    const ct=courseTimeInfo(from,p);
+    const ctText=ct?` / 標準CT +${formatCourseTimeMinutes(ct.minutes)}（無雪期・休憩含まず${ct.sourceType==='yamareco'?'・補助ソース':''}）`:'';
+    meta.textContent=`${p.name} / ${p.elevation||'標高自動'}m / ${Number(p.lat).toFixed(4)}, ${Number(p.lon).toFixed(4)}${ctText}`;
     renderRouteMaps();
     return;
   }
