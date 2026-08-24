@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.4.59';
+const APP_VERSION = '1.4.60';
 
 
 
@@ -600,6 +600,7 @@ const WEST_JAPAN_COURSE_TIMES = Object.freeze({
   '藤原岳→大貝戸登山口': {minutes:133, source:'ヤマレコ・藤原岳 大貝戸登山口ルート山行計画（標準CT複数照合・区間合算）', sourceType:'yamareco'},
 
 
+  // V1.4.60: 確認済み同一資料CTの一意な連続経路を自動合算し、直通選択でも到着時刻へ反映。
   // V1.4.59: 全国CT残り一括穴埋め。固定地点と公開CT端点が一致する区間のみ追加。
   // 近畿：高見山・大和葛城山
   '高見峠→高見山': {minutes:76, source:'ヤマレコ・高見山 高見峠ルート山行計画（標準CT複数照合）', sourceType:'yamareco'},
@@ -857,10 +858,92 @@ function normalizeCourseTimePointName(name){
   };
   return aliases[raw]||raw;
 }
+const COURSE_TIME_TABLES = Object.freeze([
+  NORTH_ALPS_COURSE_TIMES,
+  CENTRAL_SOUTH_ALPS_COURSE_TIMES,
+  YATSUGATAKE_CHUSHIN_COURSE_TIMES,
+  WEST_JAPAN_COURSE_TIMES,
+  EAST_NORTH_COURSE_TIMES,
+  SUPPLEMENTAL_COURSE_TIMES
+]);
+let COURSE_TIME_GRAPH_CACHE=null;
+function normalizedCourseTimeSource(source=''){
+  return String(source)
+    .replace(/（[^）]*区間合算[^）]*）/g,'')
+    .replace(/（[^）]*合算[^）]*）/g,'')
+    .trim();
+}
+function directCourseTimeInfoByNames(fromName,toName){
+  const key=`${fromName}→${toName}`;
+  for(const table of COURSE_TIME_TABLES){
+    if(table[key])return table[key];
+  }
+  return null;
+}
+function courseTimeGraph(){
+  if(COURSE_TIME_GRAPH_CACHE)return COURSE_TIME_GRAPH_CACHE;
+  const graph=new Map();
+  const seen=new Set();
+  for(const table of COURSE_TIME_TABLES){
+    for(const [key,info] of Object.entries(table)){
+      if(seen.has(key))continue;
+      seen.add(key);
+      const sep=key.indexOf('→');
+      if(sep<1)continue;
+      const from=key.slice(0,sep),to=key.slice(sep+1);
+      if(!from||!to||!Number.isFinite(Number(info?.minutes)))continue;
+      if(!graph.has(from))graph.set(from,[]);
+      graph.get(from).push({from,to,info,sourceKey:normalizedCourseTimeSource(info?.source||'')});
+    }
+  }
+  COURSE_TIME_GRAPH_CACHE=graph;
+  return graph;
+}
+function composedCourseTimeInfo(fromName,toName){
+  if(!fromName||!toName||fromName===toName)return null;
+  const graph=courseTimeGraph();
+  const found=[];
+  const maxEdges=6;
+  function walk(current,path,minutes,sourceKey,sourceType){
+    if(path.length>maxEdges)return;
+    for(const edge of graph.get(current)||[]){
+      if(path.includes(edge.to))continue;
+      const nextSourceKey=sourceKey||edge.sourceKey;
+      // 公開資料が異なる区間を自動で継ぎ足さない。同一資料系列だけを合算する。
+      if(sourceKey&&edge.sourceKey!==sourceKey)continue;
+      const nextMinutes=minutes+Number(edge.info.minutes);
+      const nextSourceType=sourceType||edge.info.sourceType||'';
+      if(sourceType&&edge.info.sourceType&&edge.info.sourceType!==sourceType)continue;
+      if(edge.to===toName){
+        found.push({minutes:nextMinutes,path:[...path,edge.to],sourceKey:nextSourceKey,sourceType:nextSourceType});
+        continue;
+      }
+      walk(edge.to,[...path,edge.to],nextMinutes,nextSourceKey,nextSourceType);
+    }
+  }
+  walk(fromName,[fromName],0,'','');
+  if(!found.length)return null;
+  // 経路が複数あっても「同じ合計CT・同じ資料系列」の場合だけ一意とみなす。
+  const signatures=new Map();
+  for(const item of found){
+    const sig=`${item.minutes}|${item.sourceKey}|${item.sourceType}`;
+    if(!signatures.has(sig))signatures.set(sig,item);
+  }
+  if(signatures.size!==1)return null;
+  const result=[...signatures.values()][0];
+  return {
+    minutes:result.minutes,
+    source:`${result.sourceKey}（確認済み区間合算）`,
+    sourceType:result.sourceType||undefined,
+    composed:true,
+    via:result.path.slice(1,-1)
+  };
+}
 function courseTimeInfo(fromPoint,toPoint){
   if(!fromPoint||!toPoint)return null;
-  const key=`${normalizeCourseTimePointName(fromPoint.name)}→${normalizeCourseTimePointName(toPoint.name)}`;
-  return NORTH_ALPS_COURSE_TIMES[key]||CENTRAL_SOUTH_ALPS_COURSE_TIMES[key]||YATSUGATAKE_CHUSHIN_COURSE_TIMES[key]||WEST_JAPAN_COURSE_TIMES[key]||EAST_NORTH_COURSE_TIMES[key]||SUPPLEMENTAL_COURSE_TIMES[key]||null;
+  const fromName=normalizeCourseTimePointName(fromPoint.name);
+  const toName=normalizeCourseTimePointName(toPoint.name);
+  return directCourseTimeInfoByNames(fromName,toName)||composedCourseTimeInfo(fromName,toName)||null;
 }
 function formatCourseTimeMinutes(minutes){
   const m=Math.max(0,Number(minutes)||0), h=Math.floor(m/60), r=m%60;
