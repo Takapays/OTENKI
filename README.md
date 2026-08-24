@@ -1,3 +1,16 @@
+## V1.4.30 Bing Webmaster Tools XML認証対応
+
+- Bing Webmaster Toolsから発行された `BingSiteAuth.xml` をサイトルートに追加。
+- `GET /BingSiteAuth.xml` を `application/xml` で明示配信し、Bingの所有権確認に対応。
+- 認証ファイルはキャッシュさせず、常に現在のファイルを返す。
+- V1.4.29のIndexNow送信機能・robots.txt・sitemap.xmlはそのまま維持。
+
+### デプロイ後の確認
+
+ブラウザで `https://otenki.onrender.com/BingSiteAuth.xml` がXMLとして表示されることを確認後、Bing Webmaster Toolsで `Try Again` を押す。
+
+---
+
 ## V1.4.29 Bing / IndexNow 対応
 
 - IndexNowキーをサイトルートで公開し、Bingなど対応検索エンジンが所有確認できるようにした。
@@ -493,7 +506,7 @@ curl -u admin:YOUR_PASSWORD -X POST https://otenki.onrender.com/api/admin/indexn
 - カード下部の操作ボタン「↑」「↓」「×」を横一列に配置
 - PC版や分析ロジック、固定座標・縦走候補データは変更なし
 
-# トラテン｜トラバース天気 V1.4.29
+# トラテン｜トラバース天気 V1.4.30
 
 ## V1.12.56 中央アルプス縦走回廊拡張
 
