@@ -27,7 +27,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.4.98"
+APP_VERSION = "1.4.101"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -116,8 +116,8 @@ _cache_lock = threading.Lock()
 # retry briefly when the upstream asks us to slow down.
 _openmeteo_lock = threading.Lock()
 _openmeteo_last_request = 0.0
-OPENMETEO_MIN_INTERVAL = float(os.environ.get("OPENMETEO_MIN_INTERVAL", "0.9"))
-OPENMETEO_MAX_RETRIES = int(os.environ.get("OPENMETEO_MAX_RETRIES", "2"))
+OPENMETEO_MIN_INTERVAL = float(os.environ.get("OPENMETEO_MIN_INTERVAL", "1.6"))
+OPENMETEO_MAX_RETRIES = int(os.environ.get("OPENMETEO_MAX_RETRIES", "3"))
 
 TRAIL_DATA_DIR = os.path.join(BASE, "trail_data")
 TRAIL_GRAPH_CACHE_MAX = int(os.environ.get("TRAIL_GRAPH_CACHE_MAX", "2"))
@@ -865,8 +865,8 @@ def national_outlook():
     results=[]
     hourly_vars="temperature_2m,precipitation,cloud_cover,wind_speed_10m,wind_gusts_10m,cape,visibility"
     try:
-        for start in range(0,len(points),30):
-            chunk=points[start:start+30]
+        for start in range(0,len(points),50):
+            chunk=points[start:start+50]
             params={
                 "latitude":",".join(f'{p["lat"]:.5f}' for p in chunk),
                 "longitude":",".join(f'{p["lon"]:.5f}' for p in chunk),

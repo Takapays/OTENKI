@@ -3472,12 +3472,9 @@ body.install-guide-open{overflow:hidden}
 
 
 /* V1.4.93: 10-minute time picker + official hut homepage */
-.planner-rail .hut-home-row{grid-column:2/5!important;display:flex;justify-content:flex-start;align-items:center;min-width:0;margin:0}
-.planner-rail .hut-home-row.hidden{display:none!important}
 .planner-rail .hut-home-link{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:34px;padding:6px 12px;border:1px solid #b8d8c8;border-radius:9px;background:#eef8f3;color:#176b49;font-size:11px;font-weight:900;text-decoration:none;white-space:nowrap}
 .planner-rail .hut-home-link:hover{background:#e3f4eb;border-color:#79b899;color:#105d3e}
 .planner-rail .hut-home-link:focus-visible{outline:3px solid rgba(36,156,107,.18);outline-offset:2px}
-@media(max-width:900px){.planner-rail .hut-home-row{grid-column:2!important}.planner-rail .hut-home-link{min-height:40px;font-size:13px;padding:8px 14px}}
 
 
 /* V1.4.94: reliable PC representative-course summary beside the load button */
@@ -3554,3 +3551,12 @@ body.install-guide-open{overflow:hidden}
 @media(max-width:1024px){
   .national-mobile-map-hint{display:flex!important;visibility:visible!important;opacity:1!important;align-items:center;justify-content:center;gap:6px;margin:4px 0 9px;padding:8px 10px;border-radius:10px;background:#eef7f2;color:#35634f;font-size:12px;font-weight:850;line-height:1.3}
 }
+\n\n/* V1.4.100: course summary is structurally visible beside the button on PC. */\n.planner-rail .representative-course-mainline{display:grid!important;grid-template-columns:minmax(170px,190px) minmax(0,1fr)!important;gap:9px!important;align-items:stretch!important;width:100%!important;min-width:0!important}\n.planner-rail .representative-course-mainline #representativeCourseBtn:not(.hidden){display:flex!important;align-items:center!important;justify-content:center!important;width:100%!important;min-width:0!important;margin:0!important}\n.planner-rail .representative-course-mainline .representative-course-preview{display:flex!important;flex-direction:column!important;justify-content:center!important;min-width:0!important;min-height:40px!important;margin:0!important;padding:6px 10px!important;box-sizing:border-box!important;border:1px solid #d7e5dd!important;border-radius:10px!important;background:#f7fbf9!important;color:#50685c!important;overflow:hidden!important}\n.planner-rail .representative-course-mainline .representative-course-preview.is-empty{display:none!important}\n.planner-rail .representative-course-mainline .representative-course-preview b,.planner-rail .representative-course-mainline .representative-course-preview span{display:block!important;min-width:0!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}\n@media(max-width:700px){.planner-rail .representative-course-mainline{grid-template-columns:1fr!important}.planner-rail .representative-course-mainline .representative-course-preview b,.planner-rail .representative-course-mainline .representative-course-preview span{white-space:normal!important;overflow:visible!important;text-overflow:clip!important}}\n
+/* V1.4.101: 山小屋公式HPを登山口アクセスと同じく地点セレクト右側へ */
+.planner-rail .point-select-inline{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;min-width:0;width:100%}
+.planner-rail .point-select-inline>.trailhead-select-access{min-width:0}
+.planner-rail .point-select-inline>.point-select{min-width:0;width:100%}
+.planner-rail .hut-home-inline{min-height:42px;padding:0 14px;border-radius:10px;border:1px solid #8fb9ad;background:#eef8f4;color:#176b5a;font-weight:800;font-size:12px;text-decoration:none;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;gap:5px;box-shadow:0 2px 8px rgba(23,107,90,.08)}
+.planner-rail .hut-home-inline:hover{border-color:#4f9786;background:#e5f5ef;color:#176b5a}
+.planner-rail .hut-home-inline.hidden{display:none!important}
+@media(max-width:760px){.planner-rail .point-select-inline{grid-template-columns:minmax(0,1fr) auto;gap:6px}.planner-rail .hut-home-inline{min-height:44px;padding:0 10px;font-size:11px}}

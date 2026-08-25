@@ -139,7 +139,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.98';
+const APP_VERSION = '1.4.101';
 
 
 
@@ -4470,24 +4470,44 @@ async function runNationalOutlook(){
       const batch=eligible.slice(i,i+batchSize);
       const batchNo=Math.floor(i/batchSize)+1;
       if(status)status.textContent=`${eligible.length}座を簡易判定中… ${batchNo}/${totalBatches}`;
-      // Render Free環境で1回の巨大リクエストがタイムアウトしないよう50座ずつ取得する。
-      const controller=new AbortController();
-      const timer=setTimeout(()=>controller.abort(),28000);
-      let res;
-      try{
-        res=await fetch('/api/national-outlook',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date,points:batch}),signal:controller.signal});
-      }finally{clearTimeout(timer);}
-      const data=await res.json().catch(()=>({}));
-      if(!res.ok)throw new Error(data.error||`HTTP ${res.status}`);
+      // 50座をOpen-Meteoの1回の複数地点リクエストにまとめる。429時はこのバッチだけ待って再試行する。
+      let data=null;
+      let lastError=null;
+      for(let attempt=0;attempt<3;attempt++){
+        const controller=new AbortController();
+        const timer=setTimeout(()=>controller.abort(),36000);
+        try{
+          const res=await fetch('/api/national-outlook',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date,points:batch}),signal:controller.signal});
+          const body=await res.json().catch(()=>({}));
+          if(res.ok){data=body;lastError=null;break;}
+          lastError=new Error(body.error||`HTTP ${res.status}`);
+          const rateLimited=res.status===429||res.status===503||/429|Too Many Requests/i.test(String(body.error||''));
+          if(!rateLimited||attempt===2)break;
+        }catch(err){
+          lastError=err;
+          if(err?.name==='AbortError'||attempt===2)break;
+        }finally{clearTimeout(timer);}
+        const waitMs=3000*(attempt+1);
+        if(status)status.textContent=`取得制限のため待機中… ${Math.round(waitMs/1000)}秒後に再試行（${batchNo}/${totalBatches}）`;
+        await new Promise(r=>setTimeout(r,waitMs));
+      }
+      if(!data){
+        // それまで取得できた山は残し、全国判定全体を全滅させない。
+        const reason=lastError?.name==='AbortError'?'通信タイムアウト':(lastError?.message||'取得失敗');
+        if(status)status.textContent=`${completed}座まで取得済み。${batchNo}/${totalBatches}で一時停止：${reason}`;
+        break;
+      }
       for(const x of (data.results||[]))nationalOutlookResults.set(x.name,x);
       completed+=batch.length;
       renderNationalOutlookMarkers();
       if(status)status.textContent=`${eligible.length}座を簡易判定中… ${Math.min(completed,eligible.length)}/${eligible.length}座`;
-      await new Promise(r=>setTimeout(r,0));
+      // 無料APIへバーストしないよう、次バッチまで少し間隔を空ける。
+      if(i+batchSize<eligible.length)await new Promise(r=>setTimeout(r,1800));
     }
     const counts={A:0,B:0,C:0};
     for(const r of nationalOutlookResults.values())if(counts[r.grade]!=null)counts[r.grade]++;
-    if(status)status.innerHTML=`判定完了：<b>A ${counts.A}座</b> / <b>B ${counts.B}座</b> / <b>C ${counts.C}座</b> / 対象外・未取得 ${points.length-nationalOutlookResults.size}座`;
+    const got=nationalOutlookResults.size;
+    if(status)status.innerHTML=`${got<eligible.length?'一部取得で終了':'判定完了'}：<b>A ${counts.A}座</b> / <b>B ${counts.B}座</b> / <b>C ${counts.C}座</b> / 対象外・未取得 ${points.length-got}座${got<eligible.length?'　※取得制限時は少し時間をおいて再実行してください。':''}`;
   }catch(e){
     const msg=e?.name==='AbortError'?'通信がタイムアウトしました。少し時間をおいて再度お試しください。':(e.message||e);
     if(status)status.textContent=`全国判定に失敗しました：${msg}`;
@@ -5021,11 +5041,13 @@ function refreshRepresentativeCourseButton(){
   if(preview){
     if(hasCourse&&pathText){
       preview.innerHTML=`<b>${escapeHtml(course?.label||'代表コース')}</b><span>${escapeHtml(pathText)}</span>`;
+      preview.classList.remove('is-empty');
       preview.classList.remove('hidden');
       preview.setAttribute('title',pathText);
     }else{
-      preview.innerHTML='';
-      preview.classList.add('hidden');
+      preview.innerHTML='<b>代表コース</b><span>山を選ぶとコース概要を表示</span>';
+      preview.classList.add('is-empty');
+      preview.classList.remove('hidden');
       preview.removeAttribute('title');
     }
   }
@@ -5451,17 +5473,16 @@ function addPointRow(type='peak',selected='',roleLabel='',initialDateTime=null){
   const row=document.createElement('div'); row.className='point-row'; row.dataset.id=String(pointSeq); row.dataset.role=roleLabel||'';
   row.innerHTML=`<div class="point-no"></div>
     <label class="point-type-label"><span class="field-caption">種類</span><select class="point-type">${typeOptions(type)}</select></label>
-    <label class="point-name-label"><span class="field-caption">地点</span><select class="point-select">${candidateOptions(type,selected)}</select></label>
+    <label class="point-name-label"><span class="field-caption">地点</span><span class="point-select-inline"><select class="point-select">${candidateOptions(type,selected)}</select><a class="hut-home-link hut-home-inline hidden" href="#" target="_blank" rel="noopener noreferrer">公式HP <span aria-hidden="true">↗</span></a></span></label>
     <label class="datetime-label date-label"><span class="field-caption">通過日</span><span class="date-control"><input class="point-date" type="date" value="${initialDateTime?.date||todayLocal()}"><button class="date-picker-btn" type="button" title="カレンダーを開く" aria-label="カレンダーを開く">📅</button></span></label>
     <label class="datetime-label time-label"><span class="field-caption">通過時刻</span><span class="time-control-with-ct"><input class="point-time" type="time" step="600" value="${normalizeTimeToTenMinutes(initialDateTime?.time||'06:00')}"><span class="course-time-missing-badge hidden" title="直前地点からの標準CTが未登録です">CT情報なし</span></span></label>
     <label class="stay-option ${type==='hut'?'':'hidden'}"><span>宿泊</span><span class="stay-toggle"><input class="point-stay" type="checkbox"><b><span class="stay-label-desktop">ここに泊まる</span><span class="stay-label-mobile">泊まる</span></b></span></label>
     <label class="stay-departure hidden"><span class="field-caption">翌朝出発</span><input class="stay-departure-time" type="time" step="600" value="05:00" aria-label="翌朝出発時刻"></label>
-    <div class="hut-home-row hidden"><a class="hut-home-link" href="#" target="_blank" rel="noopener noreferrer">公式HP <span aria-hidden="true">↗</span></a></div>
     <button class="move up" type="button" title="上へ">↑</button><button class="move down" type="button" title="下へ">↓</button><button class="remove" type="button" title="削除">×</button>
     <div class="point-meta">地点を選択してください</div>`;
   $('points').appendChild(row); renumber();
   window.TratenTrailheadAccess?.attachRow?.(row);
-  const typeSel=row.querySelector('.point-type'), pointSel=row.querySelector('.point-select'), stay=row.querySelector('.stay-option'), stayDeparture=row.querySelector('.stay-departure'), stayDepartureTime=row.querySelector('.stay-departure-time'), hutHomeRow=row.querySelector('.hut-home-row'), hutHomeLink=row.querySelector('.hut-home-link');
+  const typeSel=row.querySelector('.point-type'), pointSel=row.querySelector('.point-select'), stay=row.querySelector('.stay-option'), stayDeparture=row.querySelector('.stay-departure'), stayDepartureTime=row.querySelector('.stay-departure-time'), hutHomeLink=row.querySelector('.hut-home-link');
   const refreshStayDeparture=()=>{
     const enabled=typeSel.value==='hut'&&!!row.querySelector('.point-stay')?.checked;
     stayDeparture?.classList.toggle('hidden',!enabled);
@@ -5469,8 +5490,8 @@ function addPointRow(type='peak',selected='',roleLabel='',initialDateTime=null){
   const refreshHutHomepage=()=>{
     const p=selectedCandidate(pointSel.value);
     const url=typeSel.value==='hut'?hutOfficialSite(p?.name||''):'';
-    hutHomeRow?.classList.toggle('hidden',!url);
-    if(hutHomeLink){hutHomeLink.href=url||'#';hutHomeLink.title=url?`${p?.name||'山小屋'}の公式ホームページを開く`:'';}
+    hutHomeLink?.classList.toggle('hidden',!url);
+    if(hutHomeLink){hutHomeLink.href=url||'#';hutHomeLink.title=url?`${p?.name||'山小屋'}の公式ホームページを開く`:'';hutHomeLink.setAttribute('aria-label',url?`${p?.name||'山小屋'}の公式ホームページを開く`:'');}
   };
   typeSel.addEventListener('change',()=>preservePointRowViewport(row,()=>{pointSel.innerHTML=candidateOptions(typeSel.value); stay.classList.toggle('hidden',typeSel.value!=='hut'); if(typeSel.value!=='hut')row.querySelector('.point-stay').checked=false; refreshStayDeparture(); refreshHutHomepage(); updateMeta(row); refreshAllCourseTimeMissingBadges();}));
   pointSel.addEventListener('change',()=>preservePointRowViewport(row,()=>{
@@ -6916,23 +6937,23 @@ function routePointDateParts(point){
 // a plausible-looking but wrong line is less useful than an explicit straight fallback.
 // Unregistered segments are rendered as dashed straight connections.
 const VERIFIED_TRAIL_GEOMETRY_V1490 = Object.freeze({
-  // V1.4.94: Yari representative-course geometry rebuilt as fixed local corridors.
-  // These lines are for map visualization, not navigation. Unregistered segments remain dashed straight lines.
+  // V1.4.100: 槍ヶ岳代表コース。大きく外れる手描き折れ線を撤去し、
+  // 公式ルートの通過順序に沿う細分化ラインへ更新。ナビゲーション用途ではありません。
   '新穂高温泉→槍平小屋': [
-    // 槍ヶ岳山荘グループ公式ルート：新穂高→穂高平→白出沢→滝谷→槍平。
     [36.285405,137.575014],
-    [36.290900,137.592800], // 穂高平小屋付近
-    [36.299000,137.611900], // 白出沢出合付近
-    [36.311692,137.631203], // 滝谷避難小屋付近
-    [36.323220,137.629910]  // 槍平小屋
+    [36.287300,137.580800],[36.289200,137.586700],[36.290900,137.592800],
+    [36.292800,137.598100],[36.295000,137.603700],[36.297200,137.608900],
+    [36.299000,137.611900],[36.301500,137.616300],[36.304200,137.620500],
+    [36.307000,137.625000],[36.309500,137.629000],[36.311692,137.631203],
+    [36.314500,137.632000],[36.317500,137.631600],[36.320400,137.630700],
+    [36.323220,137.629910]
   ],
   '槍平小屋→槍ヶ岳山荘': [
-    // 飛騨沢を北上し、千丈分岐→飛騨乗越→槍ヶ岳山荘。
-    [36.323220,137.629910],
-    [36.330500,137.631000],
-    [36.338969,137.635425], // 飛騨沢 千丈乗越分岐
-    [36.338833,137.645806], // 飛騨乗越
-    [36.340939,137.645795]
+    [36.323220,137.629910],[36.325000,137.630100],[36.327000,137.630500],
+    [36.329000,137.631100],[36.331000,137.632000],[36.333000,137.633000],
+    [36.335000,137.634100],[36.336800,137.635000],[36.338300,137.636000],
+    [36.339000,137.637500],[36.339300,137.639300],[36.339000,137.641200],
+    [36.338833,137.643200],[36.338833,137.645806],[36.340939,137.645795]
   ],
   '槍ヶ岳山荘→槍ヶ岳': [
     [36.340939,137.645795],[36.34125,137.64635],[36.34165,137.64705],[36.342009,137.647735]
@@ -6947,6 +6968,7 @@ const VERIFIED_TRAIL_GEOMETRY_V1490 = Object.freeze({
     [36.3313,137.6623],[36.3348,137.6564],[36.3374,137.6511],[36.3394,137.6475],[36.340939,137.645795]
   ]
 });
+
 function fixedTrailSegment(from,to){
   const a=String(from?.name||''),b=String(to?.name||'');
   const direct=VERIFIED_TRAIL_GEOMETRY_V1490[`${a}→${b}`];
