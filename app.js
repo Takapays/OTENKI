@@ -139,7 +139,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.105';
+const APP_VERSION = '1.4.108';
 
 
 
@@ -4339,6 +4339,34 @@ function renderNationalOutlookMarkers(){
     marker.on('click',()=>showNationalOutlookDetail(p,result));
   }
 }
+const WIKIPEDIA_ARTICLE_ALIASES = Object.freeze({
+  '蔵王山（熊野岳）':'熊野岳',
+  '赤城山（黒檜山）':'黒檜山',
+  '霧ヶ峰（車山）':'車山',
+  '大山（神奈川）':'大山_(神奈川県)',
+  '大山':'大山_(鳥取県)',
+  '経ヶ岳（長野）':'経ヶ岳_(長野県)',
+  '経ヶ岳（福井）':'経ヶ岳_(福井県)',
+  '薬師岳(鳳凰)':'薬師岳_(鳳凰山)',
+  '観音岳(鳳凰)':'観音岳_(鳳凰山)',
+  '地蔵岳(鳳凰)':'地蔵岳_(鳳凰山)',
+  '鳳凰山':'鳳凰山',
+  '九重山':'九重山',
+  '久住山':'久住山',
+  '立山':'立山',
+  '八ヶ岳':'八ヶ岳',
+  '穂高岳':'穂高岳',
+  '奥穂高岳':'奥穂高岳',
+  '剱岳':'剱岳'
+});
+function wikipediaArticleTitle(name){
+  const raw=String(name||'').trim();
+  return WIKIPEDIA_ARTICLE_ALIASES[raw]||raw.replace(/\(([^)]+)\)/g,'_$1').replace(/（([^）]+)）/g,'_$1');
+}
+function wikipediaArticleUrl(name){
+  return `https://ja.wikipedia.org/wiki/${encodeURIComponent(wikipediaArticleTitle(name)).replace(/%2F/g,'/')}`;
+}
+
 function nationalAreaLabel(name){
   const key=mountainUiArea(name);
   return MOUNTAIN_UI_AREAS.find(([k])=>k===key)?.[1]||'日本';
@@ -4419,7 +4447,7 @@ function showNationalOutlookDetail(p,result){
       ${result?`<div class="national-rich-metrics">${metrics}</div>`:''}
       ${courseHtml}
       ${nearbyHtml}
-      <div class="national-rich-links"><a class="national-wikipedia-link" href="https://ja.wikipedia.org/w/index.php?search=${encodeURIComponent(p.name)}" target="_blank" rel="noopener noreferrer">Wikipedia ↗</a></div>
+      <div class="national-rich-links"><a class="national-wikipedia-link" href="${wikipediaArticleUrl(p.name)}" target="_blank" rel="noopener noreferrer">Wikipedia ↗</a></div>
       <button type="button" class="primary national-detail-open national-rich-cta">この山を山行設定に入力</button>
       <p class="national-rich-footnote">主要山のみ実写真を表示しています。写真は Wikimedia Commons の公開画像を利用しています。全国一括簡易判定は候補地選び用です。山行設定では通過時刻・地点・複数モデルを使って詳しく確認できます。</p>
     </div>`;
@@ -4454,7 +4482,7 @@ async function openMountainFromNationalMap(name){
   }
   $('mountainPreset')?.scrollIntoView({behavior:'smooth',block:'center'});
 }
-const NATIONAL_OUTLOOK_BROWSER_CACHE_KEY='traten:national-outlook:v1';
+const NATIONAL_OUTLOOK_BROWSER_CACHE_KEY='traten:national-outlook:v2';
 const NATIONAL_OUTLOOK_BROWSER_CACHE_TTL=30*60*1000;
 function readNationalOutlookBrowserCache(date){
   try{
@@ -4479,63 +4507,39 @@ async function runNationalOutlook(){
     nationalOutlookResults=new Map(browserCached.map(x=>[x.name,x]));
     renderNationalOutlookMarkers();
     const counts={A:0,B:0,C:0};for(const r of nationalOutlookResults.values())if(counts[r.grade]!=null)counts[r.grade]++;
-    if(status)status.innerHTML=`キャッシュから表示：<b>A ${counts.A}座</b> / <b>B ${counts.B}座</b> / <b>C ${counts.C}座</b>（30分以内の判定結果）`;
+    if(status)status.innerHTML=`端末キャッシュから表示：<b>A ${counts.A}座</b> / <b>B ${counts.B}座</b> / <b>C ${counts.C}座</b>（30分以内）`;
     if(btn)btn.disabled=false;
     return;
   }
   nationalOutlookResults=new Map();
   renderNationalOutlookMarkers();
-  const batchSize=50;
-  const totalBatches=Math.ceil(eligible.length/batchSize);
-  let completed=0;
+  if(status)status.textContent='全国共有キャッシュを確認中… 初回または更新時のみ300座を取得します。';
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),110000);
   try{
-    for(let i=0;i<eligible.length;i+=batchSize){
-      const batch=eligible.slice(i,i+batchSize);
-      const batchNo=Math.floor(i/batchSize)+1;
-      if(status)status.textContent=`${eligible.length}座を簡易判定中… ${batchNo}/${totalBatches}`;
-      // 50座をOpen-Meteoの1回の複数地点リクエストにまとめる。429時はこのバッチだけ待って再試行する。
-      let data=null;
-      let lastError=null;
-      for(let attempt=0;attempt<4;attempt++){
-        const controller=new AbortController();
-        const timer=setTimeout(()=>controller.abort(),36000);
-        try{
-          const res=await fetch('/api/national-outlook',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date,points:batch}),signal:controller.signal});
-          const body=await res.json().catch(()=>({}));
-          if(res.ok){data=body;lastError=null;break;}
-          lastError=new Error(body.error||`HTTP ${res.status}`);
-          const rateLimited=res.status===429||res.status===503||/429|Too Many Requests/i.test(String(body.error||''));
-          if(!rateLimited||attempt===3)break;
-        }catch(err){
-          lastError=err;
-          if(err?.name==='AbortError'||attempt===3)break;
-        }finally{clearTimeout(timer);}
-        const waitMs=6000*(attempt+1);
-        if(status)status.textContent=`取得制限のため待機中… ${Math.round(waitMs/1000)}秒後に再試行（${batchNo}/${totalBatches}）`;
-        await new Promise(r=>setTimeout(r,waitMs));
-      }
-      if(!data){
-        // それまで取得できた山は残し、全国判定全体を全滅させない。
-        const reason=lastError?.name==='AbortError'?'通信タイムアウト':(lastError?.message||'取得失敗');
-        if(status)status.textContent=`${completed}座まで取得済み。${batchNo}/${totalBatches}で一時停止：${reason}`;
-        break;
-      }
-      for(const x of (data.results||[]))nationalOutlookResults.set(x.name,x);
-      completed+=batch.length;
-      renderNationalOutlookMarkers();
-      if(status)status.textContent=`${eligible.length}座を簡易判定中… ${Math.min(completed,eligible.length)}/${eligible.length}座`;
-      // 無料APIへバーストしないよう、次バッチまで少し間隔を空ける。
-      if(i+batchSize<eligible.length)await new Promise(r=>setTimeout(r,4200));
-    }
-    const counts={A:0,B:0,C:0};
-    for(const r of nationalOutlookResults.values())if(counts[r.grade]!=null)counts[r.grade]++;
+    const res=await fetch('/api/national-outlook',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date,points:eligible}),signal:controller.signal});
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok)throw new Error(data.error||`HTTP ${res.status}`);
+    for(const x of (data.results||[]))nationalOutlookResults.set(x.name,x);
+    renderNationalOutlookMarkers();
+    const counts={A:0,B:0,C:0};for(const r of nationalOutlookResults.values())if(counts[r.grade]!=null)counts[r.grade]++;
     const got=nationalOutlookResults.size;
-    if(got>=Math.min(eligible.length,250))writeNationalOutlookBrowserCache(date,[...nationalOutlookResults.values()]);
-    if(status)status.innerHTML=`${got<eligible.length?'一部取得で終了':'判定完了'}：<b>A ${counts.A}座</b> / <b>B ${counts.B}座</b> / <b>C ${counts.C}座</b> / 対象外・未取得 ${points.length-got}座${got<eligible.length?'　※取得制限時は少し時間をおいて再実行してください。':''}`;
+    if(data.complete&&got)writeNationalOutlookBrowserCache(date,[...nationalOutlookResults.values()]);
+    const state=String(data.cache?.state||'');
+    let lead='判定完了';
+    if(state.includes('stale'))lead='直近の共有キャッシュを表示';
+    else if(state==='shared-fresh')lead='共有キャッシュから表示';
+    else if(state==='live-generated')lead='判定完了・共有キャッシュを更新';
+    else if(state==='partial')lead='一部取得';
+    const warn=data.warning?`<br><small>${esc(data.warning)}</small>`:'';
+    if(status)status.innerHTML=`${lead}：<b>A ${counts.A}座</b> / <b>B ${counts.B}座</b> / <b>C ${counts.C}座</b> / 未取得 ${Math.max(0,points.length-got)}座${warn}`;
   }catch(e){
-    const msg=e?.name==='AbortError'?'通信がタイムアウトしました。少し時間をおいて再度お試しください。':(e.message||e);
+    const msg=e?.name==='AbortError'?'全国共有キャッシュの生成がタイムアウトしました。少し時間をおいて再度お試しください。':(e.message||e);
     if(status)status.textContent=`全国判定に失敗しました：${msg}`;
-  }finally{if(btn)btn.disabled=false;}
+  }finally{
+    clearTimeout(timer);
+    if(btn)btn.disabled=false;
+  }
 }
 function setupNationalOutlook(){
   const el=$('nationalOutlookMap'),date=$('nationalOutlookDate'),btn=$('nationalOutlookRun'),status=$('nationalOutlookStatus');
@@ -5020,7 +5024,7 @@ function representativeCourseOptions(mountain){
 function representativeCourseFor(mountain){
   const options=representativeCourseOptions(mountain);
   const sel=$('representativeCourseSelect');
-  const idx=sel&&!sel.classList.contains('hidden')?Math.max(0,Number(sel.value)||0):0;
+  const idx=sel?Math.max(0,Number(sel.value)||0):0;
   return options[idx]||options[0]||null;
 }
 function representativeCoursePathText(course){
@@ -5064,15 +5068,20 @@ function refreshRepresentativeCourseButton(){
   btn.removeAttribute('title');
   delete btn.dataset.courseTooltip;
   if(preview){
-    if(hasCourse&&pathText){
-      preview.innerHTML=`<b>${escapeHtml(course?.label||'代表コース')}</b><span>${escapeHtml(pathText)}</span>`;
-      preview.classList.remove('is-empty');
-      preview.classList.remove('hidden');
-      preview.setAttribute('title',pathText);
+    if(hasCourse&&course){
+      const safeLabel=escapeHtml(course.label||'代表コース');
+      const safePath=escapeHtml(pathText||'コース内容を確認中');
+      preview.innerHTML=`<b>${safeLabel}</b><span>${safePath}</span>`;
+      preview.classList.remove('is-empty','hidden');
+      preview.style.display='flex';
+      preview.style.visibility='visible';
+      preview.style.opacity='1';
+      preview.setAttribute('title',pathText||course.label||'代表コース');
     }else{
       preview.innerHTML='';
       preview.classList.add('is-empty');
-      preview.classList.add('hidden');
+      preview.classList.remove('hidden');
+      preview.style.display='none';
       preview.removeAttribute('title');
     }
   }
@@ -6839,6 +6848,23 @@ function pointForecastConfidence(result){
   const label={HIGH:'高',MEDIUM:'中',LOW:'低'}[level]||'中';
   return {level,label,reason:reasons.slice(0,3).join('・'),lead,modelCount:rows.length};
 }
+function routeForecastConfidence(points){
+  const items=(Array.isArray(points)?points:[]).map(pointForecastConfidence);
+  if(!items.length)return {level:'MEDIUM',label:'中',reason:'判定材料が不足'};
+  const rank={HIGH:1,MEDIUM:2,LOW:3};
+  const level=items.reduce((worst,x)=>(rank[x.level]||2)>(rank[worst]||2)?x.level:worst,'HIGH');
+  const worstItems=items.filter(x=>x.level===level);
+  const modelCounts=items.map(x=>x.modelCount).filter(Number.isFinite);
+  const minModels=modelCounts.length?Math.min(...modelCounts):0;
+  const maxLead=Math.max(...items.map(x=>Number(x.lead)||0));
+  const reasons=[];
+  if(level==='LOW')reasons.push('一部地点の不確実性が高め');
+  else if(level==='MEDIUM')reasons.push('一部地点に予報のばらつき');
+  else reasons.push('ルート全体で予報傾向が比較的一致');
+  if(minModels>0)reasons.push(`最少${minModels}モデル比較`);
+  reasons.push(maxLead===0?'当日予報':`${maxLead}日先を含む`);
+  return {level,label:{HIGH:'高',MEDIUM:'中',LOW:'低'}[level]||'中',reason:reasons.join('・'),items,worstItems};
+}
 function gradeRank(g){return({A:1,B:2,C:3,D:4,E:5})[g]||9;} function verdict(g){return({A:'かなり良好',B:'概ね登山可能',C:'注意が必要',D:'かなり厳しい',E:'中止推奨'})[g]||'–';}
 function maxThunder(v){const r={LOW:1,MEDIUM:2,HIGH:3,EXTREME:4};return [...v].sort((a,b)=>r[b]-r[a])[0]||'LOW';} function overallConfidence(v){return v.includes('LOW')||v.includes('FALLBACK')?'LOW':v.includes('MEDIUM')?'MEDIUM':'HIGH';}
 function num(v,d=1){return Number.isFinite(v)?v.toFixed(d):'–';}
@@ -7298,14 +7324,14 @@ function renderPointForecastTimeline(points){
 function renderAll(points,overnight=[]){
 
   $('results').classList.remove('hidden'); $('resultScreenshotToolbarDesktop')?.classList.remove('hidden'); renderWeatherCharts(points); renderDecisionCommentary(points); renderRouteMaps(points.map(x=>x.point)); const worst=points.reduce((a,b)=>gradeRank(b.grade)>gradeRank(a.grade)?b:a,points[0]);
-  const maxWindValue=max(points.flatMap(x=>x.providerRows.map(y=>y.row.wind))); const maxRainValue=max(points.flatMap(x=>x.providerRows.map(y=>y.row.rain))); const thunderLevel=maxThunder(points.map(x=>x.thunder)); const confidenceLevel=overallConfidence(points.map(x=>x.confidence));
+  const maxWindValue=max(points.flatMap(x=>x.providerRows.map(y=>y.row.wind))); const maxRainValue=max(points.flatMap(x=>x.providerRows.map(y=>y.row.rain))); const thunderLevel=maxThunder(points.map(x=>x.thunder)); const forecastConfidence=routeForecastConfidence(points); const confidenceLevel=forecastConfidence.level;
   $('grade').textContent=worst.grade; $('verdict').textContent=verdict(worst.grade);
   const gradeLabels={A:'EXCELLENT',B:'GOOD',C:'CAUTION',D:'HARD',E:'STOP'}; const verdictNotes={A:'全体としてかなり安定した予報です。',B:'一部に注意点はありますが、全体としては比較的安定しています。',C:'注意要素があります。通過時刻と場所を確認してください。',D:'強い気象リスクを含む計画です。見直しを推奨します。',E:'非常に強い気象リスクがあります。中止を含めて再検討してください。'};
   $('gradeLabel').textContent=gradeLabels[worst.grade]||'–'; $('verdictNote').textContent=verdictNotes[worst.grade]||'ルート全体の気象条件を確認してください。';
   $('maxWind').textContent=`${num(maxWindValue)} m/s`; $('maxWindLabel').textContent=maxWindValue<5?'弱い':maxWindValue<10?'やや強い':maxWindValue<15?'強い':'非常に強い';
   $('maxRain').textContent=`${num(maxRainValue)} mm/h`; $('maxRainLabel').textContent=maxRainValue<0.2?'ほとんどなし':maxRainValue<1?'弱い':maxRainValue<5?'雨に注意':'強い雨';
   $('thunderRisk').textContent=thunderLevel; $('thunderRiskLabel').textContent=({LOW:'低い',MEDIUM:'注意',HIGH:'高い',EXTREME:'非常に高い'})[thunderLevel]||'–';
-  $('confidence').textContent=confidenceLevel; $('confidenceLabel').textContent=({LOW:'低い',MEDIUM:'中程度',HIGH:'高い'})[confidenceLevel]||'–';
+  $('confidence').textContent=forecastConfidence.label; $('confidenceLabel').textContent=({LOW:'慎重に確認',MEDIUM:'まずまず',HIGH:'比較的安定'})[confidenceLevel]||'–'; const confidenceReason=$('confidenceReason'); if(confidenceReason)confidenceReason.textContent=forecastConfidence.reason;
   const setMarker=(id,pct)=>{const el=$(id);if(el)el.style.left=`${Math.max(2,Math.min(98,pct))}%`;}; setMarker('maxWindMarker',(maxWindValue/20)*100); setMarker('maxRainMarker',(maxRainValue/20)*100); setMarker('thunderMarker',({LOW:8,MEDIUM:38,HIGH:68,EXTREME:94})[thunderLevel]||8); setMarker('confidenceMarker',({LOW:8,MEDIUM:50,HIGH:94})[confidenceLevel]||8);
   renderPointForecastTimeline(points);
   const overnightWithArrival=overnight.map(o=>{const match=points.find(r=>r.point===o.point||(r.point.name===o.point.name&&r.point.date===o.point.date&&r.point.time===o.point.time));return {...o,arrivalTemp:match?.temp};});

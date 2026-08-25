@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import gzip
 import hmac
+import hashlib
 import heapq
 import json
 import math
@@ -27,7 +28,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.4.105"
+APP_VERSION = "1.4.108"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -118,7 +119,17 @@ _openmeteo_lock = threading.Lock()
 _openmeteo_last_request = 0.0
 OPENMETEO_MIN_INTERVAL = float(os.environ.get("OPENMETEO_MIN_INTERVAL", "3.2"))
 OPENMETEO_MAX_RETRIES = int(os.environ.get("OPENMETEO_MAX_RETRIES", "4"))
-NATIONAL_OUTLOOK_CACHE_TTL = int(os.environ.get("NATIONAL_OUTLOOK_CACHE_TTL", "3600"))
+OPENMETEO_PROXY_CACHE_TTL = int(os.environ.get("OPENMETEO_PROXY_CACHE_TTL", "1800"))
+NATIONAL_OUTLOOK_CACHE_TTL = int(os.environ.get("NATIONAL_OUTLOOK_CACHE_TTL", "14400"))
+NATIONAL_OUTLOOK_STALE_TTL = int(os.environ.get("NATIONAL_OUTLOOK_STALE_TTL", "86400"))
+NATIONAL_OUTLOOK_REFRESH_INTERVAL = int(os.environ.get("NATIONAL_OUTLOOK_REFRESH_INTERVAL", "900"))
+NATIONAL_OUTLOOK_CHUNK_SIZE = int(os.environ.get("NATIONAL_OUTLOOK_CHUNK_SIZE", "50"))
+NATIONAL_OUTLOOK_CACHE_DIR = os.environ.get("NATIONAL_OUTLOOK_CACHE_DIR", os.path.join(tempfile.gettempdir(), "traten-national-outlook"))
+os.makedirs(NATIONAL_OUTLOOK_CACHE_DIR, exist_ok=True)
+_national_point_cache: dict[str, tuple[float, dict[str, Any]]] = {}
+_national_point_cache_lock = threading.Lock()
+_national_refresh_thread_started = False
+_national_refresh_thread_lock = threading.Lock()
 
 TRAIL_DATA_DIR = os.path.join(BASE, "trail_data")
 TRAIL_GRAPH_CACHE_MAX = int(os.environ.get("TRAIL_GRAPH_CACHE_MAX", "2"))
@@ -833,20 +844,274 @@ def _national_grade(max_wind: float, max_gust: float, max_rain: float, max_cape:
         return "B", "6〜15時の一部で風または雨の影響が見込まれます。比較的よい時間帯を確認してください。"
     return "A", "6〜15時は風雨の大きな影響が比較的少なく、登山候補にしやすい条件です。詳細分析で最終確認してください。"
 
+def _national_points_fingerprint(points: list[dict[str, Any]]) -> str:
+    raw = "|".join(
+        f'{p["name"]}:{p["lat"]:.5f}:{p["lon"]:.5f}:{"" if p.get("elevation") is None else round(float(p["elevation"]))}'
+        for p in points
+    )
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:20]
+
+
+def _national_cache_file(date_text: str, fingerprint: str) -> str:
+    return os.path.join(NATIONAL_OUTLOOK_CACHE_DIR, f"{date_text}-{fingerprint}.json")
+
+
+def _national_read_disk_cache(date_text: str, fingerprint: str) -> tuple[dict[str, Any] | None, str | None]:
+    path = _national_cache_file(date_text, fingerprint)
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        return None, None
+    now = time.time()
+    fresh_until = float(data.get("fresh_until") or 0)
+    stale_until = float(data.get("stale_until") or 0)
+    if stale_until <= now:
+        try: os.unlink(path)
+        except OSError: pass
+        return None, None
+    return data, ("fresh" if fresh_until > now else "stale")
+
+
+def _national_write_disk_cache(date_text: str, fingerprint: str, points: list[dict[str, Any]], results: list[dict[str, Any]]) -> dict[str, Any]:
+    now = time.time()
+    data = {
+        "date": date_text,
+        "fingerprint": fingerprint,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_ts": now,
+        "fresh_until": now + NATIONAL_OUTLOOK_CACHE_TTL,
+        "stale_until": now + NATIONAL_OUTLOOK_STALE_TTL,
+        "points": points,
+        "results": results,
+        "version": APP_VERSION,
+    }
+    path = _national_cache_file(date_text, fingerprint)
+    tmp = path + f".{os.getpid()}.tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
+    os.replace(tmp, path)
+    return data
+
+
+def _national_lock_path(date_text: str, fingerprint: str) -> str:
+    return _national_cache_file(date_text, fingerprint) + ".lock"
+
+
+def _national_try_lock(date_text: str, fingerprint: str) -> bool:
+    path = _national_lock_path(date_text, fingerprint)
+    try:
+        os.mkdir(path)
+        with open(os.path.join(path, "owner"), "w", encoding="utf-8") as f:
+            f.write(f"{os.getpid()} {time.time()}")
+        return True
+    except FileExistsError:
+        try:
+            age = time.time() - os.path.getmtime(path)
+            if age > 180:
+                import shutil
+                shutil.rmtree(path, ignore_errors=True)
+                os.mkdir(path)
+                return True
+        except OSError:
+            pass
+        return False
+
+
+def _national_unlock(date_text: str, fingerprint: str) -> None:
+    import shutil
+    shutil.rmtree(_national_lock_path(date_text, fingerprint), ignore_errors=True)
+
+
+def _national_point_key(date_text: str, p: dict[str, Any]) -> str:
+    return f'{date_text}:{p["lat"]:.5f}:{p["lon"]:.5f}:{"" if p.get("elevation") is None else round(float(p["elevation"]))}'
+
+
+def _national_point_cache_get(date_text: str, p: dict[str, Any]) -> dict[str, Any] | None:
+    key = _national_point_key(date_text, p)
+    now = time.time()
+    with _national_point_cache_lock:
+        item = _national_point_cache.get(key)
+        if not item: return None
+        expires, result = item
+        if expires <= now:
+            _national_point_cache.pop(key, None)
+            return None
+        return dict(result)
+
+
+def _national_point_cache_put(date_text: str, p: dict[str, Any], result: dict[str, Any]) -> None:
+    key = _national_point_key(date_text, p)
+    with _national_point_cache_lock:
+        _national_point_cache[key] = (time.time() + NATIONAL_OUTLOOK_CACHE_TTL, dict(result))
+        if len(_national_point_cache) > 2500:
+            oldest = sorted(_national_point_cache.items(), key=lambda kv: kv[1][0])[:500]
+            for k, _ in oldest: _national_point_cache.pop(k, None)
+
+
+def _request_openmeteo_national_once(url: str, timeout: int = UPSTREAM_TIMEOUT):
+    """One Open-Meteo attempt for national refresh. 429 is not retried here.
+    National outlook must stop immediately and fall back to the last-good cache.
+    """
+    global _openmeteo_last_request
+    with _openmeteo_lock:
+        wait = OPENMETEO_MIN_INTERVAL - (time.monotonic() - _openmeteo_last_request)
+        if wait > 0: time.sleep(wait)
+        req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return resp.status, resp.headers.get("Content-Type", "application/json"), resp.read()
+        finally:
+            _openmeteo_last_request = time.monotonic()
+
+
+def _national_result_from_forecast(p: dict[str, Any], forecast: dict[str, Any]) -> dict[str, Any] | None:
+    hourly=forecast.get("hourly") or {}; times=hourly.get("time") or []
+    idx=[i for i,t in enumerate(times) if isinstance(t,str) and len(t)>=13 and 6 <= int(t[11:13]) <= 15]
+    def vals(k):
+        a=hourly.get(k) or []; out=[]
+        for i in idx:
+            try:v=float(a[i])
+            except (TypeError,ValueError,IndexError):continue
+            if math.isfinite(v):out.append(v)
+        return out
+    wind=vals("wind_speed_10m"); gust=vals("wind_gusts_10m"); rain=vals("precipitation"); cape=vals("cape"); temp=vals("temperature_2m"); vis=vals("visibility")
+    if not (wind and rain and temp): return None
+    max_w=max(wind); max_g=max(gust) if gust else max_w; max_r=max(rain); max_c=max(cape) if cape else 0; min_t=min(temp); min_v=min(vis) if vis else None
+    caution_hours=severe_hours=extreme_hours=0
+    for i in idx:
+        def hv(k, default=None):
+            a=hourly.get(k) or []
+            try:
+                v=float(a[i]); return v if math.isfinite(v) else default
+            except (TypeError,ValueError,IndexError): return default
+        w=hv("wind_speed_10m",0); r=hv("precipitation",0)
+        extreme = w>=18 or r>=8
+        severe = w>=13 or r>=3
+        caution = w>=8 or r>=0.8
+        if extreme: extreme_hours+=1
+        if severe: severe_hours+=1
+        if caution: caution_hours+=1
+    grade,summary=_national_grade(max_w,max_g,max_r,max_c,min_t,min_v,caution_hours=caution_hours,severe_hours=severe_hours,extreme_hours=extreme_hours)
+    thunder="HIGH" if max_c>=700 else "MEDIUM" if max_c>=300 else "LOW"
+    return {"name":p["name"],"grade":grade,"summary":summary,"maxWind":round(max_w,1),"maxGust":round(max_g,1),"maxRain":round(max_r,1),"maxCape":round(max_c),"minTemp":round(min_t,1),"minVisibility":round(min_v) if min_v is not None else None,"thunder":thunder,"cautionHours":caution_hours,"severeHours":severe_hours}
+
+
+def _national_fetch_shared(date_text: str, points: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], bool, bool, str | None]:
+    results_by_name: dict[str, dict[str, Any]] = {}
+    missing=[]
+    for p in points:
+        cached=_national_point_cache_get(date_text,p)
+        if cached:
+            cached["name"]=p["name"]
+            results_by_name[p["name"]]=cached
+        else:
+            missing.append(p)
+    hourly_vars="temperature_2m,precipitation,cloud_cover,wind_speed_10m,wind_gusts_10m,cape,visibility"
+    for start in range(0,len(missing),NATIONAL_OUTLOOK_CHUNK_SIZE):
+        chunk=missing[start:start+NATIONAL_OUTLOOK_CHUNK_SIZE]
+        params={
+            "latitude":",".join(f'{p["lat"]:.5f}' for p in chunk),
+            "longitude":",".join(f'{p["lon"]:.5f}' for p in chunk),
+            "hourly":hourly_vars,"start_date":date_text,"end_date":date_text,
+            "timezone":"Asia/Tokyo","wind_speed_unit":"ms"
+        }
+        if all(p["elevation"] is not None for p in chunk): params["elevation"]=",".join(f'{p["elevation"]:.0f}' for p in chunk)
+        url="https://api.open-meteo.com/v1/forecast?"+urllib.parse.urlencode(params)
+        try:
+            status,ctype,body=_request_openmeteo_national_once(url)
+        except urllib.error.HTTPError as exc:
+            if exc.code == 429:
+                return list(results_by_name.values()), False, True, "Open-Meteo HTTP 429"
+            return list(results_by_name.values()), False, False, f"Open-Meteo HTTP {exc.code}"
+        except Exception as exc:
+            return list(results_by_name.values()), False, False, str(exc)
+        if status != 200: return list(results_by_name.values()), False, status==429, f"Open-Meteo HTTP {status}"
+        try:
+            data=json.loads(body.decode("utf-8"))
+        except Exception as exc:
+            return list(results_by_name.values()), False, False, f"Open-Meteo JSON error: {exc}"
+        rows=data if isinstance(data,list) else [data]
+        if len(rows) != len(chunk): return list(results_by_name.values()), False, False, "Open-Meteo response size mismatch"
+        for p,forecast in zip(chunk,rows):
+            result=_national_result_from_forecast(p,forecast)
+            if result:
+                results_by_name[p["name"]]=result
+                _national_point_cache_put(date_text,p,result)
+    ordered=[results_by_name[p["name"]] for p in points if p["name"] in results_by_name]
+    return ordered, len(ordered)==len(points), False, None
+
+
+def _national_response(data: dict[str, Any], state: str, *, rate_limited: bool=False, warning: str | None=None) -> Response:
+    now=time.time(); generated=float(data.get("generated_ts") or now)
+    payload={
+        "date":data.get("date"), "results":data.get("results") or [], "version":APP_VERSION,
+        "complete":len(data.get("results") or []) >= len(data.get("points") or []),
+        "cache":{"state":state,"generatedAt":data.get("generated_at"),"ageSeconds":max(0,round(now-generated)),"freshTtlSeconds":NATIONAL_OUTLOOK_CACHE_TTL},
+        "rateLimited":bool(rate_limited),
+    }
+    if warning: payload["warning"]=warning
+    body=json.dumps(payload,ensure_ascii=False).encode("utf-8")
+    resp=Response(body,status=200,content_type="application/json; charset=utf-8")
+    resp.headers["Cache-Control"]="no-store"
+    resp.headers["X-Traten-National-Cache"]=state
+    return resp
+
+
+def _ensure_national_refresh_worker() -> None:
+    global _national_refresh_thread_started
+    with _national_refresh_thread_lock:
+        if _national_refresh_thread_started: return
+        _national_refresh_thread_started=True
+    def worker():
+        while True:
+            time.sleep(max(300,NATIONAL_OUTLOOK_REFRESH_INTERVAL))
+            try:
+                files=[os.path.join(NATIONAL_OUTLOOK_CACHE_DIR,n) for n in os.listdir(NATIONAL_OUTLOOK_CACHE_DIR) if n.endswith('.json')]
+                now=time.time()
+                for path in files:
+                    try:
+                        with open(path,'r',encoding='utf-8') as f: data=json.load(f)
+                        if float(data.get('stale_until') or 0)<=now: continue
+                        if float(data.get('fresh_until') or 0)>now: continue
+                        date_text=str(data.get('date') or '')
+                        points=data.get('points') or []
+                        fp=str(data.get('fingerprint') or '')
+                        if not date_text or not fp or not points: continue
+                        try:
+                            target_date=datetime.strptime(date_text,'%Y-%m-%d').date()
+                            today_jst=(datetime.now(timezone.utc)+timedelta(hours=9)).date()
+                            if target_date < today_jst or target_date > today_jst + timedelta(days=15): continue
+                        except ValueError:
+                            continue
+                        if not _national_try_lock(date_text,fp): continue
+                        try:
+                            latest,state=_national_read_disk_cache(date_text,fp)
+                            if state=='fresh': continue
+                            results,complete,rate_limited,error=_national_fetch_shared(date_text,points)
+                            if complete:
+                                _national_write_disk_cache(date_text,fp,points,results)
+                            if rate_limited:
+                                break
+                        finally:
+                            _national_unlock(date_text,fp)
+                    except Exception:
+                        continue
+            except Exception:
+                continue
+    threading.Thread(target=worker,name='traten-national-refresh',daemon=True).start()
+
+
 @app.post("/api/national-outlook")
 def national_outlook():
     payload = request.get_json(silent=True) or {}
     date_text = str(payload.get("date") or "")[:10]
-    try:
-        target = datetime.strptime(date_text, "%Y-%m-%d").date()
-    except ValueError:
-        return jsonify(error="日付が不正です"), 400
+    try: target = datetime.strptime(date_text, "%Y-%m-%d").date()
+    except ValueError: return jsonify(error="日付が不正です"), 400
     today_jst = (datetime.now(timezone.utc) + timedelta(hours=9)).date()
-    if target < today_jst or target > today_jst + timedelta(days=15):
-        return jsonify(error="全国判定は今日から15日先までです"), 400
+    if target < today_jst or target > today_jst + timedelta(days=15): return jsonify(error="全国判定は今日から15日先までです"), 400
     raw_points = payload.get("points")
-    if not isinstance(raw_points, list) or not raw_points or len(raw_points) > 300:
-        return jsonify(error="判定地点数が不正です"), 400
+    if not isinstance(raw_points, list) or not raw_points or len(raw_points) > 300: return jsonify(error="判定地点数が不正です"), 400
     points=[]
     for x in raw_points:
         if not isinstance(x, dict): continue
@@ -858,76 +1123,41 @@ def national_outlook():
         except (TypeError,ValueError): elev=None
         points.append({"name":name,"lat":lat,"lon":lon,"elevation":elev})
     if not points: return jsonify(error="有効な地点がありません"), 400
-    key=f"national-outlook:{APP_VERSION}:"+date_text+":"+"|".join(f'{p["name"]}:{p["lat"]:.4f}:{p["lon"]:.4f}' for p in points)
-    cached=_cache_get(key)
-    if cached:
-        status,ctype,body=cached
-        return Response(body,status=status,content_type=ctype)
-    results=[]
-    hourly_vars="temperature_2m,precipitation,cloud_cover,wind_speed_10m,wind_gusts_10m,cape,visibility"
+
+    fingerprint=_national_points_fingerprint(points)
+    cached,state=_national_read_disk_cache(date_text,fingerprint)
+    _ensure_national_refresh_worker()
+    if cached and state=='fresh':
+        return _national_response(cached,'shared-fresh')
+
+    stale=cached if cached and state=='stale' else None
+    if not _national_try_lock(date_text,fingerprint):
+        # Another worker/user is already refreshing this date. Prefer the last-good shared result.
+        if stale: return _national_response(stale,'shared-stale-refreshing',warning='共有キャッシュを更新中のため、直近の成功結果を表示しています。')
+        # Briefly wait for the first generator, then re-check once.
+        for _ in range(12):
+            time.sleep(0.5)
+            ready,ready_state=_national_read_disk_cache(date_text,fingerprint)
+            if ready and ready_state=='fresh': return _national_response(ready,'shared-fresh')
+        return jsonify(error="全国共有キャッシュを生成中です。数秒後に再度お試しください。"), 503
+
     try:
-        for start in range(0,len(points),50):
-            chunk=points[start:start+50]
-            params={
-                "latitude":",".join(f'{p["lat"]:.5f}' for p in chunk),
-                "longitude":",".join(f'{p["lon"]:.5f}' for p in chunk),
-                "hourly":hourly_vars,"start_date":date_text,"end_date":date_text,
-                "timezone":"Asia/Tokyo","wind_speed_unit":"ms"
-            }
-            if all(p["elevation"] is not None for p in chunk): params["elevation"]=",".join(f'{p["elevation"]:.0f}' for p in chunk)
-            url="https://api.open-meteo.com/v1/forecast?"+urllib.parse.urlencode(params)
-            chunk_key="national-upstream:v1499:"+date_text+":"+"|".join(f'{p["name"]}:{p["lat"]:.4f}:{p["lon"]:.4f}' for p in chunk)
-            chunk_cached=_cache_get(chunk_key)
-            if chunk_cached:
-                status,ctype,body=chunk_cached
-            else:
-                status,ctype,body=_request_url(url)
-                if status == 200:
-                    _cache_put(chunk_key, status, ctype, body, ttl=NATIONAL_OUTLOOK_CACHE_TTL)
-            if status != 200: raise RuntimeError(f"Open-Meteo HTTP {status}")
-            data=json.loads(body.decode("utf-8"))
-            rows=data if isinstance(data,list) else [data]
-            if len(rows) != len(chunk): raise RuntimeError("Open-Meteo response size mismatch")
-            for p,forecast in zip(chunk,rows):
-                hourly=forecast.get("hourly") or {}; times=hourly.get("time") or []
-                idx=[i for i,t in enumerate(times) if isinstance(t,str) and len(t)>=13 and 6 <= int(t[11:13]) <= 15]
-                def vals(k):
-                    a=hourly.get(k) or []
-                    out=[]
-                    for i in idx:
-                        try:v=float(a[i])
-                        except (TypeError,ValueError,IndexError):continue
-                        if math.isfinite(v):out.append(v)
-                    return out
-                wind=vals("wind_speed_10m"); gust=vals("wind_gusts_10m"); rain=vals("precipitation"); cape=vals("cape"); temp=vals("temperature_2m"); vis=vals("visibility")
-                if not (wind and rain and temp): continue
-                max_w=max(wind); max_g=max(gust) if gust else max_w; max_r=max(rain); max_c=max(cape) if cape else 0; min_t=min(temp); min_v=min(vis) if vis else None
-                caution_hours=severe_hours=extreme_hours=0
-                for i in idx:
-                    def hv(k, default=None):
-                        a=hourly.get(k) or []
-                        try:
-                            v=float(a[i])
-                            return v if math.isfinite(v) else default
-                        except (TypeError,ValueError,IndexError):
-                            return default
-                    w=hv("wind_speed_10m",0); g=hv("wind_gusts_10m",w); r=hv("precipitation",0); cp=hv("cape",0); tp=hv("temperature_2m",99); vv=hv("visibility",None)
-                    # V1.4.79: ABCは風・雨を主軸にする。突風/CAPE/視界/低温は表示上の注意情報。
-                    # 10m平均風を中心にし、瞬間的な突風だけではC判定にしない。
-                    extreme = w>=18 or r>=8
-                    severe = w>=13 or r>=3
-                    caution = w>=8 or r>=0.8
-                    if extreme: extreme_hours+=1
-                    if severe: severe_hours+=1
-                    if caution: caution_hours+=1
-                grade,summary=_national_grade(max_w,max_g,max_r,max_c,min_t,min_v,caution_hours=caution_hours,severe_hours=severe_hours,extreme_hours=extreme_hours)
-                thunder="HIGH" if max_c>=700 else "MEDIUM" if max_c>=300 else "LOW"
-                results.append({"name":p["name"],"grade":grade,"summary":summary,"maxWind":round(max_w,1),"maxGust":round(max_g,1),"maxRain":round(max_r,1),"maxCape":round(max_c),"minTemp":round(min_t,1),"minVisibility":round(min_v) if min_v is not None else None,"thunder":thunder,"cautionHours":caution_hours,"severeHours":severe_hours})
-    except Exception as exc:
-        return jsonify(error=f"全国簡易予報の取得に失敗しました: {exc}"), 502
-    payload_out=json.dumps({"date":date_text,"results":results,"version":APP_VERSION},ensure_ascii=False).encode("utf-8")
-    _cache_put(key,200,"application/json; charset=utf-8",payload_out,ttl=NATIONAL_OUTLOOK_CACHE_TTL)
-    return Response(payload_out,status=200,content_type="application/json; charset=utf-8")
+        # Re-check after acquiring the cross-worker lock.
+        ready,ready_state=_national_read_disk_cache(date_text,fingerprint)
+        if ready and ready_state=='fresh': return _national_response(ready,'shared-fresh')
+        if ready and ready_state=='stale': stale=ready
+        results,complete,rate_limited,error=_national_fetch_shared(date_text,points)
+        if complete:
+            data=_national_write_disk_cache(date_text,fingerprint,points,results)
+            return _national_response(data,'live-generated')
+        if stale:
+            warning='Open-Meteoの取得制限に達したため、直近の成功キャッシュを表示しています。' if rate_limited else f'最新取得に失敗したため、直近の成功キャッシュを表示しています。{error or ""}'
+            return _national_response(stale,'shared-stale',rate_limited=rate_limited,warning=warning)
+        # First-ever request has no last-good cache. Keep any completed point results instead of total failure.
+        partial={"date":date_text,"generated_at":datetime.now(timezone.utc).isoformat(),"generated_ts":time.time(),"points":points,"results":results}
+        return _national_response(partial,'partial',rate_limited=rate_limited,warning=(error or '一部地点のみ取得できました。'))
+    finally:
+        _national_unlock(date_text,fingerprint)
 
 @app.get("/api/health")
 def health():
@@ -1056,8 +1286,10 @@ def proxy():
             return _bytes_response(status, ctype, body, cache_control="public, max-age=60")
 
         status, ctype, body = _request_url(url)
-        _cache_put("get:" + url, status, ctype, body)
-        return _bytes_response(status, ctype, body, cache_control="public, max-age=60")
+        is_openmeteo = (target.hostname or "").endswith("open-meteo.com")
+        ttl = OPENMETEO_PROXY_CACHE_TTL if is_openmeteo else None
+        _cache_put("get:" + url, status, ctype, body, ttl=ttl)
+        return _bytes_response(status, ctype, body, cache_control=("public, max-age=300" if is_openmeteo else "public, max-age=60"))
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")[:1200]
         # Preserve the upstream status so the frontend can distinguish
