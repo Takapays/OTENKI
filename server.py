@@ -29,7 +29,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.4.162"
+APP_VERSION = "1.4.165"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -1785,6 +1785,16 @@ def usage_dashboard():
     if not _dashboard_auth_ok():
         return _dashboard_unauthorized()
     response = send_from_directory(BASE, "usage-dashboard.html")
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["X-Robots-Tag"] = "noindex, nofollow"
+    return response
+
+
+@app.get("/data-audit")
+def data_audit():
+    if not _dashboard_auth_ok():
+        return _dashboard_unauthorized()
+    response = send_from_directory(BASE, "data-audit.html")
     response.headers["Cache-Control"] = "no-store"
     response.headers["X-Robots-Tag"] = "noindex, nofollow"
     return response

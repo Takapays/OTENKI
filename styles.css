@@ -3900,3 +3900,19 @@ body.install-guide-open{overflow:hidden}
 /* V1.4.162 mountain guide summary */
 .national-guide-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 13px}.national-guide-item{min-width:0;border:1px solid #dfeae4;background:#fbfdfc;border-radius:12px;padding:9px 10px}.national-guide-item.wide{grid-column:1/-1}.national-guide-item>span{display:block;font-size:9px;color:#71877d;font-weight:850;letter-spacing:.02em}.national-guide-item>strong{display:block;margin-top:3px;color:#173f2f;font-size:13px;line-height:1.35;overflow-wrap:anywhere}.national-guide-item>small{display:block;margin-top:3px;color:#8a9d94;font-size:8px;line-height:1.35}
 @media(max-width:520px){.national-guide-grid{gap:6px}.national-guide-item{padding:8px}.national-guide-item>strong{font-size:12px}}
+
+
+/* V1.4.167 - walking pace control + simplified mountain honor + guide actions */
+.walking-pace-control{margin-top:10px;padding:11px 12px;border:1px solid #d7e4dd;border-radius:12px;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:14px}
+.walking-pace-copy{display:grid;gap:2px;min-width:0}.walking-pace-copy>span{font-size:12px;font-weight:900;color:#274b3d}.walking-pace-copy small{font-size:10px;line-height:1.45;color:#72867d}
+.walking-pace-input{display:flex;align-items:center;gap:9px;min-width:190px}.walking-pace-input input{width:140px;accent-color:#2f7c5d}.walking-pace-input output{min-width:46px;font-size:13px;font-weight:950;color:#214c3a;text-align:right}
+.national-honor-badge{padding:4px 9px!important}.national-honor-badge b{display:none!important}.national-honor-badge small{font-size:10px!important}
+.national-rich-actions{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:stretch;margin:12px 0}.national-rich-actions .national-rich-cta{margin:0!important}.national-rich-actions .national-wikipedia-link{display:flex;align-items:center;justify-content:center;min-height:44px;padding:0 12px;border:1px solid #cdded5;border-radius:11px;background:#fff;font-weight:850;text-decoration:none;color:#315f4d;white-space:nowrap}
+@media(max-width:700px){.walking-pace-control{display:grid;gap:9px}.walking-pace-input{min-width:0;width:100%}.walking-pace-input input{width:100%}.national-rich-actions{grid-template-columns:1fr}.national-rich-actions .national-wikipedia-link{min-height:42px}}
+
+/* V1.4.168 - mountain information shortcut beside mountain selector */
+.mountain-select-with-info{display:flex;align-items:stretch;gap:8px;width:100%;min-width:0}
+.mountain-select-with-info select{flex:1 1 auto;min-width:0}
+.mountain-info-btn{flex:0 0 auto;min-height:46px;padding:0 14px;border-radius:12px;white-space:nowrap;font-weight:850}
+@media(max-width:760px){.mountain-select-with-info{gap:7px}.mountain-info-btn{min-height:48px;padding:0 12px;font-size:14px}}
+@media(min-width:1100px){.planner-rail .mountain-info-btn{min-height:38px;height:38px;padding:0 11px;font-size:12px;border-radius:10px}}
