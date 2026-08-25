@@ -3305,7 +3305,47 @@ body.install-guide-open{overflow:hidden}
 }
 
 @media(min-width:901px) and (max-width:1120px){.topbar-badges span:nth-child(3){display:inline-flex!important}}
-\n\n/* V1.4.80 PC ROUTE PLAN vertical compaction */\n@media (min-width:901px){\n  .planner-rail .plan-panel{padding:18px 19px 19px;}\n  .planner-rail .panel-kicker{margin-bottom:5px;}\n  .planner-rail .compact-title{margin-bottom:10px;}\n  .planner-rail .section-title{gap:9px;}\n  .planner-rail .section-title>span{width:34px;height:34px;min-width:34px;}\n  .planner-rail .section-title h2{font-size:20px;line-height:1.15;}\n  .planner-rail .section-title p{margin-top:2px;font-size:11px;line-height:1.35;}\n  .planner-rail .last-analysis-panel{margin-top:9px;padding:10px 11px;gap:7px;}\n  .planner-rail .last-analysis-actions button{min-height:38px;}\n  .planner-rail .last-analysis-panel p{line-height:1.35;}\n  .planner-rail .mountain-row{padding:11px 12px;border-radius:14px;}\n  .planner-rail .mountain-picker-dual{gap:7px!important;}\n  .planner-rail .mountain-area-label,.planner-rail .mountain-select-label,.planner-rail .mountain-search-label{font-size:10px;line-height:1.25;}\n  .planner-rail .mountain-area-label select,.planner-rail .mountain-select-label select,.planner-rail .mountain-search-label input[type=search]{min-height:38px;height:38px;font-size:13px;}\n  .planner-rail .mountain-count{margin-top:6px;line-height:1.3;}\n  .planner-rail .state{padding-top:4px;line-height:1.3;}\n  .planner-rail .mountain-route-load-primary{margin-top:7px;}\n  .planner-rail .mountain-route-load-primary #loadPoiBtn{min-height:39px!important;font-size:13px;}\n  .planner-rail .mountain-route-actions{margin-top:6px;gap:6px;}\n  .planner-rail .mountain-route-actions #representativeCourseBtn,.planner-rail .representative-course-select{min-height:34px;height:34px;}\n  .planner-rail .representative-course-choice{padding:5px 10px;font-size:11px;}\n  .planner-rail .representative-course-preview:not(.hidden){padding:5px 8px;line-height:1.3;}\n  .planner-rail .points-head{margin-top:11px;}\n  .planner-rail .points-head h3{font-size:16px;}\n  .planner-rail .points-head small{margin-top:2px;font-size:10px;}\n  .planner-rail .points{gap:6px;}\n  .planner-rail .point-row{padding:8px 9px!important;gap:5px 7px!important;border-radius:12px!important;}\n  .planner-rail .point-row select,.planner-rail .point-row input{min-height:36px;height:36px;font-size:12px;}\n  .planner-rail .date-picker-btn{height:36px;min-height:36px;}\n  .planner-rail .stay-toggle{min-height:36px;}\n  .planner-rail .point-meta{padding-top:0!important;line-height:1.25!important;}\n  .planner-rail .move,.planner-rail .remove{min-height:32px!important;padding:4px!important;}\n  .planner-rail .route-actions{gap:8px;margin-top:12px;}\n  .planner-rail .route-actions #addPointBtn{min-height:38px;}\n  .planner-rail .route-actions #analyzeBtn{min-height:42px;padding:10px 16px;}\n}\n
+
+
+/* V1.4.80 PC ROUTE PLAN vertical compaction */
+@media (min-width:901px){
+  .planner-rail .plan-panel{padding:18px 19px 19px;}
+  .planner-rail .panel-kicker{margin-bottom:5px;}
+  .planner-rail .compact-title{margin-bottom:10px;}
+  .planner-rail .section-title{gap:9px;}
+  .planner-rail .section-title>span{width:34px;height:34px;min-width:34px;}
+  .planner-rail .section-title h2{font-size:20px;line-height:1.15;}
+  .planner-rail .section-title p{margin-top:2px;font-size:11px;line-height:1.35;}
+  .planner-rail .last-analysis-panel{margin-top:9px;padding:10px 11px;gap:7px;}
+  .planner-rail .last-analysis-actions button{min-height:38px;}
+  .planner-rail .last-analysis-panel p{line-height:1.35;}
+  .planner-rail .mountain-row{padding:11px 12px;border-radius:14px;}
+  .planner-rail .mountain-picker-dual{gap:7px!important;}
+  .planner-rail .mountain-area-label,.planner-rail .mountain-select-label,.planner-rail .mountain-search-label{font-size:10px;line-height:1.25;}
+  .planner-rail .mountain-area-label select,.planner-rail .mountain-select-label select,.planner-rail .mountain-search-label input[type=search]{min-height:38px;height:38px;font-size:13px;}
+  .planner-rail .mountain-count{margin-top:6px;line-height:1.3;}
+  .planner-rail .state{padding-top:4px;line-height:1.3;}
+  .planner-rail .mountain-route-load-primary{margin-top:7px;}
+  .planner-rail .mountain-route-load-primary #loadPoiBtn{min-height:39px!important;font-size:13px;}
+  .planner-rail .mountain-route-actions{margin-top:6px;gap:6px;}
+  .planner-rail .mountain-route-actions #representativeCourseBtn,.planner-rail .representative-course-select{min-height:34px;height:34px;}
+  .planner-rail .representative-course-choice{padding:5px 10px;font-size:11px;}
+  .planner-rail .representative-course-preview:not(.hidden){padding:5px 8px;line-height:1.3;}
+  .planner-rail .points-head{margin-top:11px;}
+  .planner-rail .points-head h3{font-size:16px;}
+  .planner-rail .points-head small{margin-top:2px;font-size:10px;}
+  .planner-rail .points{gap:6px;}
+  .planner-rail .point-row{padding:8px 9px!important;gap:5px 7px!important;border-radius:12px!important;}
+  .planner-rail .point-row select,.planner-rail .point-row input{min-height:36px;height:36px;font-size:12px;}
+  .planner-rail .date-picker-btn{height:36px;min-height:36px;}
+  .planner-rail .stay-toggle{min-height:36px;}
+  .planner-rail .point-meta{padding-top:0!important;line-height:1.25!important;}
+  .planner-rail .move,.planner-rail .remove{min-height:32px!important;padding:4px!important;}
+  .planner-rail .route-actions{gap:8px;margin-top:12px;}
+  .planner-rail .route-actions #addPointBtn{min-height:38px;}
+  .planner-rail .route-actions #analyzeBtn{min-height:42px;padding:10px 16px;}
+}
+
 
 /* V1.4.81 National Outlook rich detail panel */
 .national-outlook-body{grid-template-columns:minmax(0,1fr) 360px;align-items:start}
@@ -3429,3 +3469,66 @@ body.install-guide-open{overflow:hidden}
 @media (min-width:901px){.planner-rail .stay-departure{grid-column:2/5!important;grid-template-columns:74px minmax(0,160px);justify-content:start}.planner-rail .stay-departure-time{min-height:36px!important;height:36px!important;font-size:12px!important}}
 @media (max-width:900px){.planner-rail .stay-departure{grid-column:2!important;grid-template-columns:74px minmax(0,1fr)}}
 @media (max-width:430px){.planner-rail .stay-departure{grid-template-columns:68px minmax(0,1fr)}.planner-rail .stay-departure .field-caption{font-size:13px}}
+
+
+/* V1.4.93: 10-minute time picker + official hut homepage */
+.planner-rail .hut-home-row{grid-column:2/5!important;display:flex;justify-content:flex-start;align-items:center;min-width:0;margin:0}
+.planner-rail .hut-home-row.hidden{display:none!important}
+.planner-rail .hut-home-link{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:34px;padding:6px 12px;border:1px solid #b8d8c8;border-radius:9px;background:#eef8f3;color:#176b49;font-size:11px;font-weight:900;text-decoration:none;white-space:nowrap}
+.planner-rail .hut-home-link:hover{background:#e3f4eb;border-color:#79b899;color:#105d3e}
+.planner-rail .hut-home-link:focus-visible{outline:3px solid rgba(36,156,107,.18);outline-offset:2px}
+@media(max-width:900px){.planner-rail .hut-home-row{grid-column:2!important}.planner-rail .hut-home-link{min-height:40px;font-size:13px;padding:8px 14px}}
+
+
+/* V1.4.94: reliable PC representative-course summary beside the load button */
+@media (min-width:701px){
+  .planner-rail .mountain-route-actions{
+    display:flex!important;
+    flex-wrap:wrap!important;
+    align-items:stretch!important;
+    gap:7px 9px!important;
+    min-width:0!important;
+  }
+  .planner-rail .mountain-route-actions #representativeCourseBtn{
+    flex:0 0 190px!important;
+    width:190px!important;
+    min-width:170px!important;
+    min-height:38px!important;
+    height:auto!important;
+    margin:0!important;
+  }
+  .planner-rail .representative-course-preview:not(.hidden){
+    flex:1 1 0!important;
+    display:flex!important;
+    flex-direction:column!important;
+    justify-content:center!important;
+    min-width:0!important;
+    min-height:38px!important;
+    margin:0!important;
+    padding:6px 10px!important;
+    box-sizing:border-box!important;
+    overflow:hidden!important;
+  }
+  .planner-rail .representative-course-preview b,
+  .planner-rail .representative-course-preview span{
+    display:block!important;
+    min-width:0!important;
+    white-space:nowrap!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+  }
+  .planner-rail .representative-course-preview b{font-size:10px!important;line-height:1.2!important}
+  .planner-rail .representative-course-preview span{font-size:10px!important;line-height:1.35!important}
+  .planner-rail .representative-course-choices:not(.hidden){
+    flex:0 0 100%!important;
+    width:100%!important;
+    order:3!important;
+    margin-top:0!important;
+  }
+}
+@media (max-width:700px){
+  .planner-rail .mountain-route-actions{display:flex!important;flex-direction:column!important;gap:8px!important}
+  .planner-rail .mountain-route-actions #representativeCourseBtn,
+  .planner-rail .representative-course-preview:not(.hidden),
+  .planner-rail .representative-course-choices:not(.hidden){width:100%!important;flex:none!important}
+}
