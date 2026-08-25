@@ -139,7 +139,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.153';
+const APP_VERSION = '1.4.160';
 
 
 
@@ -1693,7 +1693,7 @@ const providers = [
   {id:'gfs',name:'GFS',kind:'openmeteo',endpoint:'https://api.open-meteo.com/v1/gfs',forecastDays:16,vars:['temperature_2m','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_gusts_10m','wind_direction_10m','cape','visibility','freezing_level_height']},
   {id:'icon',name:'ICON',kind:'openmeteo',endpoint:'https://api.open-meteo.com/v1/dwd-icon',forecastDays:8,vars:['temperature_2m','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_gusts_10m','wind_direction_10m','cape','visibility','freezing_level_height']}
 ];
-const TYPE_LABEL={trailhead:'登山口・下山口',peak:'山頂',hut:'山小屋・避難小屋'};
+const TYPE_LABEL={trailhead:'登山口・下山口',peak:'山頂',hut:'山小屋・避難小屋',pass:'峠・分岐',camp:'テント場'};
 const ROUTE_MAP_DEFAULT_VIEW=[36.2,138.2];
 const routeMapViews={};
 const MOUNTAIN_PRESETS = {
@@ -2064,6 +2064,35 @@ const JAPAN_300_MOUNTAINS = [
   "開聞岳",
   "宮ノ浦岳"
 ];
+
+// V1.4.154: 全国分析の山紹介ページに、日本百名山・二百名山・三百名山の称号バッジを表示。
+// 日本二百名山は「日本百名山100座 + 追加100座」のうち、全国三百名山に含まれる追加99座を保持する。
+const JAPAN_100_MOUNTAINS = new Set([
+  '利尻山','羅臼岳','斜里岳','雄阿寒岳','大雪山（旭岳）','トムラウシ山','十勝岳','幌尻岳','後方羊蹄山',
+  '岩木山','八甲田山','八幡平','岩手山','早池峰山','鳥海山','月山','大朝日岳','蔵王山（熊野岳）','飯豊山','西吾妻山','安達太良山','磐梯山','会津駒ヶ岳','越後駒ヶ岳','平ヶ岳','巻機山','燧ヶ岳','至仏山','谷川岳','苗場山','妙高山','火打山','雨飾山','高妻山',
+  '男体山','奥白根山','三本槍岳','皇海山','武尊山','赤城山（黒檜山）','草津白根山','四阿山','浅間山','筑波山','塔ノ岳','両神山','雲取山','甲武信ヶ岳','金峰山','瑞牆山','大菩薩嶺',
+  '白馬岳','五竜岳','鹿島槍ヶ岳','剱岳','立山','薬師岳','黒部五郎岳','水晶岳（黒岳）','鷲羽岳','槍ヶ岳','奥穂高岳','常念岳','笠ヶ岳（岐阜）','焼岳','乗鞍岳',
+  '木曽駒ヶ岳','空木岳','恵那山',
+  '甲斐駒ヶ岳','仙丈ヶ岳','地蔵岳(鳳凰)','北岳','間ノ岳','塩見岳','荒川岳','赤石岳','聖岳','光岳',
+  '御嶽','美ヶ原','霧ヶ峰（車山）','蓼科山','八ヶ岳（赤岳）','白山','荒島岳','富士山','天城山（万三郎岳）',
+  '伊吹山','日出ヶ岳','八経ヶ岳','大山（鳥取）','剣山','石鎚山','久住山','祖母山','阿蘇山（高岳）','霧島山（韓国岳）','開聞岳','宮ノ浦岳'
+]);
+const JAPAN_200_ADDITIONAL_MOUNTAINS = new Set([
+  '天塩岳','石狩岳','ニペソツ山','カムイエクウチカウシ山','ペテガリ岳','芦別岳','夕張岳','暑寒別岳','樽前山','渡島駒ヶ岳',
+  '白神岳','姫神山','秋田駒ヶ岳','和賀岳','焼石岳','栗駒山','神室山','森吉山','以東岳','船形山','帝釈山','会津朝日岳',
+  '女峰山','仙ノ倉山','浅間隠山','榛名山（榛名富士）','妙義山（相馬岳）','荒船山','武甲山','和名倉山（白石山）','大岳山',
+  '杁差岳','二王子岳','御神楽岳','守門岳','中ノ岳','八海山','佐武流山','鳥甲山','白砂山','岩菅山','御座山','茅ヶ岳','乾徳山','三ッ峠山','御正体山','毛無山','愛鷹山（越前岳）','天狗岳','黒姫山','戸隠山','飯縄山','雪倉岳','針ノ木岳','烏帽子岳','赤牛岳','毛勝山','奥大日岳','有明山','餓鬼岳','燕岳','大天井岳','霞沢岳','鋸岳','農鳥岳','上河内岳','池口岳','大無間山','櫛形山','笊ヶ岳','七面山','小秀山','経ヶ岳（長野）','南駒ヶ岳','安平路山','金剛堂山','笈ヶ岳','大日ヶ岳','位山','能郷白山',
+  '御在所岳','釈迦ヶ岳（奈良）','伯母子岳','金剛山','武奈ヶ岳','氷ノ山','上蒜山','三瓶山','三嶺','東赤石山','笹ヶ峰','英彦山','雲仙岳（普賢岳）','由布岳','大崩山','市房山','尾鈴山','高千穂峰','桜島（御岳）'
+]);
+function nationalMountainHonor(name){
+  if(JAPAN_100_MOUNTAINS.has(name))return {label:'百名山',short:'百',tone:'100'};
+  if(JAPAN_200_ADDITIONAL_MOUNTAINS.has(name))return {label:'二百名山',short:'二百',tone:'200'};
+  return {label:'三百名山',short:'三百',tone:'300'};
+}
+function nationalMountainHonorHtml(name){
+  const h=nationalMountainHonor(name);
+  return `<span class="national-honor-badge tone-${h.tone}" title="日本${h.label}" aria-label="日本${h.label}"><b>${h.short}</b><small>${h.label}</small></span>`;
+}
 const MOUNTAIN_NAME_ALIAS = {
   '大山（鳥取）':'大山',
   '宮ノ浦岳':'宮之浦岳',
@@ -3732,6 +3761,117 @@ for (const [mountain, fixed] of Object.entries(V1222_KANTO_JOSHINETSU_FIXED)) {
   BUILTIN_ROUTE_CATALOG[mountain] = [...fixed, ...old.filter(p => !keys.has(`${p.type}:${p.name}`))];
 }
 
+
+// V1.4.155: 主要通過ポイント拡張 第1弾。
+// 代表コース上で判断材料になりやすい中間地点（峠・分岐・避難小屋・テント場）を固定候補に追加。
+function appendFixedWaypoints(mountain, points){
+  const old=BUILTIN_ROUTE_CATALOG[mountain]||[];
+  const seen=new Set(old.map(p=>`${p.type}|${accessNameKey(p.name)}`));
+  const add=points.filter(p=>!seen.has(`${p.type}|${accessNameKey(p.name)}`));
+  BUILTIN_ROUTE_CATALOG[mountain]=[...old,...add];
+}
+
+const V14155_MAJOR_WAYPOINTS = {
+  '大雪山（旭岳）':[
+    {id:'v14155-daisetsu-kurodake-ishimuro',type:'hut',name:'黒岳石室',lat:43.695116,lon:142.911033,elevation:1890,source:'大雪山国立公園・GPS位置情報'},
+  ],
+  '十勝岳':[
+    {id:'v14155-tokachi-kamihoro-hut',type:'hut',name:'上ホロカメットク避難小屋',lat:43.406667,lon:142.675000,elevation:1828,source:'気象庁・十勝岳観測点位置情報'},
+  ],
+  '谷川岳':[
+    {id:'v14155-tanigawa-kata',type:'hut',name:'谷川岳肩ノ小屋',lat:36.833025,lon:138.929708,elevation:1912,source:'公開地図座標'},
+  ],
+  '槍ヶ岳':[
+    {id:'v14155-yari-babadaira',type:'camp',name:'ババ平（槍沢キャンプ場）',lat:36.323490,lon:137.675690,elevation:1990,source:'OpenStreetMap公開座標'},
+    {id:'v14155-yari-omagari',type:'pass',name:'大曲（水俣乗越分岐）',lat:36.330256,lon:137.670564,elevation:2094,source:'GPS公開記録'},
+    {id:'v14155-yari-tenguhara',type:'pass',name:'天狗原分岐',lat:36.326580,lon:137.659980,elevation:2348,source:'OpenStreetMap公開座標'},
+  ],
+  '南岳':[
+    {id:'v14155-minami-omagari',type:'pass',name:'大曲（水俣乗越分岐）',lat:36.330256,lon:137.670564,elevation:2094,source:'GPS公開記録'},
+    {id:'v14155-minami-tenguhara',type:'pass',name:'天狗原分岐',lat:36.326580,lon:137.659980,elevation:2348,source:'OpenStreetMap公開座標'},
+  ],
+  '北岳':[
+    {id:'v14155-kita-nakashirane',type:'peak',name:'中白根山',lat:35.658600,lon:138.228300,elevation:3055,source:'OpenStreetMap公開座標'},
+  ],
+  '間ノ岳':[
+    {id:'v14155-aino-nakashirane',type:'peak',name:'中白根山',lat:35.658600,lon:138.228300,elevation:3055,source:'OpenStreetMap公開座標'},
+  ],
+  '甲斐駒ヶ岳':[
+    {id:'v14155-kaikoma-komorebi',type:'hut',name:'北沢峠こもれび山荘',lat:35.742580,lon:138.213500,elevation:2036,source:'OpenStreetMap公開座標'},
+    {id:'v14155-kaikoma-marishiten',type:'peak',name:'摩利支天',lat:35.754500,lon:138.239300,elevation:2820,source:'OpenStreetMap公開座標'},
+  ],
+  '久住山':[
+    {id:'v14155-kuju-bogatsuru',type:'camp',name:'坊ガツル',lat:33.099667,lon:131.262833,elevation:1234,source:'気象庁・坊ガツル観測点位置情報'},
+  ],
+};
+for(const [mountain,points] of Object.entries(V14155_MAJOR_WAYPOINTS)) appendFixedWaypoints(mountain,points);
+
+
+// V1.4.156: 主要通過ポイント拡張 第2弾。
+// 八ヶ岳・奥秩父・東北・中国・近畿を中心に、縦走時の判断地点になる小屋・峠を追加。
+const V14156_MAJOR_WAYPOINTS = {
+  '硫黄岳':[
+    {id:'v14156-iou-natsusawa',type:'pass',name:'夏沢峠',lat:36.005833,lon:138.364722,elevation:2432,source:'山びこ荘・公開位置情報'},
+    {id:'v14156-iou-honzawa',type:'hut',name:'本沢温泉',lat:36.011944,lon:138.370833,elevation:2093,source:'湯本本沢温泉・公開位置情報'},
+  ],
+  '天狗岳':[
+    {id:'v14156-tengu-natsusawa',type:'pass',name:'夏沢峠',lat:36.005833,lon:138.364722,elevation:2432,source:'山びこ荘・公開位置情報'},
+    {id:'v14156-tengu-honzawa',type:'hut',name:'本沢温泉',lat:36.011944,lon:138.370833,elevation:2093,source:'湯本本沢温泉・公開位置情報'},
+    {id:'v14156-tengu-neishi-hut',type:'hut',name:'根石岳山荘',lat:36.014167,lon:138.358889,elevation:2533,source:'根石岳山荘・公開位置情報'},
+  ],
+  '和名倉山':[
+    {id:'v14156-wanagura-shogen',type:'hut',name:'将監小屋',lat:35.856907,lon:138.863387,elevation:1740,source:'将監小屋・公開位置情報'},
+  ],
+  '甲武信ヶ岳':[
+    {id:'v14156-kobushi-karisaka-hut',type:'hut',name:'雁坂小屋',lat:35.892370,lon:138.793860,elevation:1950,source:'OpenStreetMap公開位置情報'},
+  ],
+  '鳥海山':[
+    {id:'v14156-chokai-ohama',type:'hut',name:'御浜小屋',lat:39.103889,lon:140.014722,elevation:1702,source:'御浜小屋・公開位置情報'},
+  ],
+  '岩手山':[
+    {id:'v14156-iwate-fudodaira',type:'hut',name:'不動平避難小屋',lat:39.844722,lon:141.000000,elevation:1830,source:'岩手県・ヤマレコ公開位置情報'},
+  ],
+  '秋田駒ヶ岳':[
+    {id:'v14156-akikoma-amida',type:'hut',name:'阿弥陀池避難小屋',lat:39.758056,lon:140.801944,elevation:1534,source:'環境省・公開位置情報'},
+  ],
+  '大山（鳥取）':[
+    {id:'v14156-daisen-motodani',type:'hut',name:'元谷避難小屋',lat:35.380833,lon:133.540833,elevation:1038,source:'鳥取県・公開位置情報'},
+    {id:'v14156-daisen-oyasumi',type:'hut',name:'大休峠避難小屋',lat:35.381944,lon:133.571389,elevation:1110,source:'鳥取県・公開位置情報'},
+  ],
+  '八経ヶ岳':[
+    {id:'v14156-hakkyou-gyojagaeri',type:'hut',name:'行者還避難小屋',lat:34.202778,lon:135.945278,elevation:1416,source:'環境省・天川村公開位置情報'},
+    {id:'v14156-hakkyou-yojigashuku',type:'hut',name:'楊枝ヶ宿避難小屋',lat:34.139870,lon:135.907755,elevation:1619,source:'大峯奥駈道公開GPS記録'},
+  ],
+  '剣山':[
+    {id:'v14156-tsurugi-ichinomori',type:'hut',name:'一の森ヒュッテ',lat:33.852500,lon:134.110833,elevation:1862,source:'美馬市営一の森ヒュッテ・公開位置情報'},
+  ],
+};
+for(const [mountain,points] of Object.entries(V14156_MAJOR_WAYPOINTS)) appendFixedWaypoints(mountain,points);
+
+
+// V1.4.157: 主要通過ポイント拡張 第3弾。
+// 北海道の長距離縦走と北アルプス常念山脈を中心に、避難小屋・分岐・中間ピークを座標固定。
+const V14157_MAJOR_WAYPOINTS = {
+  '大雪山（旭岳）':[
+    {id:'v14157-asahidake-ishimuro',type:'hut',name:'旭岳石室',lat:43.660333,lon:142.832667,elevation:1676,source:'気象庁・旭岳石室観測点位置'},
+  ],
+  'トムラウシ山':[
+    {id:'v14157-tomuraushi-hisago',type:'hut',name:'ヒサゴ沼避難小屋',lat:43.549722,lon:142.865000,elevation:1690,source:'大雪山国立公園・公開位置情報'},
+    {id:'v14157-tomuraushi-sankawadai',type:'pass',name:'三川台分岐',lat:43.528611,lon:142.807222,elevation:1760,source:'大雪山野営指定地研究・公開座標'},
+  ],
+  '十勝岳':[
+    {id:'v14157-tokachi-hinangoya',type:'hut',name:'十勝岳避難小屋',lat:43.433167,lon:142.667500,elevation:1321,source:'気象庁・十勝岳観測点位置'},
+  ],
+  '蝶ヶ岳':[
+    {id:'v14157-chou-chouyari',type:'peak',name:'蝶槍',lat:36.300045,lon:137.722014,elevation:2660,source:'国土地理院地形図参照公開座標'},
+    {id:'v14157-chou-sankakuten',type:'peak',name:'蝶ヶ岳三角点',lat:36.298333,lon:137.721704,elevation:2664,source:'国土地理院地形図参照公開座標'},
+  ],
+  '常念岳':[
+    {id:'v14157-jonen-chouyari',type:'peak',name:'蝶槍',lat:36.300045,lon:137.722014,elevation:2660,source:'国土地理院地形図参照公開座標'},
+  ],
+};
+for(const [mountain,points] of Object.entries(V14157_MAJOR_WAYPOINTS)) appendFixedWaypoints(mountain,points);
+
 function mergeRegionalCatalogs(...keys){
   const out=[];
   const seen=new Set();
@@ -4822,7 +4962,7 @@ function showNationalOutlookDetail(p,result){
     <button type="button" class="national-detail-close" aria-label="詳細を閉じる">×</button>
     <div class="national-rich-hero${photo?' has-photo':''}"${heroStyle}>
       <div class="national-rich-hero-overlay"></div>
-      <div class="national-rich-hero-copy"><span class="national-rich-area">${esc(area)}</span><h3>${esc(p.name)}</h3><p>${esc(elevation)}</p></div>
+      <div class="national-rich-hero-copy"><span class="national-rich-area">${esc(area)}</span><div class="national-rich-title-row"><h3>${esc(p.name)}</h3>${nationalMountainHonorHtml(p.name)}</div><p>${esc(elevation)}</p></div>
       <div class="national-rich-grade grade-${gradeClass}"><b>${grade}</b><span>${nationalGradeLabel(grade)}</span></div>
       ${photoCredit}
     </div>
@@ -5458,6 +5598,216 @@ function representativeCourseOptions(mountain){
   const generated=(!base.length&&!extra.length)?generatedRepresentativeCourseOptions(key):[];
   return [...base,...extra,...generated];
 }
+
+
+// V1.4.158: 代表コースと主要通過ポイントの連動強化。
+// 既存の代表コース定義はそのままに、中間地点を差し込む。
+// 中間地点に直接CTが無い場合は、親区間の標準CTを距離比で按分して総CTを維持する。
+const REPRESENTATIVE_COURSE_ENRICHMENTS_V14158 = Object.freeze({
+  '槍ヶ岳|上高地・槍沢ルート': [
+    {after:'上高地',before:'槍沢ロッヂ',points:[['hut','横尾山荘','山小屋・避難小屋']]},
+    {after:'槍沢ロッヂ',before:'槍ヶ岳山荘',points:[
+      ['camp','ババ平（槍沢キャンプ場）','テント場'],
+      ['pass','大曲（水俣乗越分岐）','峠・分岐'],
+      ['pass','天狗原分岐','峠・分岐']
+    ]}
+  ],
+  '常念岳|一ノ沢ルート': [
+    {after:'一ノ沢登山口',before:'常念小屋',points:[['pass','常念乗越','峠・分岐']]}
+  ],
+  '間ノ岳|広河原・北岳縦走ルート': [
+    {after:'北岳山荘',before:'間ノ岳',points:[['peak','中白根山','山頂']]}
+  ],
+  '農鳥岳|広河原・白峰三山縦走ルート': [
+    {after:'北岳山荘',before:'間ノ岳',points:[['peak','中白根山','山頂']]}
+  ],
+  // V1.4.159: CTグラフに中間点名が無いが、代表ルート上で明確な固定地点。
+  '唐松岳|八方尾根ルート': [
+    {after:'八方池山荘',before:'唐松岳頂上山荘',points:[['pass','八方池','峠・分岐']]}
+  ],
+  '木曽駒ヶ岳|千畳敷ルート': [
+    {after:'千畳敷',before:'木曽駒ヶ岳',points:[['pass','乗越浄土','峠・分岐']]}
+  ],
+  '高妻山|戸隠キャンプ場・高妻山登山者駐車場ルート': [
+    {after:'戸隠キャンプ場・高妻山登山者駐車場',before:'高妻山',points:[['hut','一不動避難小屋','山小屋・避難小屋']]}
+  ],
+  '妙高山|笹ヶ峰ルート': [
+    {after:'笹ヶ峰登山口',before:'妙高山',points:[['hut','黒沢池ヒュッテ','山小屋・避難小屋']]}
+  ],
+  '瑞牆山|瑞牆山荘・富士見平口ルート': [
+    {after:'瑞牆山荘・富士見平口',before:'瑞牆山',points:[['hut','富士見平小屋','山小屋・避難小屋']]}
+  ],
+  '白木峰|白木峰8合目駐車場ルート': [
+    {after:'白木峰8合目駐車場',before:'白木峰',points:[['hut','白木山荘（避難小屋）','山小屋・避難小屋']]}
+  ]
+});
+
+function representativeCourseEnrichmentRules(mountain,course){
+  const key=`${canonicalMountainName(mountain)}|${course?.label||''}`;
+  return REPRESENTATIVE_COURSE_ENRICHMENTS_V14158[key]||[];
+}
+
+// V1.4.159: 代表コース116本をCT経路から自動補完。
+// 確認済みCTの composed path に、現在の山で座標固定済みの中間地点が含まれる場合だけ差し込む。
+// これにより別ルートの地点を距離だけで誤挿入せず、今後固定地点を追加した時も自動連動する。
+function representativeRoleLabel(type){
+  if(type==='trailhead')return '登山口';
+  if(type==='peak')return '山頂';
+  if(type==='hut')return '山小屋・避難小屋';
+  if(type==='pass')return '峠・分岐';
+  if(type==='camp')return 'テント場';
+  return '地点';
+}
+function representativeFixedCandidateByEndpoint(mountain,name){
+  const key=canonicalMountainName(mountain);
+  const catalog=BUILTIN_ROUTE_CATALOG[key]||[];
+  const raw=String(name||'').trim();
+  const normalized=canonicalCourseTimeEndpointName(normalizeCourseTimePointName(raw));
+  const allowed=new Set(['hut','pass','camp','peak']);
+  return catalog.find(p=>allowed.has(p.type)&&hasResolvedCoord(p)&&String(p.name||'').trim()===raw)
+    ||catalog.find(p=>allowed.has(p.type)&&hasResolvedCoord(p)&&canonicalCourseTimeEndpointName(normalizeCourseTimePointName(p.name))===normalized)
+    ||null;
+}
+function representativeComposedInfo(fromName,toName){
+  const raw=composedCourseTimeInfo(String(fromName||'').trim(),String(toName||'').trim());
+  if(raw)return raw;
+  const from=canonicalCourseTimeEndpointName(normalizeCourseTimePointName(fromName));
+  const to=canonicalCourseTimeEndpointName(normalizeCourseTimePointName(toName));
+  return composedCourseTimeInfo(from,to);
+}
+function representativeAutoEnrichmentPoints(mountain,cur,next){
+  if(!cur||!next)return [];
+  const composed=representativeComposedInfo(cur[1],next[1]);
+  if(!composed||!Array.isArray(composed.via)||!composed.via.length)return [];
+  const direct=directCourseTimeInfoByNames(cur[1],next[1])
+    ||directCourseTimeInfoByNames(
+      canonicalCourseTimeEndpointName(normalizeCourseTimePointName(cur[1])),
+      canonicalCourseTimeEndpointName(normalizeCourseTimePointName(next[1]))
+    );
+  if(direct){
+    const diff=Math.abs(Number(direct.minutes)-Number(composed.minutes));
+    const tolerance=Math.max(20,Math.round(Number(direct.minutes)*0.12));
+    if(diff>tolerance)return [];
+  }
+  const baseNames=new Set([cur[1],next[1]]);
+  const seen=new Set();
+  const out=[];
+  for(const via of composed.via){
+    const p=representativeFixedCandidateByEndpoint(mountain,via);
+    if(!p||baseNames.has(p.name))continue;
+    const k=`${p.type}|${p.name}`;
+    if(seen.has(k))continue;
+    seen.add(k);
+    out.push([p.type,p.name,representativeRoleLabel(p.type)]);
+  }
+  return out;
+}
+
+function representativeCourseExpandedPointDefs(mountain,course){
+  const base=Array.isArray(course?.points)?course.points.map(p=>[...p]):[];
+  const rules=representativeCourseEnrichmentRules(mountain,course);
+  const out=[];
+  const inserted=new Set(base.map(p=>`${p[0]}|${p[1]}`));
+  for(let i=0;i<base.length;i++){
+    const cur=base[i];
+    out.push(cur);
+    const next=base[i+1];
+    if(!next)continue;
+    const additions=[];
+    for(const rule of rules){
+      if(cur[1]===rule.after&&next[1]===rule.before){
+        for(const p of (rule.points||[]))additions.push([...p]);
+      }
+    }
+    if(!additions.length)additions.push(...representativeAutoEnrichmentPoints(mountain,cur,next));
+    for(const p of additions){
+      const k=`${p[0]}|${p[1]}`;
+      if(inserted.has(k))continue;
+      inserted.add(k);
+      out.push(p);
+    }
+  }
+  return out;
+}
+
+function splitRepresentativeSegmentMinutes(points,totalMinutes){
+  const total=Math.max(1,Math.round(Number(totalMinutes)||0));
+  if(points.length<2)return [];
+  const d=[];
+  let sum=0;
+  for(let i=1;i<points.length;i++){
+    const a=points[i-1]?.p,b=points[i]?.p;
+    let dist=0;
+    if(a&&b&&hasResolvedCoord(a)&&hasResolvedCoord(b)){
+      dist=haversineMeters(Number(a.lat),Number(a.lon),Number(b.lat),Number(b.lon));
+    }
+    if(!Number.isFinite(dist)||dist<=0)dist=1;
+    d.push(dist);sum+=dist;
+  }
+  const raw=d.map(x=>total*x/sum);
+  const mins=raw.map(x=>Math.max(1,Math.floor(x)));
+  let assigned=mins.reduce((a,b)=>a+b,0);
+  const order=raw.map((x,i)=>({i,frac:x-Math.floor(x)})).sort((a,b)=>b.frac-a.frac);
+  let guard=0;
+  while(assigned<total&&guard<10000){mins[order[guard%order.length].i]++;assigned++;guard++;}
+  guard=0;
+  while(assigned>total&&guard<10000){
+    const idx=order[order.length-1-(guard%order.length)].i;
+    if(mins[idx]>1){mins[idx]--;assigned--;}
+    guard++;
+  }
+  return mins;
+}
+
+function buildRepresentativeResolvedRoute(mountain,course){
+  const baseDefs=Array.isArray(course?.points)?course.points:[];
+  const expandedDefs=representativeCourseExpandedPointDefs(mountain,course);
+  const resolvedExpanded=expandedDefs.map(([type,name,role])=>({type,name,role,p:representativeCandidate(type,name)}));
+  const byName=new Map(resolvedExpanded.filter(x=>x.p).map(x=>[`${x.type}|${x.name}`,x]));
+  const segments=[];
+  let distributedPointCount=0;
+
+  for(let bi=1;bi<baseDefs.length;bi++){
+    const prevDef=baseDefs[bi-1],nextDef=baseDefs[bi];
+    const startIndex=expandedDefs.findIndex((x,idx)=>idx>=0&&x[0]===prevDef[0]&&x[1]===prevDef[1]);
+    let endIndex=-1;
+    for(let j=Math.max(0,startIndex+1);j<expandedDefs.length;j++){
+      if(expandedDefs[j][0]===nextDef[0]&&expandedDefs[j][1]===nextDef[1]){endIndex=j;break;}
+    }
+    if(startIndex<0||endIndex<0)continue;
+    const chain=resolvedExpanded.slice(startIndex,endIndex+1);
+    const parentInfo=chain[0]?.p&&chain.at(-1)?.p?courseTimeInfo(chain[0].p,chain.at(-1).p):null;
+    if(chain.length===2){
+      const info=parentInfo;
+      if(!info&&!course.allowMissingCt)return {error:`${prevDef[1]} → ${nextDef[1]} の確認済みCTがありません。`};
+      segments.push(info||{minutes:60,missing:true,source:'CT情報なし（+1時間仮置き）'});
+      continue;
+    }
+    if(!parentInfo&&!course.allowMissingCt)return {error:`${prevDef[1]} → ${nextDef[1]} の確認済みCTがありません。`};
+    if(!parentInfo){
+      for(let ci=1;ci<chain.length;ci++)segments.push({minutes:60,missing:true,source:'CT情報なし（+1時間仮置き）'});
+      continue;
+    }
+    const directInfos=[];
+    let allDirect=true;
+    for(let ci=1;ci<chain.length;ci++){
+      const info=chain[ci-1].p&&chain[ci].p?courseTimeInfo(chain[ci-1].p,chain[ci].p):null;
+      directInfos.push(info);
+      if(!info)allDirect=false;
+    }
+    if(allDirect){
+      segments.push(...directInfos);
+    }else{
+      const mins=splitRepresentativeSegmentMinutes(chain,parentInfo.minutes);
+      for(let ci=0;ci<mins.length;ci++){
+        segments.push({minutes:mins[ci],estimated:!!parentInfo.estimated,derived:true,source:`${parentInfo.source||'標準CT'}・代表コース中間地点按分`});
+      }
+      distributedPointCount+=Math.max(0,chain.length-2);
+    }
+  }
+  return {resolved:resolvedExpanded,segments,distributedPointCount};
+}
+
 const REPRESENTATIVE_COURSE_SELECTION = new Map();
 
 function representativeCourseSelectedIndex(mountain, options=null){
@@ -5492,9 +5842,10 @@ function representativeCourseFor(mountain){
   const idx=representativeCourseSelectedIndex(mountain,options);
   return options[idx]||options[0]||null;
 }
-function representativeCoursePathText(course){
+function representativeCoursePathText(course,mountain=''){
   if(!course||!Array.isArray(course.points))return '';
-  return course.points.map(([,name])=>name).join(' → ');
+  const defs=representativeCourseExpandedPointDefs(mountain||currentMountainLabel(),course);
+  return defs.map(([,name])=>name).join(' → ');
 }
 function renderRepresentativeCourseSummaryNow(mountainOverride=''){
   const mountain=(mountainOverride||currentMountainLabel()).trim();
@@ -5579,21 +5930,23 @@ async function applyRepresentativeCourse(){
   const btn=$('representativeCourseBtn');
   if(btn){btn.disabled=true;btn.textContent='代表コースを準備中…';}
   try{
-    let resolved=course.points.map(([type,name,role])=>({type,name,role,p:representativeCandidate(type,name)}));
+    let expandedDefs=representativeCourseExpandedPointDefs(mountain,course);
+    let resolved=expandedDefs.map(([type,name,role])=>({type,name,role,p:representativeCandidate(type,name)}));
     if(resolved.some(x=>!x.p)){
       await loadCandidates();
-      resolved=course.points.map(([type,name,role])=>({type,name,role,p:representativeCandidate(type,name)}));
+      expandedDefs=representativeCourseExpandedPointDefs(mountain,course);
+      resolved=expandedDefs.map(([type,name,role])=>({type,name,role,p:representativeCandidate(type,name)}));
     }
     const missing=resolved.filter(x=>!x.p).map(x=>x.name);
     if(missing.length)return setStatus(`代表コースを読み込めませんでした。固定ポイント不足：${missing.join('、')}`,true);
 
-    const segments=[];
+    const built=buildRepresentativeResolvedRoute(mountain,course);
+    if(built.error)return setStatus(`代表コースを読み込めませんでした。${built.error}`,true);
+    resolved=built.resolved;
+    const segments=built.segments;
+    const distributedPointCount=Number(built.distributedPointCount||0);
     let totalMinutes=0, missingCtCount=0, estimatedCtCount=0;
-    for(let i=1;i<resolved.length;i++){
-      const info=courseTimeInfo(resolved[i-1].p,resolved[i].p);
-      if(!info&&!course.allowMissingCt)return setStatus(`代表コースを読み込めませんでした。${resolved[i-1].name} → ${resolved[i].name} の確認済みCTがありません。`,true);
-      const seg=info||{minutes:60,missing:true,source:'CT情報なし（+1時間仮置き）'};
-      segments.push(seg);
+    for(const seg of segments){
       totalMinutes+=Number(seg.minutes)||0;
       if(seg.missing)missingCtCount++;
       if(seg.estimated)estimatedCtCount++;
@@ -5618,18 +5971,28 @@ async function applyRepresentativeCourse(){
       const dt=formatJstInput(cursorMs);
       addPointRow(item.type,item.p.id,item.role,dt);
       const row=$('points').lastElementChild;
-      if(i>0)row.dataset.courseTimeAuto=segments[i-1]?.missing?'':'1';
+      if(i>0){
+        const seg=segments[i-1];
+        row.dataset.courseTimeAuto=seg?.missing?'':'1';
+        if(seg){
+          row.dataset.segmentCtMinutes=String(Number(seg.minutes)||0);
+          row.dataset.segmentCtKind=seg.missing?'missing':(seg.derived?'derived':(seg.estimated?'estimated':'verified'));
+          row.dataset.segmentCtSource=String(seg.source||'');
+          row.dataset.segmentCtFrom=String(resolved[i-1]?.p?.name||'');
+          row.dataset.segmentCtTo=String(item.p?.name||'');
+        }
+        refreshCourseTimeMissingBadge(row);
+      }
       if(i<segments.length)cursorMs+=Number(segments[i].minutes)*60*1000;
-      if(i>0&&segments[i-1]?.missing)syncCourseTimeMissingBadge(row);
     });
     updateForecastHorizon();
     renderRouteMaps();
     setStatus(missingCtCount
       ?`${mountain}：${course.label} を入力しました。CT情報なし ${missingCtCount}区間は+1時間で仮置きしています。`
       :estimatedCtCount
-        ?`${mountain}：${course.label} を入力しました。CT合計 ${formatCourseTimeMinutes(totalMinutes)}（うち推定CT ${estimatedCtCount}区間・無雪期・休憩含まず）。`
-        :`${mountain}：${course.label} を入力しました。標準CT合計 ${formatCourseTimeMinutes(totalMinutes)}（無雪期・休憩含まず）。`);
-    logEvent('representative_course_loaded',{success:true,mountain,metadata:{course_label:course.label,point_count:resolved.length,total_minutes:totalMinutes}});
+        ?`${mountain}：${course.label} を入力しました。CT合計 ${formatCourseTimeMinutes(totalMinutes)}（うち推定CT ${estimatedCtCount}区間・無雪期・休憩含まず）。${distributedPointCount?` 中間${distributedPointCount}地点の時刻は親区間CTを距離按分しています。`:''}`
+        :`${mountain}：${course.label} を入力しました。標準CT合計 ${formatCourseTimeMinutes(totalMinutes)}（無雪期・休憩含まず）。${distributedPointCount?` 中間${distributedPointCount}地点の時刻は親区間CTを距離按分しています。`:''}`);
+    logEvent('representative_course_loaded',{success:true,mountain,metadata:{course_label:course.label,point_count:resolved.length,total_minutes:totalMinutes,distributed_point_count:distributedPointCount}});
   }finally{
     if(btn){btn.textContent='代表コースを読み込む';refreshRepresentativeCourseButton();}
   }
@@ -6013,8 +6376,9 @@ function addPointRow(type='peak',selected='',roleLabel='',initialDateTime=null){
     hutHomeLink?.classList.toggle('hidden',!url);
     if(hutHomeLink){hutHomeLink.href=url||'#';hutHomeLink.title=url?`${p?.name||'山小屋'}の公式ホームページを開く`:'';hutHomeLink.setAttribute('aria-label',url?`${p?.name||'山小屋'}の公式ホームページを開く`:'');}
   };
-  typeSel.addEventListener('change',()=>preservePointRowViewport(row,()=>{pointSel.innerHTML=candidateOptions(typeSel.value); stay.classList.toggle('hidden',typeSel.value!=='hut'); if(typeSel.value!=='hut')row.querySelector('.point-stay').checked=false; refreshStayDeparture(); refreshHutHomepage(); updateMeta(row); refreshAllCourseTimeMissingBadges();}));
+  typeSel.addEventListener('change',()=>preservePointRowViewport(row,()=>{clearRepresentativeSegmentMeta(row);pointSel.innerHTML=candidateOptions(typeSel.value); stay.classList.toggle('hidden',typeSel.value!=='hut'); if(typeSel.value!=='hut')row.querySelector('.point-stay').checked=false; refreshStayDeparture(); refreshHutHomepage(); updateMeta(row); refreshAllCourseTimeMissingBadges();}));
   pointSel.addEventListener('change',()=>preservePointRowViewport(row,()=>{
+    clearRepresentativeSegmentMeta(row);
     const p=selectedCandidate(pointSel.value);
     if(p){
       logPointSelected(row,p);
@@ -6067,8 +6431,8 @@ function addPointRow(type='peak',selected='',roleLabel='',initialDateTime=null){
     propagatePointTimesFrom(row,{useStayDeparture:true,announce:true});
   });
   row.querySelector('.remove').addEventListener('click',()=>{row.remove();renumber();updateForecastHorizon();renderRouteMaps();refreshAllCourseTimeMissingBadges();});
-  row.querySelector('.up').addEventListener('click',()=>{const p=row.previousElementSibling;if(p)row.parentNode.insertBefore(row,p);renumber();renderRouteMaps();refreshAllCourseTimeMissingBadges();});
-  row.querySelector('.down').addEventListener('click',()=>{const n=row.nextElementSibling;if(n)row.parentNode.insertBefore(n,row);renumber();renderRouteMaps();refreshAllCourseTimeMissingBadges();});
+  row.querySelector('.up').addEventListener('click',()=>{const p=row.previousElementSibling;if(p){clearRepresentativeSegmentMeta(row);clearRepresentativeSegmentMeta(p);row.parentNode.insertBefore(row,p);}renumber();renderRouteMaps();refreshAllCourseTimeMissingBadges();});
+  row.querySelector('.down').addEventListener('click',()=>{const n=row.nextElementSibling;if(n){clearRepresentativeSegmentMeta(row);clearRepresentativeSegmentMeta(n);row.parentNode.insertBefore(n,row); }renumber();renderRouteMaps();refreshAllCourseTimeMissingBadges();});
   refreshHutHomepage();
   updateMeta(row);
   refreshCourseTimeMissingBadge(row);
@@ -6099,38 +6463,67 @@ function ensureNextPointIsLater(row){
   }
 }
 
+function clearRepresentativeSegmentMeta(row){
+  if(!row)return;
+  delete row.dataset.segmentCtMinutes;
+  delete row.dataset.segmentCtKind;
+  delete row.dataset.segmentCtSource;
+  delete row.dataset.segmentCtFrom;
+  delete row.dataset.segmentCtTo;
+}
+function representativeSegmentMeta(row,from,to){
+  if(!row||!from||!to)return null;
+  const minutes=Number(row.dataset.segmentCtMinutes);
+  if(!Number.isFinite(minutes)||minutes<=0)return null;
+  if(row.dataset.segmentCtFrom!==from.name||row.dataset.segmentCtTo!==to.name)return null;
+  return {
+    minutes,
+    kind:row.dataset.segmentCtKind||'verified',
+    source:row.dataset.segmentCtSource||''
+  };
+}
 function refreshCourseTimeMissingBadge(row){
   const badge=row?.querySelector('.course-time-missing-badge');
   if(!badge)return;
   const prev=row.previousElementSibling;
+  badge.classList.remove('verified','estimated','derived');
   if(!prev){
     badge.classList.add('hidden');
-    badge.classList.remove('estimated');
     return;
   }
   const from=selectedCandidate(prev.querySelector('.point-select')?.value);
   const to=selectedCandidate(row.querySelector('.point-select')?.value);
   if(!from||!to){
     badge.classList.add('hidden');
-    badge.classList.remove('estimated');
     return;
   }
-  const info=courseTimeInfo(from,to);
+  const stored=representativeSegmentMeta(row,from,to);
+  const info=stored||courseTimeInfo(from,to);
   if(!info){
     badge.textContent='CT情報なし';
     badge.title='直前地点からの標準CTが未登録です';
-    badge.classList.remove('estimated','hidden');
+    badge.classList.remove('hidden');
     return;
   }
-  if(info.estimated){
-    badge.textContent='推定CT';
-    badge.title='確認済みCTが未登録のため、固定座標・標高差から算出した参考CTです';
+  const timeText=formatCourseTimeMinutes(info.minutes);
+  if(stored?.kind==='derived'||info.derived){
+    badge.textContent=`按分CT ${timeText}`;
+    badge.title=`代表コースの親区間CTを中間地点の距離比で按分した参考時刻です${stored?.source?` / ${stored.source}`:''}`;
+    badge.classList.add('derived');
+    badge.classList.remove('hidden');
+    return;
+  }
+  if(stored?.kind==='estimated'||info.estimated){
+    badge.textContent=`推定CT ${timeText}`;
+    badge.title='確認済みCTが未登録のため、固定座標・標高差などから算出した参考CTです';
     badge.classList.add('estimated');
     badge.classList.remove('hidden');
     return;
   }
-  badge.classList.remove('estimated');
-  badge.classList.add('hidden');
+  badge.textContent=`CT ${timeText}`;
+  badge.title=`直前地点からの標準CTです${info.source?` / ${info.source}`:''}`;
+  badge.classList.add('verified');
+  badge.classList.remove('hidden');
 }
 function refreshAllCourseTimeMissingBadges(){
   [...$('points').children].forEach(refreshCourseTimeMissingBadge);

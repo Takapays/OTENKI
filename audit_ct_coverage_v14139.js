@@ -6,9 +6,9 @@ const path=require('path');
 
 const ROOT=__dirname;
 const APP=path.join(ROOT,'app.js');
-const OUT_TXT=path.join(ROOT,'CT_COVERAGE_AUDIT_V14153.txt');
-const OUT_CSV=path.join(ROOT,'CT_MISSING_SEGMENTS_V14153.csv');
-const OUT_EST=path.join(ROOT,'CT_ESTIMATED_SEGMENTS_V14153.csv');
+const OUT_TXT=path.join(ROOT,'CT_COVERAGE_AUDIT_V14139.txt');
+const OUT_CSV=path.join(ROOT,'CT_MISSING_SEGMENTS_V14139.csv');
+const OUT_EST=path.join(ROOT,'CT_ESTIMATED_SEGMENTS_V14139.csv');
 
 // Browser-only globals are stubbed because this audit only reads fixed route/CT data.
 global.window=global;
@@ -67,7 +67,7 @@ vm.runInThisContext(source+audit,{filename:'app.js+ct-audit'});
 const result=global.__CT_AUDIT_RESULT__;
 const p=n=>Number(n).toFixed(1);
 const lines=[
-  'トラテン CTカバー率監査 V1.4.153',
+  'トラテン CTカバー率監査 V1.4.139',
   '================================',
   '',
   '【主指標】画面で提示される代表コース候補の隣接区間',
@@ -91,7 +91,7 @@ const lines=[
   '',
   '【解釈】',
   '- 確認済みCTは常に推定CTより優先。',
-  '- V1.4.153では未確認の固定登山口↔山頂にのみ推定CTを適用し、画面では「推定CT」と明示する。',
+  '- V1.4.139では未確認の固定登山口↔山頂にのみ推定CTを適用し、画面では「推定CT」と明示する。',
   '- 推定CTは固定座標・標高差と確認済み26区間で校正した回帰式による参考値。',
   '- 公式/公的資料・ヤマケイ・ヤマレコ等の確認済みCTを追加すると、その区間の推定CTは自動的に置き換わる。',
   '- CT情報源優先順位: 公式/公的資料 → ヤマケイ → ヤマレコ → その他 → YAMAP → 推定CT。',
