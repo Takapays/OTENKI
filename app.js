@@ -139,7 +139,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.101';
+const APP_VERSION = '1.4.105';
 
 
 
@@ -4419,6 +4419,7 @@ function showNationalOutlookDetail(p,result){
       ${result?`<div class="national-rich-metrics">${metrics}</div>`:''}
       ${courseHtml}
       ${nearbyHtml}
+      <div class="national-rich-links"><a class="national-wikipedia-link" href="https://ja.wikipedia.org/w/index.php?search=${encodeURIComponent(p.name)}" target="_blank" rel="noopener noreferrer">Wikipedia ↗</a></div>
       <button type="button" class="primary national-detail-open national-rich-cta">この山を山行設定に入力</button>
       <p class="national-rich-footnote">主要山のみ実写真を表示しています。写真は Wikimedia Commons の公開画像を利用しています。全国一括簡易判定は候補地選び用です。山行設定では通過時刻・地点・複数モデルを使って詳しく確認できます。</p>
     </div>`;
@@ -4453,6 +4454,19 @@ async function openMountainFromNationalMap(name){
   }
   $('mountainPreset')?.scrollIntoView({behavior:'smooth',block:'center'});
 }
+const NATIONAL_OUTLOOK_BROWSER_CACHE_KEY='traten:national-outlook:v1';
+const NATIONAL_OUTLOOK_BROWSER_CACHE_TTL=30*60*1000;
+function readNationalOutlookBrowserCache(date){
+  try{
+    const raw=localStorage.getItem(NATIONAL_OUTLOOK_BROWSER_CACHE_KEY);
+    const obj=raw?JSON.parse(raw):null;
+    if(!obj||obj.date!==date||Date.now()-Number(obj.savedAt||0)>NATIONAL_OUTLOOK_BROWSER_CACHE_TTL||!Array.isArray(obj.results))return null;
+    return obj.results;
+  }catch(_){return null;}
+}
+function writeNationalOutlookBrowserCache(date,results){
+  try{localStorage.setItem(NATIONAL_OUTLOOK_BROWSER_CACHE_KEY,JSON.stringify({date,savedAt:Date.now(),results}));}catch(_){}
+}
 async function runNationalOutlook(){
   const date=$('nationalOutlookDate')?.value, status=$('nationalOutlookStatus'), btn=$('nationalOutlookRun');
   if(!date){if(status)status.textContent='日付を選択してください。';return;}
@@ -4460,6 +4474,15 @@ async function runNationalOutlook(){
   const eligible=points.filter(x=>x.eligible);
   if(!eligible.length){if(status)status.textContent='簡易判定できる山がありません。';return;}
   if(btn)btn.disabled=true;
+  const browserCached=readNationalOutlookBrowserCache(date);
+  if(browserCached?.length){
+    nationalOutlookResults=new Map(browserCached.map(x=>[x.name,x]));
+    renderNationalOutlookMarkers();
+    const counts={A:0,B:0,C:0};for(const r of nationalOutlookResults.values())if(counts[r.grade]!=null)counts[r.grade]++;
+    if(status)status.innerHTML=`キャッシュから表示：<b>A ${counts.A}座</b> / <b>B ${counts.B}座</b> / <b>C ${counts.C}座</b>（30分以内の判定結果）`;
+    if(btn)btn.disabled=false;
+    return;
+  }
   nationalOutlookResults=new Map();
   renderNationalOutlookMarkers();
   const batchSize=50;
@@ -4473,7 +4496,7 @@ async function runNationalOutlook(){
       // 50座をOpen-Meteoの1回の複数地点リクエストにまとめる。429時はこのバッチだけ待って再試行する。
       let data=null;
       let lastError=null;
-      for(let attempt=0;attempt<3;attempt++){
+      for(let attempt=0;attempt<4;attempt++){
         const controller=new AbortController();
         const timer=setTimeout(()=>controller.abort(),36000);
         try{
@@ -4482,12 +4505,12 @@ async function runNationalOutlook(){
           if(res.ok){data=body;lastError=null;break;}
           lastError=new Error(body.error||`HTTP ${res.status}`);
           const rateLimited=res.status===429||res.status===503||/429|Too Many Requests/i.test(String(body.error||''));
-          if(!rateLimited||attempt===2)break;
+          if(!rateLimited||attempt===3)break;
         }catch(err){
           lastError=err;
-          if(err?.name==='AbortError'||attempt===2)break;
+          if(err?.name==='AbortError'||attempt===3)break;
         }finally{clearTimeout(timer);}
-        const waitMs=3000*(attempt+1);
+        const waitMs=6000*(attempt+1);
         if(status)status.textContent=`取得制限のため待機中… ${Math.round(waitMs/1000)}秒後に再試行（${batchNo}/${totalBatches}）`;
         await new Promise(r=>setTimeout(r,waitMs));
       }
@@ -4502,11 +4525,12 @@ async function runNationalOutlook(){
       renderNationalOutlookMarkers();
       if(status)status.textContent=`${eligible.length}座を簡易判定中… ${Math.min(completed,eligible.length)}/${eligible.length}座`;
       // 無料APIへバーストしないよう、次バッチまで少し間隔を空ける。
-      if(i+batchSize<eligible.length)await new Promise(r=>setTimeout(r,1800));
+      if(i+batchSize<eligible.length)await new Promise(r=>setTimeout(r,4200));
     }
     const counts={A:0,B:0,C:0};
     for(const r of nationalOutlookResults.values())if(counts[r.grade]!=null)counts[r.grade]++;
     const got=nationalOutlookResults.size;
+    if(got>=Math.min(eligible.length,250))writeNationalOutlookBrowserCache(date,[...nationalOutlookResults.values()]);
     if(status)status.innerHTML=`${got<eligible.length?'一部取得で終了':'判定完了'}：<b>A ${counts.A}座</b> / <b>B ${counts.B}座</b> / <b>C ${counts.C}座</b> / 対象外・未取得 ${points.length-got}座${got<eligible.length?'　※取得制限時は少し時間をおいて再実行してください。':''}`;
   }catch(e){
     const msg=e?.name==='AbortError'?'通信がタイムアウトしました。少し時間をおいて再度お試しください。':(e.message||e);
@@ -4543,10 +4567,10 @@ function screenshotSafeName(value){
 function screenshotRouteDate(){
   return document.querySelector('#points .point-date')?.value || new Date().toISOString().slice(0,10);
 }
-async function captureAnalysisResultsScreenshot(){
+async function captureAnalysisResultsScreenshot(sourceBtn=null,sourceStatus=null){
   const results=$('results');
-  const btn=$('resultScreenshotBtn');
-  const status=$('resultScreenshotStatus');
+  const btn=sourceBtn || $('resultScreenshotBtn');
+  const status=sourceStatus || $('resultScreenshotStatus');
   if(!results||results.classList.contains('hidden')){
     setStatus('先に山行を分析してください。',true);
     return;
@@ -4641,7 +4665,8 @@ function init(){
   $('representativeCourseSelect')?.addEventListener('change',refreshRepresentativeCourseButton);
   $('addPointBtn').addEventListener('click',()=>addManualPointRow());
   $('analyzeBtn').addEventListener('click',analyze);
-  $('resultScreenshotBtn')?.addEventListener('click',captureAnalysisResultsScreenshot);
+  $('resultScreenshotBtn')?.addEventListener('click',()=>captureAnalysisResultsScreenshot($('resultScreenshotBtn'),$('resultScreenshotStatus')));
+  $('resultScreenshotBtnDesktop')?.addEventListener('click',()=>captureAnalysisResultsScreenshot($('resultScreenshotBtnDesktop'),$('resultScreenshotStatusDesktop')));
   refreshLastAnalysisPanel();
 
   const resetForMountainChange=()=>{
@@ -5045,9 +5070,9 @@ function refreshRepresentativeCourseButton(){
       preview.classList.remove('hidden');
       preview.setAttribute('title',pathText);
     }else{
-      preview.innerHTML='<b>代表コース</b><span>山を選ぶとコース概要を表示</span>';
+      preview.innerHTML='';
       preview.classList.add('is-empty');
-      preview.classList.remove('hidden');
+      preview.classList.add('hidden');
       preview.removeAttribute('title');
     }
   }
@@ -5473,7 +5498,7 @@ function addPointRow(type='peak',selected='',roleLabel='',initialDateTime=null){
   const row=document.createElement('div'); row.className='point-row'; row.dataset.id=String(pointSeq); row.dataset.role=roleLabel||'';
   row.innerHTML=`<div class="point-no"></div>
     <label class="point-type-label"><span class="field-caption">種類</span><select class="point-type">${typeOptions(type)}</select></label>
-    <label class="point-name-label"><span class="field-caption">地点</span><span class="point-select-inline"><select class="point-select">${candidateOptions(type,selected)}</select><a class="hut-home-link hut-home-inline hidden" href="#" target="_blank" rel="noopener noreferrer">公式HP <span aria-hidden="true">↗</span></a></span></label>
+    <label class="point-name-label"><span class="field-caption">地点</span><span class="hut-select-access"><select class="point-select">${candidateOptions(type,selected)}</select><a class="hut-home-link hut-home-inline hidden" href="#" target="_blank" rel="noopener noreferrer">公式HP <span aria-hidden="true">↗</span></a></span></label>
     <label class="datetime-label date-label"><span class="field-caption">通過日</span><span class="date-control"><input class="point-date" type="date" value="${initialDateTime?.date||todayLocal()}"><button class="date-picker-btn" type="button" title="カレンダーを開く" aria-label="カレンダーを開く">📅</button></span></label>
     <label class="datetime-label time-label"><span class="field-caption">通過時刻</span><span class="time-control-with-ct"><input class="point-time" type="time" step="600" value="${normalizeTimeToTenMinutes(initialDateTime?.time||'06:00')}"><span class="course-time-missing-badge hidden" title="直前地点からの標準CTが未登録です">CT情報なし</span></span></label>
     <label class="stay-option ${type==='hut'?'':'hidden'}"><span>宿泊</span><span class="stay-toggle"><input class="point-stay" type="checkbox"><b><span class="stay-label-desktop">ここに泊まる</span><span class="stay-label-mobile">泊まる</span></b></span></label>
@@ -7272,7 +7297,7 @@ function renderPointForecastTimeline(points){
 
 function renderAll(points,overnight=[]){
 
-  $('results').classList.remove('hidden'); renderWeatherCharts(points); renderDecisionCommentary(points); renderRouteMaps(points.map(x=>x.point)); const worst=points.reduce((a,b)=>gradeRank(b.grade)>gradeRank(a.grade)?b:a,points[0]);
+  $('results').classList.remove('hidden'); $('resultScreenshotToolbarDesktop')?.classList.remove('hidden'); renderWeatherCharts(points); renderDecisionCommentary(points); renderRouteMaps(points.map(x=>x.point)); const worst=points.reduce((a,b)=>gradeRank(b.grade)>gradeRank(a.grade)?b:a,points[0]);
   const maxWindValue=max(points.flatMap(x=>x.providerRows.map(y=>y.row.wind))); const maxRainValue=max(points.flatMap(x=>x.providerRows.map(y=>y.row.rain))); const thunderLevel=maxThunder(points.map(x=>x.thunder)); const confidenceLevel=overallConfidence(points.map(x=>x.confidence));
   $('grade').textContent=worst.grade; $('verdict').textContent=verdict(worst.grade);
   const gradeLabels={A:'EXCELLENT',B:'GOOD',C:'CAUTION',D:'HARD',E:'STOP'}; const verdictNotes={A:'全体としてかなり安定した予報です。',B:'一部に注意点はありますが、全体としては比較的安定しています。',C:'注意要素があります。通過時刻と場所を確認してください。',D:'強い気象リスクを含む計画です。見直しを推奨します。',E:'非常に強い気象リスクがあります。中止を含めて再検討してください。'};

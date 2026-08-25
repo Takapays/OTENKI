@@ -27,7 +27,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.4.101"
+APP_VERSION = "1.4.105"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -116,8 +116,9 @@ _cache_lock = threading.Lock()
 # retry briefly when the upstream asks us to slow down.
 _openmeteo_lock = threading.Lock()
 _openmeteo_last_request = 0.0
-OPENMETEO_MIN_INTERVAL = float(os.environ.get("OPENMETEO_MIN_INTERVAL", "1.6"))
-OPENMETEO_MAX_RETRIES = int(os.environ.get("OPENMETEO_MAX_RETRIES", "3"))
+OPENMETEO_MIN_INTERVAL = float(os.environ.get("OPENMETEO_MIN_INTERVAL", "3.2"))
+OPENMETEO_MAX_RETRIES = int(os.environ.get("OPENMETEO_MAX_RETRIES", "4"))
+NATIONAL_OUTLOOK_CACHE_TTL = int(os.environ.get("NATIONAL_OUTLOOK_CACHE_TTL", "3600"))
 
 TRAIL_DATA_DIR = os.path.join(BASE, "trail_data")
 TRAIL_GRAPH_CACHE_MAX = int(os.environ.get("TRAIL_GRAPH_CACHE_MAX", "2"))
@@ -635,7 +636,7 @@ def _request_url(url: str, timeout: int = UPSTREAM_TIMEOUT):
                 delay = 0.0
             # Keep retries short enough for Render/Gunicorn request timeouts.
             delay = max(delay, 1.5 * (2 ** attempt))
-            time.sleep(min(delay, 6.0))
+            time.sleep(min(delay, 12.0))
 
     raise RuntimeError("upstream request failed")
 
@@ -875,7 +876,14 @@ def national_outlook():
             }
             if all(p["elevation"] is not None for p in chunk): params["elevation"]=",".join(f'{p["elevation"]:.0f}' for p in chunk)
             url="https://api.open-meteo.com/v1/forecast?"+urllib.parse.urlencode(params)
-            status,ctype,body=_request_url(url)
+            chunk_key="national-upstream:v1499:"+date_text+":"+"|".join(f'{p["name"]}:{p["lat"]:.4f}:{p["lon"]:.4f}' for p in chunk)
+            chunk_cached=_cache_get(chunk_key)
+            if chunk_cached:
+                status,ctype,body=chunk_cached
+            else:
+                status,ctype,body=_request_url(url)
+                if status == 200:
+                    _cache_put(chunk_key, status, ctype, body, ttl=NATIONAL_OUTLOOK_CACHE_TTL)
             if status != 200: raise RuntimeError(f"Open-Meteo HTTP {status}")
             data=json.loads(body.decode("utf-8"))
             rows=data if isinstance(data,list) else [data]
@@ -918,7 +926,7 @@ def national_outlook():
     except Exception as exc:
         return jsonify(error=f"全国簡易予報の取得に失敗しました: {exc}"), 502
     payload_out=json.dumps({"date":date_text,"results":results,"version":APP_VERSION},ensure_ascii=False).encode("utf-8")
-    _cache_put(key,200,"application/json; charset=utf-8",payload_out,ttl=1800)
+    _cache_put(key,200,"application/json; charset=utf-8",payload_out,ttl=NATIONAL_OUTLOOK_CACHE_TTL)
     return Response(payload_out,status=200,content_type="application/json; charset=utf-8")
 
 @app.get("/api/health")

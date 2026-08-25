@@ -3551,7 +3551,16 @@ body.install-guide-open{overflow:hidden}
 @media(max-width:1024px){
   .national-mobile-map-hint{display:flex!important;visibility:visible!important;opacity:1!important;align-items:center;justify-content:center;gap:6px;margin:4px 0 9px;padding:8px 10px;border-radius:10px;background:#eef7f2;color:#35634f;font-size:12px;font-weight:850;line-height:1.3}
 }
-\n\n/* V1.4.100: course summary is structurally visible beside the button on PC. */\n.planner-rail .representative-course-mainline{display:grid!important;grid-template-columns:minmax(170px,190px) minmax(0,1fr)!important;gap:9px!important;align-items:stretch!important;width:100%!important;min-width:0!important}\n.planner-rail .representative-course-mainline #representativeCourseBtn:not(.hidden){display:flex!important;align-items:center!important;justify-content:center!important;width:100%!important;min-width:0!important;margin:0!important}\n.planner-rail .representative-course-mainline .representative-course-preview{display:flex!important;flex-direction:column!important;justify-content:center!important;min-width:0!important;min-height:40px!important;margin:0!important;padding:6px 10px!important;box-sizing:border-box!important;border:1px solid #d7e5dd!important;border-radius:10px!important;background:#f7fbf9!important;color:#50685c!important;overflow:hidden!important}\n.planner-rail .representative-course-mainline .representative-course-preview.is-empty{display:none!important}\n.planner-rail .representative-course-mainline .representative-course-preview b,.planner-rail .representative-course-mainline .representative-course-preview span{display:block!important;min-width:0!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}\n@media(max-width:700px){.planner-rail .representative-course-mainline{grid-template-columns:1fr!important}.planner-rail .representative-course-mainline .representative-course-preview b,.planner-rail .representative-course-mainline .representative-course-preview span{white-space:normal!important;overflow:visible!important;text-overflow:clip!important}}\n
+
+
+/* V1.4.100: course summary is structurally visible beside the button on PC. */
+.planner-rail .representative-course-mainline{display:grid!important;grid-template-columns:minmax(170px,190px) minmax(0,1fr)!important;gap:9px!important;align-items:stretch!important;width:100%!important;min-width:0!important}
+.planner-rail .representative-course-mainline #representativeCourseBtn:not(.hidden){display:flex!important;align-items:center!important;justify-content:center!important;width:100%!important;min-width:0!important;margin:0!important}
+.planner-rail .representative-course-mainline .representative-course-preview{display:flex!important;flex-direction:column!important;justify-content:center!important;min-width:0!important;min-height:40px!important;margin:0!important;padding:6px 10px!important;box-sizing:border-box!important;border:1px solid #d7e5dd!important;border-radius:10px!important;background:#f7fbf9!important;color:#50685c!important;overflow:hidden!important}
+.planner-rail .representative-course-mainline .representative-course-preview.is-empty{display:none!important}
+.planner-rail .representative-course-mainline .representative-course-preview b,.planner-rail .representative-course-mainline .representative-course-preview span{display:block!important;min-width:0!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+@media(max-width:700px){.planner-rail .representative-course-mainline{grid-template-columns:1fr!important}.planner-rail .representative-course-mainline .representative-course-preview b,.planner-rail .representative-course-mainline .representative-course-preview span{white-space:normal!important;overflow:visible!important;text-overflow:clip!important}}
+
 /* V1.4.101: 山小屋公式HPを登山口アクセスと同じく地点セレクト右側へ */
 .planner-rail .point-select-inline{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;min-width:0;width:100%}
 .planner-rail .point-select-inline>.trailhead-select-access{min-width:0}
@@ -3560,3 +3569,110 @@ body.install-guide-open{overflow:hidden}
 .planner-rail .hut-home-inline:hover{border-color:#4f9786;background:#e5f5ef;color:#176b5a}
 .planner-rail .hut-home-inline.hidden{display:none!important}
 @media(max-width:760px){.planner-rail .point-select-inline{grid-template-columns:minmax(0,1fr) auto;gap:6px}.planner-rail .hut-home-inline{min-height:44px;padding:0 10px;font-size:11px}}
+
+
+/* V1.4.103: representative course contents + hut homepage aligned like access */
+.planner-rail .representative-course-mainline{
+  display:grid!important;
+  grid-template-columns:minmax(170px,190px) minmax(0,1fr)!important;
+  gap:9px!important;
+  align-items:stretch!important;
+  width:100%!important;
+  min-width:0!important;
+}
+.planner-rail .representative-course-mainline #representativeCourseBtn:not(.hidden){
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  width:100%!important;
+  min-width:0!important;
+  margin:0!important;
+}
+.planner-rail .representative-course-mainline .representative-course-preview:not(.hidden):not(.is-empty){
+  display:flex!important;
+  flex-direction:column!important;
+  justify-content:center!important;
+  min-width:0!important;
+  min-height:40px!important;
+  padding:7px 10px!important;
+  margin:0!important;
+  border:1px solid #d7e5dd!important;
+  border-radius:10px!important;
+  background:#f7fbf9!important;
+  overflow:visible!important;
+}
+.planner-rail .representative-course-mainline .representative-course-preview b{
+  display:block!important;
+  margin-bottom:2px!important;
+  color:#234c3a!important;
+  font-size:11px!important;
+  line-height:1.35!important;
+  white-space:normal!important;
+  overflow:visible!important;
+  text-overflow:clip!important;
+}
+.planner-rail .representative-course-mainline .representative-course-preview span{
+  display:block!important;
+  color:#50685c!important;
+  font-size:11px!important;
+  line-height:1.45!important;
+  white-space:normal!important;
+  overflow:visible!important;
+  text-overflow:clip!important;
+  overflow-wrap:anywhere!important;
+}
+.planner-rail .representative-course-mainline .representative-course-preview.is-empty{display:none!important}
+
+.planner-rail .hut-select-access{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) auto!important;
+  gap:8px!important;
+  align-items:center!important;
+  width:100%!important;
+  min-width:0!important;
+}
+.planner-rail .hut-select-access>.point-select{width:100%!important;min-width:0!important}
+.planner-rail .hut-select-access>.hut-home-inline{
+  width:auto!important;
+  min-width:86px!important;
+  min-height:42px!important;
+  height:42px!important;
+  margin:0!important;
+  padding:0 14px!important;
+  box-sizing:border-box!important;
+  border:1px solid #8fb9ad!important;
+  border-radius:10px!important;
+  background:#eef8f4!important;
+  color:#176b5a!important;
+  font-size:12px!important;
+  font-weight:800!important;
+  line-height:1!important;
+  text-decoration:none!important;
+  white-space:nowrap!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:5px!important;
+  box-shadow:0 2px 8px rgba(23,107,90,.08)!important;
+}
+.planner-rail .hut-select-access>.hut-home-inline.hidden{display:none!important}
+@media(max-width:700px){
+  .planner-rail .representative-course-mainline{grid-template-columns:1fr!important;gap:8px!important}
+  .planner-rail .hut-select-access{grid-template-columns:minmax(0,1fr) auto!important;gap:6px!important}
+  .planner-rail .hut-select-access>.hut-home-inline{min-width:78px!important;min-height:44px!important;height:44px!important;padding:0 10px!important;font-size:11px!important}
+}
+
+/* V1.4.104: national mountain Wikipedia link */
+.national-rich-links{display:flex;justify-content:flex-end;margin-top:12px}.national-wikipedia-link{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:8px 12px;border:1px solid #bfd8cb;border-radius:10px;background:#fff;color:#1f6c4a;font-size:12px;font-weight:900;text-decoration:none}.national-wikipedia-link:hover{background:#f1f8f4}.national-wikipedia-link:focus-visible{outline:3px solid rgba(39,126,86,.22);outline-offset:2px}
+
+
+/* V1.4.105 screenshot button placement: desktop below Analyze, mobile stays above results */
+.result-screenshot-toolbar-desktop{display:flex;flex-direction:column;align-items:stretch;justify-content:center;gap:5px;width:100%;margin:0;padding:0}
+.result-screenshot-toolbar-desktop.hidden{display:none!important}
+.result-screenshot-toolbar-desktop .result-screenshot-btn{width:100%;min-height:42px}
+#resultScreenshotStatusDesktop{min-height:0;text-align:center;color:#668075;font-size:11px;font-weight:750;line-height:1.4}
+.result-screenshot-toolbar-mobile{display:none}
+@media(max-width:700px){
+  .result-screenshot-toolbar-desktop{display:none!important}
+  .result-screenshot-toolbar-mobile{display:flex}
+}
