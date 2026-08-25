@@ -139,7 +139,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.160';
+const APP_VERSION = '1.4.161';
 
 
 
@@ -7848,7 +7848,8 @@ function normalizeRouteMapPoint(source,index){
   if(!point)return null;
   const lat=Number(point.lat), lon=Number(point.lon);
   if(!Number.isFinite(lat)||!Number.isFinite(lon))return null;
-  return {...point,lat,lon,order:index+1};
+  const grade=String(source?.grade||point?.grade||'').toUpperCase();
+  return {...point,lat,lon,order:index+1,grade:/^[A-E]$/.test(grade)?grade:''};
 }
 function collectRouteMapPointsFromForm(){
   const rows=[...($('points')?.children||[])];
@@ -7923,6 +7924,21 @@ function fixedTrailSegment(from,to){
   if(reverse)return reverse.slice().reverse().map(x=>[Number(x[0]),Number(x[1])]);
   return null;
 }
+function routeRiskGrade(from,to){
+  const grades=[String(from?.grade||'').toUpperCase(),String(to?.grade||'').toUpperCase()].filter(g=>/^[A-E]$/.test(g));
+  if(!grades.length)return '';
+  return grades.reduce((worst,g)=>gradeRank(g)>gradeRank(worst)?g:worst,grades[0]);
+}
+function routeRiskBand(grade){
+  const g=String(grade||'').toUpperCase();
+  if(g==='A')return 'A';
+  if(g==='B')return 'B';
+  if(['C','D','E'].includes(g))return 'C';
+  return '';
+}
+function routeRiskColor(grade){
+  return ({A:'#2f9d62',B:'#e0ad22',C:'#d9534f'})[routeRiskBand(grade)]||'#1f7fbd';
+}
 function routeMapLineGeometry(points){
   const lines=[]; let fixedCount=0;
   for(let i=1;i<points.length;i++){
@@ -7930,7 +7946,7 @@ function routeMapLineGeometry(points){
     const fixed=fixedTrailSegment(from,to);
     const coords=fixed&&fixed.length>=2?fixed:[[from.lat,from.lon],[to.lat,to.lon]];
     if(fixed)fixedCount++;
-    lines.push({coords,fixed:!!fixed,from,to});
+    lines.push({coords,fixed:!!fixed,from,to,grade:routeRiskGrade(from,to)});
   }
   return {lines,fixedCount,total:Math.max(0,points.length-1)};
 }
@@ -7953,7 +7969,8 @@ function routeMapListHtml(points){
 function routeMapPopupHtml(point){
   const role=point.role?`<div>${esc(point.role)}</div>`:'';
   const stay=point.stay?'<div>宿泊地点</div>':'';
-  return `<div class="route-popup"><strong>${String(point.order).padStart(2,'0')} / ${esc(point.name||'地点')}</strong><div>${esc(routeTypeBadgeLabel(point.type))}</div><div>${esc(routePointDateTime(point))}</div>${role}${stay}</div>`;
+  const risk=point.grade?`<div class="route-popup-risk risk-${esc(routeRiskBand(point.grade).toLowerCase())}">地点判定：<b>${esc(point.grade)}</b></div>`:'';
+  return `<div class="route-popup"><strong>${String(point.order).padStart(2,'0')} / ${esc(point.name||'地点')}</strong><div>${esc(routeTypeBadgeLabel(point.type))}</div><div>${esc(routePointDateTime(point))}</div>${risk}${role}${stay}</div>`;
 }
 function routeMapIcon(point){
   if(!window.L)return null;
@@ -8038,8 +8055,15 @@ function renderSingleRouteMap({mapId,emptyId,listId},points){
   state.lines.clearLayers();
   const latlngs=points.map(point=>[point.lat,point.lon]);
   const geometry=routeMapLineGeometry(points);
+  const showRisk=mapId==='routeMapResults'&&geometry.lines.some(seg=>seg.grade);
   geometry.lines.forEach(seg=>{
-    L.polyline(seg.coords,{color:'#1f7fbd',weight:4,opacity:.95,dashArray:seg.fixed?null:'7 7'}).addTo(state.lines);
+    const color=showRisk?routeRiskColor(seg.grade):'#1f7fbd';
+    const line=L.polyline(seg.coords,{color,weight:showRisk?6:4,opacity:.95,dashArray:seg.fixed?null:'7 7'}).addTo(state.lines);
+    if(showRisk&&seg.grade){
+      const band=routeRiskBand(seg.grade);
+      const label=band==='C'&&seg.grade!=='C'?`C以上（地点判定 ${seg.grade}）`:`${band}（地点判定 ${seg.grade}）`;
+      line.bindTooltip(`<strong>${esc(seg.from.name||'地点')} → ${esc(seg.to.name||'地点')}</strong><br>区間リスク：<b>${esc(label)}</b>`,{sticky:true,className:'route-risk-tooltip'});
+    }
   });
   mapEl.dataset.trailSegments=String(geometry.fixedCount);
   mapEl.dataset.totalSegments=String(geometry.total);
@@ -8222,7 +8246,7 @@ function renderPointForecastTimeline(points){
 
 function renderAll(points,overnight=[]){
 
-  $('results').classList.remove('hidden'); $('resultScreenshotToolbarDesktop')?.classList.remove('hidden'); renderWeatherCharts(points); renderDecisionCommentary(points); renderRouteMaps(points.map(x=>x.point)); const worst=points.reduce((a,b)=>gradeRank(b.grade)>gradeRank(a.grade)?b:a,points[0]);
+  $('results').classList.remove('hidden'); $('resultScreenshotToolbarDesktop')?.classList.remove('hidden'); renderWeatherCharts(points); renderDecisionCommentary(points); renderRouteMaps(points); const worst=points.reduce((a,b)=>gradeRank(b.grade)>gradeRank(a.grade)?b:a,points[0]);
   const maxWindValue=max(points.flatMap(x=>x.providerRows.map(y=>y.row.wind))); const maxRainValue=max(points.flatMap(x=>x.providerRows.map(y=>y.row.rain))); const thunderLevel=maxThunder(points.map(x=>x.thunder)); const forecastConfidence=routeForecastConfidence(points); const confidenceLevel=forecastConfidence.level;
   $('grade').textContent=worst.grade; $('verdict').textContent=verdict(worst.grade);
   const gradeLabels={A:'EXCELLENT',B:'GOOD',C:'CAUTION',D:'HARD',E:'STOP'}; const verdictNotes={A:'全体としてかなり安定した予報です。',B:'一部に注意点はありますが、全体としては比較的安定しています。',C:'注意要素があります。通過時刻と場所を確認してください。',D:'強い気象リスクを含む計画です。見直しを推奨します。',E:'非常に強い気象リスクがあります。中止を含めて再検討してください。'};
