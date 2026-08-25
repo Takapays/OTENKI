@@ -27,7 +27,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.4.70"
+APP_VERSION = "1.4.79"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -822,6 +822,105 @@ def _bytes_response(status: int, ctype: str, body: bytes, *, cache_control: str 
     return response
 
 
+def _national_grade(max_wind: float, max_gust: float, max_rain: float, max_cape: float, min_temp: float, min_visibility: float | None, *, caution_hours: int = 0, severe_hours: int = 0, extreme_hours: int = 0):
+    # V1.4.79: 全国簡易判定は「てんくらの感覚」に近づけ、風・雨を主判定にする。
+    # 雷(CAPE)・視界・低温は詳細注意情報として残すが、それだけでABCをCへ落とさない。
+    # 6〜15時の10時間のうち、強い風雨の継続時間を重視する。
+    if extreme_hours >= 1 or severe_hours >= 4:
+        return "C", "6〜15時に強い風または雨が見込まれ、登山には厳しめの条件です。時間帯別の詳細を確認してください。"
+    if severe_hours >= 1 or caution_hours >= 3:
+        return "B", "6〜15時の一部で風または雨の影響が見込まれます。比較的よい時間帯を確認してください。"
+    return "A", "6〜15時は風雨の大きな影響が比較的少なく、登山候補にしやすい条件です。詳細分析で最終確認してください。"
+
+@app.post("/api/national-outlook")
+def national_outlook():
+    payload = request.get_json(silent=True) or {}
+    date_text = str(payload.get("date") or "")[:10]
+    try:
+        target = datetime.strptime(date_text, "%Y-%m-%d").date()
+    except ValueError:
+        return jsonify(error="日付が不正です"), 400
+    today_jst = (datetime.now(timezone.utc) + timedelta(hours=9)).date()
+    if target < today_jst or target > today_jst + timedelta(days=15):
+        return jsonify(error="全国判定は今日から15日先までです"), 400
+    raw_points = payload.get("points")
+    if not isinstance(raw_points, list) or not raw_points or len(raw_points) > 300:
+        return jsonify(error="判定地点数が不正です"), 400
+    points=[]
+    for x in raw_points:
+        if not isinstance(x, dict): continue
+        name=str(x.get("name") or "")[:80]
+        try: lat=float(x.get("lat")); lon=float(x.get("lon"))
+        except (TypeError,ValueError): continue
+        if not name or not (20 <= lat <= 50 and 120 <= lon <= 155): continue
+        try: elev=float(x.get("elevation")) if x.get("elevation") is not None else None
+        except (TypeError,ValueError): elev=None
+        points.append({"name":name,"lat":lat,"lon":lon,"elevation":elev})
+    if not points: return jsonify(error="有効な地点がありません"), 400
+    key=f"national-outlook:{APP_VERSION}:"+date_text+":"+"|".join(f'{p["name"]}:{p["lat"]:.4f}:{p["lon"]:.4f}' for p in points)
+    cached=_cache_get(key)
+    if cached:
+        status,ctype,body=cached
+        return Response(body,status=status,content_type=ctype)
+    results=[]
+    hourly_vars="temperature_2m,precipitation,cloud_cover,wind_speed_10m,wind_gusts_10m,cape,visibility"
+    try:
+        for start in range(0,len(points),30):
+            chunk=points[start:start+30]
+            params={
+                "latitude":",".join(f'{p["lat"]:.5f}' for p in chunk),
+                "longitude":",".join(f'{p["lon"]:.5f}' for p in chunk),
+                "hourly":hourly_vars,"start_date":date_text,"end_date":date_text,
+                "timezone":"Asia/Tokyo","wind_speed_unit":"ms"
+            }
+            if all(p["elevation"] is not None for p in chunk): params["elevation"]=",".join(f'{p["elevation"]:.0f}' for p in chunk)
+            url="https://api.open-meteo.com/v1/forecast?"+urllib.parse.urlencode(params)
+            status,ctype,body=_request_url(url)
+            if status != 200: raise RuntimeError(f"Open-Meteo HTTP {status}")
+            data=json.loads(body.decode("utf-8"))
+            rows=data if isinstance(data,list) else [data]
+            if len(rows) != len(chunk): raise RuntimeError("Open-Meteo response size mismatch")
+            for p,forecast in zip(chunk,rows):
+                hourly=forecast.get("hourly") or {}; times=hourly.get("time") or []
+                idx=[i for i,t in enumerate(times) if isinstance(t,str) and len(t)>=13 and 6 <= int(t[11:13]) <= 15]
+                def vals(k):
+                    a=hourly.get(k) or []
+                    out=[]
+                    for i in idx:
+                        try:v=float(a[i])
+                        except (TypeError,ValueError,IndexError):continue
+                        if math.isfinite(v):out.append(v)
+                    return out
+                wind=vals("wind_speed_10m"); gust=vals("wind_gusts_10m"); rain=vals("precipitation"); cape=vals("cape"); temp=vals("temperature_2m"); vis=vals("visibility")
+                if not (wind and rain and temp): continue
+                max_w=max(wind); max_g=max(gust) if gust else max_w; max_r=max(rain); max_c=max(cape) if cape else 0; min_t=min(temp); min_v=min(vis) if vis else None
+                caution_hours=severe_hours=extreme_hours=0
+                for i in idx:
+                    def hv(k, default=None):
+                        a=hourly.get(k) or []
+                        try:
+                            v=float(a[i])
+                            return v if math.isfinite(v) else default
+                        except (TypeError,ValueError,IndexError):
+                            return default
+                    w=hv("wind_speed_10m",0); g=hv("wind_gusts_10m",w); r=hv("precipitation",0); cp=hv("cape",0); tp=hv("temperature_2m",99); vv=hv("visibility",None)
+                    # V1.4.79: ABCは風・雨を主軸にする。突風/CAPE/視界/低温は表示上の注意情報。
+                    # 10m平均風を中心にし、瞬間的な突風だけではC判定にしない。
+                    extreme = w>=18 or r>=8
+                    severe = w>=13 or r>=3
+                    caution = w>=8 or r>=0.8
+                    if extreme: extreme_hours+=1
+                    if severe: severe_hours+=1
+                    if caution: caution_hours+=1
+                grade,summary=_national_grade(max_w,max_g,max_r,max_c,min_t,min_v,caution_hours=caution_hours,severe_hours=severe_hours,extreme_hours=extreme_hours)
+                thunder="HIGH" if max_c>=700 else "MEDIUM" if max_c>=300 else "LOW"
+                results.append({"name":p["name"],"grade":grade,"summary":summary,"maxWind":round(max_w,1),"maxGust":round(max_g,1),"maxRain":round(max_r,1),"maxCape":round(max_c),"minTemp":round(min_t,1),"minVisibility":round(min_v) if min_v is not None else None,"thunder":thunder,"cautionHours":caution_hours,"severeHours":severe_hours})
+    except Exception as exc:
+        return jsonify(error=f"全国簡易予報の取得に失敗しました: {exc}"), 502
+    payload_out=json.dumps({"date":date_text,"results":results,"version":APP_VERSION},ensure_ascii=False).encode("utf-8")
+    _cache_put(key,200,"application/json; charset=utf-8",payload_out,ttl=1800)
+    return Response(payload_out,status=200,content_type="application/json; charset=utf-8")
+
 @app.get("/api/health")
 def health():
     return jsonify(
@@ -1085,7 +1184,7 @@ def bing_site_auth():
     return response
 
 
-PUBLIC_FILES = {"app.js", "styles.css", "favicon.ico", "robots.txt", "sitemap.xml", "guide.html", "manifest.json", "google5a7b3dfd79ff97f0.html", "BingSiteAuth.xml", INDEXNOW_KEY_FILENAME}
+PUBLIC_FILES = {"app.js", "styles.css", "access.js", "access-data.js", "access.css", "favicon.ico", "robots.txt", "sitemap.xml", "guide.html", "manifest.json", "google5a7b3dfd79ff97f0.html", "BingSiteAuth.xml", INDEXNOW_KEY_FILENAME}
 PUBLIC_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif", ".ico"}
 
 

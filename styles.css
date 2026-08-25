@@ -3253,3 +3253,55 @@ body.install-guide-open{overflow:hidden}
 #forecastCards .rf-confidence-medium>b{color:#805d12;background:#fff4d8;border:1px solid #edd38f}
 #forecastCards .rf-confidence-low>b{color:#9a3b2e;background:#fde7e2;border:1px solid #efbcb1}
 @media(max-width:520px){#forecastCards .rf-confidence{margin-top:7px;gap:4px 6px}#forecastCards .rf-confidence>span,#forecastCards .rf-confidence>small{font-size:9px!important}#forecastCards .rf-confidence>b{height:19px;min-width:24px;font-size:10px}}
+
+
+/* V1.4.71 representative course: explicit always-visible course choices */
+.representative-course-choices:not(.hidden){grid-column:1/-1;display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+.representative-course-choice{appearance:none;border:1px solid #c8d8cf;background:#fff;color:#355247;border-radius:999px;padding:7px 12px;font:inherit;font-size:12px;font-weight:800;line-height:1.2;cursor:pointer;transition:.15s ease}
+.representative-course-choice:hover{background:#f0f7f3;border-color:#9fc2af}
+.representative-course-choice.is-active{background:#1f6a4b;color:#fff;border-color:#1f6a4b;box-shadow:0 1px 3px rgba(31,106,75,.18)}
+.representative-course-preview:not(.hidden){display:flex;flex-direction:column;gap:3px}
+.representative-course-preview b{font-size:11px;color:#234c3a}
+.representative-course-preview span{font-size:11px;color:#50685c;overflow-wrap:anywhere}
+@media(max-width:700px){
+  .representative-course-choices:not(.hidden){display:grid;grid-template-columns:1fr;gap:7px}
+  .representative-course-choice{width:100%;min-height:42px;border-radius:10px;padding:9px 11px;font-size:13px;text-align:left}
+  .representative-course-preview:not(.hidden){padding:9px 10px}
+  .representative-course-preview b{font-size:12px}
+  .representative-course-preview span{font-size:11px;line-height:1.5}
+}
+
+
+/* V1.4.73 nationwide hiking outlook map */
+.national-outlook{grid-column:1/-1;margin:0;min-width:0}
+.national-outlook-head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px}.national-outlook-head h2{font-size:25px;margin:2px 0 3px}.national-outlook-head p{margin:0;color:#64786f;font-size:12px}.national-outlook-controls{display:flex;align-items:flex-end;gap:9px}.national-outlook-controls label{display:grid;gap:5px;font-size:11px;font-weight:850;color:#48655a}.national-outlook-controls input{min-height:42px;border:1px solid var(--ui-line);border-radius:10px;padding:0 10px;font:inherit}.national-outlook-controls button{min-height:42px;white-space:nowrap}
+.national-outlook-legend{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin:14px 0 9px;color:#5e746a;font-size:11px;font-weight:750}.national-outlook-legend span{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;font-size:11px;font-weight:950;color:#fff;margin-left:5px}.grade-a{background:#27895d}.grade-b{background:#d39a16}.grade-c{background:#c94f54}.grade-u{background:#85928d}
+.national-outlook-status{padding:9px 11px;border-radius:10px;background:#f3f8f5;color:#557066;font-size:11px;margin-bottom:10px}.national-outlook-body{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:12px;align-items:stretch}.national-outlook-map{height:430px;border:1px solid var(--ui-line);border-radius:16px;overflow:hidden;background:#eaf2ed}.national-outlook-detail{border:1px solid var(--ui-line);border-radius:16px;background:#fbfdfc;padding:16px;display:flex;gap:12px;min-width:0}.national-outlook-detail h3{font-size:20px;margin:0 0 7px}.national-outlook-detail p{font-size:11px;color:#63786f;line-height:1.6;margin:0 0 12px}.national-detail-grade{flex:0 0 44px;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:22px;font-weight:950}.national-outlook-detail dl{display:grid;gap:5px;margin:0 0 12px}.national-outlook-detail dl>div{display:flex;justify-content:space-between;gap:12px;font-size:11px;border-bottom:1px solid #e8efeb;padding-bottom:4px}.national-outlook-detail dt{color:#71837b}.national-outlook-detail dd{margin:0;font-weight:850}.national-outlook-note{font-size:10px;color:#74877f;line-height:1.55;margin:10px 2px 0}
+.national-marker-wrap{background:transparent!important;border:none!important}.national-marker{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;color:#fff;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.28);font-size:11px;font-weight:950}.national-marker.grade-a{background:#27895d}.national-marker.grade-b{background:#d39a16}.national-marker.grade-c{background:#c94f54}.national-marker.grade-u{background:#85928d;opacity:.72}
+@media(max-width:900px){.national-outlook{order:-3}.national-outlook-head{display:block}.national-outlook-controls{margin-top:12px}.national-outlook-controls label{flex:1}.national-outlook-controls input{width:100%;font-size:16px}.national-outlook-body{grid-template-columns:1fr}.national-outlook-map{height:390px}.national-outlook-detail{min-height:120px}}
+@media(max-width:520px){.national-outlook-map{height:330px}.national-outlook-controls{display:grid;grid-template-columns:1fr auto}.national-outlook-head h2{font-size:22px}.national-outlook-legend{font-size:10px;gap:5px}.national-outlook-detail{padding:12px}}
+
+
+/* V1.4.76: 通過ポイント読込を代表コースUIから分離し常時明示 */
+.mountain-route-load-primary{display:block;margin-top:10px;width:100%;position:relative;z-index:2}
+.mountain-route-load-primary #loadPoiBtn{display:flex!important;width:100%!important;min-width:0!important;min-height:46px!important;height:auto!important;margin:0!important;border-radius:11px!important;justify-content:center!important;font-size:14px;font-weight:900;white-space:normal!important}
+.mountain-route-actions{margin-top:8px}
+@media(max-width:700px){.mountain-route-load-primary #loadPoiBtn{min-height:50px!important;font-size:16px}}
+
+.national-map-fallback{min-height:260px;display:grid;place-items:center;padding:20px;text-align:center;color:#64786f;font-weight:800;background:#f4f8f6}
+
+
+/* V1.4.77: header badges + load button vertical centering */
+.mountain-route-load-primary #loadPoiBtn{align-items:center!important;justify-content:center!important;line-height:1.25!important;padding-top:0!important;padding-bottom:0!important}
+.mobile-topbar-badges{display:none}
+@media(max-width:900px){
+  .mobile-topbar-badges{order:4;flex:0 0 100%;display:flex;flex-wrap:wrap;justify-content:center;gap:5px;margin-top:6px}
+  .mobile-topbar-badges span{display:inline-flex;align-items:center;justify-content:center;border:1px solid #cfe0eb;background:#f6fbff;color:#194669;padding:5px 8px;border-radius:999px;font-size:9px;font-weight:850;line-height:1.15;white-space:nowrap}
+}
+@media(max-width:430px){
+  .mobile-topbar-badges{gap:4px;margin-top:5px}
+  .mobile-topbar-badges span{font-size:8px;padding:4px 6px}
+}
+
+@media(min-width:901px) and (max-width:1120px){.topbar-badges span:nth-child(3){display:inline-flex!important}}
+\n\n/* V1.4.80 PC ROUTE PLAN vertical compaction */\n@media (min-width:901px){\n  .planner-rail .plan-panel{padding:18px 19px 19px;}\n  .planner-rail .panel-kicker{margin-bottom:5px;}\n  .planner-rail .compact-title{margin-bottom:10px;}\n  .planner-rail .section-title{gap:9px;}\n  .planner-rail .section-title>span{width:34px;height:34px;min-width:34px;}\n  .planner-rail .section-title h2{font-size:20px;line-height:1.15;}\n  .planner-rail .section-title p{margin-top:2px;font-size:11px;line-height:1.35;}\n  .planner-rail .last-analysis-panel{margin-top:9px;padding:10px 11px;gap:7px;}\n  .planner-rail .last-analysis-actions button{min-height:38px;}\n  .planner-rail .last-analysis-panel p{line-height:1.35;}\n  .planner-rail .mountain-row{padding:11px 12px;border-radius:14px;}\n  .planner-rail .mountain-picker-dual{gap:7px!important;}\n  .planner-rail .mountain-area-label,.planner-rail .mountain-select-label,.planner-rail .mountain-search-label{font-size:10px;line-height:1.25;}\n  .planner-rail .mountain-area-label select,.planner-rail .mountain-select-label select,.planner-rail .mountain-search-label input[type=search]{min-height:38px;height:38px;font-size:13px;}\n  .planner-rail .mountain-count{margin-top:6px;line-height:1.3;}\n  .planner-rail .state{padding-top:4px;line-height:1.3;}\n  .planner-rail .mountain-route-load-primary{margin-top:7px;}\n  .planner-rail .mountain-route-load-primary #loadPoiBtn{min-height:39px!important;font-size:13px;}\n  .planner-rail .mountain-route-actions{margin-top:6px;gap:6px;}\n  .planner-rail .mountain-route-actions #representativeCourseBtn,.planner-rail .representative-course-select{min-height:34px;height:34px;}\n  .planner-rail .representative-course-choice{padding:5px 10px;font-size:11px;}\n  .planner-rail .representative-course-preview:not(.hidden){padding:5px 8px;line-height:1.3;}\n  .planner-rail .points-head{margin-top:11px;}\n  .planner-rail .points-head h3{font-size:16px;}\n  .planner-rail .points-head small{margin-top:2px;font-size:10px;}\n  .planner-rail .points{gap:6px;}\n  .planner-rail .point-row{padding:8px 9px!important;gap:5px 7px!important;border-radius:12px!important;}\n  .planner-rail .point-row select,.planner-rail .point-row input{min-height:36px;height:36px;font-size:12px;}\n  .planner-rail .date-picker-btn{height:36px;min-height:36px;}\n  .planner-rail .stay-toggle{min-height:36px;}\n  .planner-rail .point-meta{padding-top:0!important;line-height:1.25!important;}\n  .planner-rail .move,.planner-rail .remove{min-height:32px!important;padding:4px!important;}\n  .planner-rail .route-actions{gap:8px;margin-top:12px;}\n  .planner-rail .route-actions #addPointBtn{min-height:38px;}\n  .planner-rail .route-actions #analyzeBtn{min-height:42px;padding:10px 16px;}\n}\n

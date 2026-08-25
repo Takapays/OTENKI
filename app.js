@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.4.70';
+const APP_VERSION = '1.4.80';
 
 
 
@@ -3926,8 +3926,150 @@ function logPointSelected(row,p){
   }});
 }
 
+let nationalOutlookMap=null;
+let nationalOutlookLayer=null;
+let nationalOutlookResults=new Map();
+
+// V1.4.77: 全国マップ用の山頂座標補完。国土地理院「日本の主な山岳」を基準。
+const NATIONAL_MOUNTAIN_COORD_OVERRIDES = Object.freeze({
+  '金時山':{lat:35.289722,lon:139.005000,elevation:1212},
+  '箱根山':{lat:35.233333,lon:139.020833,elevation:1438},
+  '天城山（万三郎岳）':{lat:34.862778,lon:139.001667,elevation:1406},
+  '愛鷹山（越前岳）':{lat:35.238056,lon:138.793889,elevation:1504},
+  '毛無山':{lat:35.415833,lon:138.543889,elevation:1964},
+  '櫛形山':{lat:35.586667,lon:138.369167,elevation:2052},
+  '三ッ峠山':{lat:35.549167,lon:138.809167,elevation:1785}
+});
+const NATIONAL_MOUNTAIN_PRESET_ALIASES = Object.freeze({'御嶽':'御嶽山','大山（鳥取）':'大山'});
+// 補完座標を固定山頂候補にも加え、代表コース生成と山行設定の双方で利用する。
+for(const [mountain,p] of Object.entries(NATIONAL_MOUNTAIN_COORD_OVERRIDES)){
+  const catalog=BUILTIN_ROUTE_CATALOG[mountain]||(BUILTIN_ROUTE_CATALOG[mountain]=[]);
+  if(!catalog.some(x=>x.type==='peak'&&hasResolvedCoord(x))){
+    catalog.unshift({id:`national-peak-${mountain}`,type:'peak',name:mountain,lat:p.lat,lon:p.lon,elevation:p.elevation,source:'国土地理院固定山頂'});
+  }
+}
+
+function nationalMountainPoint(name){
+  // V1.4.77: 全国マップは MOUNTAIN_PRESETS だけに依存しない。
+  // 日本三百名山で固定済みの山頂座標を優先し、北海道・東北などの取りこぼしを防ぐ。
+  const catalog=BUILTIN_ROUTE_CATALOG[name]||[];
+  const peak=catalog.find(x=>x.type==='peak'&&hasResolvedCoord(x));
+  const override=NATIONAL_MOUNTAIN_COORD_OVERRIDES[name];
+  const presetName=NATIONAL_MOUNTAIN_PRESET_ALIASES[name]||name;
+  const preset=MOUNTAIN_PRESETS[presetName];
+  const lat=Number(peak?.lat??peak?.latitude??override?.lat??preset?.latitude??preset?.lat);
+  const lon=Number(peak?.lon??peak?.longitude??override?.lon??preset?.longitude??preset?.lon);
+  if(!Number.isFinite(lat)||!Number.isFinite(lon))return null;
+  const elevation=Number(peak?.elevation??override?.elevation);
+  return {name,lat,lon,elevation:Number.isFinite(elevation)?elevation:null,eligible:representativeCourseOptions(name).length>0};
+}
+function nationalOutlookPoints(){return JAPAN_300_MOUNTAINS.map(nationalMountainPoint).filter(Boolean);}
+function nationalMarkerIcon(grade='?'){
+  const g=['A','B','C'].includes(grade)?grade:'?';
+  return L.divIcon({className:'national-marker-wrap',html:`<div class="national-marker grade-${g==='?'?'u':g.toLowerCase()}">${g}</div>`,iconSize:[26,26],iconAnchor:[13,13]});
+}
+function renderNationalOutlookMarkers(){
+  if(!nationalOutlookMap||!window.L)return;
+  if(nationalOutlookLayer)nationalOutlookLayer.remove();
+  nationalOutlookLayer=L.layerGroup().addTo(nationalOutlookMap);
+  for(const p of nationalOutlookPoints()){
+    const result=nationalOutlookResults.get(p.name);
+    const grade=result?.grade||'?';
+    const marker=L.marker([p.lat,p.lon],{icon:nationalMarkerIcon(grade),title:`${p.name} ${grade}`}).addTo(nationalOutlookLayer);
+    marker.on('click',()=>showNationalOutlookDetail(p,result));
+  }
+}
+function showNationalOutlookDetail(p,result){
+  const box=$('nationalOutlookDetail');if(!box)return;
+  if(!result){box.innerHTML=`<div class="national-detail-grade grade-u">?</div><div><h3>${esc(p.name)}</h3><p>${p.eligible?'まだ判定していません。':'代表コース未対応のため、全国簡易判定は対象外です。'}</p>${p.eligible?'<button type="button" class="secondary national-detail-open">この山を山行設定に入力</button>':''}</div>`;}
+  else{
+    box.innerHTML=`<div class="national-detail-grade grade-${result.grade.toLowerCase()}">${result.grade}</div><div><h3>${esc(p.name)}</h3><p>${esc(result.summary||'')}</p><dl><div><dt>最大風速</dt><dd>${num(result.maxWind)} m/s</dd></div><div><dt>最大降水</dt><dd>${num(result.maxRain)} mm/h</dd></div><div><dt>雷指標</dt><dd>${esc(result.thunder||'–')}</dd></div><div><dt>最低気温</dt><dd>${num(result.minTemp)} ℃</dd></div><div><dt>最小視界</dt><dd>${Number.isFinite(result.minVisibility)?Math.round(result.minVisibility/100)/10+' km':'–'}</dd></div></dl><button type="button" class="primary national-detail-open">この山を山行設定に入力</button></div>`;
+  }
+  box.querySelector('.national-detail-open')?.addEventListener('click',()=>openMountainFromNationalMap(p.name));
+}
+async function openMountainFromNationalMap(name){
+  const search=$('mountainSearch'); if(!search)return;
+  search.value=name; search.dispatchEvent(new Event('change',{bubbles:true}));
+  const d=$('nationalOutlookDate')?.value;
+  await new Promise(r=>setTimeout(r,50));
+  if(representativeCourseOptions(name).length){
+    await applyRepresentativeCourse();
+    const rows=[...document.querySelectorAll('#points .point-row')];
+    const first=rows[0]?.querySelector('.point-date')?.value;
+    if(d&&first){
+      const shift=Math.round((new Date(`${d}T00:00:00+09:00`).getTime()-new Date(`${first}T00:00:00+09:00`).getTime())/86400000);
+      rows.forEach(row=>{const input=row.querySelector('.point-date');if(!input?.value)return;const ms=new Date(`${input.value}T00:00:00+09:00`).getTime()+shift*86400000;input.value=formatJstInput(ms).date;});
+      updateForecastHorizon(); renderRouteMaps();
+    }
+  }
+  $('mountainPreset')?.scrollIntoView({behavior:'smooth',block:'center'});
+}
+async function runNationalOutlook(){
+  const date=$('nationalOutlookDate')?.value, status=$('nationalOutlookStatus'), btn=$('nationalOutlookRun');
+  if(!date){if(status)status.textContent='日付を選択してください。';return;}
+  const points=nationalOutlookPoints();
+  const eligible=points.filter(x=>x.eligible);
+  if(!eligible.length){if(status)status.textContent='簡易判定できる山がありません。';return;}
+  if(btn)btn.disabled=true;
+  nationalOutlookResults=new Map();
+  renderNationalOutlookMarkers();
+  const batchSize=50;
+  const totalBatches=Math.ceil(eligible.length/batchSize);
+  let completed=0;
+  try{
+    for(let i=0;i<eligible.length;i+=batchSize){
+      const batch=eligible.slice(i,i+batchSize);
+      const batchNo=Math.floor(i/batchSize)+1;
+      if(status)status.textContent=`${eligible.length}座を簡易判定中… ${batchNo}/${totalBatches}`;
+      // Render Free環境で1回の巨大リクエストがタイムアウトしないよう50座ずつ取得する。
+      const controller=new AbortController();
+      const timer=setTimeout(()=>controller.abort(),28000);
+      let res;
+      try{
+        res=await fetch('/api/national-outlook',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date,points:batch}),signal:controller.signal});
+      }finally{clearTimeout(timer);}
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok)throw new Error(data.error||`HTTP ${res.status}`);
+      for(const x of (data.results||[]))nationalOutlookResults.set(x.name,x);
+      completed+=batch.length;
+      renderNationalOutlookMarkers();
+      if(status)status.textContent=`${eligible.length}座を簡易判定中… ${Math.min(completed,eligible.length)}/${eligible.length}座`;
+      await new Promise(r=>setTimeout(r,0));
+    }
+    const counts={A:0,B:0,C:0};
+    for(const r of nationalOutlookResults.values())if(counts[r.grade]!=null)counts[r.grade]++;
+    if(status)status.innerHTML=`判定完了：<b>A ${counts.A}座</b> / <b>B ${counts.B}座</b> / <b>C ${counts.C}座</b> / 対象外・未取得 ${points.length-nationalOutlookResults.size}座`;
+  }catch(e){
+    const msg=e?.name==='AbortError'?'通信がタイムアウトしました。少し時間をおいて再度お試しください。':(e.message||e);
+    if(status)status.textContent=`全国判定に失敗しました：${msg}`;
+  }finally{if(btn)btn.disabled=false;}
+}
+function setupNationalOutlook(){
+  const el=$('nationalOutlookMap'),date=$('nationalOutlookDate'),btn=$('nationalOutlookRun'),status=$('nationalOutlookStatus');
+  // 判定ボタンは地図ライブラリの成否に関係なく必ず有効化する。
+  btn?.addEventListener('click',runNationalOutlook);
+  if(!el||!date)return;
+  const today=new Date(); const local=new Date(today.getTime()-today.getTimezoneOffset()*60000).toISOString().slice(0,10); date.value=local;
+  const max=new Date(today.getTime()+15*86400000); date.max=new Date(max.getTime()-max.getTimezoneOffset()*60000).toISOString().slice(0,10); date.min=local;
+  if(!window.L){
+    el.innerHTML='<div class="national-map-fallback">地図の読み込みに失敗しました。全国判定は実行できます。</div>';
+    if(status)status.textContent='地図ライブラリを読み込めませんでしたが、「全国を判定」は実行できます。';
+    return;
+  }
+  try{
+    nationalOutlookMap=L.map(el,{zoomControl:true,scrollWheelZoom:false}).setView([36.2,138.0],5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:11,attribution:'&copy; OpenStreetMap contributors'}).addTo(nationalOutlookMap);
+    renderNationalOutlookMarkers();
+    const allCoords=nationalOutlookPoints().map(p=>[p.lat,p.lon]);
+    if(allCoords.length)nationalOutlookMap.fitBounds(allCoords,{padding:[18,18],maxZoom:5});
+  }catch(e){
+    if(status)status.textContent=`地図の初期化に失敗しましたが、全国判定は実行できます：${e.message||e}`;
+  }
+}
+
 function init(){
   setupInstallApp();
+  setupNationalOutlook();
   const area=$('mountainArea');
   const select=$('mountainPreset');
   const search=$('mountainSearch');
@@ -4288,12 +4430,31 @@ const EXTRA_REPRESENTATIVE_COURSES_V1466 = Object.freeze({
   ]
 });
 
+function generatedRepresentativeCourseOptions(mountain){
+  // V1.4.77: 未対応山は固定候補の代表登山口→山頂から代表コースを自動生成する。
+  // CTが確認済みなら自動加算、未登録なら読み込み自体は許可してCT情報なしを明示する。
+  const key=canonicalMountainName(mountain);
+  const catalog=BUILTIN_ROUTE_CATALOG[key]||[];
+  const trailheads=catalog.filter(p=>p.type==='trailhead'&&hasResolvedCoord(p));
+  const peaks=catalog.filter(p=>p.type==='peak'&&hasResolvedCoord(p));
+  if(!trailheads.length||!peaks.length)return [];
+  const exactPeak=peaks.find(p=>p.name===key)||peaks[0];
+  if(!exactPeak)return [];
+  const seen=new Set();
+  return trailheads.filter(th=>{if(seen.has(th.name))return false;seen.add(th.name);return true;}).slice(0,2).map(th=>({
+    label:`${th.name}ルート`,
+    points:[['trailhead',th.name,'登山口'],['peak',exactPeak.name,'山頂']],
+    allowMissingCt:true,
+    generated:true
+  }));
+}
 function representativeCourseOptions(mountain){
   const key=canonicalMountainName(mountain);
   const manual=REPRESENTATIVE_COURSES[key];
   const base=manual?(Array.isArray(manual)?manual:[manual]):(AUTO_REPRESENTATIVE_COURSES_V1466[key]||[]);
   const extra=EXTRA_REPRESENTATIVE_COURSES_V1466[key]||[];
-  return [...base,...extra];
+  const generated=(!base.length&&!extra.length)?generatedRepresentativeCourseOptions(key):[];
+  return [...base,...extra,...generated];
 }
 function representativeCourseFor(mountain){
   const options=representativeCourseOptions(mountain);
@@ -4308,6 +4469,7 @@ function representativeCoursePathText(course){
 function refreshRepresentativeCourseButton(){
   const btn=$('representativeCourseBtn');
   const sel=$('representativeCourseSelect');
+  const choices=$('representativeCourseChoices');
   const preview=$('representativeCoursePreview');
   if(!btn)return;
   const mountain=currentMountainLabel();
@@ -4315,19 +4477,33 @@ function refreshRepresentativeCourseButton(){
   const hasCourse=options.length>0;
   btn.classList.toggle('hidden',!hasCourse);
   btn.disabled=!hasCourse;
+  let selectedIndex=0;
   if(sel){
     const prev=sel.value;
     sel.innerHTML=options.map((course,i)=>`<option value="${i}">${escapeHtml(course.label)}</option>`).join('');
     if(prev&&options[Number(prev)])sel.value=prev;else sel.value='0';
-    sel.classList.toggle('hidden',options.length<=1);
+    selectedIndex=Math.max(0,Number(sel.value)||0);
+    // V1.4.72: visible choices are buttons; keep select only as internal state/backward compatibility.
+    sel.classList.add('hidden');
     sel.disabled=options.length<=1;
+  }
+  if(choices){
+    choices.innerHTML=options.length>1?options.map((course,i)=>`<button type="button" class="representative-course-choice${i===selectedIndex?' is-active':''}" data-course-index="${i}" aria-pressed="${i===selectedIndex?'true':'false'}">${escapeHtml(course.label)}</button>`).join(''):'';
+    choices.classList.toggle('hidden',options.length<=1);
+    choices.querySelectorAll('.representative-course-choice').forEach(choice=>{
+      choice.addEventListener('click',()=>{
+        const idx=Math.max(0,Number(choice.dataset.courseIndex)||0);
+        if(sel)sel.value=String(idx);
+        refreshRepresentativeCourseButton();
+      });
+    });
   }
   const course=representativeCourseFor(mountain);
   const pathText=representativeCoursePathText(course);
   btn.removeAttribute('title');
   delete btn.dataset.courseTooltip;
   if(preview){
-    preview.textContent=pathText;
+    preview.innerHTML=pathText?`<b>${escapeHtml(course?.label||'代表コース')}</b><span>${escapeHtml(pathText)}</span>`:'';
     preview.classList.toggle('hidden',!hasCourse||!pathText);
   }
 }
@@ -4347,15 +4523,17 @@ async function applyRepresentativeCourse(){
       resolved=course.points.map(([type,name,role])=>({type,name,role,p:representativeCandidate(type,name)}));
     }
     const missing=resolved.filter(x=>!x.p).map(x=>x.name);
-    if(missing.length)return setStatus(`代表コースを入力できませんでした。固定ポイント不足：${missing.join('、')}`,true);
+    if(missing.length)return setStatus(`代表コースを読み込めませんでした。固定ポイント不足：${missing.join('、')}`,true);
 
     const segments=[];
-    let totalMinutes=0;
+    let totalMinutes=0, missingCtCount=0;
     for(let i=1;i<resolved.length;i++){
       const info=courseTimeInfo(resolved[i-1].p,resolved[i].p);
-      if(!info)return setStatus(`代表コースを入力できませんでした。${resolved[i-1].name} → ${resolved[i].name} の確認済みCTがありません。`,true);
-      segments.push(info);
-      totalMinutes+=Number(info.minutes)||0;
+      if(!info&&!course.allowMissingCt)return setStatus(`代表コースを読み込めませんでした。${resolved[i-1].name} → ${resolved[i].name} の確認済みCTがありません。`,true);
+      const seg=info||{minutes:60,missing:true,source:'CT情報なし（+1時間仮置き）'};
+      segments.push(seg);
+      totalMinutes+=Number(seg.minutes)||0;
+      if(seg.missing)missingCtCount++;
     }
 
     const rows=[...$('points').children];
@@ -4376,15 +4554,18 @@ async function applyRepresentativeCourse(){
       const dt=formatJstInput(cursorMs);
       addPointRow(item.type,item.p.id,item.role,dt);
       const row=$('points').lastElementChild;
-      if(i>0)row.dataset.courseTimeAuto='1';
+      if(i>0)row.dataset.courseTimeAuto=segments[i-1]?.missing?'':'1';
       if(i<segments.length)cursorMs+=Number(segments[i].minutes)*60*1000;
+      if(i>0&&segments[i-1]?.missing)syncCourseTimeMissingBadge(row);
     });
     updateForecastHorizon();
     renderRouteMaps();
-    setStatus(`${mountain}：${course.label} を入力しました。標準CT合計 ${formatCourseTimeMinutes(totalMinutes)}（無雪期・休憩含まず）。`);
+    setStatus(missingCtCount
+      ?`${mountain}：${course.label} を入力しました。CT情報なし ${missingCtCount}区間は+1時間で仮置きしています。`
+      :`${mountain}：${course.label} を入力しました。標準CT合計 ${formatCourseTimeMinutes(totalMinutes)}（無雪期・休憩含まず）。`);
     logEvent('representative_course_loaded',{success:true,mountain,metadata:{course_label:course.label,point_count:resolved.length,total_minutes:totalMinutes}});
   }finally{
-    if(btn){btn.textContent='代表コースを入力';refreshRepresentativeCourseButton();}
+    if(btn){btn.textContent='代表コースを読み込む';refreshRepresentativeCourseButton();}
   }
 }
 
@@ -4748,6 +4929,7 @@ function addPointRow(type='peak',selected='',roleLabel='',initialDateTime=null){
     <button class="move up" type="button" title="上へ">↑</button><button class="move down" type="button" title="下へ">↓</button><button class="remove" type="button" title="削除">×</button>
     <div class="point-meta">地点を選択してください</div>`;
   $('points').appendChild(row); renumber();
+  window.TratenTrailheadAccess?.attachRow?.(row);
   const typeSel=row.querySelector('.point-type'), pointSel=row.querySelector('.point-select'), stay=row.querySelector('.stay-option');
   typeSel.addEventListener('change',()=>preservePointRowViewport(row,()=>{pointSel.innerHTML=candidateOptions(typeSel.value); stay.classList.toggle('hidden',typeSel.value!=='hut'); if(typeSel.value!=='hut')row.querySelector('.point-stay').checked=false; updateMeta(row); refreshAllCourseTimeMissingBadges();}));
   pointSel.addEventListener('change',()=>preservePointRowViewport(row,()=>{
