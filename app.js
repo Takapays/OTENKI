@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.4.89';
+const APP_VERSION = '1.4.91';
 
 
 
@@ -1003,7 +1003,7 @@ const SAVED_ROUTES_STORAGE_KEY='traten:saved-routes:v1';
 const SAVED_ROUTES_MAX=50;
 
 function routeSnapshotFromPoints(mountain,points){
-  return {mountain,points:(points||[]).map(p=>({id:p.id||'',name:p.name||'',type:p.type||'peak',date:p.date||'',time:p.time||'',stay:!!p.stay,role:p.role||''}))};
+  return {mountain,points:(points||[]).map(p=>({id:p.id||'',name:p.name||'',type:p.type||'peak',date:p.date||'',time:p.time||'',stay:!!p.stay,stayDepartureTime:p.stayDepartureTime||'05:00',role:p.role||''}))};
 }
 function loadLastRouteSnapshot(){
   try{
@@ -1113,7 +1113,11 @@ async function restoreRouteSnapshot(route,label='保存ルート'){
     if(!hit)continue;
     addPointRow(saved.type,hit.id,saved.role||'',{date:saved.date,time:saved.time});
     const row=$('points').lastElementChild;
-    if(row?.querySelector('.point-stay'))row.querySelector('.point-stay').checked=!!saved.stay;
+    if(row?.querySelector('.point-stay')){
+      row.querySelector('.point-stay').checked=!!saved.stay;
+      const dep=row.querySelector('.stay-departure-time');if(dep)dep.value=saved.stayDepartureTime||'05:00';
+      row.querySelector('.stay-departure')?.classList.toggle('hidden',!saved.stay);
+    }
     updateMeta(row);restored++;
   }
   updateForecastHorizon();renderRouteMaps();refreshAllCourseTimeMissingBadges();
@@ -5236,8 +5240,10 @@ function addManualPointRow(){
       const dt=new Date(lastValue);
       if(!Number.isNaN(dt.getTime())){
         if(last.querySelector('.point-stay')?.checked){
+          const departure=last.querySelector('.stay-departure-time')?.value||'05:00';
+          const [dh,dm]=departure.split(':').map(Number);
           dt.setDate(dt.getDate()+1);
-          dt.setHours(5,0,0,0);
+          dt.setHours(Number.isFinite(dh)?dh:5,Number.isFinite(dm)?dm:0,0,0);
         }else{
           dt.setHours(dt.getHours()+1);
         }
@@ -5288,12 +5294,17 @@ function addPointRow(type='peak',selected='',roleLabel='',initialDateTime=null){
     <label class="datetime-label date-label"><span class="field-caption">通過日</span><span class="date-control"><input class="point-date" type="date" value="${initialDateTime?.date||todayLocal()}"><button class="date-picker-btn" type="button" title="カレンダーを開く" aria-label="カレンダーを開く">📅</button></span></label>
     <label class="datetime-label time-label"><span class="field-caption">通過時刻</span><span class="time-control-with-ct"><input class="point-time" type="time" value="${initialDateTime?.time||'06:00'}"><span class="course-time-missing-badge hidden" title="直前地点からの標準CTが未登録です">CT情報なし</span></span></label>
     <label class="stay-option ${type==='hut'?'':'hidden'}"><span>宿泊</span><span class="stay-toggle"><input class="point-stay" type="checkbox"><b><span class="stay-label-desktop">ここに泊まる</span><span class="stay-label-mobile">泊まる</span></b></span></label>
+    <label class="stay-departure hidden"><span class="field-caption">翌朝出発</span><input class="stay-departure-time" type="time" value="05:00" aria-label="翌朝出発時刻"></label>
     <button class="move up" type="button" title="上へ">↑</button><button class="move down" type="button" title="下へ">↓</button><button class="remove" type="button" title="削除">×</button>
     <div class="point-meta">地点を選択してください</div>`;
   $('points').appendChild(row); renumber();
   window.TratenTrailheadAccess?.attachRow?.(row);
-  const typeSel=row.querySelector('.point-type'), pointSel=row.querySelector('.point-select'), stay=row.querySelector('.stay-option');
-  typeSel.addEventListener('change',()=>preservePointRowViewport(row,()=>{pointSel.innerHTML=candidateOptions(typeSel.value); stay.classList.toggle('hidden',typeSel.value!=='hut'); if(typeSel.value!=='hut')row.querySelector('.point-stay').checked=false; updateMeta(row); refreshAllCourseTimeMissingBadges();}));
+  const typeSel=row.querySelector('.point-type'), pointSel=row.querySelector('.point-select'), stay=row.querySelector('.stay-option'), stayDeparture=row.querySelector('.stay-departure'), stayDepartureTime=row.querySelector('.stay-departure-time');
+  const refreshStayDeparture=()=>{
+    const enabled=typeSel.value==='hut'&&!!row.querySelector('.point-stay')?.checked;
+    stayDeparture?.classList.toggle('hidden',!enabled);
+  };
+  typeSel.addEventListener('change',()=>preservePointRowViewport(row,()=>{pointSel.innerHTML=candidateOptions(typeSel.value); stay.classList.toggle('hidden',typeSel.value!=='hut'); if(typeSel.value!=='hut')row.querySelector('.point-stay').checked=false; refreshStayDeparture(); updateMeta(row); refreshAllCourseTimeMissingBadges();}));
   pointSel.addEventListener('change',()=>preservePointRowViewport(row,()=>{
     const p=selectedCandidate(pointSel.value);
     if(p){
@@ -5325,10 +5336,17 @@ function addPointRow(type='peak',selected='',roleLabel='',initialDateTime=null){
     });
   });
   row.querySelector('.point-stay').addEventListener('change',()=>{
+    refreshStayDeparture();
     syncNextPointInitialTime(row);
     updateForecastHorizon();
     renderRouteMaps();
     refreshAllCourseTimeMissingBadges();
+  });
+  stayDepartureTime?.addEventListener('change',()=>{
+    if(!stayDepartureTime.value)stayDepartureTime.value='05:00';
+    syncNextPointInitialTime(row);
+    updateForecastHorizon();
+    renderRouteMaps();
   });
   row.querySelector('.remove').addEventListener('click',()=>{row.remove();renumber();updateForecastHorizon();renderRouteMaps();refreshAllCourseTimeMissingBadges();});
   row.querySelector('.up').addEventListener('click',()=>{const p=row.previousElementSibling;if(p)row.parentNode.insertBefore(row,p);renumber();renderRouteMaps();refreshAllCourseTimeMissingBadges();});
@@ -5414,11 +5432,12 @@ function syncNextPointInitialTime(row){
     const base=new Date(`${row.querySelector('.point-date').value}T12:00:00+09:00`);
     base.setDate(base.getDate()+1);
     const nextDate=formatLocalDate(base);
+    const departure=row.querySelector('.stay-departure-time')?.value||'05:00';
     next.querySelector('.point-date').value=nextDate;
-    next.querySelector('.point-time').value='05:00';
-    next.dataset.datetimeBefore=`${nextDate}T05:00:00+09:00`;
+    next.querySelector('.point-time').value=departure;
+    next.dataset.datetimeBefore=`${nextDate}T${departure}:00+09:00`;
     next.dataset.courseTimeAuto='';
-    setStatus(`宿泊の次のポイントを翌朝 5:00 にしました。`);
+    setStatus(`宿泊の次のポイントを翌朝 ${departure} にしました。`);
   }else if(!applyCourseTimeFromPrevious(next)){
     const shifted=formatJstInput(dt.getTime()+60*60*1000);
     next.querySelector('.point-date').value=shifted.date;
@@ -5470,7 +5489,7 @@ function collectPoints(){
     const date=row.querySelector('.point-date').value, time=row.querySelector('.point-time').value;
     if(!date||!time) throw new Error(`${p.name} の通過日・通過時刻を入力してください。`);
     if(!hasResolvedCoord(p)) throw new Error(`${p.name} の座標が確定していないため利用できません。別の確定済み地点を選択してください。`);
-    return {...p,date,time,type:row.querySelector('.point-type').value,stay:!!row.querySelector('.point-stay')?.checked,role:row.dataset.role||''};
+    return {...p,date,time,type:row.querySelector('.point-type').value,stay:!!row.querySelector('.point-stay')?.checked,stayDepartureTime:row.querySelector('.stay-departure-time')?.value||'05:00',role:row.dataset.role||''};
   }).filter(Boolean);
 }
 function validateChronology(points){
@@ -6675,48 +6694,19 @@ function routePointDateParts(point){
   return {date:date||'日付未設定',time:time||'時刻未設定'};
 }
 
-// V1.4.89: representative-course route-map geometry.
-// Registered northern-Alps segments use a compact fixed polyline so rendering stays local/lightweight.
-// Unregistered segments intentionally fall back to the previous straight connection.
-const FIXED_TRAIL_GEOMETRY_V1489 = Object.freeze({
-  '上高地→横尾山荘': [[36.246656,137.635388],[36.2528,137.6437],[36.2608,137.6516],[36.2695,137.6608],[36.2786,137.6728],[36.2862,137.6870],[36.293444,137.699175]],
-  '上高地→槍沢ロッヂ': [[36.246656,137.635388],[36.2528,137.6437],[36.2608,137.6516],[36.2695,137.6608],[36.2786,137.6728],[36.2862,137.6870],[36.293444,137.699175],[36.3020,137.6965],[36.3107,137.6904],[36.318056,137.681111]],
-  '横尾山荘→槍沢ロッヂ': [[36.293444,137.699175],[36.2989,137.6980],[36.3053,137.6940],[36.3118,137.6890],[36.318056,137.681111]],
-  '槍沢ロッヂ→槍ヶ岳山荘': [[36.318056,137.681111],[36.3216,137.6750],[36.3257,137.6685],[36.3294,137.6603],[36.3343,137.6524],[36.3380,137.6477],[36.340939,137.645795]],
-  '槍ヶ岳山荘→槍ヶ岳': [[36.340939,137.645795],[36.34125,137.64635],[36.34165,137.64705],[36.342009,137.647735]],
-  '新穂高温泉→槍平小屋': [[36.285405,137.575014],[36.2905,137.5825],[36.2968,137.5905],[36.3025,137.6002],[36.3090,137.6118],[36.3160,137.6220],[36.323220,137.629910]],
-  '槍平小屋→槍ヶ岳山荘': [[36.323220,137.629910],[36.3280,137.6325],[36.3324,137.6359],[36.3359,137.6393],[36.3387,137.6428],[36.340939,137.645795]],
-  '横尾山荘→涸沢ヒュッテ': [[36.293444,137.699175],[36.2942,137.6920],[36.2950,137.6840],[36.2971,137.6757],[36.3008,137.6668]],
-  '涸沢ヒュッテ→穂高岳山荘': [[36.3008,137.6668],[36.2993,137.6627],[36.2981,137.6578],[36.2966,137.6524],[36.2950,137.6484]],
-  '穂高岳山荘→奥穂高岳': [[36.2950,137.6484],[36.2931,137.6482],[36.2910,137.6481],[36.2892,137.6480]],
-  '中房温泉登山口→合戦小屋': [[36.3929,137.7485],[36.3941,137.7434],[36.3960,137.7382],[36.3981,137.7317],[36.4009,137.7258]],
-  '合戦小屋→燕山荘': [[36.4009,137.7258],[36.4026,137.7223],[36.4041,137.7193],[36.4059,137.7169],[36.4073,137.7152]],
-  '燕山荘→燕岳': [[36.4073,137.7152],[36.4075,137.7143],[36.4072,137.7134],[36.4069,137.7129]],
-  '一ノ沢登山口→常念小屋': [[36.3388,137.7420],[36.3363,137.7398],[36.3344,137.7366],[36.3322,137.7322],[36.3297,137.7281]],
-  '常念小屋→常念岳': [[36.3297,137.7281],[36.3284,137.7278],[36.3268,137.7275],[36.3255,137.7273]],
-  '三股登山口→蝶ヶ岳': [[36.2628,137.7543],[36.2680,137.7490],[36.2734,137.7429],[36.2799,137.7342],[36.2871,137.7265]],
-  '猿倉→白馬尻小屋跡': [[36.6974,137.8182],[36.7025,137.8137],[36.7085,137.8065],[36.7145,137.7968]],
-  '白馬尻小屋跡→白馬山荘': [[36.7145,137.7968],[36.7218,137.7895],[36.7300,137.7812],[36.7391,137.7705],[36.7482,137.7617],[36.7566,137.7569]],
-  '白馬山荘→白馬岳': [[36.7566,137.7569],[36.7572,137.7575],[36.7580,137.7582],[36.7585,137.7586]],
-  '八方池山荘→唐松岳頂上山荘': [[36.7030,137.7893],[36.7002,137.7846],[36.6975,137.7785],[36.6945,137.7719],[36.6910,137.7645],[36.6878,137.7576]],
-  '唐松岳頂上山荘→唐松岳': [[36.6878,137.7576],[36.6877,137.7566],[36.6875,137.7556],[36.6874,137.7547]],
-  'アルプス平→五竜山荘': [[36.6817,137.8332],[36.6800,137.8215],[36.6769,137.8089],[36.6737,137.7934],[36.6689,137.7745],[36.6634,137.7547]],
-  '唐松岳頂上山荘→五竜山荘': [[36.6878,137.7576],[36.6821,137.7562],[36.6764,137.7548],[36.6699,137.7544],[36.6634,137.7547]],
-  '五竜山荘→五竜岳': [[36.6634,137.7547],[36.6619,137.7542],[36.6601,137.7534],[36.6584,137.7526]],
-  '室堂→一の越山荘': [[36.5779,137.5950],[36.5769,137.5982],[36.5753,137.6018],[36.5737,137.6054],[36.5722,137.6086]],
-  '一の越山荘→立山（雄山）': [[36.5722,137.6086],[36.5730,137.6115],[36.5740,137.6146],[36.5750,137.6174],[36.5759,137.6197]],
-  '折立登山口→太郎平小屋': [[36.4786,137.4780],[36.4737,137.4852],[36.4694,137.4938],[36.4653,137.5036],[36.4606,137.5128],[36.4548,137.5195]],
-  '太郎平小屋→薬師岳山荘': [[36.4548,137.5195],[36.4565,137.5250],[36.4584,137.5312],[36.4608,137.5363],[36.4630,137.5400]],
-  '薬師岳山荘→薬師岳': [[36.4630,137.5400],[36.4646,137.5416],[36.4668,137.5432],[36.4689,137.5447]],
-  '太郎平小屋→黒部五郎岳': [[36.4548,137.5195],[36.4455,137.5232],[36.4350,137.5280],[36.4221,137.5332],[36.4072,137.5377],[36.3925,137.5408]],
-  '五竜岳→キレット小屋': [[36.6584,137.7526],[36.6546,137.7493],[36.6504,137.7455],[36.6462,137.7418],[36.6410,137.7384]],
-  'キレット小屋→鹿島槍ヶ岳': [[36.6410,137.7384],[36.6365,137.7404],[36.6319,137.7428],[36.6276,137.7450],[36.6244,137.7467]]
+// V1.4.90: representative-course route-map geometry.
+// Only trail geometries traced from a verified source should be registered here.
+// V1.4.89 used hand-shaped approximation points; those have been removed because
+// a plausible-looking but wrong line is less useful than an explicit straight fallback.
+// Unregistered segments are rendered as dashed straight connections.
+const VERIFIED_TRAIL_GEOMETRY_V1490 = Object.freeze({
+  // Add only source-verified trail polylines here.
 });
 function fixedTrailSegment(from,to){
   const a=String(from?.name||''),b=String(to?.name||'');
-  const direct=FIXED_TRAIL_GEOMETRY_V1489[`${a}→${b}`];
+  const direct=VERIFIED_TRAIL_GEOMETRY_V1490[`${a}→${b}`];
   if(direct)return direct.map(x=>[Number(x[0]),Number(x[1])]);
-  const reverse=FIXED_TRAIL_GEOMETRY_V1489[`${b}→${a}`];
+  const reverse=VERIFIED_TRAIL_GEOMETRY_V1490[`${b}→${a}`];
   if(reverse)return reverse.slice().reverse().map(x=>[Number(x[0]),Number(x[1])]);
   return null;
 }
