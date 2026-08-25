@@ -1,3 +1,9 @@
+# V1.4.116
+
+- Fixed planner action order to: ＋地点を追加 → このルートを保存 → この計画を分析開始.
+- Removed the route-map caption 「対応区間は登山道なりに表示」.
+- Added GSI base-map switcher to route maps: 標準地図 / 淡色地図 / 写真 / 陰影起伏図.
+
 # V1.4.115
 
 - 全国一括簡易判定の背景地図を OpenStreetMap から国土地理院「標準地図」へ変更。

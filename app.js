@@ -139,7 +139,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.115';
+const APP_VERSION = '1.4.116';
 
 
 
@@ -7149,13 +7149,17 @@ function ensureRouteMap(mapId){
   let state=routeMapViews[mapId];
   if(state)return state;
   const map=L.map(host,{zoomControl:false,scrollWheelZoom:false,attributionControl:true});
-  L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png',{
-    minZoom:5,
-    maxZoom:18,
-    attribution:'<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener noreferrer">地理院タイル</a>'
-  }).addTo(map);
+  const gsiAttribution='<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener noreferrer">地理院タイル</a>';
+  const baseLayers={
+    '標準地図':L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png',{minZoom:5,maxZoom:18,attribution:gsiAttribution}),
+    '淡色地図':L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png',{minZoom:5,maxZoom:18,attribution:gsiAttribution}),
+    '写真':L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg',{minZoom:5,maxZoom:18,attribution:gsiAttribution}),
+    '陰影起伏図':L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/hillshademap/{z}/{x}/{y}.png',{minZoom:5,maxNativeZoom:16,maxZoom:18,attribution:gsiAttribution})
+  };
+  baseLayers['標準地図'].addTo(map);
+  L.control.layers(baseLayers,null,{position:'topright',collapsed:window.matchMedia?.('(max-width: 700px)')?.matches ?? false}).addTo(map);
   L.control.zoom({position:'bottomright'}).addTo(map);
-  state={map,markers:L.layerGroup().addTo(map),lines:L.layerGroup().addTo(map)};
+  state={map,baseLayers,markers:L.layerGroup().addTo(map),lines:L.layerGroup().addTo(map)};
   routeMapViews[mapId]=state;
   return state;
 }

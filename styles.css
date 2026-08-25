@@ -3784,3 +3784,19 @@ body.install-guide-open{overflow:hidden}
 }
 
 .planner-rail .representative-course-mainline #representativeCourseBtn:not(.hidden){align-self:start!important;height:auto!important}
+
+
+/* V1.4.116: planner action order + GSI base-layer switcher */
+.route-actions #addPointBtn{order:1!important;width:100%!important}
+.route-actions #saveRouteBtn{order:2!important;width:100%!important}
+.route-actions #analyzeBtn{order:3!important}
+.route-actions #resultScreenshotToolbarDesktop{order:4!important}
+.route-actions .status-mobile{order:5!important}
+.route-map-canvas .leaflet-control-layers{border:1px solid rgba(63,91,78,.22);border-radius:10px;box-shadow:0 5px 16px rgba(26,61,45,.14)}
+.route-map-canvas .leaflet-control-layers-expanded{padding:7px 9px;background:rgba(255,255,255,.96)}
+.route-map-canvas .leaflet-control-layers-base label{margin:3px 0;font-size:11px;font-weight:800;color:#315345}
+.route-map-canvas .leaflet-control-layers-selector{margin-right:5px}
+@media(max-width:700px){
+  .route-map-canvas .leaflet-control-layers-expanded{max-width:150px;padding:6px 8px}
+  .route-map-canvas .leaflet-control-layers-base label{font-size:10px}
+}
