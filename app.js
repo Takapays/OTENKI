@@ -139,7 +139,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.161';
+const APP_VERSION = '1.4.162';
 
 
 
@@ -4918,6 +4918,57 @@ function nationalRepresentativeSummary(name){
   if(!course)return null;
   return {label:course.label||'代表コース',points:(course.points||[]).map(([,pointName,pointLabel])=>({name:pointName,label:pointLabel||''}))};
 }
+// V1.4.162: 山紹介ページの基本情報を、既存の固定候補・代表コース・CTから自動生成。
+function nationalMountainGuideInfo(name){
+  const key=canonicalMountainName(name);
+  const options=representativeCourseOptions(key);
+  const primary=options[0]||null;
+  const expanded=primary?representativeCourseExpandedPointDefs(key,primary):(BUILTIN_ROUTE_CATALOG[key]||[]).map(p=>[p.type,p.name,TYPE_LABEL[p.type]||'']);
+  const trailhead=expanded.find(([type])=>type==='trailhead')?.[1]
+    ||(BUILTIN_ROUTE_CATALOG[key]||[]).find(p=>p.type==='trailhead')?.name||'';
+  const huts=[];
+  for(const course of options){
+    for(const [type,pointName] of representativeCourseExpandedPointDefs(key,course)){
+      if(type==='hut'&&pointName&&!huts.includes(pointName))huts.push(pointName);
+    }
+  }
+  if(!huts.length){
+    for(const p of BUILTIN_ROUTE_CATALOG[key]||[]){
+      if(p.type==='hut'&&p.name&&!huts.includes(p.name))huts.push(p.name);
+    }
+  }
+  let ctLabel='情報なし',ctNote='代表コースのCT未登録';
+  if(primary){
+    const route=buildRepresentativeResolvedRoute(key,primary);
+    if(route&&!route.error&&Array.isArray(route.segments)&&route.segments.length){
+      const missing=route.segments.some(seg=>seg?.missing);
+      const total=route.segments.filter(seg=>!seg?.missing).reduce((sum,seg)=>sum+Math.max(0,Number(seg?.minutes)||0),0);
+      if(!missing&&total>0){ctLabel=formatCourseTimeMinutes(total);ctNote='代表コース・登り目安';}
+      else if(total>0){ctLabel=`${formatCourseTimeMinutes(total)}+`;ctNote='確認済みCT合計（一部未登録）';}
+      else if(missing){ctLabel='一部未登録';ctNote='代表コースにCT情報なし区間あり';}
+    }
+  }
+  return {
+    trailhead:trailhead||'情報なし',
+    ctLabel,ctNote,
+    huts:huts.slice(0,3),
+    hutCount:huts.length,
+    routeCount:options.length
+  };
+}
+function nationalMountainGuideHtml(name,area,elevation){
+  const info=nationalMountainGuideInfo(name);
+  const huts=info.huts.length?info.huts.join('・'):'情報なし';
+  const hutSub=info.hutCount>3?`ほか${info.hutCount-3}件`:'';
+  return `<section class="national-guide-grid" aria-label="山の基本情報">
+    <div class="national-guide-item"><span>標高</span><strong>${esc(elevation)}</strong></div>
+    <div class="national-guide-item"><span>山域</span><strong>${esc(area)}</strong></div>
+    <div class="national-guide-item wide"><span>代表登山口</span><strong>${esc(info.trailhead)}</strong></div>
+    <div class="national-guide-item"><span>標準CT</span><strong>${esc(info.ctLabel)}</strong><small>${esc(info.ctNote)}</small></div>
+    <div class="national-guide-item"><span>代表コース数</span><strong>${info.routeCount?`${info.routeCount}コース`:'情報なし'}</strong></div>
+    <div class="national-guide-item wide"><span>主な山小屋</span><strong>${esc(huts)}</strong>${hutSub?`<small>${esc(hutSub)}</small>`:''}</div>
+  </section>`;
+}
 function nationalNearbyMountains(p,limit=5){
   return nationalOutlookPoints().filter(x=>x.name!==p.name).map(x=>({
     ...x,
@@ -4942,6 +4993,7 @@ function showNationalOutlookDetail(p,result){
   const area=nationalAreaLabel(p.name);
   const confidence=nationalOutlookConfidence(result);
   const course=nationalRepresentativeSummary(p.name);
+  const guideHtml=nationalMountainGuideHtml(p.name,area,elevation);
   const nearby=nationalNearbyMountains(p);
   const photo=nationalMountainPhoto(p.name);
   const heroStyle=photo?` style="background-image:linear-gradient(180deg,rgba(12,61,43,.08),rgba(8,48,35,.82)),url('${photo.url}')"`:'';
@@ -4969,6 +5021,7 @@ function showNationalOutlookDetail(p,result){
     <div class="national-rich-content">
       <div class="national-rich-summary"><strong>${grade==='?'?'全国一括簡易判定':'6〜15時の簡易判定'}</strong><p>${summary}</p>${sourceNote}</div>
       ${result?`<div class="national-rich-metrics">${metrics}</div>`:''}
+      ${guideHtml}
       ${courseHtml}
       ${nearbyHtml}
       <div class="national-rich-links"><a class="national-wikipedia-link" href="${wikipediaArticleUrl(p.name)}" target="_blank" rel="noopener noreferrer">Wikipedia ↗</a></div>
