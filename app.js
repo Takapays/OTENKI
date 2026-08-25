@@ -139,7 +139,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.113';
+const APP_VERSION = '1.4.114';
 
 
 
@@ -4683,7 +4683,7 @@ function init(){
   $('representativeCourseBtn')?.addEventListener('click',applyRepresentativeCourse);
   $('representativeCourseBtn')?.addEventListener('mouseenter',()=>renderRepresentativeCourseSummaryNow());
   $('representativeCourseBtn')?.addEventListener('focus',()=>renderRepresentativeCourseSummaryNow());
-  $('representativeCourseSelect')?.addEventListener('change',()=>{refreshRepresentativeCourseButton();renderRepresentativeCourseSummaryNow();});
+  $('representativeCourseSelect')?.addEventListener('change',()=>{setRepresentativeCourseSelectedIndex(currentMountainLabel(),Number($('representativeCourseSelect')?.value)||0);});
   $('addPointBtn').addEventListener('click',()=>addManualPointRow());
   $('analyzeBtn').addEventListener('click',analyze);
   $('resultScreenshotBtn')?.addEventListener('click',()=>captureAnalysisResultsScreenshot($('resultScreenshotBtn'),$('resultScreenshotStatus')));
@@ -4696,6 +4696,7 @@ function init(){
     const selected=!!select.value.trim();
     $('candidateState').textContent='';
     updateLoadButtonAppearance(false);
+    if(selected)REPRESENTATIVE_COURSE_SELECTION.set(canonicalMountainName(select.value),0);
     refreshRepresentativeCourseButton();
     renderRepresentativeCourseSummaryNow();
     requestAnimationFrame(()=>renderRepresentativeCourseSummaryNow());
@@ -5046,10 +5047,38 @@ function representativeCourseOptions(mountain){
   const generated=(!base.length&&!extra.length)?generatedRepresentativeCourseOptions(key):[];
   return [...base,...extra,...generated];
 }
+const REPRESENTATIVE_COURSE_SELECTION = new Map();
+
+function representativeCourseSelectedIndex(mountain, options=null){
+  const key=canonicalMountainName((mountain||'').trim());
+  const list=options||representativeCourseOptions(key);
+  const saved=Number(REPRESENTATIVE_COURSE_SELECTION.get(key));
+  if(Number.isInteger(saved)&&saved>=0&&saved<list.length)return saved;
+  const sel=$('representativeCourseSelect');
+  const legacy=sel?Number(sel.value):NaN;
+  if(Number.isInteger(legacy)&&legacy>=0&&legacy<list.length)return legacy;
+  return 0;
+}
+
+function setRepresentativeCourseSelectedIndex(mountain,index){
+  const key=canonicalMountainName((mountain||'').trim());
+  const options=representativeCourseOptions(key);
+  const idx=Math.max(0,Math.min(options.length-1,Number(index)||0));
+  REPRESENTATIVE_COURSE_SELECTION.set(key,idx);
+  const sel=$('representativeCourseSelect');
+  if(sel&&options[idx])sel.value=String(idx);
+  renderRepresentativeCourseSummaryNow(key);
+  const btn=$('representativeCourseBtn');
+  if(btn){
+    const active=options[idx];
+    const route=representativeCoursePathText(active);
+    btn.title=active?(route?`${active.label||'代表コース'}\n${route}`:(active.label||'代表コース')):'';
+  }
+}
+
 function representativeCourseFor(mountain){
   const options=representativeCourseOptions(mountain);
-  const sel=$('representativeCourseSelect');
-  const idx=sel?Math.max(0,Number(sel.value)||0):0;
+  const idx=representativeCourseSelectedIndex(mountain,options);
   return options[idx]||options[0]||null;
 }
 function representativeCoursePathText(course){
@@ -5060,7 +5089,7 @@ function renderRepresentativeCourseSummaryNow(mountainOverride=''){
   const mountain=(mountainOverride||currentMountainLabel()).trim();
   const options=representativeCourseOptions(mountain);
   const sel=$('representativeCourseSelect');
-  const selectedIndex=sel&&options[Number(sel.value)]?Number(sel.value):0;
+  const selectedIndex=representativeCourseSelectedIndex(mountain,options);
   const btn=$('representativeCourseBtn');
   const mainline=btn?.closest('.representative-course-mainline');
   if(!btn||!mainline)return;
@@ -5094,8 +5123,7 @@ function renderRepresentativeCourseSummaryNow(mountainOverride=''){
     path.textContent=route;
     item.append(name,path);
     item.addEventListener('click',()=>{
-      if(sel)sel.value=String(i);
-      refreshRepresentativeCourseButton();
+      setRepresentativeCourseSelectedIndex(mountain,i);
     });
     box.append(item);
   });
@@ -5119,9 +5147,9 @@ function refreshRepresentativeCourseButton(){
   btn.classList.toggle('hidden',!hasCourse);
   btn.disabled=!hasCourse;
   if(sel){
-    const prev=sel.value;
+    const idx=representativeCourseSelectedIndex(mountain,options);
     sel.innerHTML=options.map((course,i)=>`<option value="${i}">${escapeHtml(course.label)}</option>`).join('');
-    if(prev!==''&&options[Number(prev)])sel.value=prev;else sel.value='0';
+    sel.value=String(idx);
     sel.classList.add('hidden');
     sel.disabled=!hasCourse;
   }
