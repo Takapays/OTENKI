@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.4.83';
+const APP_VERSION = '1.4.87';
 
 
 
@@ -997,46 +997,163 @@ function formatCourseTimeMinutes(minutes){
   return h?`${h}:${String(r).padStart(2,'0')}`:`0:${String(r).padStart(2,'0')}`;
 }
 
-const LAST_ANALYSIS_STORAGE_KEY='traten:last-analysis:v1';
-function loadLastAnalysisSnapshot(){
+const LAST_ROUTE_STORAGE_KEY='traten:last-route:v2';
+const LEGACY_LAST_ANALYSIS_STORAGE_KEY='traten:last-analysis:v1';
+const SAVED_ROUTES_STORAGE_KEY='traten:saved-routes:v1';
+const SAVED_ROUTES_MAX=50;
+
+function routeSnapshotFromPoints(mountain,points){
+  return {mountain,points:(points||[]).map(p=>({id:p.id||'',name:p.name||'',type:p.type||'peak',date:p.date||'',time:p.time||'',stay:!!p.stay,role:p.role||''}))};
+}
+function loadLastRouteSnapshot(){
   try{
-    const raw=localStorage.getItem(LAST_ANALYSIS_STORAGE_KEY);
-    if(!raw)return null;
-    const data=JSON.parse(raw);
-    if(!data||!data.savedAt||!data.route||!Array.isArray(data.results)||!data.results.length)return null;
-    return data;
+    const raw=localStorage.getItem(LAST_ROUTE_STORAGE_KEY);
+    if(raw){const data=JSON.parse(raw);if(data?.route?.mountain&&Array.isArray(data.route.points))return data;}
+    const legacyRaw=localStorage.getItem(LEGACY_LAST_ANALYSIS_STORAGE_KEY);
+    if(!legacyRaw)return null;
+    const legacy=JSON.parse(legacyRaw);
+    if(!legacy?.route?.mountain||!Array.isArray(legacy.route.points))return null;
+    const migrated={savedAt:Number(legacy.savedAt)||Date.now(),appVersion:APP_VERSION,route:legacy.route};
+    localStorage.setItem(LAST_ROUTE_STORAGE_KEY,JSON.stringify(migrated));
+    return migrated;
   }catch(_){return null;}
 }
-function saveLastAnalysisSnapshot(mountain,points,results,overnight){
+function saveLastRouteSnapshot(mountain,points){
   try{
-    const route={mountain,points:points.map(p=>({id:p.id||'',name:p.name||'',type:p.type||'peak',date:p.date,time:p.time,stay:!!p.stay,role:p.role||''}))};
-    const payload={savedAt:Date.now(),appVersion:APP_VERSION,route,results,overnight:overnight||[]};
-    localStorage.setItem(LAST_ANALYSIS_STORAGE_KEY,JSON.stringify(payload));
+    const payload={savedAt:Date.now(),appVersion:APP_VERSION,route:routeSnapshotFromPoints(mountain,points)};
+    localStorage.setItem(LAST_ROUTE_STORAGE_KEY,JSON.stringify(payload));
     refreshLastAnalysisPanel();
-  }catch(e){console.warn('前回分析結果を保存できませんでした',e);}
+  }catch(e){console.warn('前回ルートを保存できませんでした',e);}
 }
-function formatLastAnalysisSavedAt(ms){
+function formatLastRouteSavedAt(ms){
   try{return new Date(ms).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});}catch(_){return '';}
 }
 function refreshLastAnalysisPanel(){
   const panel=$('lastAnalysisPanel'); if(!panel)return;
-  const data=loadLastAnalysisSnapshot();
+  const data=loadLastRouteSnapshot();
   panel.classList.toggle('hidden',!data);
   if(!data)return;
   const mountain=data.route?.mountain||'前回ルート';
   const count=data.route?.points?.length||0;
   const meta=$('lastAnalysisMeta');
-  if(meta)meta.textContent=`${mountain} / ${count}地点 / ${formatLastAnalysisSavedAt(data.savedAt)} 分析`;
+  if(meta)meta.textContent=`${mountain} / ${count}地点 / ${formatLastRouteSavedAt(data.savedAt)}`;
 }
-function showLastAnalysisResult(){
-  const data=loadLastAnalysisSnapshot();
-  if(!data)return setStatus('前回分析結果はありません。',true);
+function loadSavedRoutes(){
   try{
-    renderAll(data.results,data.overnight||[]);
-    if($('updatedAt'))$('updatedAt').textContent=`前回分析：${new Date(data.savedAt).toLocaleString('ja-JP')}（保存結果）`;
-    setStatus('前回の分析結果を表示しています。天気を更新する場合は「前回ルートを復元」後に再分析してください。');
-    scrollToSummaryResult();
-  }catch(e){setStatus(`前回分析結果を表示できませんでした：${e.message||e}`,true);}
+    const data=JSON.parse(localStorage.getItem(SAVED_ROUTES_STORAGE_KEY)||'[]');
+    return Array.isArray(data)?data.filter(x=>x?.id&&x?.name&&x?.route?.mountain&&Array.isArray(x.route.points)):[];
+  }catch(_){return [];}
+}
+function writeSavedRoutes(routes){
+  localStorage.setItem(SAVED_ROUTES_STORAGE_KEY,JSON.stringify((routes||[]).slice(0,SAVED_ROUTES_MAX)));
+  refreshSavedRoutesCount();
+}
+function refreshSavedRoutesCount(){
+  const el=$('savedRoutesCount');if(el)el.textContent=String(loadSavedRoutes().length);
+}
+function currentRouteSnapshot(){
+  const mountain=currentMountainLabel();
+  if(!mountain)throw new Error('先に山を選択してください。');
+  const points=collectPoints();
+  if(!points.length)throw new Error('保存する通過ポイントを1つ以上設定してください。');
+  return routeSnapshotFromPoints(mountain,points);
+}
+function defaultSavedRouteName(){
+  const mountain=currentMountainLabel()||'山行ルート';
+  const points=collectRouteMapPointsFromForm();
+  const first=points[0]?.name||'';const last=points[points.length-1]?.name||'';
+  return first&&last&&first!==last?`${mountain} ${first}→${last}`:`${mountain} ルート`;
+}
+function closeSavedRoutesModal(){
+  const modal=$('savedRoutesModal');if(!modal)return;
+  modal.classList.add('hidden');modal.setAttribute('aria-hidden','true');document.body.classList.remove('saved-routes-open');
+}
+function openSavedRoutesModal(focusName=false){
+  const modal=$('savedRoutesModal');if(!modal)return;
+  renderSavedRoutesList();
+  const input=$('savedRouteName');if(input&&!input.value.trim()){try{input.value=defaultSavedRouteName();}catch(_){}}
+  modal.classList.remove('hidden');modal.setAttribute('aria-hidden','false');document.body.classList.add('saved-routes-open');
+  if(focusName)setTimeout(()=>input?.focus(),30);
+}
+function savedRouteDateLabel(route){
+  const pts=route?.points||[];if(!pts.length)return '';
+  const first=pts[0],last=pts[pts.length-1];
+  if(first.date&&last.date&&first.date!==last.date)return `${first.date} ${first.time||''} → ${last.date} ${last.time||''}`;
+  return `${first.date||''} ${first.time||''}${last.time&&last!==first?` → ${last.time}`:''}`.trim();
+}
+function renderSavedRoutesList(){
+  const list=$('savedRoutesList');if(!list)return;
+  const routes=loadSavedRoutes();
+  refreshSavedRoutesCount();
+  if(!routes.length){list.innerHTML='<div class="saved-routes-empty"><strong>まだ保存ルートはありません</strong><p>山行設定を作って「現在のルートを保存」を押してください。</p></div>';return;}
+  list.innerHTML=routes.map(item=>`<article class="saved-route-card" data-saved-route-id="${esc(item.id)}"><div class="saved-route-main"><div><strong>${esc(item.name)}</strong><small>${esc(item.route.mountain)} / ${item.route.points.length}地点</small><span>${esc(savedRouteDateLabel(item.route))}</span></div></div><div class="saved-route-actions"><button type="button" data-action="load">読み込む</button><button type="button" data-action="overwrite">上書き</button><button type="button" data-action="rename">名前変更</button><button type="button" data-action="delete" class="danger">削除</button></div></article>`).join('');
+  list.querySelectorAll('.saved-route-card').forEach(card=>{
+    const id=card.dataset.savedRouteId;
+    card.querySelector('[data-action="load"]')?.addEventListener('click',()=>loadFavoriteRoute(id));
+    card.querySelector('[data-action="overwrite"]')?.addEventListener('click',()=>overwriteFavoriteRoute(id));
+    card.querySelector('[data-action="rename"]')?.addEventListener('click',()=>renameFavoriteRoute(id));
+    card.querySelector('[data-action="delete"]')?.addEventListener('click',()=>deleteFavoriteRoute(id));
+  });
+}
+async function restoreRouteSnapshot(route,label='保存ルート'){
+  if(!route?.mountain||!Array.isArray(route.points))throw new Error('ルートデータが壊れています。');
+  const search=$('mountainSearch');if(!search)throw new Error('山行設定を開けませんでした。');
+  search.value=route.mountain;search.dispatchEvent(new Event('change',{bubbles:true}));
+  await new Promise(r=>setTimeout(r,60));
+  if(currentMountainLabel()!==route.mountain){
+    search.value=route.mountain;search.dispatchEvent(new Event('change',{bubbles:true}));await new Promise(r=>setTimeout(r,40));
+  }
+  await loadCandidates();
+  $('points').innerHTML=''; pointSeq=0;
+  let restored=0;
+  for(const saved of route.points){
+    let hit=candidates.find(p=>String(p.id)===String(saved.id));
+    if(!hit)hit=candidates.find(p=>p.type===saved.type&&p.name===saved.name);
+    if(!hit)hit=candidates.find(p=>p.name===saved.name);
+    if(!hit)continue;
+    addPointRow(saved.type,hit.id,saved.role||'',{date:saved.date,time:saved.time});
+    const row=$('points').lastElementChild;
+    if(row?.querySelector('.point-stay'))row.querySelector('.point-stay').checked=!!saved.stay;
+    updateMeta(row);restored++;
+  }
+  updateForecastHorizon();renderRouteMaps();refreshAllCourseTimeMissingBadges();
+  if(!restored)throw new Error('保存した通過ポイントを現在のデータから復元できませんでした。');
+  setStatus(`${label}「${route.mountain}」を復元しました。通過日時も保存時のままです。`);
+  $('points')?.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function createFavoriteRoute(){
+  try{
+    const route=currentRouteSnapshot();
+    const name=String($('savedRouteName')?.value||'').trim();
+    if(!name)throw new Error('保存名を入力してください。');
+    const routes=loadSavedRoutes();
+    const same=routes.find(x=>x.name===name);
+    if(same){if(!confirm(`「${name}」は既にあります。現在のルートで上書きしますか？`))return;same.route=route;same.updatedAt=Date.now();}
+    else{routes.unshift({id:`route_${Date.now()}_${Math.random().toString(36).slice(2,7)}`,name,route,createdAt:Date.now(),updatedAt:Date.now()});}
+    writeSavedRoutes(routes);renderSavedRoutesList();setStatus(`保存ルート「${name}」を保存しました。`);
+  }catch(e){setStatus(e.message||String(e),true);}
+}
+async function loadFavoriteRoute(id){
+  const item=loadSavedRoutes().find(x=>x.id===id);if(!item)return;
+  try{await restoreRouteSnapshot(item.route,`保存ルート「${item.name}」`);closeSavedRoutesModal();}catch(e){setStatus(`保存ルートを読み込めませんでした：${e.message||e}`,true);}
+}
+function overwriteFavoriteRoute(id){
+  try{
+    const route=currentRouteSnapshot();const routes=loadSavedRoutes();const item=routes.find(x=>x.id===id);if(!item)return;
+    if(!confirm(`「${item.name}」を現在の山行設定で上書きしますか？`))return;
+    item.route=route;item.updatedAt=Date.now();writeSavedRoutes(routes);renderSavedRoutesList();setStatus(`「${item.name}」を上書きしました。`);
+  }catch(e){setStatus(e.message||String(e),true);}
+}
+function renameFavoriteRoute(id){
+  const routes=loadSavedRoutes();const item=routes.find(x=>x.id===id);if(!item)return;
+  const name=prompt('保存ルート名を変更',item.name);if(name==null)return;const next=name.trim();if(!next)return;
+  if(routes.some(x=>x.id!==id&&x.name===next)){setStatus('同じ名前の保存ルートがあります。',true);return;}
+  item.name=next;item.updatedAt=Date.now();writeSavedRoutes(routes);renderSavedRoutesList();
+}
+function deleteFavoriteRoute(id){
+  const routes=loadSavedRoutes();const item=routes.find(x=>x.id===id);if(!item)return;
+  if(!confirm(`「${item.name}」を削除しますか？`))return;
+  writeSavedRoutes(routes.filter(x=>x.id!==id));renderSavedRoutesList();setStatus(`「${item.name}」を削除しました。`);
 }
 
 const providers = [
@@ -3953,7 +4070,8 @@ const NATIONAL_MOUNTAIN_PHOTOS = Object.freeze({
   '立山':{url:commonsMountainPhotoUrl('Mt Tateyama01s4592.jpg'),credit:'写真: 663highland / Wikimedia Commons',note:'室堂から望む立山',sourceUrl:'https://commons.wikimedia.org/wiki/File:Mt_Tateyama01s4592.jpg'},
   '白馬岳':{url:commonsMountainPhotoUrl('Mount Shirouma (2000-10-07).jpg'),credit:'写真: Alpsdake / Wikimedia Commons (CC BY-SA 4.0)',note:'丸山から望む秋の白馬岳',sourceUrl:'https://commons.wikimedia.org/wiki/File:Mount_Shirouma_(2000-10-07).jpg'},
   '石鎚山':{url:commonsMountainPhotoUrl('石鎚スカイラインからの石鎚山.jpg'),credit:'写真: Koda6029 / Wikimedia Commons',note:'石鎚スカイラインから望む石鎚山',sourceUrl:'https://commons.wikimedia.org/wiki/File:石鎚スカイラインからの石鎚山.jpg'},
-  '大山':{url:commonsMountainPhotoUrl('Mt Daisen Full View.jpg'),credit:'写真: Vickerman625 / Wikimedia Commons (Public Domain)',note:'西から望む大山',sourceUrl:'https://commons.wikimedia.org/wiki/File:Mt_Daisen_Full_View.jpg'}
+  '大山':{url:commonsMountainPhotoUrl('Mt Daisen Full View.jpg'),credit:'写真: Vickerman625 / Wikimedia Commons (Public Domain)',note:'西から望む大山',sourceUrl:'https://commons.wikimedia.org/wiki/File:Mt_Daisen_Full_View.jpg'},
+  '吾妻山':{url:commonsMountainPhotoUrl('吾妻山からの比婆山と立烏帽子山.jpg'),credit:'写真: Koda6029 / Wikimedia Commons',note:'中国地方・吾妻山山頂から比婆山方面を望む',sourceUrl:'https://commons.wikimedia.org/wiki/File:吾妻山からの比婆山と立烏帽子山.jpg'}
 });
 function nationalMountainPhoto(name){return NATIONAL_MOUNTAIN_PHOTOS[name]||null;}
 const NATIONAL_PHOTO_WIKI_ALIASES = Object.freeze({
@@ -4143,12 +4261,12 @@ function showNationalOutlookDetail(p,result){
       ${photoCredit}
     </div>
     <div class="national-rich-content">
-      <div class="national-rich-summary"><strong>${grade==='?'?'全国一括判定':'6〜15時の簡易判定'}</strong><p>${summary}</p></div>
+      <div class="national-rich-summary"><strong>${grade==='?'?'全国一括簡易判定':'6〜15時の簡易判定'}</strong><p>${summary}</p></div>
       ${result?`<div class="national-rich-metrics">${metrics}</div>`:''}
       ${courseHtml}
       ${nearbyHtml}
       <button type="button" class="primary national-detail-open national-rich-cta">この山を山行設定に入力</button>
-      <p class="national-rich-footnote">主要山のみ実写真を表示しています。写真は Wikimedia Commons の公開画像を利用しています。全国一括判定は候補地選び用です。山行設定では通過時刻・地点・複数モデルを使って詳しく確認できます。</p>
+      <p class="national-rich-footnote">主要山のみ実写真を表示しています。写真は Wikimedia Commons の公開画像を利用しています。全国一括簡易判定は候補地選び用です。山行設定では通過時刻・地点・複数モデルを使って詳しく確認できます。</p>
     </div>`;
   box.classList.add('is-open');
   box.querySelector('.national-detail-open')?.addEventListener('click',()=>openMountainFromNationalMap(p.name));
@@ -4244,6 +4362,82 @@ function setupNationalOutlook(){
   }
 }
 
+
+function screenshotSafeName(value){
+  return String(value||'traten').trim().replace(/[\\/:*?"<>|]/g,'-').replace(/\s+/g,'_').slice(0,60)||'traten';
+}
+function screenshotRouteDate(){
+  return document.querySelector('#points .point-date')?.value || new Date().toISOString().slice(0,10);
+}
+async function captureAnalysisResultsScreenshot(){
+  const results=$('results');
+  const btn=$('resultScreenshotBtn');
+  const status=$('resultScreenshotStatus');
+  if(!results||results.classList.contains('hidden')){
+    setStatus('先に山行を分析してください。',true);
+    return;
+  }
+  if(typeof window.html2canvas!=='function'){
+    setStatus('スクショ機能の読み込みに失敗しました。ページを再読み込みしてください。',true);
+    return;
+  }
+  const oldText=btn?.innerHTML;
+  if(btn){btn.disabled=true;btn.innerHTML='<span aria-hidden="true">📷</span><b>画像を作成中…</b>';}
+  if(status)status.textContent='分析結果を1枚の画像にしています…';
+  let clone=null;
+  try{
+    if(document.fonts?.ready)await document.fonts.ready;
+    clone=results.cloneNode(true);
+    clone.removeAttribute('id');
+    clone.classList.remove('hidden');
+    clone.classList.add('results-screenshot-clone');
+    clone.querySelectorAll('.screenshot-exclude').forEach(el=>el.remove());
+    clone.querySelectorAll('.hidden').forEach(el=>{
+      if(el.id==='overnightSection')return;
+    });
+    // 画面上の横スクロール要素も、画像では全内容が見えるように展開する。
+    clone.querySelectorAll('.table-wrap,.national-route-flow,.weather-charts,.forecast-grid,.overnight-grid').forEach(el=>{
+      el.style.overflow='visible';
+      el.style.maxWidth='none';
+    });
+    document.body.appendChild(clone);
+    await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+    const canvas=await window.html2canvas(clone,{
+      backgroundColor:'#f5f8f6',
+      scale:1,
+      useCORS:true,
+      allowTaint:false,
+      logging:false,
+      width:clone.scrollWidth,
+      height:clone.scrollHeight,
+      windowWidth:1180,
+      scrollX:0,
+      scrollY:0,
+      imageTimeout:12000,
+      removeContainer:true
+    });
+    const blob=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(new Error('画像データを作成できませんでした')),'image/png'));
+    const mountain=screenshotSafeName(currentMountainLabel()||'トラテン分析結果');
+    const date=screenshotSafeName(screenshotRouteDate());
+    const filename=`トラテン_${mountain}_${date}.png`;
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download=filename;a.rel='noopener';
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),30000);
+    if(status)status.textContent='PNG画像を作成しました。';
+    logEvent('result_screenshot',{success:true,mountain:currentMountainLabel(),metadata:{format:'png',full_result:true,model_details:false}});
+  }catch(e){
+    console.error(e);
+    if(status)status.textContent='画像を作成できませんでした。もう一度お試しください。';
+    setStatus(`スクショ作成に失敗しました：${e.message||e}`,true);
+    logEvent('result_screenshot',{success:false,mountain:currentMountainLabel(),error_message:e.message||String(e)});
+  }finally{
+    clone?.remove();
+    if(btn){btn.disabled=false;btn.innerHTML=oldText||'<span aria-hidden="true">📷</span><b>結果をスクショ</b>';}
+  }
+}
+
 function init(){
   setupInstallApp();
   setupNationalOutlook();
@@ -4273,7 +4467,7 @@ function init(){
   $('representativeCourseSelect')?.addEventListener('change',refreshRepresentativeCourseButton);
   $('addPointBtn').addEventListener('click',()=>addManualPointRow());
   $('analyzeBtn').addEventListener('click',analyze);
-  $('lastResultBtn')?.addEventListener('click',showLastAnalysisResult);
+  $('resultScreenshotBtn')?.addEventListener('click',captureAnalysisResultsScreenshot);
   refreshLastAnalysisPanel();
 
   const resetForMountainChange=()=>{
@@ -4309,27 +4503,18 @@ function init(){
     return true;
   };
   $('lastRouteBtn')?.addEventListener('click',async()=>{
-    const data=loadLastAnalysisSnapshot();
+    const data=loadLastRouteSnapshot();
     if(!data?.route?.mountain)return setStatus('復元できる前回ルートがありません。',true);
-    const mountain=data.route.mountain;
-    if(!chooseFromSearch(mountain,true))return setStatus(`${mountain} を現在の山一覧から復元できませんでした。`,true);
-    try{
-      await loadCandidates();
-      $('points').innerHTML=''; pointSeq=0;
-      for(const saved of data.route.points||[]){
-        let hit=candidates.find(p=>String(p.id)===String(saved.id));
-        if(!hit)hit=candidates.find(p=>p.type===saved.type&&p.name===saved.name);
-        if(!hit)continue;
-        addPointRow(saved.type,hit.id,saved.role||'',{date:saved.date,time:saved.time});
-        const row=$('points').lastElementChild;
-        if(row?.querySelector('.point-stay'))row.querySelector('.point-stay').checked=!!saved.stay;
-        updateMeta(row);
-      }
-      updateForecastHorizon(); renderRouteMaps();
-      setStatus(`前回ルート「${mountain}」を復元しました。最新の天気で再分析できます。`);
-      $('points')?.scrollIntoView({behavior:'smooth',block:'start'});
-    }catch(e){setStatus(`前回ルートを復元できませんでした：${e.message||e}`,true);}
+    try{await restoreRouteSnapshot(data.route,'前回ルート');}
+    catch(e){setStatus(`前回ルートを復元できませんでした：${e.message||e}`,true);}
   });
+  $('saveRouteBtn')?.addEventListener('click',()=>openSavedRoutesModal(true));
+  $('savedRoutesBtn')?.addEventListener('click',()=>openSavedRoutesModal(false));
+  $('savedRouteCreateBtn')?.addEventListener('click',createFavoriteRoute);
+  $('savedRoutesClose')?.addEventListener('click',closeSavedRoutesModal);
+  document.querySelectorAll('[data-saved-routes-close]').forEach(el=>el.addEventListener('click',closeSavedRoutesModal));
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('savedRoutesModal')?.classList.contains('hidden'))closeSavedRoutesModal();});
+  refreshSavedRoutesCount();
 
   search.addEventListener('input',()=>{
     const q=search.value.trim();
@@ -5477,7 +5662,7 @@ async function analyze(){
       try{overnight=await analyzeOvernightsBatch(stayPoints);}catch(e){overnightWarning=` / 宿泊詳細は取得できませんでした（${e?.message||'取得失敗'}）`;}
     }
     const mountain=currentMountainLabel();
-    renderAll(results,overnight); saveLastAnalysisSnapshot(mountain,points,results,overnight); setStatus(`分析完了：${points.length}地点${stayPoints.length?` / 宿泊 ${stayPoints.length}泊`:''}${overnightWarning}（一括取得）`,false); scrollToSummaryResult();
+    renderAll(results,overnight); saveLastRouteSnapshot(mountain,points); setStatus(`分析完了：${points.length}地点${stayPoints.length?` / 宿泊 ${stayPoints.length}泊`:''}${overnightWarning}（一括取得）`,false); scrollToSummaryResult();
     points.forEach(p=>logEvent('route_point_used',{success:true,mountain,metadata:{point_name:p.name||'',point_type:p.type||'other',point_role:p.role||'',source:p.source||''}}));
     logEvent('weather_analysis',{success:true,duration_ms:performance.now()-started,mountain,route_points:points.length,stay_count:stayPoints.length,metadata:{provider_count:providers.length,manual_datetime:true,batch_weather:true}});
   }catch(e){setStatus(e.message||String(e),true);logEvent('weather_analysis',{success:false,duration_ms:performance.now()-started,mountain:currentMountainLabel(),route_points:points.length,error_message:e.message||String(e)});}
