@@ -139,7 +139,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.124';
+const APP_VERSION = '1.4.127';
 
 
 
@@ -900,8 +900,45 @@ const CENTRAL_SOUTH_ALPS_COURSE_TIMES = Object.freeze({
 
 // V1.4.36: 公式情報だけでは分割できなかった主要区間の補完CT。
 // 補助ソースはヤマケイオンライン、次いでヤマレコの公開「山行計画」標準CTを使用。
-// ヤマレコは速度倍率が明記された計画や実歩行実績を採用せず、複数の標準計画で整合する値を優先する。
+// V1.4.127: ヤマレコの公開計画はユーザー設定ペースで時間が変わる場合があるため、計画1件だけを標準CTとはみなさない。
+// 複数計画の同一区間値が一致するものを優先し、山行記録で歩くペース倍率が表示される場合は1.0基準へ逆算した候補値を照合に使う。
 const SUPPLEMENTAL_COURSE_TIMES = Object.freeze({
+  // V1.4.127: ヤマレコ計画値のペース差を再点検。複数計画で区間値が一致するものを優先して確認済みへ昇格。
+  'ブナ帯登山口→森吉山': {minutes:167, source:'ヤマレコ・森吉山 ブナ帯登山口ルート p5472014/p5467226（84+31+14+19+19分で一致）', sourceType:'yamareco'},
+  '森吉山→ブナ帯登山口': {minutes:107, source:'ヤマレコ・森吉山 ブナ帯登山口ルート p5472014/p5467226（12+13+13+19+50分で一致）', sourceType:'yamareco'},
+  '湯ノ台口登山口→鳥海山（新山）': {minutes:274, source:'ヤマレコ・鳥海山 湯ノ台ルート p5546770/p5688668（23+61+39+39+58+27+27分で一致）', sourceType:'yamareco'},
+  '鳥海山（新山）→湯ノ台口登山口': {minutes:171, source:'ヤマレコ・鳥海山 湯ノ台ルート p5546770/p5688668（23+21+31+22+23+36+15分）', sourceType:'yamareco'},
+  '大日杉登山口→飯豊山': {minutes:608, source:'ヤマレコ・飯豊連峰縦走 p5526848（大日杉登山小屋→切合小屋445分 + 切合小屋→飯豊山163分）', sourceType:'yamareco'},
+  // V1.4.126: 推定CTから確認済みCTへ一括昇格（ヤマレコ公開計画の標準CTを優先）
+  '天城高原ハイカー専用駐車場→天城山（万三郎岳）': {minutes:151, source:'ヤマレコ・天城山 天城縦走登山口〜万三郎岳 p5462857/p5454811/p5540390（区間CT一致）', sourceType:'yamareco'},
+  '天城山（万三郎岳）→天城高原ハイカー専用駐車場': {minutes:114, source:'ヤマレコ・天城山 万三郎岳〜天城縦走登山口 p5454811/p5540390（区間CT一致）', sourceType:'yamareco'},
+  '美濃戸口→赤岳': {minutes:350, source:'ヤマレコ・赤岳 美濃戸口〜赤岳 p5370686/p5481220（標準CT 約350分）', sourceType:'yamareco'},
+  '赤岳→美濃戸口': {minutes:216, source:'ヤマレコ・赤岳 赤岳〜美濃戸口 p5370686/p5481220（標準CT 215〜216分）', sourceType:'yamareco'},
+  '伊吹山 上野登山口（三之宮神社）→伊吹山': {minutes:189, source:'ヤマレコ・伊吹山 上野登山口〜山頂 p5372216（区間CT合算）', sourceType:'yamareco'},
+  '伊吹山→伊吹山 上野登山口（三之宮神社）': {minutes:111, source:'ヤマレコ・伊吹山 山頂〜上野登山口 p5372216（区間CT合算）', sourceType:'yamareco'},
+  '三城いこいの広場→美ヶ原（王ヶ頭）': {minutes:169, source:'ヤマレコ・美ヶ原 三城〜王ヶ頭 p5370073/p5547620（区間CT一致）', sourceType:'yamareco'},
+  '平標登山口・元橋駐車場→仙ノ倉山': {minutes:239, source:'ヤマレコ・仙ノ倉山 元橋駐車場〜仙ノ倉山 p5538950/p5557829（区間CT合算）', sourceType:'yamareco'},
+  // V1.4.125: 推定CTから確認済みCTへ一括昇格（ヤマレコ公開計画の区間値を複数計画で照合）
+  '吹上温泉登山口→十勝岳': {minutes:267, source:'ヤマレコ・十勝岳 吹上温泉ルート p5503284（区間CT合算）', sourceType:'yamareco'},
+  '十勝岳→吹上温泉登山口': {minutes:165, source:'ヤマレコ・十勝岳 吹上温泉ルート p5503284（区間CT合算）', sourceType:'yamareco'},
+  '姥沢 月山リフト→月山': {minutes:208, source:'ヤマレコ・月山 姥沢ルート p5524588/p5239593（区間CT一致）', sourceType:'yamareco'},
+  '月山→姥沢 月山リフト': {minutes:126, source:'ヤマレコ・月山 姥沢ルート p5524588（区間CT合算）', sourceType:'yamareco'},
+  '峠の茶屋・那須岳登山口→三本槍岳': {minutes:172, source:'ヤマレコ・三本槍岳 峠の茶屋ルート p5532010/p5524672（区間CT一致）', sourceType:'yamareco'},
+  '三本槍岳→峠の茶屋・那須岳登山口': {minutes:131, source:'ヤマレコ・三本槍岳 峠の茶屋ルート p5532010/p5524672（区間CT一致）', sourceType:'yamareco'},
+  '野反湖・白砂山登山口→白砂山': {minutes:249, source:'ヤマレコ・白砂山 野反湖ルート p5542380/p5468873（区間CT一致）', sourceType:'yamareco'},
+  '白砂山→野反湖・白砂山登山口': {minutes:185, source:'ヤマレコ・白砂山 野反湖ルート p5542380/p5468873（区間CT一致）', sourceType:'yamareco'},
+  '栗生登山口→御座山': {minutes:169, source:'ヤマレコ・御座山 栗生ルート p5464090/p5549270（区間CT一致）', sourceType:'yamareco'},
+  '御座山→栗生登山口': {minutes:98, source:'ヤマレコ・御座山 栗生ルート p5464090/p5549270（区間CT一致）', sourceType:'yamareco'},
+  '室堂→奥大日岳': {minutes:170, source:'ヤマレコ・奥大日岳 室堂ルート p5846483（区間CT合算）', sourceType:'yamareco'},
+  '奥大日岳→室堂': {minutes:152, source:'ヤマレコ・奥大日岳 室堂ルート p5846483（区間CT合算）', sourceType:'yamareco'},
+  '渋峠→横手山': {minutes:19, source:'ヤマレコ・横手山 渋峠ルート p5545812/p5522422（区間CT一致）', sourceType:'yamareco'},
+  '横手山→渋峠': {minutes:12, source:'ヤマレコ・横手山 渋峠ルート p5545812/p5522422（区間CT一致）', sourceType:'yamareco'},
+  '日輪寺・八溝山登山口→八溝山': {minutes:50, source:'ヤマレコ・八溝山 日輪寺ルート p5505702（区間CT）', sourceType:'yamareco'},
+  '八溝山→日輪寺・八溝山登山口': {minutes:31, source:'ヤマレコ・八溝山 日輪寺ルート p5233980（下山区間CT）', sourceType:'yamareco'},
+  '聖平登山口→岩菅山': {minutes:194, source:'ヤマレコ・岩菅山 聖平登山口ルート p5368403（区間CT合算）', sourceType:'yamareco'},
+  '岩菅山→聖平登山口': {minutes:122, source:'ヤマレコ・岩菅山 聖平登山口ルート p5368403（区間CT合算）', sourceType:'yamareco'},
+  '折場登山口→袈裟丸山': {minutes:222, source:'ヤマレコ・前袈裟丸山 折場登山口ルート p5458221/p5457895（区間CT一致）', sourceType:'yamareco'},
+  '袈裟丸山→折場登山口': {minutes:156, source:'ヤマレコ・前袈裟丸山 折場登山口ルート p5458221/p5457895（区間CT一致）', sourceType:'yamareco'},
   // V1.4.123: 推定CTから確認済みCTへ置換。ヤマレコの公開山行計画（らくルート標準CT）を優先。
   '羅臼温泉登山口→羅臼岳': {minutes:403, source:'ヤマレコ・羅臼岳 山行計画 p5230560（標準CT）', sourceType:'yamareco'},
   '京極登山口→後方羊蹄山（羊蹄山）': {minutes:320, source:'ヤマレコ・羊蹄山 京極コース 山行計画 p5541585（標準CT）', sourceType:'yamareco'},
