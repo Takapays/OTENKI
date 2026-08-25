@@ -3939,3 +3939,25 @@ body.install-guide-open{overflow:hidden}
     color:#355247;
   }
 }
+
+
+/* V1.4.178: mobile representative-course buttons use the static choices container. */
+@media(max-width:700px){
+  .planner-rail #representativeCourseChoices:not(.hidden){
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:8px!important;
+    width:100%!important;
+    margin-top:7px!important;
+  }
+  .planner-rail #representativeCourseChoices .representative-course-choice{
+    display:block!important;
+    width:100%!important;
+    min-height:46px!important;
+    padding:10px 12px!important;
+    border-radius:10px!important;
+    text-align:left!important;
+    font-size:13px!important;
+  }
+  .planner-rail .representative-course-summary-always{display:none!important;}
+}

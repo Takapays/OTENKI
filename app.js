@@ -139,7 +139,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.177';
+const APP_VERSION = '1.4.178';
 
 
 
@@ -6124,8 +6124,30 @@ function refreshRepresentativeCourseButton(){
     sel.classList.add('hidden');
     sel.disabled=!hasCourse;
   }
-  // V1.4.113: course summaries themselves are the selector, so the old pills are hidden.
-  if(choices){choices.replaceChildren();choices.classList.add('hidden');}
+  // V1.4.178: use the static choices container on mobile so course buttons are
+  // guaranteed to appear immediately after mountain selection.
+  if(choices){
+    choices.replaceChildren();
+    const mobile=typeof window!=='undefined'&&window.matchMedia?.('(max-width: 700px)').matches;
+    if(mobile&&hasCourse){
+      options.forEach((course,i)=>{
+        const choice=document.createElement('button');
+        choice.type='button';
+        choice.className=`representative-course-choice${i===representativeCourseSelectedIndex(mountain,options)?' is-active':''}`;
+        choice.textContent=`${options.length>1?`${i+1}. `:''}${course.label||'代表コース'}`;
+        choice.title=representativeCoursePathText(course,mountain)||course.label||'代表コース';
+        choice.addEventListener('click',()=>{
+          setRepresentativeCourseSelectedIndex(mountain,i);
+          refreshRepresentativeCourseButton();
+          void applyRepresentativeCourse();
+        });
+        choices.append(choice);
+      });
+      choices.classList.remove('hidden');
+    }else{
+      choices.classList.add('hidden');
+    }
+  }
   if(legacySummary){legacySummary.replaceChildren();legacySummary.style.setProperty('display','none','important');}
   renderRepresentativeCourseSummaryNow(mountain);
 }
