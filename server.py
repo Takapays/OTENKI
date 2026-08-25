@@ -29,7 +29,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.4.165"
+APP_VERSION = "1.4.175"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -118,7 +118,7 @@ _cache_lock = threading.Lock()
 # retry briefly when the upstream asks us to slow down.
 _openmeteo_lock = threading.Lock()
 _openmeteo_last_request = 0.0
-OPENMETEO_MIN_INTERVAL = float(os.environ.get("OPENMETEO_MIN_INTERVAL", "3.2"))
+OPENMETEO_MIN_INTERVAL = float(os.environ.get("OPENMETEO_MIN_INTERVAL", "1.4"))
 OPENMETEO_MAX_RETRIES = int(os.environ.get("OPENMETEO_MAX_RETRIES", "4"))
 OPENMETEO_PROXY_CACHE_TTL = int(os.environ.get("OPENMETEO_PROXY_CACHE_TTL", "1800"))
 NATIONAL_OUTLOOK_CACHE_TTL = int(os.environ.get("NATIONAL_OUTLOOK_CACHE_TTL", "14400"))
@@ -135,6 +135,8 @@ _national_metno_lock = threading.Lock()
 _national_metno_last_request = 0.0
 NATIONAL_OUTLOOK_STALE_TTL = int(os.environ.get("NATIONAL_OUTLOOK_STALE_TTL", "86400"))
 NATIONAL_OUTLOOK_REFRESH_INTERVAL = int(os.environ.get("NATIONAL_OUTLOOK_REFRESH_INTERVAL", "900"))
+NATIONAL_OUTLOOK_AUTO_REFRESH = os.environ.get("NATIONAL_OUTLOOK_AUTO_REFRESH", "1").lower() not in {"0", "false", "no"}
+NATIONAL_CACHE_REFRESH_TOKEN = os.environ.get("NATIONAL_CACHE_REFRESH_TOKEN", "")
 NATIONAL_OUTLOOK_CHUNK_SIZE = int(os.environ.get("NATIONAL_OUTLOOK_CHUNK_SIZE", "50"))
 NATIONAL_OUTLOOK_ENGINE = "metno-gfs-v1"
 NATIONAL_GFS_MIN_INTERVAL = float(os.environ.get("NATIONAL_GFS_MIN_INTERVAL", "0.35"))
@@ -940,6 +942,99 @@ def _national_supabase_write(date_text: str, points: list[dict[str, Any]], resul
     except Exception:
         return False
 
+def _national_supabase_refresh_candidates(force: bool = False) -> dict[str, list[dict[str, Any]]]:
+    """Load persistent cache rows that should be refreshed, grouped by forecast date.
+
+    This makes the refresh worker independent from Render's ephemeral /tmp files.
+    Rows survive deploys/restarts in Supabase, so a scheduled wake-up can refresh them.
+    """
+    if not _national_supabase_enabled():
+        return {}
+    now = time.time()
+    today_jst = (datetime.now(timezone.utc) + timedelta(hours=9)).date()
+    params = {
+        "select": "forecast_date,mountain_name,lat,lon,elevation,fresh_until,stale_until",
+        "engine": f"eq.{NATIONAL_OUTLOOK_ENGINE}",
+        "stale_until": f"gt.{now}",
+        "limit": "10000",
+    }
+    url = f"{SUPABASE_URL}/rest/v1/{NATIONAL_SUPABASE_CACHE_TABLE}?" + urllib.parse.urlencode(params, safe=",.:+-")
+    req = urllib.request.Request(url, headers={**_supabase_headers(accept_json=True)})
+    try:
+        with urllib.request.urlopen(req, timeout=NATIONAL_SUPABASE_TIMEOUT) as resp:
+            rows = json.loads(resp.read().decode("utf-8"))
+    except Exception as exc:
+        app.logger.warning("national_refresh_seed_failed %s", exc)
+        return {}
+    groups: dict[str, list[dict[str, Any]]] = {}
+    seen: set[tuple[str, str]] = set()
+    for row in rows if isinstance(rows, list) else []:
+        date_text = str(row.get("forecast_date") or "")[:10]
+        name = str(row.get("mountain_name") or "")[:80]
+        if not date_text or not name:
+            continue
+        try:
+            target = datetime.strptime(date_text, "%Y-%m-%d").date()
+            if target < today_jst or target > today_jst + timedelta(days=15):
+                continue
+            fresh_until = float(row.get("fresh_until") or 0)
+            stale_until = float(row.get("stale_until") or 0)
+            lat = float(row.get("lat")); lon = float(row.get("lon"))
+            elev_raw = row.get("elevation")
+            elev = float(elev_raw) if elev_raw is not None else None
+        except (TypeError, ValueError):
+            continue
+        if stale_until <= now or (not force and fresh_until > now):
+            continue
+        key = (date_text, name)
+        if key in seen:
+            continue
+        seen.add(key)
+        groups.setdefault(date_text, []).append({"name": name, "lat": lat, "lon": lon, "elevation": elev})
+    return groups
+
+
+def _refresh_national_persistent_cache(*, force: bool = False) -> dict[str, Any]:
+    """Refresh stale nationwide rows stored in Supabase.
+
+    The operation is intentionally stale-only by default: an hourly external wake-up
+    is cheap when nothing is due, while each row is actually fetched only after its
+    four-hour TTL has expired.
+    """
+    started = time.time()
+    groups = _national_supabase_refresh_candidates(force=force)
+    report: dict[str, Any] = {
+        "ok": True, "force": force, "datesChecked": len(groups), "pointsDue": sum(len(v) for v in groups.values()),
+        "pointsUpdated": 0, "datesUpdated": 0, "errors": [],
+    }
+    for date_text in sorted(groups):
+        points = groups[date_text]
+        if not points:
+            continue
+        fingerprint = _national_points_fingerprint(points)
+        if not _national_try_lock(date_text, fingerprint):
+            continue
+        try:
+            results, complete, rate_limited, error = _national_fetch_shared(date_text, points)
+            if results:
+                _national_supabase_write(date_text, points, results)
+                report["pointsUpdated"] += len(results)
+                report["datesUpdated"] += 1
+            if error:
+                report["errors"].append({"date": date_text, "error": error})
+            if rate_limited:
+                report["errors"].append({"date": date_text, "error": "rate_limited"})
+                break
+        except Exception as exc:
+            app.logger.exception("national_persistent_refresh_failed date=%s", date_text)
+            report["errors"].append({"date": date_text, "error": str(exc)[:200]})
+        finally:
+            _national_unlock(date_text, fingerprint)
+    report["elapsedSeconds"] = round(time.time() - started, 2)
+    report["ok"] = not report["errors"]
+    return report
+
+
 def _national_points_fingerprint(points: list[dict[str, Any]]) -> str:
     raw = NATIONAL_OUTLOOK_ENGINE + "|" + "|".join(
         f'{p["name"]}:{p["lat"]:.5f}:{p["lon"]:.5f}:{"" if p.get("elevation") is None else round(float(p["elevation"]))}'
@@ -1437,6 +1532,8 @@ def _ensure_national_refresh_worker() -> None:
         while True:
             time.sleep(max(300,NATIONAL_OUTLOOK_REFRESH_INTERVAL))
             try:
+                if NATIONAL_OUTLOOK_AUTO_REFRESH and _national_supabase_enabled():
+                    _refresh_national_persistent_cache(force=False)
                 files=[os.path.join(NATIONAL_OUTLOOK_CACHE_DIR,n) for n in os.listdir(NATIONAL_OUTLOOK_CACHE_DIR) if n.endswith('.json')]
                 now=time.time()
                 for path in files:
@@ -1476,6 +1573,24 @@ def _ensure_national_refresh_worker() -> None:
             except Exception:
                 continue
     threading.Thread(target=worker,name='traten-national-refresh',daemon=True).start()
+
+
+@app.post("/api/national-outlook/refresh-cache")
+def national_outlook_refresh_cache():
+    """Scheduled wake-up endpoint for the persistent nationwide cache.
+
+    Configure the same NATIONAL_CACHE_REFRESH_TOKEN in Render and GitHub Actions.
+    The endpoint refreshes only rows whose four-hour TTL has expired.
+    """
+    if not NATIONAL_CACHE_REFRESH_TOKEN:
+        return jsonify(error="NATIONAL_CACHE_REFRESH_TOKEN is not configured"), 503
+    supplied = request.headers.get("X-Traten-Cache-Token", "")
+    if not supplied or not hmac.compare_digest(supplied, NATIONAL_CACHE_REFRESH_TOKEN):
+        return jsonify(error="unauthorized"), 401
+    if not _national_supabase_enabled():
+        return jsonify(error="Supabase national cache is not configured"), 503
+    report = _refresh_national_persistent_cache(force=False)
+    return jsonify(report), 200 if report.get("ok") else 207
 
 
 @app.post("/api/national-outlook")
@@ -1617,6 +1732,10 @@ def health():
         overpass_endpoints=len(OVERPASS_ENDPOINTS),
         national_persistent_cache_configured=_national_supabase_enabled(),
         national_persistent_cache_table=NATIONAL_SUPABASE_CACHE_TABLE if _national_supabase_enabled() else None,
+        national_cache_ttl_seconds=NATIONAL_OUTLOOK_CACHE_TTL,
+        national_auto_refresh_enabled=NATIONAL_OUTLOOK_AUTO_REFRESH,
+        national_refresh_interval_seconds=NATIONAL_OUTLOOK_REFRESH_INTERVAL,
+        national_refresh_token_configured=bool(NATIONAL_CACHE_REFRESH_TOKEN),
         usage_logging=True,
         supabase_configured=bool(SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY),
         trail_regions_ready=sum(1 for r in _load_trail_manifest().get("regions", []) if r.get("ready")),
@@ -1911,6 +2030,13 @@ def security_headers(response: Response):
     if request.path in {"/", "/guide.html"}:
         response.headers.setdefault("X-Robots-Tag", "index, follow, max-image-preview:large")
     return response
+
+
+# V1.4.174: start the cache watcher on process boot, not only after a user opens 全国判定.
+# Render free instances can sleep, so the GitHub Actions wake-up endpoint below is the
+# reliable scheduler; this worker covers periods while the process stays awake.
+if NATIONAL_OUTLOOK_AUTO_REFRESH:
+    threading.Timer(2.0, _ensure_national_refresh_worker).start()
 
 
 if __name__ == "__main__":

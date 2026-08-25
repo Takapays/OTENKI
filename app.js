@@ -139,7 +139,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.168';
+const APP_VERSION = '1.4.175';
 
 
 
@@ -5243,13 +5243,41 @@ async function captureAnalysisResultsScreenshot(sourceBtn=null,sourceStatus=null
     const mountain=screenshotSafeName(currentMountainLabel()||'トラテン分析結果');
     const date=screenshotSafeName(screenshotRouteDate());
     const filename=`トラテン_${mountain}_${date}.png`;
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');
-    a.href=url;a.download=filename;a.rel='noopener';
-    document.body.appendChild(a);a.click();a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),30000);
-    if(status)status.textContent='PNG画像を作成しました。';
-    logEvent('result_screenshot',{success:true,mountain:currentMountainLabel(),metadata:{format:'png',full_result:true,model_details:false}});
+    const isMobileSave=(sourceBtn?.id==='resultScreenshotBtn') || window.matchMedia?.('(max-width: 760px)').matches;
+    const file=new File([blob],filename,{type:'image/png'});
+    let delivery='download';
+
+    // スマホではブラウザから写真ライブラリへ直接書き込めないため、
+    // Web Share APIで画像付きのOS共有画面を開く。iPhoneでは「画像を保存」で写真に入れられる。
+    if(isMobileSave && navigator.share && navigator.canShare?.({files:[file]})){
+      delivery='share';
+      if(status)status.textContent='写真への保存画面を開きます…';
+      try{
+        await navigator.share({files:[file],title:'トラテン分析結果'});
+        if(status)status.textContent='共有画面を開きました。「画像を保存」を選ぶと写真ライブラリに保存できます。';
+      }catch(shareError){
+        if(shareError?.name==='AbortError'){
+          if(status)status.textContent='保存をキャンセルしました。';
+          return;
+        }
+        console.warn('画像共有に失敗したためダウンロードへ切り替えます',shareError);
+        delivery='download-fallback';
+        const url=URL.createObjectURL(blob);
+        const a=document.createElement('a');
+        a.href=url;a.download=filename;a.rel='noopener';
+        document.body.appendChild(a);a.click();a.remove();
+        setTimeout(()=>URL.revokeObjectURL(url),30000);
+        if(status)status.textContent='共有画面を開けなかったため、PNG画像として保存しました。';
+      }
+    }else{
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      a.href=url;a.download=filename;a.rel='noopener';
+      document.body.appendChild(a);a.click();a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),30000);
+      if(status)status.textContent=isMobileSave?'このブラウザでは写真保存画面を開けないため、PNG画像として保存しました。':'PNG画像を作成しました。';
+    }
+    logEvent('result_screenshot',{success:true,mountain:currentMountainLabel(),metadata:{format:'png',full_result:true,model_details:false,delivery}});
   }catch(e){
     console.error(e);
     if(status)status.textContent='画像を作成できませんでした。もう一度お試しください。';
@@ -5372,7 +5400,7 @@ function updateLoadButtonAppearance(loaded){
   if(!btn)return;
   const hasMountain=!!$('mountainPreset')?.value?.trim();
   btn.disabled=!hasMountain;
-  btn.textContent=loaded?'読み込み済み':'通過ポイントを読み込む';
+  btn.textContent=loaded?'設計用ポイント表示中':'通過ポイントを自分で設計';
   btn.classList.toggle('primary',hasMountain&&!loaded);
   btn.classList.toggle('secondary',!hasMountain||loaded);
   btn.classList.toggle('route-load-needed',hasMountain&&!loaded);
@@ -6038,6 +6066,12 @@ function renderRepresentativeCourseSummaryNow(mountainOverride=''){
     item.append(name,path);
     item.addEventListener('click',()=>{
       setRepresentativeCourseSelectedIndex(mountain,i);
+      // V1.4.175: on mobile, the visible representative-course card is the load action.
+      // This removes the extra "代表コースを読み込む" tap and also makes course
+      // selection (including 白馬岳) immediately reflect in the itinerary.
+      if(typeof window!=='undefined'&&window.matchMedia?.('(max-width: 700px)').matches){
+        void applyRepresentativeCourse();
+      }
     });
     box.append(item);
   });
@@ -6379,7 +6413,7 @@ async function loadCandidates(){
   }
   const mountain=canonicalMountainName(label);
   const btn=$('loadPoiBtn');
-  btn.disabled=true; btn.textContent='通過ポイントを出力中…';
+  btn.disabled=true; btn.textContent='設計用ポイントを準備中…';
   try{
     const center=await resolveMountainCenter(label);
     if(!MOUNTAIN_PRESETS[mountain])MOUNTAIN_PRESETS[mountain]=center;
@@ -6406,7 +6440,7 @@ async function loadCandidates(){
 
     // 固定候補がまったく無い山だけ、非常用フォールバックとして従来の外部探索を実施。
     $('candidateState').textContent='固定ポイントがないため通過ポイントを検索中…';
-    btn.textContent='通過ポイントを検索中…';
+    btn.textContent='設計用ポイントを検索中…';
     const fullCacheKey=`full:${mountainCacheKey(mountain)}`;
     const cachedFull=routeCacheGet(fullCacheKey,7*24*60*60*1000);
     if(Array.isArray(cachedFull)&&cachedFull.length){
@@ -6968,11 +7002,11 @@ async function fetchNoaaGfsFallback(point){
   return payload?.row||null;
 }
 
-async function analyzePointsBatch(points){
+async function analyzePointsBatch(points,providerList=providers,statusLabel='気象モデル'){
   const buckets=points.map(()=>({rows:[],errors:[]}));
-  for(let pi=0;pi<providers.length;pi++){
-    const provider=providers[pi];
-    setStatus(`気象モデル ${pi+1}/${providers.length}：${provider.name} を全地点まとめて取得中…`);
+  for(let pi=0;pi<providerList.length;pi++){
+    const provider=providerList[pi];
+    setStatus(`${statusLabel} ${pi+1}/${providerList.length}：${provider.name} を全地点まとめて取得中…`);
     try{
       const fetched=await fetchProviderBatch(provider,points);
       fetched.forEach(x=>{
@@ -7028,27 +7062,59 @@ async function scrollToSummaryResult(){
   });
 }
 
+let activeAnalysisRun=0;
 async function analyze(){
+  const runId=++activeAnalysisRun;
   const started=performance.now(); let points=[];
   try{
     points=collectPoints(); if(points.length<1)throw new Error('分析する地点を1つ以上選択してください。');
     validateChronology(points);
-    $('analyzeBtn').disabled=true; setStatus(`分析開始：${points.length}地点を一括取得する準備をしています…`);
+    $('analyzeBtn').disabled=true; setStatus(`分析開始：${points.length}地点を高速取得する準備をしています…`);
     await ensureElevations(points);
-    const results=await analyzePointsBatch(points);
     const stayPoints=points.filter(p=>p.stay);
-    let overnight=[];
-    let overnightWarning='';
-    if(stayPoints.length){
-      setStatus(`宿泊分析：${stayPoints.length}泊分をまとめて取得しています…`);
-      try{overnight=await analyzeOvernightsBatch(stayPoints);}catch(e){overnightWarning=` / 宿泊詳細は取得できませんでした（${e?.message||'取得失敗'}）`;}
-    }
+    const maxAhead=Math.max(...points.map(p=>daysAhead(p.date)));
+    // V1.4.174: first paint uses JMA + ECMWF. Only the farthest GFS-only horizon
+    // falls back to the full set so a valid result is always available.
+    const primaryProviders=maxAhead>15?providers:providers.filter(p=>p.id==='jma'||p.id==='ecmwf');
+    const overnightPromise=stayPoints.length
+      ? analyzeOvernightsBatch(stayPoints).then(v=>({items:v,warning:''})).catch(e=>({items:[],warning:` / 宿泊詳細は取得できませんでした（${e?.message||'取得失敗'}）`}))
+      : Promise.resolve({items:[],warning:''});
+    const [results,overnightState]=await Promise.all([
+      analyzePointsBatch(points,primaryProviders,'先行モデル'),
+      overnightPromise
+    ]);
+    if(runId!==activeAnalysisRun)return;
+    const overnight=overnightState.items, overnightWarning=overnightState.warning;
     const mountain=currentMountainLabel();
-    renderAll(results,overnight); saveLastRouteSnapshot(mountain,points); setStatus(`分析完了：${points.length}地点${stayPoints.length?` / 宿泊 ${stayPoints.length}泊`:''}${overnightWarning}（一括取得）`,false); scrollToSummaryResult();
+    renderAll(results,overnight); saveLastRouteSnapshot(mountain,points);
+    const initialMs=Math.round(performance.now()-started);
+    setStatus(`分析結果を先行表示：${points.length}地点${stayPoints.length?` / 宿泊 ${stayPoints.length}泊`:''}${overnightWarning}（残りモデルを更新中…）`,false);
+    scrollToSummaryResult();
+    $('analyzeBtn').disabled=false;
     points.forEach(p=>logEvent('route_point_used',{success:true,mountain,metadata:{point_name:p.name||'',point_type:p.type||'other',point_role:p.role||'',source:p.source||''}}));
-    logEvent('weather_analysis',{success:true,duration_ms:performance.now()-started,mountain,route_points:points.length,stay_count:stayPoints.length,metadata:{provider_count:providers.length,manual_datetime:true,batch_weather:true}});
-  }catch(e){setStatus(e.message||String(e),true);logEvent('weather_analysis',{success:false,duration_ms:performance.now()-started,mountain:currentMountainLabel(),route_points:points.length,error_message:e.message||String(e)});}
-  finally{$('analyzeBtn').disabled=false;}
+    logEvent('weather_analysis',{success:true,duration_ms:initialMs,mountain,route_points:points.length,stay_count:stayPoints.length,metadata:{provider_count:primaryProviders.length,provider_count_final:providers.length,manual_datetime:true,batch_weather:true,progressive:true}});
+
+    // Finish GFS / ICON after the usable result is already on screen. The first
+    // two requests are normally served from the proxy cache, so only the
+    // remaining models need upstream time.
+    if(primaryProviders.length<providers.length){
+      try{
+        const fullResults=await analyzePointsBatch(points,providers,'追加モデル');
+        if(runId!==activeAnalysisRun)return;
+        renderAll(fullResults,overnight);
+        setStatus(`分析完了：${points.length}地点${stayPoints.length?` / 宿泊 ${stayPoints.length}泊`:''}${overnightWarning}（4モデル比較まで更新済み）`,false);
+      }catch(e){
+        if(runId===activeAnalysisRun)setStatus(`先行分析は表示済みです。追加モデルのみ更新できませんでした（${e?.message||'取得失敗'}）`,false);
+      }
+    }else{
+      setStatus(`分析完了：${points.length}地点${stayPoints.length?` / 宿泊 ${stayPoints.length}泊`:''}${overnightWarning}`,false);
+    }
+  }catch(e){
+    if(runId===activeAnalysisRun)setStatus(e.message||String(e),true);
+    logEvent('weather_analysis',{success:false,duration_ms:performance.now()-started,mountain:currentMountainLabel(),route_points:points.length,error_message:e.message||String(e)});
+  }finally{
+    if(runId===activeAnalysisRun)$('analyzeBtn').disabled=false;
+  }
 }
 function analyzeOvernightJson(point,nightNo,j){
   const next=addDays(point.date,1), h=j?.hourly||{}, d=j?.daily||{};

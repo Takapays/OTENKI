@@ -3924,3 +3924,18 @@ body.install-guide-open{overflow:hidden}
     max-height:calc(100vh - 102px);
   }
 }
+
+
+/* V1.4.175: mobile representative courses are shown immediately after mountain selection.
+   The course cards themselves load the selected course, so the separate load button is hidden on mobile. */
+@media(max-width:700px){
+  .planner-rail .representative-course-mainline #representativeCourseBtn:not(.hidden){display:none!important}
+  .planner-rail .representative-course-summary-always:not(:empty)::before{
+    content:'代表コース（タップで山行設定に反映）';
+    display:block;
+    margin:1px 0 2px;
+    font-size:12px;
+    font-weight:800;
+    color:#355247;
+  }
+}
