@@ -139,7 +139,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.111';
+const APP_VERSION = '1.4.112';
 
 
 
@@ -4679,7 +4679,9 @@ function init(){
   refreshRepresentativeCourseButton();
   $('loadPoiBtn').addEventListener('click',loadCandidates);
   $('representativeCourseBtn')?.addEventListener('click',applyRepresentativeCourse);
-  $('representativeCourseSelect')?.addEventListener('change',refreshRepresentativeCourseButton);
+  $('representativeCourseBtn')?.addEventListener('mouseenter',()=>renderRepresentativeCourseSummaryNow());
+  $('representativeCourseBtn')?.addEventListener('focus',()=>renderRepresentativeCourseSummaryNow());
+  $('representativeCourseSelect')?.addEventListener('change',()=>{refreshRepresentativeCourseButton();renderRepresentativeCourseSummaryNow();});
   $('addPointBtn').addEventListener('click',()=>addManualPointRow());
   $('analyzeBtn').addEventListener('click',analyze);
   $('resultScreenshotBtn')?.addEventListener('click',()=>captureAnalysisResultsScreenshot($('resultScreenshotBtn'),$('resultScreenshotStatus')));
@@ -4693,6 +4695,8 @@ function init(){
     $('candidateState').textContent='';
     updateLoadButtonAppearance(false);
     refreshRepresentativeCourseButton();
+    renderRepresentativeCourseSummaryNow();
+    requestAnimationFrame(()=>renderRepresentativeCourseSummaryNow());
     updateForecastHorizon();
     renderRouteMaps();
   };
@@ -5044,6 +5048,43 @@ function representativeCoursePathText(course){
   if(!course||!Array.isArray(course.points))return '';
   return course.points.map(([,name])=>name).join(' → ');
 }
+function renderRepresentativeCourseSummaryNow(mountainOverride=''){
+  const mountain=(mountainOverride||currentMountainLabel()).trim();
+  const options=representativeCourseOptions(mountain);
+  const sel=$('representativeCourseSelect');
+  const idx=sel&&options[Number(sel.value)]?Number(sel.value):0;
+  const course=options[idx]||options[0]||null;
+  const btn=$('representativeCourseBtn');
+  const mainline=btn?.closest('.representative-course-mainline');
+  if(!btn||!mainline)return;
+
+  let box=$('representativeCourseSummaryAlways');
+  if(!box){
+    box=document.createElement('div');
+    box.id='representativeCourseSummaryAlways';
+    box.className='representative-course-summary-always';
+    box.setAttribute('aria-live','polite');
+    btn.insertAdjacentElement('afterend',box);
+  }
+  if(!course){
+    box.replaceChildren();
+    box.style.display='none';
+    btn.removeAttribute('title');
+    return;
+  }
+  const label=course.label||'代表コース';
+  const route=representativeCoursePathText(course)||course.points?.map(p=>p?.[1]).filter(Boolean).join(' → ')||'';
+  const name=document.createElement('b');
+  name.textContent=label;
+  const path=document.createElement('span');
+  path.textContent=route;
+  box.replaceChildren(name,path);
+  box.style.setProperty('display','flex','important');
+  box.style.setProperty('visibility','visible','important');
+  box.style.setProperty('opacity','1','important');
+  btn.title=route?`${label}\n${route}`:label;
+}
+
 function refreshRepresentativeCourseButton(){
   const btn=$('representativeCourseBtn');
   const sel=$('representativeCourseSelect');
@@ -5097,6 +5138,7 @@ function refreshRepresentativeCourseButton(){
       summary.removeAttribute('title');
     }
   }
+  renderRepresentativeCourseSummaryNow(mountain);
 }
 function representativeCandidate(type,name){
   return candidates.find(p=>p.type===type&&p.name===name&&hasResolvedCoord(p))||null;
