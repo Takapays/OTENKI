@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.4.82';
+const APP_VERSION = '1.4.83';
 
 
 
@@ -3941,6 +3941,93 @@ const NATIONAL_MOUNTAIN_COORD_OVERRIDES = Object.freeze({
   '三ッ峠山':{lat:35.549167,lon:138.809167,elevation:1785}
 });
 const NATIONAL_MOUNTAIN_PRESET_ALIASES = Object.freeze({'御嶽':'御嶽山','大山（鳥取）':'大山'});
+
+function commonsMountainPhotoUrl(fileName,width=1600){
+  return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(fileName)}?width=${width}`;
+}
+const NATIONAL_MOUNTAIN_PHOTOS = Object.freeze({
+  '富士山':{url:commonsMountainPhotoUrl('Mount Fuji from Lake Motosu.jpg'),credit:'写真: Alpsdake / Wikimedia Commons (CC BY-SA 4.0)',note:'本栖湖から望む富士山',sourceUrl:'https://commons.wikimedia.org/wiki/File:Mount_Fuji_from_Lake_Motosu.jpg'},
+  '槍ヶ岳':{url:commonsMountainPhotoUrl('Mt.Yarigatake.jpg'),credit:'写真: Captain76 / Wikimedia Commons (CC BY-SA 3.0)',note:'槍ヶ岳山荘付近から望む槍ヶ岳',sourceUrl:'https://commons.wikimedia.org/wiki/File:Mt.Yarigatake.jpg'},
+  '奥穂高岳':{url:commonsMountainPhotoUrl('Mt.Okuhotakadake 03.jpg'),credit:'写真: Σ64 / Wikimedia Commons (CC BY 3.0)',note:'北アルプス・奥穂高岳',sourceUrl:'https://commons.wikimedia.org/wiki/File:Mt.Okuhotakadake_03.jpg'},
+  '剱岳':{url:commonsMountainPhotoUrl('Tsurugidake 20100127.jpg'),credit:'写真: Hanoitaxi / Wikimedia Commons (Public Domain)',note:'西北西から望む剱岳',sourceUrl:'https://commons.wikimedia.org/wiki/File:Tsurugidake_20100127.jpg'},
+  '立山':{url:commonsMountainPhotoUrl('Mt Tateyama01s4592.jpg'),credit:'写真: 663highland / Wikimedia Commons',note:'室堂から望む立山',sourceUrl:'https://commons.wikimedia.org/wiki/File:Mt_Tateyama01s4592.jpg'},
+  '白馬岳':{url:commonsMountainPhotoUrl('Mount Shirouma (2000-10-07).jpg'),credit:'写真: Alpsdake / Wikimedia Commons (CC BY-SA 4.0)',note:'丸山から望む秋の白馬岳',sourceUrl:'https://commons.wikimedia.org/wiki/File:Mount_Shirouma_(2000-10-07).jpg'},
+  '石鎚山':{url:commonsMountainPhotoUrl('石鎚スカイラインからの石鎚山.jpg'),credit:'写真: Koda6029 / Wikimedia Commons',note:'石鎚スカイラインから望む石鎚山',sourceUrl:'https://commons.wikimedia.org/wiki/File:石鎚スカイラインからの石鎚山.jpg'},
+  '大山':{url:commonsMountainPhotoUrl('Mt Daisen Full View.jpg'),credit:'写真: Vickerman625 / Wikimedia Commons (Public Domain)',note:'西から望む大山',sourceUrl:'https://commons.wikimedia.org/wiki/File:Mt_Daisen_Full_View.jpg'}
+});
+function nationalMountainPhoto(name){return NATIONAL_MOUNTAIN_PHOTOS[name]||null;}
+const NATIONAL_PHOTO_WIKI_ALIASES = Object.freeze({
+  '大雪山（旭岳）':'大雪山','雄阿寒岳':'雄阿寒岳','蔵王山（熊野岳）':'蔵王連峰','赤城山（黒檜山）':'赤城山',
+  '奥白根山':'日光白根山','八ヶ岳（赤岳）':'赤岳 (八ヶ岳山系)','霧ヶ峰（車山）':'霧ヶ峰','水晶岳（黒岳）':'水晶岳',
+  '御嶽':'御嶽山','大菩薩嶺':'大菩薩嶺','天城山（万三郎岳）':'天城山','愛鷹山（越前岳）':'愛鷹山',
+  '地蔵岳(鳳凰)':'鳳凰山','大山（神奈川）':'大山 (神奈川県)','大山（鳥取）':'大山 (鳥取県)',
+  '日出ヶ岳':'大台ヶ原山','八経ヶ岳':'八経ヶ岳','阿蘇山（高岳）':'阿蘇山','霧島山（韓国岳）':'韓国岳',
+  '雲仙岳（普賢岳）':'雲仙岳','宮ノ浦岳':'宮之浦岳','桜島（御岳）':'桜島','赤城山（黒檜山）':'赤城山'
+});
+const nationalMountainPhotoCache=new Map();
+function wikiMountainCandidates(name){
+  const out=[];
+  const alias=NATIONAL_PHOTO_WIKI_ALIASES[name];
+  if(alias)out.push(alias);
+  out.push(name);
+  const stripped=name.replace(/[（(][^）)]*[）)]/g,'').trim();
+  if(stripped&&stripped!==name)out.push(stripped);
+  return [...new Set(out)];
+}
+function cleanWikiCreditHtml(value=''){
+  const d=document.createElement('div');d.innerHTML=value;
+  return (d.textContent||'').replace(/\s+/g,' ').trim();
+}
+async function fetchWikiMountainPhoto(name){
+  if(NATIONAL_MOUNTAIN_PHOTOS[name])return NATIONAL_MOUNTAIN_PHOTOS[name];
+  if(nationalMountainPhotoCache.has(name))return nationalMountainPhotoCache.get(name);
+  const promise=(async()=>{
+    for(const title of wikiMountainCandidates(name)){
+      try{
+        const q=new URLSearchParams({origin:'*',action:'query',format:'json',redirects:'1',prop:'pageimages',piprop:'thumbnail|name',pithumbsize:'1600',titles:title});
+        const res=await fetch(`https://ja.wikipedia.org/w/api.php?${q.toString()}`,{mode:'cors'});
+        if(!res.ok)continue;
+        const data=await res.json();
+        const page=Object.values(data?.query?.pages||{})[0];
+        const thumb=page?.thumbnail?.source, file=page?.pageimage;
+        if(!thumb||!file)continue;
+        let credit='写真: Wikipedia / Wikimedia Commons';
+        let sourceUrl=`https://ja.wikipedia.org/wiki/${encodeURIComponent(page.title||title)}`;
+        try{
+          const iq=new URLSearchParams({origin:'*',action:'query',format:'json',prop:'imageinfo',iiprop:'url|extmetadata',titles:`File:${file}`});
+          const ir=await fetch(`https://ja.wikipedia.org/w/api.php?${iq.toString()}`,{mode:'cors'});
+          const idata=await ir.json();
+          const ipage=Object.values(idata?.query?.pages||{})[0];
+          const info=ipage?.imageinfo?.[0];
+          const artist=cleanWikiCreditHtml(info?.extmetadata?.Artist?.value||'');
+          const license=cleanWikiCreditHtml(info?.extmetadata?.LicenseShortName?.value||'');
+          if(artist||license)credit=`写真: ${artist||'Wikimedia contributor'}${license?` / ${license}`:''}`;
+          if(info?.descriptionurl)sourceUrl=info.descriptionurl;
+        }catch(_){ }
+        return {url:thumb,credit,note:`Wikipedia「${page.title||title}」の代表画像`,sourceUrl,dynamic:true};
+      }catch(_){ }
+    }
+    return null;
+  })();
+  nationalMountainPhotoCache.set(name,promise);
+  return promise;
+}
+function applyNationalHeroPhoto(box,p,photo){
+  if(!box||!photo)return;
+  const hero=box.querySelector('.national-rich-hero');if(!hero)return;
+  hero.classList.add('has-photo');
+  hero.style.backgroundImage=`linear-gradient(180deg,rgba(12,61,43,.08),rgba(8,48,35,.82)),url("${String(photo.url).replace(/"/g,'%22')}")`;
+  const copy=hero.querySelector('.national-rich-hero-copy');
+  if(copy&&!copy.querySelector('.national-rich-photo-badge')){
+    const b=document.createElement('span');b.className='national-rich-photo-badge';b.textContent='実写真';
+    copy.querySelector('.national-rich-area')?.insertAdjacentElement('afterend',b);
+  }
+  let credit=hero.querySelector('.national-rich-photo-credit');
+  if(!credit){credit=document.createElement(photo.sourceUrl?'a':'div');credit.className='national-rich-photo-credit';hero.appendChild(credit);}
+  if(photo.sourceUrl){credit.href=photo.sourceUrl;credit.target='_blank';credit.rel='noopener noreferrer';credit.title='写真の出典・ライセンスを確認';}
+  credit.textContent=photo.credit||'写真: Wikipedia / Wikimedia Commons';
+  if(photo.note){const small=document.createElement('small');small.textContent=photo.note;credit.appendChild(small);}
+}
 // 補完座標を固定山頂候補にも加え、代表コース生成と山行設定の双方で利用する。
 for(const [mountain,p] of Object.entries(NATIONAL_MOUNTAIN_COORD_OVERRIDES)){
   const catalog=BUILTIN_ROUTE_CATALOG[mountain]||(BUILTIN_ROUTE_CATALOG[mountain]=[]);
@@ -3979,14 +4066,104 @@ function renderNationalOutlookMarkers(){
     marker.on('click',()=>showNationalOutlookDetail(p,result));
   }
 }
+function nationalAreaLabel(name){
+  const key=mountainUiArea(name);
+  return MOUNTAIN_UI_AREAS.find(([k])=>k===key)?.[1]||'日本';
+}
+function nationalGradeLabel(grade){
+  return grade==='A'?'適性高め':grade==='B'?'注意あり':grade==='C'?'厳しい':'未判定';
+}
+function nationalOutlookConfidence(result){
+  if(!result)return {label:'未判定',tone:'u',note:'全国判定後に表示'};
+  const raw=$('nationalOutlookDate')?.value;
+  let days=0;
+  if(raw){
+    const a=new Date(`${raw}T00:00:00+09:00`).getTime();
+    const b=new Date();
+    days=Math.max(0,Math.round((a-b.getTime())/86400000));
+  }
+  let label='中',tone='m',note='判定境界に近い可能性あり';
+  if(days>=8){label='低';tone='l';note='先の日付のため変化に注意';}
+  else if((result.grade==='A'&&(result.cautionHours||0)<=1)||(result.grade==='C'&&(result.severeHours||0)>=5)){
+    label='高';tone='h';note='判定傾向が比較的明瞭';
+  }
+  return {label,tone,note};
+}
+function nationalRepresentativeSummary(name){
+  const course=representativeCourseOptions(name)[0]||null;
+  if(!course)return null;
+  return {label:course.label||'代表コース',points:(course.points||[]).map(([,pointName,pointLabel])=>({name:pointName,label:pointLabel||''}))};
+}
+function nationalNearbyMountains(p,limit=5){
+  return nationalOutlookPoints().filter(x=>x.name!==p.name).map(x=>({
+    ...x,
+    distance:haversineMeters(p.lat,p.lon,x.lat,x.lon)/1000,
+    result:nationalOutlookResults.get(x.name)||null
+  })).sort((a,b)=>a.distance-b.distance).slice(0,limit);
+}
+function nationalMetricHtml(label,value,sub=''){
+  return `<div class="national-rich-metric"><span>${esc(label)}</span><strong>${value}</strong>${sub?`<small>${esc(sub)}</small>`:''}</div>`;
+}
+function nationalSelectNearby(name){
+  const p=nationalMountainPoint(name);if(!p)return;
+  const r=nationalOutlookResults.get(name)||null;
+  showNationalOutlookDetail(p,r);
+  if(nationalOutlookMap){nationalOutlookMap.panTo([p.lat,p.lon],{animate:true});}
+}
 function showNationalOutlookDetail(p,result){
   const box=$('nationalOutlookDetail');if(!box)return;
-  if(!result){box.innerHTML=`<div class="national-detail-grade grade-u">?</div><div><h3>${esc(p.name)}</h3><p>${p.eligible?'まだ判定していません。':'代表コース未対応のため、全国簡易判定は対象外です。'}</p>${p.eligible?'<button type="button" class="secondary national-detail-open">この山を山行設定に入力</button>':''}</div>`;}
-  else{
-    box.innerHTML=`<div class="national-detail-grade grade-${result.grade.toLowerCase()}">${result.grade}</div><div><h3>${esc(p.name)}</h3><p>${esc(result.summary||'')}</p><dl><div><dt>最大風速</dt><dd>${num(result.maxWind)} m/s</dd></div><div><dt>最大降水</dt><dd>${num(result.maxRain)} mm/h</dd></div><div><dt>雷指標</dt><dd>${esc(result.thunder||'–')}</dd></div><div><dt>最低気温</dt><dd>${num(result.minTemp)} ℃</dd></div><div><dt>最小視界</dt><dd>${Number.isFinite(result.minVisibility)?Math.round(result.minVisibility/100)/10+' km':'–'}</dd></div></dl><button type="button" class="primary national-detail-open">この山を山行設定に入力</button></div>`;
-  }
+  const grade=result?.grade||'?';
+  const gradeClass=grade==='?'?'u':grade.toLowerCase();
+  const elevation=Number.isFinite(Number(p.elevation))?`${Math.round(Number(p.elevation)).toLocaleString()} m`:'標高情報なし';
+  const area=nationalAreaLabel(p.name);
+  const confidence=nationalOutlookConfidence(result);
+  const course=nationalRepresentativeSummary(p.name);
+  const nearby=nationalNearbyMountains(p);
+  const photo=nationalMountainPhoto(p.name);
+  const heroStyle=photo?` style="background-image:linear-gradient(180deg,rgba(12,61,43,.08),rgba(8,48,35,.82)),url('${photo.url}')"`:'';
+  const photoBadge=photo?'<span class="national-rich-photo-badge">実写真</span>':'';
+  const photoCredit=photo?`${photo.sourceUrl?`<a class="national-rich-photo-credit" href="${esc(photo.sourceUrl)}" target="_blank" rel="noopener noreferrer" title="写真の出典・ライセンスを確認">`:'<div class="national-rich-photo-credit">'}${esc(photo.credit)}${photo.note?`<small>${esc(photo.note)}</small>`:''}${photo.sourceUrl?'</a>':'</div>'}`:'';
+  const courseHtml=course?`<section class="national-rich-section"><div class="national-rich-section-head"><div><span>REPRESENTATIVE ROUTE</span><h4>${esc(course.label)}</h4></div><span class="national-route-count">${course.points.length}地点</span></div><div class="national-route-flow">${course.points.map((pt,i)=>`<span class="national-route-node"><b>${i+1}</b>${esc(pt.name)}</span>`).join('<i>→</i>')}</div></section>`:'';
+  const nearbyHtml=`<section class="national-rich-section"><div class="national-rich-section-head"><div><span>NEARBY MOUNTAINS</span><h4>近くの山</h4></div></div><div class="national-nearby-list">${nearby.map(x=>{const g=x.result?.grade||'?';const gc=g==='?'?'u':g.toLowerCase();return `<button type="button" class="national-nearby-item" data-national-nearby="${esc(x.name)}"><span><strong>${esc(x.name)}</strong><small>約${Math.round(x.distance)} km</small></span><b class="national-nearby-grade grade-${gc}">${g}</b></button>`}).join('')}</div></section>`;
+  const metrics=result?[
+    nationalMetricHtml('最大風速',`${num(result.maxWind)} m/s`,'6〜15時'),
+    nationalMetricHtml('最大降水',`${num(result.maxRain)} mm/h`,'6〜15時'),
+    nationalMetricHtml('雷リスク',esc(result.thunder||'–'),'参考情報'),
+    nationalMetricHtml('最低気温',`${num(result.minTemp)} ℃`,'6〜15時'),
+    nationalMetricHtml('最小視界',Number.isFinite(result.minVisibility)?`${Math.round(result.minVisibility/100)/10} km`:'–','参考情報'),
+    nationalMetricHtml('判定信頼度',`<span class="national-confidence tone-${confidence.tone}">${confidence.label}</span>`,confidence.note)
+  ].join(''):'';
+  const summary=result?esc(result.summary||''):(p.eligible?'まだ判定していません。日付を選んで「全国を判定」を押してください。':'全国簡易判定は対象外です。');
+  box.innerHTML=`
+    <button type="button" class="national-detail-close" aria-label="詳細を閉じる">×</button>
+    <div class="national-rich-hero${photo?' has-photo':''}"${heroStyle}>
+      <div class="national-rich-hero-overlay"></div>
+      <div class="national-rich-hero-copy"><span class="national-rich-area">${esc(area)}</span>${photoBadge}<h3>${esc(p.name)}</h3><p>${esc(elevation)}</p></div>
+      <div class="national-rich-grade grade-${gradeClass}"><b>${grade}</b><span>${nationalGradeLabel(grade)}</span></div>
+      ${photoCredit}
+    </div>
+    <div class="national-rich-content">
+      <div class="national-rich-summary"><strong>${grade==='?'?'全国一括判定':'6〜15時の簡易判定'}</strong><p>${summary}</p></div>
+      ${result?`<div class="national-rich-metrics">${metrics}</div>`:''}
+      ${courseHtml}
+      ${nearbyHtml}
+      <button type="button" class="primary national-detail-open national-rich-cta">この山を山行設定に入力</button>
+      <p class="national-rich-footnote">主要山のみ実写真を表示しています。写真は Wikimedia Commons の公開画像を利用しています。全国一括判定は候補地選び用です。山行設定では通過時刻・地点・複数モデルを使って詳しく確認できます。</p>
+    </div>`;
+  box.classList.add('is-open');
   box.querySelector('.national-detail-open')?.addEventListener('click',()=>openMountainFromNationalMap(p.name));
+  box.querySelector('.national-detail-close')?.addEventListener('click',()=>box.classList.remove('is-open'));
+  box.querySelectorAll('[data-national-nearby]').forEach(btn=>btn.addEventListener('click',()=>nationalSelectNearby(btn.dataset.nationalNearby)));
+  if(!photo){
+    const requestedName=p.name;
+    fetchWikiMountainPhoto(requestedName).then(found=>{
+      if(!found)return;
+      const current=box.querySelector('.national-rich-hero h3')?.textContent?.trim();
+      if(current===requestedName)applyNationalHeroPhoto(box,p,found);
+    }).catch(()=>{});
+  }
 }
+
 async function openMountainFromNationalMap(name){
   const search=$('mountainSearch'); if(!search)return;
   search.value=name; search.dispatchEvent(new Event('change',{bubbles:true}));

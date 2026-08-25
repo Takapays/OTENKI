@@ -3306,87 +3306,22 @@ body.install-guide-open{overflow:hidden}
 @media(min-width:901px) and (max-width:1120px){.topbar-badges span:nth-child(3){display:inline-flex!important}}
 \n\n/* V1.4.80 PC ROUTE PLAN vertical compaction */\n@media (min-width:901px){\n  .planner-rail .plan-panel{padding:18px 19px 19px;}\n  .planner-rail .panel-kicker{margin-bottom:5px;}\n  .planner-rail .compact-title{margin-bottom:10px;}\n  .planner-rail .section-title{gap:9px;}\n  .planner-rail .section-title>span{width:34px;height:34px;min-width:34px;}\n  .planner-rail .section-title h2{font-size:20px;line-height:1.15;}\n  .planner-rail .section-title p{margin-top:2px;font-size:11px;line-height:1.35;}\n  .planner-rail .last-analysis-panel{margin-top:9px;padding:10px 11px;gap:7px;}\n  .planner-rail .last-analysis-actions button{min-height:38px;}\n  .planner-rail .last-analysis-panel p{line-height:1.35;}\n  .planner-rail .mountain-row{padding:11px 12px;border-radius:14px;}\n  .planner-rail .mountain-picker-dual{gap:7px!important;}\n  .planner-rail .mountain-area-label,.planner-rail .mountain-select-label,.planner-rail .mountain-search-label{font-size:10px;line-height:1.25;}\n  .planner-rail .mountain-area-label select,.planner-rail .mountain-select-label select,.planner-rail .mountain-search-label input[type=search]{min-height:38px;height:38px;font-size:13px;}\n  .planner-rail .mountain-count{margin-top:6px;line-height:1.3;}\n  .planner-rail .state{padding-top:4px;line-height:1.3;}\n  .planner-rail .mountain-route-load-primary{margin-top:7px;}\n  .planner-rail .mountain-route-load-primary #loadPoiBtn{min-height:39px!important;font-size:13px;}\n  .planner-rail .mountain-route-actions{margin-top:6px;gap:6px;}\n  .planner-rail .mountain-route-actions #representativeCourseBtn,.planner-rail .representative-course-select{min-height:34px;height:34px;}\n  .planner-rail .representative-course-choice{padding:5px 10px;font-size:11px;}\n  .planner-rail .representative-course-preview:not(.hidden){padding:5px 8px;line-height:1.3;}\n  .planner-rail .points-head{margin-top:11px;}\n  .planner-rail .points-head h3{font-size:16px;}\n  .planner-rail .points-head small{margin-top:2px;font-size:10px;}\n  .planner-rail .points{gap:6px;}\n  .planner-rail .point-row{padding:8px 9px!important;gap:5px 7px!important;border-radius:12px!important;}\n  .planner-rail .point-row select,.planner-rail .point-row input{min-height:36px;height:36px;font-size:12px;}\n  .planner-rail .date-picker-btn{height:36px;min-height:36px;}\n  .planner-rail .stay-toggle{min-height:36px;}\n  .planner-rail .point-meta{padding-top:0!important;line-height:1.25!important;}\n  .planner-rail .move,.planner-rail .remove{min-height:32px!important;padding:4px!important;}\n  .planner-rail .route-actions{gap:8px;margin-top:12px;}\n  .planner-rail .route-actions #addPointBtn{min-height:38px;}\n  .planner-rail .route-actions #analyzeBtn{min-height:42px;padding:10px 16px;}\n}\n
 
-/* V1.4.82 PC ROUTE PLAN: roomy outer frame, tighter inner content */
-@media (min-width:901px){
-  .planner-rail .plan-panel{
-    min-height:calc(100vh - 130px);
-    max-height:none;
-    overflow:visible;
-    padding:18px 19px 28px;
-  }
-  .planner-rail .panel-kicker{margin-bottom:3px;}
-  .planner-rail .compact-title{margin-bottom:7px;}
-  .planner-rail .section-title{gap:7px;}
-  .planner-rail .section-title>span{width:31px;height:31px;min-width:31px;font-size:11px;}
-  .planner-rail .section-title h2{font-size:19px;line-height:1.1;}
-  .planner-rail .section-title p{margin-top:1px;font-size:10px;line-height:1.2;}
-  .planner-rail .last-analysis-panel{margin:0 0 7px;padding:8px 10px;gap:5px;}
-  .planner-rail .last-analysis-actions{gap:5px;}
-  .planner-rail .last-analysis-actions button{min-height:33px;padding:5px 8px;font-size:11px;}
-  .planner-rail .last-analysis-panel p{margin-top:2px;font-size:9px;line-height:1.2;}
-  .planner-rail .mountain-row{padding:9px 11px;border-radius:13px;}
-  .planner-rail .mountain-picker-dual{gap:5px!important;}
-  .planner-rail .mountain-area-label,.planner-rail .mountain-select-label,.planner-rail .mountain-search-label{font-size:9px;line-height:1.15;gap:3px;}
-  .planner-rail .mountain-area-label select,.planner-rail .mountain-select-label select,.planner-rail .mountain-search-label input[type=search]{min-height:34px;height:34px;font-size:12px;padding-top:0;padding-bottom:0;}
-  .planner-rail .mountain-count{margin-top:4px;font-size:9px;line-height:1.15;}
-  .planner-rail .state{padding-top:2px;font-size:9px;line-height:1.15;}
-  .planner-rail .mountain-route-load-primary{margin-top:5px;}
-  .planner-rail .mountain-route-load-primary #loadPoiBtn{min-height:35px!important;height:35px!important;font-size:12px;}
-
-  /* Representative course: button left, course content right */
-  .planner-rail .mountain-route-actions{
-    display:grid;
-    grid-template-columns:170px minmax(0,1fr);
-    grid-template-rows:auto auto;
-    gap:5px 8px;
-    margin-top:5px;
-    align-items:stretch;
-  }
-  .planner-rail .mountain-route-actions #representativeCourseBtn{
-    grid-column:1;
-    grid-row:1;
-    min-height:35px;
-    height:auto;
-    padding:5px 9px;
-    white-space:normal;
-    line-height:1.15;
-    font-size:11px;
-  }
-  .planner-rail .representative-course-preview:not(.hidden){
-    grid-column:2;
-    grid-row:1;
-    display:flex;
-    justify-content:center;
-    min-height:35px;
-    padding:4px 8px;
-    border:1px solid #d7e5dd;
-    border-radius:9px;
-    background:#f7fbf9;
-    line-height:1.18;
-  }
-  .planner-rail .representative-course-preview b{font-size:10px;line-height:1.15;}
-  .planner-rail .representative-course-preview span{font-size:9px;line-height:1.2;}
-  .planner-rail .representative-course-choices:not(.hidden){
-    grid-column:1/-1;
-    grid-row:2;
-    gap:5px;
-    margin-top:0;
-  }
-  .planner-rail .representative-course-choice{padding:4px 9px;font-size:10px;}
-
-  .planner-rail .points-head{margin-top:8px;margin-bottom:4px;}
-  .planner-rail .points-head h3{font-size:15px;line-height:1.1;}
-  .planner-rail .points-head small{margin-top:1px;font-size:9px;line-height:1.15;}
-  .planner-rail .points{gap:4px;}
-  .planner-rail .point-row{padding:6px 8px!important;gap:3px 6px!important;border-radius:11px!important;}
-  .planner-rail .point-row .field-caption{font-size:10px!important;line-height:1.1;}
-  .planner-rail .point-row select,.planner-rail .point-row input{min-height:32px;height:32px;font-size:11px;padding-top:0;padding-bottom:0;}
-  .planner-rail .date-picker-btn{height:32px;min-height:32px;}
-  .planner-rail .stay-toggle{min-height:32px;}
-  .planner-rail .stay-toggle b{font-size:10px!important;}
-  .planner-rail .point-meta{padding-top:0!important;font-size:8px!important;line-height:1.1!important;}
-  .planner-rail .move,.planner-rail .remove{min-height:28px!important;padding:3px!important;font-size:10px;}
-  .planner-rail .route-actions{gap:6px;margin-top:8px;}
-  .planner-rail .route-actions #addPointBtn{min-height:34px;font-size:12px;}
-  .planner-rail .route-actions #analyzeBtn{min-height:38px;padding:7px 13px;font-size:13px;}
+/* V1.4.81 National Outlook rich detail panel */
+.national-outlook-body{grid-template-columns:minmax(0,1fr) 360px;align-items:start}
+.national-outlook-detail{display:block;padding:0;overflow:hidden;background:#fff;box-shadow:0 16px 40px rgba(27,74,55,.10);position:relative;max-height:620px;overflow-y:auto;scrollbar-width:thin}
+.national-detail-close{display:none;position:absolute;z-index:8;right:10px;top:10px;width:34px;height:34px;border:0;border-radius:999px;background:rgba(255,255,255,.92);color:#355b4b;font-size:22px;line-height:1;box-shadow:0 4px 14px rgba(0,0,0,.12);cursor:pointer}
+.national-rich-hero{position:relative;min-height:155px;padding:20px;display:flex;align-items:flex-end;justify-content:space-between;gap:12px;background-image:linear-gradient(180deg,rgba(12,61,43,.05),rgba(8,48,35,.78)),url('traten-ogp-v147.png');background-size:cover;background-position:center;border-bottom:1px solid #dfeae4}
+.national-rich-hero.has-photo{background-position:center center}
+.national-rich-hero-overlay{position:absolute;inset:0;background:linear-gradient(90deg,rgba(4,43,31,.58),rgba(4,43,31,.14) 70%)}
+.national-rich-hero-copy,.national-rich-grade,.national-rich-photo-credit{position:relative;z-index:2}.national-rich-area{display:inline-flex;padding:4px 8px;border-radius:999px;background:rgba(255,255,255,.88);color:#286b4e;font-size:10px;font-weight:900;letter-spacing:.08em}.national-rich-photo-badge{display:inline-flex;margin-left:6px;padding:4px 8px;border-radius:999px;background:rgba(34,111,79,.88);color:#fff;font-size:10px;font-weight:900;letter-spacing:.08em;vertical-align:middle}.national-rich-hero h3{margin:8px 0 2px;color:#fff;font-size:26px;line-height:1.1;text-shadow:0 2px 10px rgba(0,0,0,.28)}.national-rich-hero p{margin:0;color:#edf8f2;font-weight:750;font-size:12px}.national-rich-photo-credit{position:absolute;left:20px;right:110px;bottom:10px;color:rgba(244,251,247,.96);font-size:9px;line-height:1.35;text-shadow:0 1px 6px rgba(0,0,0,.35)}.national-rich-photo-credit small{display:block;color:rgba(236,247,241,.92)}.national-rich-photo-credit[href]{text-decoration:none}.national-rich-photo-credit[href]:hover{text-decoration:underline}
+.national-rich-grade{flex:0 0 78px;width:78px;height:78px;border-radius:22px;display:grid;place-items:center;align-content:center;color:#fff;border:2px solid rgba(255,255,255,.82);box-shadow:0 8px 24px rgba(0,0,0,.18)}.national-rich-grade b{font-size:34px;line-height:1}.national-rich-grade span{font-size:9px;font-weight:900;margin-top:3px}.national-rich-grade.grade-a{background:#248b5e}.national-rich-grade.grade-b{background:#d39a16}.national-rich-grade.grade-c{background:#c94f54}.national-rich-grade.grade-u{background:#7d8d86}
+.national-rich-content{padding:14px}.national-rich-summary{border:1px solid #dceae2;background:#f5faf7;border-radius:13px;padding:11px 12px;margin-bottom:12px}.national-rich-summary strong{font-size:11px;color:#2c6d50}.national-rich-summary p{margin:4px 0 0!important;color:#526e62!important;font-size:11px!important;line-height:1.55!important}
+.national-rich-metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:13px}.national-rich-metric{border:1px solid #e1ebe5;background:#fff;border-radius:12px;padding:9px 10px;min-width:0}.national-rich-metric>span{display:block;font-size:9px;color:#71877d;font-weight:850}.national-rich-metric strong{display:block;margin-top:3px;font-size:15px;color:#173f2f;line-height:1.2}.national-rich-metric small{display:block;margin-top:2px;font-size:8px;color:#91a198;white-space:normal}.national-confidence{display:inline-flex;padding:2px 8px;border-radius:999px;font-size:12px}.national-confidence.tone-h{background:#e8f6ee;color:#21704c}.national-confidence.tone-m{background:#fff4da;color:#976b08}.national-confidence.tone-l{background:#fbe8e8;color:#a04346}
+.national-rich-section{border-top:1px solid #e5eee8;padding-top:12px;margin-top:12px}.national-rich-section-head{display:flex;justify-content:space-between;gap:8px;align-items:flex-end;margin-bottom:9px}.national-rich-section-head span{display:block;font-size:8px;color:#8a9d94;font-weight:900;letter-spacing:.12em}.national-rich-section-head h4{margin:2px 0 0;font-size:14px;color:#244b3b}.national-route-count{padding:3px 7px;border-radius:999px;background:#edf6f1;color:#4a725f!important;letter-spacing:0!important}
+.national-route-flow{display:flex;gap:5px;align-items:center;overflow-x:auto;padding-bottom:4px}.national-route-flow i{font-style:normal;color:#9eb1a8;font-size:10px}.national-route-node{flex:0 0 auto;display:flex;align-items:center;gap:5px;padding:6px 8px;border:1px solid #dce9e2;border-radius:10px;background:#f9fcfa;font-size:9px;color:#365a4b;font-weight:800;white-space:nowrap}.national-route-node b{display:grid;place-items:center;width:18px;height:18px;border-radius:50%;background:#2d8b63;color:#fff;font-size:8px}
+.national-nearby-list{display:grid;gap:6px}.national-nearby-item{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid #e2ebe6;border-radius:10px;background:#fff;padding:7px 9px;text-align:left;cursor:pointer}.national-nearby-item:hover{background:#f5faf7}.national-nearby-item span strong{display:block;color:#264b3c;font-size:10px}.national-nearby-item span small{display:block;color:#8b9e95;font-size:8px;margin-top:1px}.national-nearby-grade{flex:0 0 28px;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:11px}.national-nearby-grade.grade-a{background:#27895d}.national-nearby-grade.grade-b{background:#d39a16}.national-nearby-grade.grade-c{background:#c94f54}.national-nearby-grade.grade-u{background:#85928d}
+.national-rich-cta{width:100%;margin-top:14px;min-height:44px}.national-rich-footnote{font-size:8px!important;color:#8b9c94!important;line-height:1.5!important;margin:8px 2px 2px!important}
+@media(max-width:900px){
+  .national-outlook-body{grid-template-columns:1fr}.national-outlook-detail{position:fixed;z-index:1200;left:8px;right:8px;bottom:8px;max-height:82vh;border-radius:20px;box-shadow:0 -12px 48px rgba(14,45,33,.28);transform:translateY(calc(100% + 24px));opacity:0;pointer-events:none;transition:transform .24s ease,opacity .2s ease}.national-outlook-detail.is-open{transform:translateY(0);opacity:1;pointer-events:auto}.national-detail-close{display:block}.national-rich-hero{min-height:145px}.national-rich-hero h3{font-size:24px}
 }
+@media(max-width:520px){.national-rich-content{padding:12px}.national-rich-metrics{gap:6px}.national-rich-metric{padding:8px}.national-rich-hero{min-height:132px;padding:16px}.national-rich-grade{width:68px;height:68px;flex-basis:68px;border-radius:19px}.national-rich-grade b{font-size:30px}.national-rich-photo-badge{display:block;margin:6px 0 0;max-width:max-content}.national-rich-photo-credit{left:16px;right:16px;bottom:8px;font-size:8px}}
