@@ -3688,3 +3688,18 @@ body.install-guide-open{overflow:hidden}
 /* V1.4.108 総合判断：予測信頼度 */
 .summary-confidence-reason{min-height:34px;margin:-12px 0 14px!important;color:#71847b!important;font-size:11px!important;line-height:1.45!important;font-weight:750!important}
 @media(max-width:760px){.summary-confidence-reason{min-height:30px;margin:-9px 0 10px!important;font-size:9px!important;line-height:1.35!important}}
+
+
+/* V1.4.110: dedicated representative-course summary, independent from legacy preview rules */
+.planner-rail .representative-course-mainline{display:grid!important;grid-template-columns:minmax(190px,auto) minmax(0,1fr)!important;align-items:stretch!important;gap:8px!important;width:100%!important;min-width:0!important}
+.planner-rail #representativeCourseBtn{grid-column:1!important;width:100%!important;min-width:190px!important;margin:0!important}
+.planner-rail .representative-course-summary-fixed{grid-column:2!important;display:none;flex-direction:column;justify-content:center;gap:2px;min-width:0;min-height:40px;padding:6px 10px;box-sizing:border-box;border:1px solid #d7e5dd;border-radius:10px;background:#f7fbf9;color:#50685c}
+.planner-rail .representative-course-summary-fixed b{display:block;font-size:11px;line-height:1.25;color:#234c3a;white-space:normal;overflow-wrap:anywhere}
+.planner-rail .representative-course-summary-fixed span{display:block;font-size:11px;line-height:1.35;color:#50685c;white-space:normal;overflow-wrap:anywhere}
+.planner-rail #representativeCoursePreview{display:none!important}
+.national-backup-source{display:inline-flex;margin-top:7px;padding:4px 8px;border-radius:999px;background:#f2f7f4;border:1px solid #cfe0d6;color:#466657;font-size:10px;font-weight:800}
+@media(max-width:700px){
+  .planner-rail .representative-course-mainline{grid-template-columns:1fr!important}
+  .planner-rail #representativeCourseBtn{grid-column:1!important;min-width:0!important}
+  .planner-rail .representative-course-summary-fixed{grid-column:1!important;width:100%!important}
+}

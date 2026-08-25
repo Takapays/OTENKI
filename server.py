@@ -20,6 +20,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import tempfile
 from datetime import datetime, timezone, timedelta
 from collections import OrderedDict
@@ -28,7 +29,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.4.108"
+APP_VERSION = "1.4.110"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -96,7 +97,7 @@ UA = os.environ.get(
 
 METNO_USER_AGENT = os.environ.get(
     "METNO_USER_AGENT",
-    "TRATEN/1.4.21 https://juusoutenki.onrender.com",
+    "TRATEN/1.4.110 https://otenki.onrender.com",
 )
 
 NOAA_GFS_FILTER = os.environ.get(
@@ -121,6 +122,12 @@ OPENMETEO_MIN_INTERVAL = float(os.environ.get("OPENMETEO_MIN_INTERVAL", "3.2"))
 OPENMETEO_MAX_RETRIES = int(os.environ.get("OPENMETEO_MAX_RETRIES", "4"))
 OPENMETEO_PROXY_CACHE_TTL = int(os.environ.get("OPENMETEO_PROXY_CACHE_TTL", "1800"))
 NATIONAL_OUTLOOK_CACHE_TTL = int(os.environ.get("NATIONAL_OUTLOOK_CACHE_TTL", "14400"))
+NATIONAL_METNO_FALLBACK_TTL = int(os.environ.get("NATIONAL_METNO_FALLBACK_TTL", "3600"))
+NATIONAL_METNO_MAX_DAYS = int(os.environ.get("NATIONAL_METNO_MAX_DAYS", "9"))
+NATIONAL_METNO_WORKERS = max(1, min(8, int(os.environ.get("NATIONAL_METNO_WORKERS", "6"))))
+NATIONAL_METNO_MIN_INTERVAL = float(os.environ.get("NATIONAL_METNO_MIN_INTERVAL", "0.08"))
+_national_metno_lock = threading.Lock()
+_national_metno_last_request = 0.0
 NATIONAL_OUTLOOK_STALE_TTL = int(os.environ.get("NATIONAL_OUTLOOK_STALE_TTL", "86400"))
 NATIONAL_OUTLOOK_REFRESH_INTERVAL = int(os.environ.get("NATIONAL_OUTLOOK_REFRESH_INTERVAL", "900"))
 NATIONAL_OUTLOOK_CHUNK_SIZE = int(os.environ.get("NATIONAL_OUTLOOK_CHUNK_SIZE", "50"))
@@ -940,10 +947,10 @@ def _national_point_cache_get(date_text: str, p: dict[str, Any]) -> dict[str, An
         return dict(result)
 
 
-def _national_point_cache_put(date_text: str, p: dict[str, Any], result: dict[str, Any]) -> None:
+def _national_point_cache_put(date_text: str, p: dict[str, Any], result: dict[str, Any], ttl: int | None = None) -> None:
     key = _national_point_key(date_text, p)
     with _national_point_cache_lock:
-        _national_point_cache[key] = (time.time() + NATIONAL_OUTLOOK_CACHE_TTL, dict(result))
+        _national_point_cache[key] = (time.time() + (NATIONAL_OUTLOOK_CACHE_TTL if ttl is None else max(60, int(ttl))), dict(result))
         if len(_national_point_cache) > 2500:
             oldest = sorted(_national_point_cache.items(), key=lambda kv: kv[1][0])[:500]
             for k, _ in oldest: _national_point_cache.pop(k, None)
@@ -994,8 +1001,84 @@ def _national_result_from_forecast(p: dict[str, Any], forecast: dict[str, Any]) 
         if caution: caution_hours+=1
     grade,summary=_national_grade(max_w,max_g,max_r,max_c,min_t,min_v,caution_hours=caution_hours,severe_hours=severe_hours,extreme_hours=extreme_hours)
     thunder="HIGH" if max_c>=700 else "MEDIUM" if max_c>=300 else "LOW"
-    return {"name":p["name"],"grade":grade,"summary":summary,"maxWind":round(max_w,1),"maxGust":round(max_g,1),"maxRain":round(max_r,1),"maxCape":round(max_c),"minTemp":round(min_t,1),"minVisibility":round(min_v) if min_v is not None else None,"thunder":thunder,"cautionHours":caution_hours,"severeHours":severe_hours}
+    return {"name":p["name"],"grade":grade,"summary":summary,"maxWind":round(max_w,1),"maxGust":round(max_g,1),"maxRain":round(max_r,1),"maxCape":round(max_c),"minTemp":round(min_t,1),"minVisibility":round(min_v) if min_v is not None else None,"thunder":thunder,"cautionHours":caution_hours,"severeHours":severe_hours,"source":"openmeteo"}
 
+
+
+def _request_metno_national_point(p: dict[str, Any], timeout: int = UPSTREAM_TIMEOUT) -> dict[str, Any] | None:
+    """Fetch one location from MET Norway Locationforecast for national-outlook fallback."""
+    global _national_metno_last_request
+    params={"lat":f'{p["lat"]:.5f}',"lon":f'{p["lon"]:.5f}'}
+    if p.get("elevation") is not None:
+        try: params["altitude"]=str(round(float(p["elevation"])))
+        except (TypeError,ValueError): pass
+    url="https://api.met.no/weatherapi/locationforecast/2.0/compact?"+urllib.parse.urlencode(params)
+    with _national_metno_lock:
+        wait=NATIONAL_METNO_MIN_INTERVAL-(time.monotonic()-_national_metno_last_request)
+        if wait>0: time.sleep(wait)
+        _national_metno_last_request=time.monotonic()
+    req=urllib.request.Request(url,headers={"User-Agent":METNO_USER_AGENT,"Accept":"application/json"})
+    with urllib.request.urlopen(req,timeout=timeout) as resp:
+        if resp.status!=200: return None
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def _national_result_from_metno(p: dict[str, Any], date_text: str, payload: dict[str, Any]) -> dict[str, Any] | None:
+    rows=[]
+    for item in ((payload.get("properties") or {}).get("timeseries") or []):
+        iso=str(item.get("time") or "")
+        try:
+            dt=datetime.fromisoformat(iso.replace("Z","+00:00")).astimezone(timezone(timedelta(hours=9)))
+        except Exception:
+            continue
+        if dt.strftime("%Y-%m-%d")!=date_text or not (6<=dt.hour<=15): continue
+        data=item.get("data") or {}; instant=((data.get("instant") or {}).get("details") or {})
+        nxt=((data.get("next_1_hours") or {}).get("details") or {})
+        def fv(obj,key,default=None):
+            try:
+                v=float(obj.get(key)); return v if math.isfinite(v) else default
+            except (TypeError,ValueError): return default
+        temp=fv(instant,"air_temperature"); wind=fv(instant,"wind_speed"); gust=fv(instant,"wind_speed_of_gust",wind); rain=fv(nxt,"precipitation_amount",0.0)
+        if temp is None or wind is None: continue
+        rows.append((wind,gust if gust is not None else wind,rain if rain is not None else 0.0,temp))
+    if not rows: return None
+    winds=[x[0] for x in rows]; gusts=[x[1] for x in rows]; rains=[x[2] for x in rows]; temps=[x[3] for x in rows]
+    caution_hours=severe_hours=extreme_hours=0
+    for w,_,r,_ in rows:
+        if w>=18 or r>=8: extreme_hours+=1
+        if w>=13 or r>=3: severe_hours+=1
+        if w>=8 or r>=0.8: caution_hours+=1
+    max_w=max(winds); max_g=max(gusts); max_r=max(rains); min_t=min(temps)
+    grade,summary=_national_grade(max_w,max_g,max_r,0,min_t,None,caution_hours=caution_hours,severe_hours=severe_hours,extreme_hours=extreme_hours)
+    return {"name":p["name"],"grade":grade,"summary":summary,"maxWind":round(max_w,1),"maxGust":round(max_g,1),"maxRain":round(max_r,1),"maxCape":0,"minTemp":round(min_t,1),"minVisibility":None,"thunder":"–","cautionHours":caution_hours,"severeHours":severe_hours,"source":"metno"}
+
+
+def _national_fill_metno(date_text: str, points: list[dict[str, Any]], results_by_name: dict[str, dict[str, Any]]) -> int:
+    """Fill missing national-outlook mountains from MET Norway. Returns number filled."""
+    try:
+        target=datetime.strptime(date_text,"%Y-%m-%d").date()
+        today=(datetime.now(timezone.utc)+timedelta(hours=9)).date()
+        if target<today or target>today+timedelta(days=NATIONAL_METNO_MAX_DAYS): return 0
+    except ValueError:
+        return 0
+    missing=[p for p in points if p["name"] not in results_by_name]
+    if not missing: return 0
+    filled=0
+    def one(p):
+        try:
+            payload=_request_metno_national_point(p)
+            return p,_national_result_from_metno(p,date_text,payload or {})
+        except Exception:
+            return p,None
+    with ThreadPoolExecutor(max_workers=NATIONAL_METNO_WORKERS,thread_name_prefix="traten-metno") as ex:
+        futures=[ex.submit(one,p) for p in missing]
+        for fut in as_completed(futures):
+            p,result=fut.result()
+            if result:
+                results_by_name[p["name"]]=result
+                _national_point_cache_put(date_text,p,result,ttl=NATIONAL_METNO_FALLBACK_TTL)
+                filled+=1
+    return filled
 
 def _national_fetch_shared(date_text: str, points: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], bool, bool, str | None]:
     results_by_name: dict[str, dict[str, Any]] = {}
@@ -1022,11 +1105,20 @@ def _national_fetch_shared(date_text: str, points: list[dict[str, Any]]) -> tupl
             status,ctype,body=_request_openmeteo_national_once(url)
         except urllib.error.HTTPError as exc:
             if exc.code == 429:
-                return list(results_by_name.values()), False, True, "Open-Meteo HTTP 429"
-            return list(results_by_name.values()), False, False, f"Open-Meteo HTTP {exc.code}"
+                filled=_national_fill_metno(date_text,points,results_by_name)
+                ordered=[results_by_name[p["name"]] for p in points if p["name"] in results_by_name]
+                return ordered, len(ordered)==len(points), True, f"予備データで{filled}座を補完"
+            filled=_national_fill_metno(date_text,points,results_by_name)
+            ordered=[results_by_name[p["name"]] for p in points if p["name"] in results_by_name]
+            return ordered, len(ordered)==len(points), False, f"予備データで{filled}座を補完"
         except Exception as exc:
-            return list(results_by_name.values()), False, False, str(exc)
-        if status != 200: return list(results_by_name.values()), False, status==429, f"Open-Meteo HTTP {status}"
+            filled=_national_fill_metno(date_text,points,results_by_name)
+            ordered=[results_by_name[p["name"]] for p in points if p["name"] in results_by_name]
+            return ordered, len(ordered)==len(points), False, f"予備データで{filled}座を補完"
+        if status != 200:
+            filled=_national_fill_metno(date_text,points,results_by_name)
+            ordered=[results_by_name[p["name"]] for p in points if p["name"] in results_by_name]
+            return ordered, len(ordered)==len(points), status==429, f"予備データで{filled}座を補完"
         try:
             data=json.loads(body.decode("utf-8"))
         except Exception as exc:
@@ -1049,6 +1141,7 @@ def _national_response(data: dict[str, Any], state: str, *, rate_limited: bool=F
         "complete":len(data.get("results") or []) >= len(data.get("points") or []),
         "cache":{"state":state,"generatedAt":data.get("generated_at"),"ageSeconds":max(0,round(now-generated)),"freshTtlSeconds":NATIONAL_OUTLOOK_CACHE_TTL},
         "rateLimited":bool(rate_limited),
+        "backupCount":sum(1 for r in (data.get("results") or []) if r.get("source")=="metno"),
     }
     if warning: payload["warning"]=warning
     body=json.dumps(payload,ensure_ascii=False).encode("utf-8")
@@ -1151,11 +1244,11 @@ def national_outlook():
             data=_national_write_disk_cache(date_text,fingerprint,points,results)
             return _national_response(data,'live-generated')
         if stale:
-            warning='Open-Meteoの取得制限に達したため、直近の成功キャッシュを表示しています。' if rate_limited else f'最新取得に失敗したため、直近の成功キャッシュを表示しています。{error or ""}'
+            warning='予報データの取得が混み合っているため、直近に取得できた結果を表示しています。' if rate_limited else '最新データを取得できなかったため、直近に取得できた結果を表示しています。'
             return _national_response(stale,'shared-stale',rate_limited=rate_limited,warning=warning)
         # First-ever request has no last-good cache. Keep any completed point results instead of total failure.
         partial={"date":date_text,"generated_at":datetime.now(timezone.utc).isoformat(),"generated_ts":time.time(),"points":points,"results":results}
-        return _national_response(partial,'partial',rate_limited=rate_limited,warning=(error or '一部地点のみ取得できました。'))
+        return _national_response(partial,'partial',rate_limited=rate_limited,warning=('予報データの取得が混み合っています。少し時間をおいて再度お試しください。' if rate_limited else '一部の山のみ判定できました。少し時間をおいて再度お試しください。'))
     finally:
         _national_unlock(date_text,fingerprint)
 

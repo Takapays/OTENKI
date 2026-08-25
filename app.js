@@ -139,7 +139,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.108';
+const APP_VERSION = '1.4.110';
 
 
 
@@ -4434,6 +4434,7 @@ function showNationalOutlookDetail(p,result){
     nationalMetricHtml('判定信頼度',`<span class="national-confidence tone-${confidence.tone}">${confidence.label}</span>`,confidence.note)
   ].join(''):'';
   const summary=result?esc(result.summary||''):(p.eligible?'まだ判定していません。日付を選んで「全国を判定」を押してください。':'全国簡易判定は対象外です。');
+  const sourceNote=result?.source==='metno'?'<span class="national-backup-source">予備データ使用：MET Norway</span>':'';
   box.innerHTML=`
     <button type="button" class="national-detail-close" aria-label="詳細を閉じる">×</button>
     <div class="national-rich-hero${photo?' has-photo':''}"${heroStyle}>
@@ -4443,7 +4444,7 @@ function showNationalOutlookDetail(p,result){
       ${photoCredit}
     </div>
     <div class="national-rich-content">
-      <div class="national-rich-summary"><strong>${grade==='?'?'全国一括簡易判定':'6〜15時の簡易判定'}</strong><p>${summary}</p></div>
+      <div class="national-rich-summary"><strong>${grade==='?'?'全国一括簡易判定':'6〜15時の簡易判定'}</strong><p>${summary}</p>${sourceNote}</div>
       ${result?`<div class="national-rich-metrics">${metrics}</div>`:''}
       ${courseHtml}
       ${nearbyHtml}
@@ -4526,16 +4527,27 @@ async function runNationalOutlook(){
     const got=nationalOutlookResults.size;
     if(data.complete&&got)writeNationalOutlookBrowserCache(date,[...nationalOutlookResults.values()]);
     const state=String(data.cache?.state||'');
-    let lead='判定完了';
-    if(state.includes('stale'))lead='直近の共有キャッシュを表示';
-    else if(state==='shared-fresh')lead='共有キャッシュから表示';
-    else if(state==='live-generated')lead='判定完了・共有キャッシュを更新';
-    else if(state==='partial')lead='一部取得';
-    const warn=data.warning?`<br><small>${esc(data.warning)}</small>`:'';
-    if(status)status.innerHTML=`${lead}：<b>A ${counts.A}座</b> / <b>B ${counts.B}座</b> / <b>C ${counts.C}座</b> / 未取得 ${Math.max(0,points.length-got)}座${warn}`;
+    const missing=Math.max(0,points.length-got);
+    const rateLimited=!!data.rateLimited;
+    if(state==='partial' && got===0){
+      if(status)status.innerHTML='<strong>予報データを一時的に取得できませんでした</strong><br><span>現在、予報データの取得が混み合っています。少し時間をおいてから、もう一度「全国を判定」をお試しください。</span>';
+    }else{
+      let lead='判定完了';
+      if(state.includes('stale'))lead='保存済みの最新結果を表示';
+      else if(state==='shared-fresh')lead='最新の共有結果を表示';
+      else if(state==='live-generated')lead='判定完了';
+      else if(state==='partial')lead='一部の山を判定しました';
+      let note='';
+      const backupCount=Number(data.backupCount||0);
+      if(backupCount>0)note+=`<br><small>Open-Meteoで取得できなかった${backupCount}座は、MET Norwayの予備データで補完しています。</small>`;
+      if(rateLimited && state.includes('stale'))note+='<br><small>予報データの取得が混み合っているため、直近に取得できた結果を表示しています。</small>';
+      else if(rateLimited&&backupCount===0)note+='<br><small>予報データの取得が混み合っているため、一部の山はまだ判定できていません。少し時間をおいて再度お試しください。</small>';
+      else if(data.warning&&!backupCount)note+=`<br><small>${esc(String(data.warning).replace(/Open-Meteo[^。]*/gi,'予報データの取得'))}</small>`;
+      if(status)status.innerHTML=`${lead}：<b>A ${counts.A}座</b> / <b>B ${counts.B}座</b> / <b>C ${counts.C}座</b>${missing?` / 未取得 ${missing}座`:''}${note}`;
+    }
   }catch(e){
     const msg=e?.name==='AbortError'?'全国共有キャッシュの生成がタイムアウトしました。少し時間をおいて再度お試しください。':(e.message||e);
-    if(status)status.textContent=`全国判定に失敗しました：${msg}`;
+    if(status)status.innerHTML=`<strong>全国判定を実行できませんでした</strong><br><span>${e?.name==='AbortError'?'処理に時間がかかっています。少し時間をおいて、もう一度お試しください。':'予報データを取得できませんでした。少し時間をおいて、もう一度お試しください。'}</span>`;
   }finally{
     clearTimeout(timer);
     if(btn)btn.disabled=false;
@@ -5035,7 +5047,7 @@ function refreshRepresentativeCourseButton(){
   const btn=$('representativeCourseBtn');
   const sel=$('representativeCourseSelect');
   const choices=$('representativeCourseChoices');
-  const preview=$('representativeCoursePreview');
+  const summary=$('representativeCourseSummaryFixed');
   if(!btn)return;
   const mountain=currentMountainLabel();
   const options=representativeCourseOptions(mountain);
@@ -5046,9 +5058,8 @@ function refreshRepresentativeCourseButton(){
   if(sel){
     const prev=sel.value;
     sel.innerHTML=options.map((course,i)=>`<option value="${i}">${escapeHtml(course.label)}</option>`).join('');
-    if(prev&&options[Number(prev)])sel.value=prev;else sel.value='0';
+    if(prev!==''&&options[Number(prev)])sel.value=prev;else sel.value='0';
     selectedIndex=Math.max(0,Number(sel.value)||0);
-    // V1.4.72: visible choices are buttons; keep select only as internal state/backward compatibility.
     sel.classList.add('hidden');
     sel.disabled=options.length<=1;
   }
@@ -5063,26 +5074,17 @@ function refreshRepresentativeCourseButton(){
       });
     });
   }
-  const course=representativeCourseFor(mountain);
+  const course=options[selectedIndex]||options[0]||null;
   const pathText=representativeCoursePathText(course);
-  btn.removeAttribute('title');
-  delete btn.dataset.courseTooltip;
-  if(preview){
+  if(summary){
     if(hasCourse&&course){
-      const safeLabel=escapeHtml(course.label||'代表コース');
-      const safePath=escapeHtml(pathText||'コース内容を確認中');
-      preview.innerHTML=`<b>${safeLabel}</b><span>${safePath}</span>`;
-      preview.classList.remove('is-empty','hidden');
-      preview.style.display='flex';
-      preview.style.visibility='visible';
-      preview.style.opacity='1';
-      preview.setAttribute('title',pathText||course.label||'代表コース');
+      summary.innerHTML=`<b>${escapeHtml(course.label||'代表コース')}</b><span>${escapeHtml(pathText||'コース内容を確認中')}</span>`;
+      summary.style.display='flex';
+      summary.setAttribute('title',pathText||course.label||'代表コース');
     }else{
-      preview.innerHTML='';
-      preview.classList.add('is-empty');
-      preview.classList.remove('hidden');
-      preview.style.display='none';
-      preview.removeAttribute('title');
+      summary.innerHTML='';
+      summary.style.display='none';
+      summary.removeAttribute('title');
     }
   }
 }
