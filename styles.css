@@ -3532,3 +3532,25 @@ body.install-guide-open{overflow:hidden}
   .planner-rail .representative-course-preview:not(.hidden),
   .planner-rail .representative-course-choices:not(.hidden){width:100%!important;flex:none!important}
 }
+
+
+/* V1.4.97: deterministic representative-course summary layout */
+.planner-rail .mountain-route-actions{display:block!important;min-width:0!important;overflow:visible!important}
+.planner-rail .representative-course-mainline{display:grid!important;grid-template-columns:minmax(170px,190px) minmax(0,1fr)!important;gap:9px!important;align-items:stretch!important;width:100%!important;min-width:0!important}
+.planner-rail .representative-course-mainline #representativeCourseBtn{display:block;width:100%!important;min-width:0!important;min-height:40px!important;height:auto!important;margin:0!important}
+.planner-rail .representative-course-mainline .representative-course-preview:not(.hidden){display:flex!important;flex-direction:column!important;justify-content:center!important;width:auto!important;min-width:0!important;min-height:40px!important;margin:0!important;padding:6px 10px!important;box-sizing:border-box!important;overflow:hidden!important;border:1px solid #d7e5dd!important;border-radius:10px!important;background:#f7fbf9!important}
+.planner-rail .representative-course-mainline .representative-course-preview b,.planner-rail .representative-course-mainline .representative-course-preview span{display:block!important;min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
+.planner-rail .representative-course-choices:not(.hidden){display:flex!important;flex-wrap:wrap!important;width:100%!important;margin-top:7px!important}
+@media(max-width:700px){
+  .planner-rail .representative-course-mainline{grid-template-columns:1fr!important;gap:8px!important}
+  .planner-rail .representative-course-mainline .representative-course-preview:not(.hidden){width:100%!important}
+  .planner-rail .representative-course-mainline .representative-course-preview b,.planner-rail .representative-course-mainline .representative-course-preview span{white-space:normal!important;overflow:visible!important;text-overflow:clip!important}
+}
+
+
+/* V1.4.98 regression restore */
+.last-analysis-actions .saved-route-list span{display:inline-grid;place-items:center;min-width:20px;height:20px;margin-left:5px;padding:0 5px;border-radius:999px;background:#eaf4ef;color:#286a50;font-size:10px;font-weight:900}
+.route-actions .route-save-below-analyze{width:100%;min-height:42px;margin-top:2px}
+@media(max-width:1024px){
+  .national-mobile-map-hint{display:flex!important;visibility:visible!important;opacity:1!important;align-items:center;justify-content:center;gap:6px;margin:4px 0 9px;padding:8px 10px;border-radius:10px;background:#eef7f2;color:#35634f;font-size:12px;font-weight:850;line-height:1.3}
+}

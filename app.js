@@ -17,7 +17,119 @@ const HUT_OFFICIAL_SITES = Object.freeze({
   '白馬山荘':'https://hakubakan.com/lodge/hakubasanso/',
   '白馬大池山荘':'https://hakubakan.com/lodge/hakubaoikesanso/',
   '五竜山荘':'https://hakubakan.com/lodge/goryusanso/',
-  'キレット小屋':'https://hakubakan.com/lodge/kiretto/'
+  'キレット小屋':'https://hakubakan.com/lodge/kiretto/',
+  '常念小屋':'https://www.mt-jonen.com/',
+  '蝶ヶ岳ヒュッテ':'https://chougatake.com/',
+  '唐松岳頂上山荘':'http://www.karamatsu.jp/',
+  '西穂山荘':'https://www.nishiho.com/',
+  '三俣山荘':'https://mitsumatasanso.com/mitsumata',
+  '水晶小屋':'https://mitsumatasanso.com/',
+  '長衛小屋':'https://choei.ashiyasu.com/',
+  '北岳山荘':'https://www.city.minami-alps.yamanashi.jp/sisetsu/kankou/yamagoya/',
+  '白根御池小屋':'https://www.city.minami-alps.yamanashi.jp/sisetsu/kankou/yamagoya/',
+  '宝剣山荘':'https://miyadakankou.co.jp/houkensansou',
+  '天狗荘':'https://miyadakankou.co.jp/tengusou',
+  '頂上山荘':'https://miyadakankou.co.jp/chojosansou',
+  '駒ヶ岳頂上山荘':'https://miyadakankou.co.jp/chojosansou',
+  '檜尾小屋':'https://www.hinokio-chuoalps.com/',
+  '木曽殿山荘':'https://www.kisodonosansou.com/',
+  '西駒山荘':'https://www.ina-city-kankou.co.jp/yamagoya/nishikoma/',
+  '赤岳鉱泉':'https://www.akadakekousen.jp/akadakekousen',
+  '行者小屋':'https://www.akadakekousen.jp/',
+  '黒百合ヒュッテ':'https://www.kuroyurihyutte.com/',
+  '高見石小屋':'https://takamiishi.com/',
+  '法華院温泉山荘':'http://www.hokkein.co.jp',
+  '石鎚神社頂上山荘':'https://ishizuchisan.jp/',
+  '一の越山荘':'https://tateyama-1nokoshi.in.coocan.jp/',
+  '冷池山荘':'https://www.kasimayari.jp/',
+  '種池山荘':'https://www.kasimayari.jp/',
+  '剣山荘':'https://www.kenzanso.com/',
+  '剱澤小屋':'https://tsurugisawagoya.com/',
+  '早月小屋':'https://www.hayatsukikoya.com/',
+  '槍平小屋':'https://www.yaridaira.jp/',
+  '横尾山荘':'https://www.yokoo-sanso.co.jp/',
+  '笠ヶ岳山荘':'https://kasagatake.com/',
+  '太郎平小屋':'https://ltaro.com/lodge/tarodaira-goya/',
+  '薬師岳山荘':'https://www.yakushidake-sansou.com/',
+  '針ノ木小屋':'https://www.pref.nagano.lg.jp/kankoki/sangyo/kanko/sotaikyo/yamagoya/yamagoya_kitaalps.html',
+  '船窪小屋':'https://www.pref.nagano.lg.jp/kankoki/sangyo/kanko/sotaikyo/yamagoya/yamagoya_kitaalps.html',
+  '烏帽子小屋':'https://www.pref.nagano.lg.jp/kankoki/sangyo/kanko/sotaikyo/yamagoya/yamagoya_kitaalps.html',
+  '野口五郎小屋':'https://www.pref.nagano.lg.jp/kankoki/sangyo/kanko/sotaikyo/yamagoya/yamagoya_kitaalps.html',
+  '三伏峠小屋':'https://sanpukutouge.com/',
+  '塩見小屋':'https://www.ina-city-kankou.co.jp/yamagoya/shiomi/',
+  '仙丈小屋':'https://www.ina-city-kankou.co.jp/yamagoya/senjo/',
+  '仙水小屋':'https://www.minamialps-net.jp/yamagoya/021_sensui',
+  '北岳肩の小屋':'https://katanokoya.com/',
+  '農鳥小屋':'https://notorihut.jimdofree.com/',
+  '大門沢小屋':'https://minami-alpskankou.jp/?page_id=5812',
+  '熊ノ平小屋':'https://www.t-forest.com/alpsinfo/climber/lodgeinfo/',
+  '千枚小屋':'https://www.t-forest.com/alpsinfo/climber/lodgeinfo/',
+  '荒川小屋':'https://www.t-forest.com/alpsinfo/climber/lodgeinfo/',
+  '赤石小屋':'https://www.t-forest.com/alpsinfo/climber/lodgeinfo/',
+  '聖平小屋':'https://www.t-forest.com/alpsinfo/climber/lodgeinfo/',
+  '茶臼小屋':'https://www.t-forest.com/alpsinfo/climber/lodgeinfo/',
+  '光岳小屋':'https://www.t-forest.com/alpsinfo/climber/lodgeinfo/',
+  '硫黄岳山荘':'https://iodake.jp/',
+  '赤岳天望荘':'https://www.yatsugatake.gr.jp/',
+  '北横岳ヒュッテ':'https://www.tateshinakougen.gr.jp/yatu/stay/05.html',
+  '甲武信小屋':'https://www.kobushigoya.net/',
+  '雲取山荘':'https://kumotorisansou.com/',
+  '尊仏山荘':'https://sonbutsusanso.amebaownd.com/',
+  '夕張岳ヒュッテ':'https://yuparikozakura.org/?page_id=67',
+  '札内川ヒュッテ':'https://www.vill.nakasatsunai.hokkaido.jp/kankou/kankou/satsunaigawa_hute/',
+  '美瑛富士避難小屋':'https://www.kamikawa.pref.hokkaido.lg.jp/fs/1/0/6/6/9/4/5/8/_/%E7%99%BB%E5%B1%B1%E3%82%AC%E3%82%A4%E3%83%89%28R3.1%E7%89%88%29.pdf',
+  '剣山頂上ヒュッテ':'https://tsurugisan-hutte.com/',
+  '弥山小屋':'https://www.vill.tenkawa.nara.jp/office/publicfacility/2699',
+  '久住分かれ避難小屋':'https://www.pref.oita.jp/soshiki/13070/kujuhinangoya.html',
+  '大山頂上避難小屋':'https://www.pref.tottori.lg.jp/secure/955810/R7hinanngoya.pdf',
+  '祖母山九合目小屋':'https://sobokatamuki-br-council.org/news-event/%E7%A5%96%E6%AF%8D%E5%B1%B1%E4%B9%9D%E5%90%88%E7%9B%AE%E5%B1%B1%E5%B0%8F%E5%B1%8B%E3%83%90%E3%82%A4%E3%82%AA%E3%83%88%E3%82%A4%E3%83%AC%E3%81%AE%E4%BD%BF%E7%94%A8%E9%96%8B%E5%A7%8B%E3%81%AB%E3%81%A4/',
+  '新高塚小屋':'https://www.town.yakushima.kagoshima.jp/t_yakushima/wp-content/uploads/2024/06/20240604_hinangoya.pdf',
+  '高塚小屋':'https://www.town.yakushima.kagoshima.jp/t_yakushima/wp-content/uploads/2024/06/20240604_hinangoya.pdf',
+  '淀川小屋':'https://www.town.yakushima.kagoshima.jp/t_yakushima/wp-content/uploads/2024/06/20240604_hinangoya.pdf',
+  '二の池ヒュッテ':'https://www.ninoikehutte.com/',
+  '五の池小屋':'https://www.gonoike.jp/',
+  '女人堂':'https://www.pref.nagano.lg.jp/kankoki/sangyo/kanko/sotaikyo/yamagoya/yamagoya_sonota.html',
+  '石室山荘':'https://www.pref.nagano.lg.jp/kankoki/sangyo/kanko/sotaikyo/yamagoya/yamagoya_sonota.html',
+  '南御室小屋':'https://www.houousan.com/',
+  '雨飾山荘（雨飾温泉）':'https://www.amakazarisanso.com/',
+  '高谷池ヒュッテ':'https://myokotourism.jp/kouyaike/',
+  '雷鳥荘':'https://www.raichoso.com/',
+  '白山室堂':'https://hakusan-guide.or.jp/hakusan_stay/murodou/',
+  '蓼科山頂ヒュッテ':'https://www.tateshinayama.com/',
+  '青年小屋':'https://yatsugatake-seinengoya-tooinomiya.net/',
+  '空木駒峰ヒュッテ':'https://www.komaho.net/',
+  '越百小屋・越百避難小屋':'https://www.pref.nagano.lg.jp/kankoki/sangyo/kanko/sotaikyo/yamagoya/yamagoya_cyuualps.html',
+  '焼岳小屋':'https://www.pref.nagano.lg.jp/kankoki/sangyo/kanko/sotaikyo/yamagoya/yamagoya_kitaalps.html',
+  '餓鬼岳小屋':'https://www.pref.nagano.lg.jp/kankoki/sangyo/kanko/sotaikyo/yamagoya/yamagoya_kitaalps.html',
+  '平標山の家':'https://tairappyouyama.wixsite.com/yamanoie',
+  '見晴（尾瀬小屋・見晴地区）':'https://www.ozegoya.co.jp/',
+  '龍宮小屋':'https://ryugugoya.jp/',
+  '三嶺ヒュッテ':'https://www.rinya.maff.go.jp/shikoku/policy/business/invitation/sizen_kyuyorin/sanrei.html',
+  '扇ノ山山頂避難小屋':'https://www.pref.tottori.lg.jp/93958.htm',
+  '伯母子岳避難小屋':'https://www.pref.nara.lg.jp/ikasu-nara/bunkashigen/main00108.html',
+  '庚申山荘（避難小屋）':'https://www.city.nikko.lg.jp/material/files/group/7/05shisetsukarute.pdf',
+  '介山荘':'http://www.kaizansou.jp/',
+  '富士見平小屋':'https://www.fujimidairagoya.jp/',
+  '朝日小屋':'https://www.asahigoya.net/',
+  '奥胎内ヒュッテ':'https://www.okutainai.com/',
+  '苗場山頂ヒュッテ':'https://sakae-akiyamago.com/stay/4888/',
+  '玉乃窪山荘':'http://www.kiso.ne.jp/~tamanokubo.ag/',
+  '黒沢池ヒュッテ':'https://niigata-kankou.or.jp/spot/8514',
+  '鉢伏山荘':'https://www.pref.nagano.lg.jp/kankoki/sangyo/kanko/sotaikyo/yamagoya/yamagoya_sonota.html',
+  '権現小屋':'https://www.pref.nagano.lg.jp/kankoki/sangyo/kanko/sotaikyo/yamagoya/yamagoya_yatsugatake.html',
+  '空木平避難小屋':'https://www.pref.nagano.lg.jp/kankoki/sangyo/kanko/sotaikyo/yamagoya/yamagoya_cyuualps.html',
+  '馬の背ヒュッテ':'https://umanose.com/',
+  '天狗山荘':'https://yamagoya.hakubakousha.com/',
+  '一不動避難小屋':'https://www.city.nagano.nagano.jp/n150820/kanko/p002620.html',
+  '大峯山寺宿坊':'https://www.vill.tenkawa.nara.jp/tourism/wp-content/uploads/2020/04/301a3a7b3d179a3bf468236e916022d8.pdf',
+  '八海山千本檜小屋':'https://m-uonuma.jp/trekking/hakkai/',
+  '米山山頂避難小屋':'https://www.city.kashiwazaki.lg.jp/soshikiichiran/sangyoshinkobu/shogyokankoka/kankosinko/yama/yoneyama/9258.html',
+  '藤原山荘':'https://www.kanko-inabe.com/tourism/1050/',
+  '瓶ヶ森避難小屋':'https://www.city.saijo.ehime.jp/soshiki/kanko/kamegamorihinanngoyakoujikansei.html',
+  '暑寒荘':'https://www.town.mashike.hokkaido.jp/tourism/area/mtsyokan/route-syokan.html',
+  '大崩山荘':'https://www.kanko-miyazaki.jp/spot/1069',
+  '氷ノ山山頂避難小屋':'https://www.pref.tottori.lg.jp/secure/973724/hyounosenmapJap.pdf',
+  '氷ノ山越避難小屋':'https://www.pref.tottori.lg.jp/secure/973724/hyounosenmapJap.pdf',
 });
 function hutOfficialSite(name){return HUT_OFFICIAL_SITES[String(name||'').trim()]||'';}
 function normalizeTimeToTenMinutes(value){
@@ -27,7 +139,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.94';
+const APP_VERSION = '1.4.98';
 
 
 
@@ -1123,7 +1235,22 @@ function renderSavedRoutesList(){
     card.querySelector('[data-action="delete"]')?.addEventListener('click',()=>deleteFavoriteRoute(id));
   });
 }
+function routeSnapshotShiftedToTomorrow(route){
+  if(!route?.points?.length)return route;
+  const firstDate=String(route.points[0]?.date||'');
+  const target=tomorrowLocal();
+  const fromMs=new Date(`${firstDate}T00:00:00+09:00`).getTime();
+  const toMs=new Date(`${target}T00:00:00+09:00`).getTime();
+  if(!Number.isFinite(fromMs)||!Number.isFinite(toMs))return route;
+  const dayShift=Math.round((toMs-fromMs)/86400000);
+  return {...route,points:route.points.map(pt=>{
+    const ms=new Date(`${pt.date}T00:00:00+09:00`).getTime();
+    const date=Number.isFinite(ms)?formatJstInput(ms+dayShift*86400000).date:pt.date;
+    return {...pt,date};
+  })};
+}
 async function restoreRouteSnapshot(route,label='保存ルート'){
+  route=routeSnapshotShiftedToTomorrow(route);
   if(!route?.mountain||!Array.isArray(route.points))throw new Error('ルートデータが壊れています。');
   const search=$('mountainSearch');if(!search)throw new Error('山行設定を開けませんでした。');
   search.value=route.mountain;search.dispatchEvent(new Event('change',{bubbles:true}));
@@ -1150,7 +1277,7 @@ async function restoreRouteSnapshot(route,label='保存ルート'){
   }
   updateForecastHorizon();renderRouteMaps();refreshAllCourseTimeMissingBadges();
   if(!restored)throw new Error('保存した通過ポイントを現在のデータから復元できませんでした。');
-  setStatus(`${label}「${route.mountain}」を復元しました。通過日時も保存時のままです。`);
+  setStatus(`${label}「${route.mountain}」を復元しました。01の通過日を翌日に合わせて日付を移動しました。`);
   $('points')?.scrollIntoView({behavior:'smooth',block:'start'});
 }
 function createFavoriteRoute(){
@@ -4168,10 +4295,6 @@ function applyNationalHeroPhoto(box,p,photo){
   hero.classList.add('has-photo');
   hero.style.backgroundImage=`linear-gradient(180deg,rgba(12,61,43,.08),rgba(8,48,35,.82)),url("${String(photo.url).replace(/"/g,'%22')}")`;
   const copy=hero.querySelector('.national-rich-hero-copy');
-  if(copy&&!copy.querySelector('.national-rich-photo-badge')){
-    const b=document.createElement('span');b.className='national-rich-photo-badge';b.textContent='実写真';
-    copy.querySelector('.national-rich-area')?.insertAdjacentElement('afterend',b);
-  }
   let credit=hero.querySelector('.national-rich-photo-credit');
   if(!credit){credit=document.createElement(photo.sourceUrl?'a':'div');credit.className='national-rich-photo-credit';hero.appendChild(credit);}
   if(photo.sourceUrl){credit.href=photo.sourceUrl;credit.target='_blank';credit.rel='noopener noreferrer';credit.title='写真の出典・ライセンスを確認';}
@@ -4271,7 +4394,6 @@ function showNationalOutlookDetail(p,result){
   const nearby=nationalNearbyMountains(p);
   const photo=nationalMountainPhoto(p.name);
   const heroStyle=photo?` style="background-image:linear-gradient(180deg,rgba(12,61,43,.08),rgba(8,48,35,.82)),url('${photo.url}')"`:'';
-  const photoBadge=photo?'<span class="national-rich-photo-badge">実写真</span>':'';
   const photoCredit=photo?`${photo.sourceUrl?`<a class="national-rich-photo-credit" href="${esc(photo.sourceUrl)}" target="_blank" rel="noopener noreferrer" title="写真の出典・ライセンスを確認">`:'<div class="national-rich-photo-credit">'}${esc(photo.credit)}${photo.note?`<small>${esc(photo.note)}</small>`:''}${photo.sourceUrl?'</a>':'</div>'}`:'';
   const courseHtml=course?`<section class="national-rich-section"><div class="national-rich-section-head"><div><span>REPRESENTATIVE ROUTE</span><h4>${esc(course.label)}</h4></div><span class="national-route-count">${course.points.length}地点</span></div><div class="national-route-flow">${course.points.map((pt,i)=>`<span class="national-route-node"><b>${i+1}</b>${esc(pt.name)}</span>`).join('<i>→</i>')}</div></section>`:'';
   const nearbyHtml=`<section class="national-rich-section"><div class="national-rich-section-head"><div><span>NEARBY MOUNTAINS</span><h4>近くの山</h4></div></div><div class="national-nearby-list">${nearby.map(x=>{const g=x.result?.grade||'?';const gc=g==='?'?'u':g.toLowerCase();return `<button type="button" class="national-nearby-item" data-national-nearby="${esc(x.name)}"><span><strong>${esc(x.name)}</strong><small>約${Math.round(x.distance)} km</small></span><b class="national-nearby-grade grade-${gc}">${g}</b></button>`}).join('')}</div></section>`;
@@ -4288,7 +4410,7 @@ function showNationalOutlookDetail(p,result){
     <button type="button" class="national-detail-close" aria-label="詳細を閉じる">×</button>
     <div class="national-rich-hero${photo?' has-photo':''}"${heroStyle}>
       <div class="national-rich-hero-overlay"></div>
-      <div class="national-rich-hero-copy"><span class="national-rich-area">${esc(area)}</span>${photoBadge}<h3>${esc(p.name)}</h3><p>${esc(elevation)}</p></div>
+      <div class="national-rich-hero-copy"><span class="national-rich-area">${esc(area)}</span><h3>${esc(p.name)}</h3><p>${esc(elevation)}</p></div>
       <div class="national-rich-grade grade-${gradeClass}"><b>${grade}</b><span>${nationalGradeLabel(grade)}</span></div>
       ${photoCredit}
     </div>
@@ -4944,7 +5066,8 @@ async function applyRepresentativeCourse(){
     }
     const firstRow=rows[0];
     const start={
-      date:firstRow?.querySelector('.point-date')?.value||todayLocal(),
+      // V1.4.97: representative-course load always starts tomorrow.
+      date:tomorrowLocal(),
       time:firstRow?.querySelector('.point-time')?.value||'06:00'
     };
     let cursorMs=new Date(`${start.date}T${start.time}:00+09:00`).getTime();
@@ -5217,6 +5340,7 @@ async function loadCandidates(){
     if(resolvedStaticBase.length){
       candidates=[...resolvedStaticBase];
       renderCandidateRows(label,center,{resetPoints:true});
+      setLoadedRouteStartToTomorrow();
       $('candidateState').textContent='';
       updateLoadButtonAppearance(true);
       logEvent('route_candidates_loaded',{success:true,mountain:label,metadata:{candidate_count:candidates.length,hidden_unresolved_count:staticBase.length-resolvedStaticBase.length,source:'fixed',external_search:false}});
@@ -5231,6 +5355,7 @@ async function loadCandidates(){
     if(Array.isArray(cachedFull)&&cachedFull.length){
       candidates=[...cachedFull];
       renderCandidateRows(label,center,{resetPoints:true});
+      setLoadedRouteStartToTomorrow();
       $('candidateState').textContent='';
       updateLoadButtonAppearance(true);
       logEvent('route_candidates_loaded',{success:true,mountain:label,metadata:{candidate_count:candidates.length,cache_hit:true,source:'external_fallback'}});
@@ -5250,6 +5375,7 @@ async function loadCandidates(){
     }
     candidates=[...dynamic];
     renderCandidateRows(label,center,{resetPoints:true});
+    setLoadedRouteStartToTomorrow();
     routeCachePut(fullCacheKey,dynamic);
     $('candidateState').textContent=candidates.length?'':'通過ポイント候補を検出できませんでした';
     if(!candidates.length)setStatus(`${label} の通過ポイント候補が見つかりませんでした。`,true);
@@ -6793,12 +6919,20 @@ const VERIFIED_TRAIL_GEOMETRY_V1490 = Object.freeze({
   // V1.4.94: Yari representative-course geometry rebuilt as fixed local corridors.
   // These lines are for map visualization, not navigation. Unregistered segments remain dashed straight lines.
   '新穂高温泉→槍平小屋': [
-    [36.285405,137.575014],[36.2864,137.5850],[36.2880,137.5958],[36.2910,137.6068],
-    [36.2953,137.6160],[36.3002,137.6225],[36.3065,137.6265],[36.3142,137.6290],[36.323220,137.629910]
+    // 槍ヶ岳山荘グループ公式ルート：新穂高→穂高平→白出沢→滝谷→槍平。
+    [36.285405,137.575014],
+    [36.290900,137.592800], // 穂高平小屋付近
+    [36.299000,137.611900], // 白出沢出合付近
+    [36.311692,137.631203], // 滝谷避難小屋付近
+    [36.323220,137.629910]  // 槍平小屋
   ],
   '槍平小屋→槍ヶ岳山荘': [
-    [36.323220,137.629910],[36.3270,137.6302],[36.3310,137.6312],[36.3347,137.6333],
-    [36.3372,137.6367],[36.3390,137.6405],[36.3402,137.6438],[36.340939,137.645795]
+    // 飛騨沢を北上し、千丈分岐→飛騨乗越→槍ヶ岳山荘。
+    [36.323220,137.629910],
+    [36.330500,137.631000],
+    [36.338969,137.635425], // 飛騨沢 千丈乗越分岐
+    [36.338833,137.645806], // 飛騨乗越
+    [36.340939,137.645795]
   ],
   '槍ヶ岳山荘→槍ヶ岳': [
     [36.340939,137.645795],[36.34125,137.64635],[36.34165,137.64705],[36.342009,137.647735]
@@ -7136,6 +7270,19 @@ async function proxyFetch(url){return fetch(`/api/proxy?url=${encodeURIComponent
 function setStatus(t,e=false){const els=[$('statusDesktop'),$('statusMobile')].filter(Boolean);if(!els.length){console.warn('status elements missing:',t);return;}els.forEach(el=>{el.textContent=t;el.classList.remove('hidden');el.classList.toggle('error',e);});}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);}
 function todayLocal(){const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10);}
+function tomorrowLocal(){
+  const base=new Date(`${todayLocal()}T00:00:00+09:00`).getTime();
+  return formatJstInput(base+24*60*60*1000).date;
+}
+function setLoadedRouteStartToTomorrow(){
+  const first=$('points')?.firstElementChild;
+  if(!first)return;
+  const dateInput=first.querySelector('.point-date');
+  if(!dateInput)return;
+  dateInput.value=tomorrowLocal();
+  first.dataset.datetimeBefore=rowDateTimeValue(first)||'';
+  propagatePointTimesFrom(first);
+}
 
 
 // V1.4.17: 燧ヶ岳〜至仏山縦走回廊を両山の固定候補にも追加。
