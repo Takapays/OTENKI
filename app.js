@@ -139,7 +139,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.112';
+const APP_VERSION = '1.4.113';
 
 
 
@@ -4383,12 +4383,14 @@ function nationalOutlookConfidence(result){
     const b=new Date();
     days=Math.max(0,Math.round((a-b.getTime())/86400000));
   }
-  let label='中',tone='m',note='判定境界に近い可能性あり';
-  if(days>=8){label='低';tone='l';note='先の日付のため変化に注意';}
-  else if((result.grade==='A'&&(result.cautionHours||0)<=1)||(result.grade==='C'&&(result.severeHours||0)>=5)){
-    label='高';tone='h';note='判定傾向が比較的明瞭';
+  const agreement=String(result.modelAgreement||'');
+  if(result.source==='metno+gfs'){
+    if(days>=8)return {label:'低',tone:'l',note:'先の日付のため変化に注意'};
+    if(agreement==='high')return {label:'高',tone:'h',note:'MET Norway / GFS のABCが一致'};
+    if(agreement==='low')return {label:'低',tone:'l',note:'MET Norway / GFS の判定差が大きい'};
+    return {label:'中',tone:'m',note:'MET Norway / GFS の判定に差あり'};
   }
-  return {label,tone,note};
+  return {label:'中',tone:'m',note:'1モデルのみ取得'};
 }
 function nationalRepresentativeSummary(name){
   const course=representativeCourseOptions(name)[0]||null;
@@ -4434,7 +4436,7 @@ function showNationalOutlookDetail(p,result){
     nationalMetricHtml('判定信頼度',`<span class="national-confidence tone-${confidence.tone}">${confidence.label}</span>`,confidence.note)
   ].join(''):'';
   const summary=result?esc(result.summary||''):(p.eligible?'まだ判定していません。日付を選んで「全国を判定」を押してください。':'全国簡易判定は対象外です。');
-  const sourceNote=result?.source==='metno'?'<span class="national-backup-source">予備データ使用：MET Norway</span>':'';
+  const sourceNote=result?`<span class="national-backup-source">簡易判定：${result.source==='metno+gfs'?'MET Norway + NOAA GFS':result.source==='metno'?'MET Norway':result.source==='gfs'?'NOAA GFS':'MET Norway / NOAA GFS'}</span>`:'';
   box.innerHTML=`
     <button type="button" class="national-detail-close" aria-label="詳細を閉じる">×</button>
     <div class="national-rich-hero${photo?' has-photo':''}"${heroStyle}>
@@ -4483,7 +4485,7 @@ async function openMountainFromNationalMap(name){
   }
   $('mountainPreset')?.scrollIntoView({behavior:'smooth',block:'center'});
 }
-const NATIONAL_OUTLOOK_BROWSER_CACHE_KEY='traten:national-outlook:v2';
+const NATIONAL_OUTLOOK_BROWSER_CACHE_KEY='traten:national-outlook:v3';
 const NATIONAL_OUTLOOK_BROWSER_CACHE_TTL=30*60*1000;
 function readNationalOutlookBrowserCache(date){
   try{
@@ -4514,7 +4516,7 @@ async function runNationalOutlook(){
   }
   nationalOutlookResults=new Map();
   renderNationalOutlookMarkers();
-  if(status)status.textContent='全国共有キャッシュを確認中… 初回または更新時のみ300座を取得します。';
+  if(status)status.textContent='全国共有キャッシュを確認中… MET Norway + NOAA GFSで簡易判定します。';
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),110000);
   try{
@@ -4538,11 +4540,11 @@ async function runNationalOutlook(){
       else if(state==='live-generated')lead='判定完了';
       else if(state==='partial')lead='一部の山を判定しました';
       let note='';
-      const backupCount=Number(data.backupCount||0);
-      if(backupCount>0)note+=`<br><small>Open-Meteoで取得できなかった${backupCount}座は、MET Norwayの予備データで補完しています。</small>`;
-      if(rateLimited && state.includes('stale'))note+='<br><small>予報データの取得が混み合っているため、直近に取得できた結果を表示しています。</small>';
-      else if(rateLimited&&backupCount===0)note+='<br><small>予報データの取得が混み合っているため、一部の山はまだ判定できていません。少し時間をおいて再度お試しください。</small>';
-      else if(data.warning&&!backupCount)note+=`<br><small>${esc(String(data.warning).replace(/Open-Meteo[^。]*/gi,'予報データの取得'))}</small>`;
+      const dualCount=Number(data.dualModelCount||0);
+      const metnoOnly=Number(data.metnoOnlyCount||0), gfsOnly=Number(data.gfsOnlyCount||0);
+      if(dualCount>0)note+=`<br><small>MET Norway + NOAA GFSの2モデルを比較して判定（2モデル取得 ${dualCount}座）。</small>`;
+      if(metnoOnly||gfsOnly)note+=`<br><small>片方のみ取得：MET Norway ${metnoOnly}座 / NOAA GFS ${gfsOnly}座。</small>`;
+      if(data.warning)note+=`<br><small>${esc(String(data.warning))}</small>`;
       if(status)status.innerHTML=`${lead}：<b>A ${counts.A}座</b> / <b>B ${counts.B}座</b> / <b>C ${counts.C}座</b>${missing?` / 未取得 ${missing}座`:''}${note}`;
     }
   }catch(e){
@@ -4828,6 +4830,9 @@ const REPRESENTATIVE_COURSES = Object.freeze({
   '唐松岳': {label:'八方尾根ルート', points:[
     ['trailhead','八方池山荘','登山口'],['hut','唐松岳頂上山荘','山小屋・避難小屋'],['peak','唐松岳','山頂']
   ]},
+  '剱岳': {label:'室堂・別山尾根ルート', points:[
+    ['trailhead','室堂','登山口'],['hut','剱澤小屋','山小屋・避難小屋'],['hut','剣山荘','山小屋・避難小屋'],['peak','剱岳','山頂']
+  ]},
   '五竜岳': {label:'アルプス平ルート', points:[
     ['trailhead','アルプス平','登山口'],['hut','五竜山荘','山小屋・避難小屋'],['peak','五竜岳','山頂']
   ]},
@@ -5007,6 +5012,9 @@ const EXTRA_REPRESENTATIVE_COURSES_V1466 = Object.freeze({
   '槍ヶ岳': [
     {label:'新穂高・槍平ルート', points:[['trailhead','新穂高温泉','登山口'],['hut','槍平小屋','山小屋・避難小屋'],['hut','槍ヶ岳山荘','山小屋・避難小屋'],['peak','槍ヶ岳','山頂']]}
   ],
+  '剱岳': [
+    {label:'馬場島・早月尾根ルート', points:[['trailhead','馬場島（早月尾根登山口）','登山口'],['hut','早月小屋','山小屋・避難小屋'],['peak','剱岳','山頂']]}
+  ],
   '五竜岳': [
     {label:'八方尾根・唐松岳経由ルート', points:[['trailhead','八方池山荘','登山口'],['hut','唐松岳頂上山荘','山小屋・避難小屋'],['hut','五竜山荘','山小屋・避難小屋'],['peak','五竜岳','山頂']]}
   ]
@@ -5052,8 +5060,7 @@ function renderRepresentativeCourseSummaryNow(mountainOverride=''){
   const mountain=(mountainOverride||currentMountainLabel()).trim();
   const options=representativeCourseOptions(mountain);
   const sel=$('representativeCourseSelect');
-  const idx=sel&&options[Number(sel.value)]?Number(sel.value):0;
-  const course=options[idx]||options[0]||null;
+  const selectedIndex=sel&&options[Number(sel.value)]?Number(sel.value):0;
   const btn=$('representativeCourseBtn');
   const mainline=btn?.closest('.representative-course-mainline');
   if(!btn||!mainline)return;
@@ -5066,78 +5073,61 @@ function renderRepresentativeCourseSummaryNow(mountainOverride=''){
     box.setAttribute('aria-live','polite');
     btn.insertAdjacentElement('afterend',box);
   }
-  if(!course){
+  if(!options.length){
     box.replaceChildren();
-    box.style.display='none';
+    box.style.setProperty('display','none','important');
     btn.removeAttribute('title');
     return;
   }
-  const label=course.label||'代表コース';
-  const route=representativeCoursePathText(course)||course.points?.map(p=>p?.[1]).filter(Boolean).join(' → ')||'';
-  const name=document.createElement('b');
-  name.textContent=label;
-  const path=document.createElement('span');
-  path.textContent=route;
-  box.replaceChildren(name,path);
+
+  box.replaceChildren();
+  options.forEach((course,i)=>{
+    const route=representativeCoursePathText(course)||course.points?.map(p=>p?.[1]).filter(Boolean).join(' → ')||'';
+    const item=document.createElement('button');
+    item.type='button';
+    item.className=`representative-course-summary-option${i===selectedIndex?' is-active':''}`;
+    item.dataset.courseIndex=String(i);
+    item.setAttribute('aria-pressed',i===selectedIndex?'true':'false');
+    const name=document.createElement('b');
+    name.textContent=`${options.length>1?`${i+1}. `:''}${course.label||'代表コース'}`;
+    const path=document.createElement('span');
+    path.textContent=route;
+    item.append(name,path);
+    item.addEventListener('click',()=>{
+      if(sel)sel.value=String(i);
+      refreshRepresentativeCourseButton();
+    });
+    box.append(item);
+  });
   box.style.setProperty('display','flex','important');
   box.style.setProperty('visibility','visible','important');
   box.style.setProperty('opacity','1','important');
-  btn.title=route?`${label}\n${route}`:label;
+  const active=options[selectedIndex]||options[0];
+  const activeRoute=representativeCoursePathText(active);
+  btn.title=activeRoute?`${active.label||'代表コース'}\n${activeRoute}`:(active.label||'代表コース');
 }
 
 function refreshRepresentativeCourseButton(){
   const btn=$('representativeCourseBtn');
   const sel=$('representativeCourseSelect');
   const choices=$('representativeCourseChoices');
-  const summary=$('representativeCourseSummaryFixed');
+  const legacySummary=$('representativeCourseSummaryFixed');
   if(!btn)return;
   const mountain=currentMountainLabel();
   const options=representativeCourseOptions(mountain);
   const hasCourse=options.length>0;
   btn.classList.toggle('hidden',!hasCourse);
   btn.disabled=!hasCourse;
-  let selectedIndex=0;
   if(sel){
     const prev=sel.value;
     sel.innerHTML=options.map((course,i)=>`<option value="${i}">${escapeHtml(course.label)}</option>`).join('');
     if(prev!==''&&options[Number(prev)])sel.value=prev;else sel.value='0';
-    selectedIndex=Math.max(0,Number(sel.value)||0);
     sel.classList.add('hidden');
-    sel.disabled=options.length<=1;
+    sel.disabled=!hasCourse;
   }
-  if(choices){
-    choices.innerHTML=options.length>1?options.map((course,i)=>`<button type="button" class="representative-course-choice${i===selectedIndex?' is-active':''}" data-course-index="${i}" aria-pressed="${i===selectedIndex?'true':'false'}">${escapeHtml(course.label)}</button>`).join(''):'';
-    choices.classList.toggle('hidden',options.length<=1);
-    choices.querySelectorAll('.representative-course-choice').forEach(choice=>{
-      choice.addEventListener('click',()=>{
-        const idx=Math.max(0,Number(choice.dataset.courseIndex)||0);
-        if(sel)sel.value=String(idx);
-        refreshRepresentativeCourseButton();
-      });
-    });
-  }
-  const course=options[selectedIndex]||options[0]||null;
-  const pathText=representativeCoursePathText(course);
-  if(summary){
-    if(hasCourse&&course){
-      const label=course.label||'代表コース';
-      const route=pathText||course.points?.map(p=>p?.[1]).filter(Boolean).join(' → ')||'コース内容を確認中';
-      summary.replaceChildren();
-      const nameEl=document.createElement('b'); nameEl.textContent=label;
-      const pathEl=document.createElement('span'); pathEl.textContent=route;
-      summary.append(nameEl,pathEl);
-      summary.dataset.courseSummaryVisible='1';
-      summary.style.setProperty('display','flex','important');
-      summary.style.setProperty('visibility','visible','important');
-      summary.style.setProperty('opacity','1','important');
-      summary.setAttribute('title',route);
-    }else{
-      summary.replaceChildren();
-      summary.dataset.courseSummaryVisible='0';
-      summary.style.setProperty('display','none','important');
-      summary.removeAttribute('title');
-    }
-  }
+  // V1.4.113: course summaries themselves are the selector, so the old pills are hidden.
+  if(choices){choices.replaceChildren();choices.classList.add('hidden');}
+  if(legacySummary){legacySummary.replaceChildren();legacySummary.style.setProperty('display','none','important');}
   renderRepresentativeCourseSummaryNow(mountain);
 }
 function representativeCandidate(type,name){

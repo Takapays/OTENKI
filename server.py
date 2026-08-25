@@ -29,7 +29,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.4.112"
+APP_VERSION = "1.4.113"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -97,7 +97,7 @@ UA = os.environ.get(
 
 METNO_USER_AGENT = os.environ.get(
     "METNO_USER_AGENT",
-    "TRATEN/1.4.112 https://otenki.onrender.com",
+    "TRATEN/1.4.113 https://otenki.onrender.com",
 )
 
 NOAA_GFS_FILTER = os.environ.get(
@@ -131,6 +131,10 @@ _national_metno_last_request = 0.0
 NATIONAL_OUTLOOK_STALE_TTL = int(os.environ.get("NATIONAL_OUTLOOK_STALE_TTL", "86400"))
 NATIONAL_OUTLOOK_REFRESH_INTERVAL = int(os.environ.get("NATIONAL_OUTLOOK_REFRESH_INTERVAL", "900"))
 NATIONAL_OUTLOOK_CHUNK_SIZE = int(os.environ.get("NATIONAL_OUTLOOK_CHUNK_SIZE", "50"))
+NATIONAL_OUTLOOK_ENGINE = "metno-gfs-v1"
+NATIONAL_GFS_MIN_INTERVAL = float(os.environ.get("NATIONAL_GFS_MIN_INTERVAL", "0.35"))
+_national_gfs_lock = threading.Lock()
+_national_gfs_last_request = 0.0
 NATIONAL_OUTLOOK_CACHE_DIR = os.environ.get("NATIONAL_OUTLOOK_CACHE_DIR", os.path.join(tempfile.gettempdir(), "traten-national-outlook"))
 os.makedirs(NATIONAL_OUTLOOK_CACHE_DIR, exist_ok=True)
 _national_point_cache: dict[str, tuple[float, dict[str, Any]]] = {}
@@ -852,7 +856,7 @@ def _national_grade(max_wind: float, max_gust: float, max_rain: float, max_cape:
     return "A", "6〜15時は風雨の大きな影響が比較的少なく、登山候補にしやすい条件です。詳細分析で最終確認してください。"
 
 def _national_points_fingerprint(points: list[dict[str, Any]]) -> str:
-    raw = "|".join(
+    raw = NATIONAL_OUTLOOK_ENGINE + "|" + "|".join(
         f'{p["name"]}:{p["lat"]:.5f}:{p["lon"]:.5f}:{"" if p.get("elevation") is None else round(float(p["elevation"]))}'
         for p in points
     )
@@ -931,7 +935,7 @@ def _national_unlock(date_text: str, fingerprint: str) -> None:
 
 
 def _national_point_key(date_text: str, p: dict[str, Any]) -> str:
-    return f'{date_text}:{p["lat"]:.5f}:{p["lon"]:.5f}:{"" if p.get("elevation") is None else round(float(p["elevation"]))}'
+    return f'{NATIONAL_OUTLOOK_ENGINE}:{date_text}:{p["lat"]:.5f}:{p["lon"]:.5f}:{"" if p.get("elevation") is None else round(float(p["elevation"]))}'
 
 
 def _national_point_cache_get(date_text: str, p: dict[str, Any]) -> dict[str, Any] | None:
@@ -1080,58 +1084,189 @@ def _national_fill_metno(date_text: str, points: list[dict[str, Any]], results_b
                 filled+=1
     return filled
 
+
+def _noaa_filter_url_region(cycle: datetime, fh: int, points: list[dict[str, Any]]) -> str:
+    lats=[float(p["lat"]) for p in points]; lons=[float(p["lon"])%360.0 for p in points]
+    pad=0.35
+    params={
+        "file":f"gfs.t{cycle.hour:02d}z.pgrb2.0p25.f{fh:03d}",
+        "lev_2_m_above_ground":"on","lev_10_m_above_ground":"on","lev_surface":"on","lev_entire_atmosphere":"on",
+        "var_TMP":"on","var_UGRD":"on","var_VGRD":"on","var_GUST":"on","var_PRATE":"on","var_TCDC":"on",
+        "subregion":"",
+        "leftlon":f"{max(0,min(lons)-pad):.2f}","rightlon":f"{min(359.75,max(lons)+pad):.2f}",
+        "toplat":f"{min(90,max(lats)+pad):.2f}","bottomlat":f"{max(-90,min(lats)-pad):.2f}",
+        "dir":f"/gfs.{cycle:%Y%m%d}/{cycle.hour:02d}/atmos",
+    }
+    return NOAA_GFS_FILTER+"?"+urllib.parse.urlencode(params)
+
+
+def _parse_noaa_grib_points(path: str, points: list[dict[str, Any]]) -> dict[str, dict[str, float]]:
+    from eccodes import codes_get, codes_grib_find_nearest, codes_grib_new_from_file, codes_release
+    out={p["name"]:{} for p in points}
+    with open(path,"rb") as fh:
+        while True:
+            gid=codes_grib_new_from_file(fh)
+            if gid is None: break
+            try:
+                short=str(codes_get(gid,"shortName")); level_type=str(codes_get(gid,"typeOfLevel"))
+                try: level=float(codes_get(gid,"level"))
+                except Exception: level=float("nan")
+                key=None
+                if short in {"2t","t"} and level_type=="heightAboveGround" and level==2: key="temp"
+                elif short in {"10u","u"} and level_type=="heightAboveGround" and level==10: key="u"
+                elif short in {"10v","v"} and level_type=="heightAboveGround" and level==10: key="v"
+                elif short in {"gust","10fg"}: key="gust"
+                elif short=="prate": key="rain"
+                elif short in {"tcc","tcdc"}: key="cloud"
+                if not key: continue
+                for p in points:
+                    try:
+                        found=codes_grib_find_nearest(gid,float(p["lat"]),float(p["lon"])%360.0)
+                        item=found if isinstance(found,dict) else (found[0] if found else None)
+                        if not item: continue
+                        val=float(item.get("value"))
+                        if not math.isfinite(val): continue
+                        if key=="temp" and val>150: val-=273.15
+                        elif key=="rain": val=max(0.0,val*3600.0)
+                        elif key=="cloud" and 0<=val<=1.01: val*=100.0
+                        out[p["name"]][key]=val
+                    except Exception:
+                        continue
+            finally:
+                codes_release(gid)
+    for vals in out.values():
+        if "u" in vals and "v" in vals:
+            vals["wind"]=math.hypot(vals["u"],vals["v"])
+    return out
+
+
+def _national_gfs_results(date_text: str, points: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    global _national_gfs_last_request
+    try: target_date=datetime.strptime(date_text,"%Y-%m-%d").date()
+    except ValueError: return {}
+    # 06:00-15:00 JST => convert each hour to UTC and use one common recent GFS cycle.
+    targets=[datetime.combine(target_date,datetime.min.time(),tzinfo=timezone(timedelta(hours=9))).replace(hour=h).astimezone(timezone.utc) for h in range(6,16)]
+    rows={p["name"]:[] for p in points}
+    errors=[]
+    for cycle in _noaa_cycle_candidates(datetime.now(timezone.utc)):
+        fh_targets=[]
+        for dt in targets:
+            fh=_noaa_forecast_hour(cycle,dt)
+            if fh is None: break
+            fh_targets.append((fh,dt))
+        if len(fh_targets)!=len(targets): continue
+        cycle_rows={p["name"]:[] for p in points}; ok_hours=0
+        for fh,target_dt in fh_targets:
+            url=_noaa_filter_url_region(cycle,fh,points); cache_key="national-gfs-region:"+url
+            cached=_cache_get(cache_key); body=cached[2] if cached else None
+            if body is None:
+                try:
+                    with _national_gfs_lock:
+                        wait=NATIONAL_GFS_MIN_INTERVAL-(time.monotonic()-_national_gfs_last_request)
+                        if wait>0: time.sleep(wait)
+                        req=urllib.request.Request(url,headers={"User-Agent":UA,"Accept":"application/octet-stream"})
+                        with urllib.request.urlopen(req,timeout=NOAA_GFS_TIMEOUT) as resp: body=resp.read()
+                        _national_gfs_last_request=time.monotonic()
+                    if not body.startswith(b"GRIB"): raise RuntimeError("GRIB2データではありません")
+                    _cache_put(cache_key,200,"application/x-grib2",body,ttl=max(NOAA_GFS_CACHE_TTL,NATIONAL_OUTLOOK_CACHE_TTL))
+                except Exception as exc:
+                    errors.append(f"f{fh:03d}:{exc}"); continue
+            tmp_path=None
+            try:
+                with tempfile.NamedTemporaryFile(suffix=".grib2",delete=False) as tmp:
+                    tmp.write(body); tmp_path=tmp.name
+                parsed=_parse_noaa_grib_points(tmp_path,points)
+                for p in points:
+                    vals=parsed.get(p["name"]) or {}
+                    if vals.get("wind") is None or vals.get("temp") is None: continue
+                    cycle_rows[p["name"]].append({"wind":float(vals.get("wind") or 0),"gust":float(vals.get("gust") or vals.get("wind") or 0),"rain":float(vals.get("rain") or 0),"temp":float(vals.get("temp")),"cloud":vals.get("cloud")})
+                ok_hours+=1
+            finally:
+                if tmp_path:
+                    try: os.unlink(tmp_path)
+                    except OSError: pass
+        if ok_hours>=6:
+            rows=cycle_rows; break
+    results={}
+    for p in points:
+        rr=rows.get(p["name"]) or []
+        if len(rr)<4: continue
+        winds=[x["wind"] for x in rr]; gusts=[x["gust"] for x in rr]; rains=[x["rain"] for x in rr]; temps=[x["temp"] for x in rr]
+        caution=sum(1 for x in rr if x["wind"]>=8 or x["rain"]>=0.8)
+        severe=sum(1 for x in rr if x["wind"]>=13 or x["rain"]>=3)
+        extreme=sum(1 for x in rr if x["wind"]>=18 or x["rain"]>=8)
+        grade,summary=_national_grade(max(winds),max(gusts),max(rains),0,min(temps),None,caution_hours=caution,severe_hours=severe,extreme_hours=extreme)
+        results[p["name"]]={"name":p["name"],"grade":grade,"summary":summary,"maxWind":round(max(winds),1),"maxGust":round(max(gusts),1),"maxRain":round(max(rains),1),"maxCape":0,"minTemp":round(min(temps),1),"minVisibility":None,"thunder":"–","cautionHours":caution,"severeHours":severe,"source":"gfs"}
+    return results
+
+
+def _national_metno_results(date_text: str, points: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    out={}
+    try:
+        target=datetime.strptime(date_text,"%Y-%m-%d").date(); today=(datetime.now(timezone.utc)+timedelta(hours=9)).date()
+        if target<today or target>today+timedelta(days=NATIONAL_METNO_MAX_DAYS): return out
+    except ValueError: return out
+    def one(p):
+        try: return p,_national_result_from_metno(p,date_text,_request_metno_national_point(p) or {})
+        except Exception: return p,None
+    with ThreadPoolExecutor(max_workers=NATIONAL_METNO_WORKERS,thread_name_prefix="traten-national-metno") as ex:
+        for fut in as_completed([ex.submit(one,p) for p in points]):
+            p,result=fut.result()
+            if result: out[p["name"]]=result
+    return out
+
+
+def _national_grade_rank(g: str) -> int:
+    return {"A":1,"B":2,"C":3}.get(str(g),0)
+
+
+def _national_merge_two_models(p: dict[str, Any], met: dict[str, Any] | None, gfs: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not met and not gfs: return None
+    if not met: return dict(gfs,source="gfs",modelGrades={"gfs":gfs.get("grade")},modelAgreement="single")
+    if not gfs: return dict(met,source="metno",modelGrades={"metno":met.get("grade")},modelAgreement="single")
+    worse=met if _national_grade_rank(met.get("grade"))>=_national_grade_rank(gfs.get("grade")) else gfs
+    def mx(k):
+        vals=[x.get(k) for x in (met,gfs) if isinstance(x.get(k),(int,float)) and math.isfinite(float(x.get(k)))]
+        return max(vals) if vals else None
+    def mn(k):
+        vals=[x.get(k) for x in (met,gfs) if isinstance(x.get(k),(int,float)) and math.isfinite(float(x.get(k)))]
+        return min(vals) if vals else None
+    mg,gg=met.get("grade"),gfs.get("grade")
+    diff=abs(_national_grade_rank(mg)-_national_grade_rank(gg))
+    return {"name":p["name"],"grade":worse.get("grade","?"),"summary":worse.get("summary") or "2モデルのうち厳しい側を採用しています。",
+        "maxWind":round(mx("maxWind") or 0,1),"maxGust":round(mx("maxGust") or mx("maxWind") or 0,1),"maxRain":round(mx("maxRain") or 0,1),
+        "maxCape":0,"minTemp":round(mn("minTemp"),1) if mn("minTemp") is not None else None,"minVisibility":None,"thunder":"–",
+        "cautionHours":max(int(met.get("cautionHours") or 0),int(gfs.get("cautionHours") or 0)),"severeHours":max(int(met.get("severeHours") or 0),int(gfs.get("severeHours") or 0)),
+        "source":"metno+gfs","modelGrades":{"metno":mg,"gfs":gg},"modelAgreement":"high" if diff==0 else "medium" if diff==1 else "low"}
+
+
 def _national_fetch_shared(date_text: str, points: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], bool, bool, str | None]:
-    results_by_name: dict[str, dict[str, Any]] = {}
+    # V1.4.113: nationwide simple outlook is isolated from Open-Meteo.
+    # Reuse per-point combined results first; then fetch MET Norway + NOAA GFS direct only.
+    results_by_name={}
     missing=[]
     for p in points:
         cached=_national_point_cache_get(date_text,p)
-        if cached:
-            cached["name"]=p["name"]
-            results_by_name[p["name"]]=cached
-        else:
-            missing.append(p)
-    hourly_vars="temperature_2m,precipitation,cloud_cover,wind_speed_10m,wind_gusts_10m,cape,visibility"
-    for start in range(0,len(missing),NATIONAL_OUTLOOK_CHUNK_SIZE):
-        chunk=missing[start:start+NATIONAL_OUTLOOK_CHUNK_SIZE]
-        params={
-            "latitude":",".join(f'{p["lat"]:.5f}' for p in chunk),
-            "longitude":",".join(f'{p["lon"]:.5f}' for p in chunk),
-            "hourly":hourly_vars,"start_date":date_text,"end_date":date_text,
-            "timezone":"Asia/Tokyo","wind_speed_unit":"ms"
-        }
-        if all(p["elevation"] is not None for p in chunk): params["elevation"]=",".join(f'{p["elevation"]:.0f}' for p in chunk)
-        url="https://api.open-meteo.com/v1/forecast?"+urllib.parse.urlencode(params)
-        try:
-            status,ctype,body=_request_openmeteo_national_once(url)
-        except urllib.error.HTTPError as exc:
-            if exc.code == 429:
-                filled=_national_fill_metno(date_text,points,results_by_name)
-                ordered=[results_by_name[p["name"]] for p in points if p["name"] in results_by_name]
-                return ordered, len(ordered)==len(points), True, f"予備データで{filled}座を補完"
-            filled=_national_fill_metno(date_text,points,results_by_name)
-            ordered=[results_by_name[p["name"]] for p in points if p["name"] in results_by_name]
-            return ordered, len(ordered)==len(points), False, f"予備データで{filled}座を補完"
-        except Exception as exc:
-            filled=_national_fill_metno(date_text,points,results_by_name)
-            ordered=[results_by_name[p["name"]] for p in points if p["name"] in results_by_name]
-            return ordered, len(ordered)==len(points), False, f"予備データで{filled}座を補完"
-        if status != 200:
-            filled=_national_fill_metno(date_text,points,results_by_name)
-            ordered=[results_by_name[p["name"]] for p in points if p["name"] in results_by_name]
-            return ordered, len(ordered)==len(points), status==429, f"予備データで{filled}座を補完"
-        try:
-            data=json.loads(body.decode("utf-8"))
-        except Exception as exc:
-            return list(results_by_name.values()), False, False, f"Open-Meteo JSON error: {exc}"
-        rows=data if isinstance(data,list) else [data]
-        if len(rows) != len(chunk): return list(results_by_name.values()), False, False, "Open-Meteo response size mismatch"
-        for p,forecast in zip(chunk,rows):
-            result=_national_result_from_forecast(p,forecast)
+        if cached and str(cached.get("source") or "") in {"metno+gfs","metno","gfs"}:
+            cached["name"]=p["name"]; results_by_name[p["name"]]=cached
+        else: missing.append(p)
+    warning_parts=[]
+    if missing:
+        metno={}; gfs={}
+        # Fetch both independent sources. One can still complete if the other is temporarily unavailable.
+        try: metno=_national_metno_results(date_text,missing)
+        except Exception as exc: warning_parts.append(f"MET Norwayの一部を取得できませんでした")
+        try: gfs=_national_gfs_results(date_text,missing)
+        except Exception as exc: warning_parts.append(f"NOAA GFSの一部を取得できませんでした")
+        for p in missing:
+            result=_national_merge_two_models(p,metno.get(p["name"]),gfs.get(p["name"]))
             if result:
                 results_by_name[p["name"]]=result
                 _national_point_cache_put(date_text,p,result)
     ordered=[results_by_name[p["name"]] for p in points if p["name"] in results_by_name]
-    return ordered, len(ordered)==len(points), False, None
+    complete=len(ordered)==len(points)
+    if not complete: warning_parts.append(f"{len(points)-len(ordered)}座は現在データを取得できませんでした")
+    return ordered,complete,False,"。".join(dict.fromkeys(warning_parts)) or None
 
 
 def _national_response(data: dict[str, Any], state: str, *, rate_limited: bool=False, warning: str | None=None) -> Response:
@@ -1140,8 +1275,10 @@ def _national_response(data: dict[str, Any], state: str, *, rate_limited: bool=F
         "date":data.get("date"), "results":data.get("results") or [], "version":APP_VERSION,
         "complete":len(data.get("results") or []) >= len(data.get("points") or []),
         "cache":{"state":state,"generatedAt":data.get("generated_at"),"ageSeconds":max(0,round(now-generated)),"freshTtlSeconds":NATIONAL_OUTLOOK_CACHE_TTL},
-        "rateLimited":bool(rate_limited),
-        "backupCount":sum(1 for r in (data.get("results") or []) if r.get("source")=="metno"),
+        "rateLimited":False,
+        "dualModelCount":sum(1 for r in (data.get("results") or []) if r.get("source")=="metno+gfs"),
+        "metnoOnlyCount":sum(1 for r in (data.get("results") or []) if r.get("source")=="metno"),
+        "gfsOnlyCount":sum(1 for r in (data.get("results") or []) if r.get("source")=="gfs"),
     }
     if warning: payload["warning"]=warning
     body=json.dumps(payload,ensure_ascii=False).encode("utf-8")
@@ -1244,11 +1381,11 @@ def national_outlook():
             data=_national_write_disk_cache(date_text,fingerprint,points,results)
             return _national_response(data,'live-generated')
         if stale:
-            warning='予報データの取得が混み合っているため、直近に取得できた結果を表示しています。' if rate_limited else '最新データを取得できなかったため、直近に取得できた結果を表示しています。'
+            warning='最新データを取得できなかったため、直近に取得できた結果を表示しています。'
             return _national_response(stale,'shared-stale',rate_limited=rate_limited,warning=warning)
         # First-ever request has no last-good cache. Keep any completed point results instead of total failure.
         partial={"date":date_text,"generated_at":datetime.now(timezone.utc).isoformat(),"generated_ts":time.time(),"points":points,"results":results}
-        return _national_response(partial,'partial',rate_limited=rate_limited,warning=('予報データの取得が混み合っています。少し時間をおいて再度お試しください。' if rate_limited else '一部の山のみ判定できました。少し時間をおいて再度お試しください。'))
+        return _national_response(partial,'partial',warning=(error or '一部の山のみ判定できました。少し時間をおいて再度お試しください。'))
     finally:
         _national_unlock(date_text,fingerprint)
 

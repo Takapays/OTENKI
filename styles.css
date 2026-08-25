@@ -3762,3 +3762,25 @@ body.install-guide-open{overflow:hidden}
   .planner-rail .representative-course-mainline{grid-template-columns:1fr!important}
   .planner-rail .representative-course-summary-always{grid-column:1!important;width:100%!important}
 }
+
+
+/* V1.4.113: all representative courses are visible before loading, on PC and mobile. */
+.planner-rail .representative-course-summary-always{
+  grid-column:2!important;display:flex!important;flex-direction:column!important;gap:6px!important;
+  min-width:0!important;width:100%!important;padding:0!important;border:0!important;background:transparent!important;
+}
+.planner-rail .representative-course-summary-option{
+  appearance:none;width:100%;min-width:0;text-align:left;border:1px solid #d7e5dd;border-radius:10px;
+  background:#f7fbf9;color:#50685c;padding:7px 10px;cursor:pointer;font:inherit;
+}
+.planner-rail .representative-course-summary-option b{display:block;font-size:11px;line-height:1.3;color:#234c3a;margin-bottom:2px}
+.planner-rail .representative-course-summary-option span{display:block;font-size:11px;line-height:1.4;white-space:normal;overflow-wrap:anywhere;color:#50685c}
+.planner-rail .representative-course-summary-option.is-active{border-color:#65a789;background:#eef8f3;box-shadow:inset 3px 0 0 #2f8b63}
+@media(max-width:700px){
+  .planner-rail .representative-course-mainline{grid-template-columns:1fr!important}
+  .planner-rail .representative-course-summary-always{grid-column:1!important;display:flex!important;width:100%!important;gap:7px!important}
+  .planner-rail .representative-course-summary-option{min-height:50px;padding:9px 11px}
+  .planner-rail .representative-course-summary-option b,.planner-rail .representative-course-summary-option span{font-size:12px}
+}
+
+.planner-rail .representative-course-mainline #representativeCourseBtn:not(.hidden){align-self:start!important;height:auto!important}
