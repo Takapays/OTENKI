@@ -4715,8 +4715,11 @@ function setupInstallApp(){
 function currentMountainLabel(){return $('mountainPreset')?.value?.trim()||$('mountainSearch')?.value?.trim()||'';}
 function refreshMountainInfoButton(){
   const btn=$('mountainInfoBtn');if(!btn)return;
-  btn.disabled=!currentMountainLabel();
+  const selectValue=$('mountainPreset')?.value?.trim()||'';
+  const searchValue=$('mountainSearch')?.value?.trim()||'';
+  btn.disabled=!(selectValue||searchValue);
 }
+
 function openMountainInfoFromPlanner(){
   const name=currentMountainLabel();
   if(!name)return;
@@ -5321,6 +5324,7 @@ function init(){
   });
   select.addEventListener('change',()=>{
     search.value=select.value;
+    refreshMountainInfoButton();
     resetForMountainChange();
     logMountainSelected('mountain_select');
   });
@@ -5332,6 +5336,7 @@ function init(){
     area.value=areaKey;
     populateMountainSelect(areaKey,hit);
     if(commit)search.value=hit;
+    refreshMountainInfoButton();
     resetForMountainChange();
     return true;
   };
@@ -6687,10 +6692,9 @@ function stayDepartureBaseMs(row){
   return Number.isFinite(departureMs)?departureMs:NaN;
 }
 
-const WALKING_PACE_STORAGE_KEY='tratenWalkingPacePercent';
 function walkingPacePercent(){
   const el=$('walkingPaceRange');
-  const raw=Number(el?.value||localStorage.getItem(WALKING_PACE_STORAGE_KEY)||100);
+  const raw=Number(el?.value||100);
   return Math.max(50,Math.min(150,Number.isFinite(raw)?raw:100));
 }
 function adjustedCourseMinutes(minutes){
@@ -6719,14 +6723,11 @@ function recalculateAllPointTimesForPace(){
 function setupWalkingPaceControl(){
   const range=$('walkingPaceRange'), out=$('walkingPaceValue');
   if(!range||!out)return;
-  let saved=Number(localStorage.getItem(WALKING_PACE_STORAGE_KEY));
-  if(!Number.isFinite(saved))saved=100;
-  saved=Math.max(50,Math.min(150,Math.round(saved/10)*10));
-  range.value=String(saved);out.value=`${saved}%`;out.textContent=`${saved}%`;
+  const saved=100;
+  range.value='100';out.value='100%';out.textContent='100%';
   const apply=()=>{
     const pace=walkingPacePercent();
     out.value=`${pace}%`;out.textContent=`${pace}%`;
-    localStorage.setItem(WALKING_PACE_STORAGE_KEY,String(pace));
     const count=recalculateAllPointTimesForPace();
     if(count)setStatus(`歩くスピードを ${pace}% に変更し、CTに合わせて通過時刻を再計算しました。`);
   };
