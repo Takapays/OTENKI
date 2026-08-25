@@ -59,6 +59,8 @@ PASS 唐松岳 | 八方尾根ルート | 270m
 PASS 五竜岳 | アルプス平ルート | 410m
 PASS 五竜岳 | 八方尾根・唐松岳経由ルート | 490m
 PASS 鹿島槍ヶ岳 | アルプス平ルート | 830m
+PASS 剱岳 | 室堂・別山尾根ルート | 414m
+PASS 剱岳 | 馬場島・早月尾根ルート | 570m
 PASS 立山 | 室堂・一ノ越・雄山ルート | 110m
 PASS 薬師岳 | 折立・太郎平ルート | 470m
 PASS 黒部五郎岳 | 折立・太郎平ルート | 546m
@@ -112,4 +114,4 @@ PASS 八経ヶ岳 | 行者還トンネル西口ルート | 239m
 PASS 大和葛城山 | 水越峠ルート | 120m
 PASS 瓶ヶ森 | 瓶ヶ森駐車場ルート | 50m
 PASS 久住山 | 牧ノ戸峠ルート | 150m
-SUMMARY mountains=109 courses=114 multi=5 bad=0
+SUMMARY mountains=110 courses=116 multi=6 bad=0

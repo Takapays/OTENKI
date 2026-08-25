@@ -3800,3 +3800,57 @@ body.install-guide-open{overflow:hidden}
   .route-map-canvas .leaflet-control-layers-expanded{max-width:150px;padding:6px 8px}
   .route-map-canvas .leaflet-control-layers-base label{font-size:10px}
 }
+
+/* V1.4.117: compact GSI layer switcher + full-width desktop route maps */
+@media(min-width:901px){
+  .route-map-canvas{
+    width:100%!important;
+    max-width:none!important;
+    aspect-ratio:auto!important;
+    height:360px!important;
+    min-height:360px!important;
+    margin:0!important;
+  }
+  .route-map-canvas .leaflet-control-layers{
+    border-radius:7px!important;
+    box-shadow:0 3px 10px rgba(26,61,45,.12)!important;
+  }
+  .route-map-canvas .leaflet-control-layers-expanded{
+    padding:4px 6px!important;
+    min-width:0!important;
+  }
+  .route-map-canvas .leaflet-control-layers-base label{
+    margin:1px 0!important;
+    font-size:9px!important;
+    line-height:1.2!important;
+    font-weight:800!important;
+  }
+  .route-map-canvas .leaflet-control-layers-selector{
+    width:11px!important;
+    height:11px!important;
+    margin:0 3px 0 0!important;
+    vertical-align:-1px!important;
+  }
+  .route-map-canvas .leaflet-control-layers-separator{
+    margin:3px -4px!important;
+  }
+}
+
+/* V1.4.118: slimmer desktop header */
+@media(min-width:901px){
+  /* 70% of the V1.4.117 desktop logo size (294px -> about 206px). */
+  .brand-lockup img{width:min(100%,206px) !important}
+  .topbar-inner{
+    grid-template-columns:minmax(180px,220px) minmax(0,1fr) !important;
+    gap:12px !important;
+    padding:7px 18px !important;
+  }
+  .topbar-center{gap:5px !important}
+  .topbar-center h1{font-size:clamp(18px,1.45vw,24px) !important;line-height:1.15 !important}
+  .topbar-badges{gap:5px !important}
+  .topbar-badges span{padding:4px 8px !important;font-size:11px !important;line-height:1.2 !important}
+  .topbar-guide-link{padding:7px 10px !important;min-height:0 !important}
+}
+
+/* V1.4.122: verified CT and estimated CT are visually distinguished. */
+.course-time-missing-badge.estimated{background:#eef6ff;border-color:#9ec5ee;color:#245f91}

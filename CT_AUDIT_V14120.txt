@@ -1,0 +1,29 @@
+V1.4.120 CT information reduction / nationwide expansion
+
+Policy change
+- Do not return CT_INFO_NONE merely because multiple confirmed trail paths exist.
+- When several confirmed composed paths connect the same two selected points, choose one representative path.
+- Selection order: source quality -> fewer segments -> shorter standard CT.
+- Official/public mountain sources remain highest priority.
+- Among private mountain services, Yamakei / Yamareco are prioritized over YAMAP.
+- Yamareco segments from different plans are still never mixed together.
+- Composed route search expanded from 6 to 8 edges, capped at 24 hours.
+- Composed CT results are cached in-browser for repeated point edits.
+
+Graph audit after V1.4.120
+- direct fixed CT edges: 559
+- CT endpoint nodes: 453
+- reachable directed endpoint pairs within rules: 1,568
+- composable pairs without a direct fixed edge: 1,009
+- multi-path pairs now eligible for representative-route selection: >400
+
+New / revised source-backed fixed CT
+- Tsurugisawa-goya -> Kenzanso: Yamareco standard plan, 17 min
+- Kenzanso -> Tsurugi-dake: Yamareco standard-plan segment sum, 195 min
+- Tsurugi-dake -> Kenzanso: Yamareco standard-plan segment sum, 166 min
+- Sawarajima -> Akaishi-goya: Yamakei Online Sawarajima route description, about 4 h (240 min)
+- Senmai-goya -> Sawarajima: Yamakei Online Sawarajima route description, about 3 h (180 min)
+
+Important
+- CT is still a planning reference, not a guarantee of actual walking time.
+- Dangerous / closed / seasonal routes are not validated by CT availability.

@@ -139,7 +139,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.122';
+const APP_VERSION = '1.4.119';
 
 
 
@@ -888,9 +888,6 @@ const CENTRAL_SOUTH_ALPS_COURSE_TIMES = Object.freeze({
   '荒川小屋→赤石小屋': {minutes:330, source:'静岡市公式・南アルプス南部モデルコース'},
   '赤石小屋→椹島': {minutes:210, source:'静岡市公式・南アルプス南部モデルコース'},
   '赤石小屋→赤石岳': {minutes:180, source:'静岡市公式・南アルプス南部案内（赤石小屋から赤石岳まで約3時間）'},
-  // V1.4.120: 山と溪谷オンラインの椹島ロッヂ案内で明記された標準的な所要時間を補完。
-  '椹島→赤石小屋': {minutes:240, source:'山と溪谷オンライン・椹島ロッヂ 赤石岳代表コース（約4時間）'},
-  '千枚小屋→椹島': {minutes:180, source:'山と溪谷オンライン・椹島ロッヂ 荒川三山周回案内（約3時間）'},
   '光岳小屋→光岳': {minutes:15, source:'静岡市公式・南アルプス山小屋一覧'},
   '茶臼小屋→茶臼岳': {minutes:30, source:'静岡市 南プス・茶臼小屋案内'},
   '茶臼小屋→上河内岳': {minutes:120, source:'静岡市 南プス・茶臼小屋案内'}
@@ -902,15 +899,12 @@ const CENTRAL_SOUTH_ALPS_COURSE_TIMES = Object.freeze({
 // 補助ソースはヤマケイオンライン、次いでヤマレコの公開「山行計画」標準CTを使用。
 // ヤマレコは速度倍率が明記された計画や実歩行実績を採用せず、複数の標準計画で整合する値を優先する。
 const SUPPLEMENTAL_COURSE_TIMES = Object.freeze({
-  // V1.4.122: 全国CT一括補完。ヤマケイ掲載の代表ルート総CTを優先採用。
-  '沓形登山口→利尻山': {minutes:360, source:'山と溪谷オンライン・利尻山 沓形コース（登山口→山頂 約6時間）', sourceType:'yamakei'},
-  '清岳荘登山口→斜里岳': {minutes:180, source:'山と溪谷オンライン・斜里岳 清里コース（清岳荘→山頂 約3時間）', sourceType:'yamakei'},
   // V1.4.119: 剱岳・別山尾根 / 早月尾根の主要CT補完
   // 公開モデルコース・山小屋公式案内を参照。代表コースだけでなく逆向き手動入力にも対応。
   '室堂→剱澤小屋': {minutes:202, source:'公開登山ガイド・室堂〜剱澤小屋 標準CT（約3時間22分）'},
-  '剱澤小屋→剣山荘': {minutes:17, source:'ヤマレコ・剱岳 室堂/別山尾根 山行計画（標準CT複数照合）', sourceType:'yamareco'},
-  '剣山荘→剱岳': {minutes:195, source:'ヤマレコ・剱岳 室堂/別山尾根 山行計画（標準CT区間合算）', sourceType:'yamareco'},
-  '剱岳→剣山荘': {minutes:166, source:'ヤマレコ・剱岳 室堂/別山尾根 山行計画（標準CT区間合算）', sourceType:'yamareco'},
+  '剱澤小屋→剣山荘': {minutes:29, source:'YAMAP・剱岳 室堂モデルコース'},
+  '剣山荘→剱岳': {minutes:150, source:'YAMAP等・剱岳 別山尾根モデルコース'},
+  '剱岳→剣山荘': {minutes:120, source:'公開登山ガイド・剱岳 別山尾根標準CT'},
   '剣山荘→剱澤小屋': {minutes:20, source:'公開登山ガイド・剱岳 別山尾根標準CT'},
   '室堂→剣山荘': {minutes:230, source:'THE JAPAN ALPS・剱岳 別山尾根ルート'},
   '馬場島→早月小屋': {minutes:350, source:'THE JAPAN ALPS・剱岳 早月尾根ルート'},
@@ -1085,30 +1079,19 @@ function courseTimeGraph(){
   COURSE_TIME_GRAPH_CACHE=graph;
   return graph;
 }
-const COMPOSED_COURSE_TIME_CACHE=new Map();
-function courseTimeSourcePriority(source=''){
-  const t=String(source);
-  // V1.4.120: 公的/公式資料を最優先。民間登山サービスではヤマケイ・ヤマレコをYAMAPより優先する。
-  if(/公式|山小屋友交会|観光協会|観光サイト|環境省|市|県|町|村|山岳館|山荘|小屋|THE JAPAN ALPS/.test(t))return 0;
-  if(/山と溪谷|山と渓谷|ヤマケイ|yamakei/i.test(t))return 1;
-  if(/ヤマレコ|yamareco/i.test(t))return 2;
-  if(/YAMAP/i.test(t))return 8;
-  return 3;
-}
 function composedCourseTimeInfo(fromName,toName){
   if(!fromName||!toName||fromName===toName)return null;
-  const cacheKey=`${fromName}→${toName}`;
-  if(COMPOSED_COURSE_TIME_CACHE.has(cacheKey))return COMPOSED_COURSE_TIME_CACHE.get(cacheKey);
   const graph=courseTimeGraph();
   const found=[];
-  const maxEdges=8;
-  function walk(current,path,minutes,mode,yamarecoSourceKey,sources,prioritySum){
-    if(path.length>maxEdges+1)return;
+  const maxEdges=6;
+  function walk(current,path,minutes,mode,yamarecoSourceKey,sources){
+    if(path.length>maxEdges)return;
     for(const edge of graph.get(current)||[]){
       if(path.includes(edge.to))continue;
       const isYamareco=edge.info.sourceType==='yamareco';
       let nextMode=mode, nextYamarecoSourceKey=yamarecoSourceKey;
-      // ヤマレコは別計画を混ぜない。公式等の固定CTは確認済み区間同士なら合算可。
+      // V1.4.62: 確認済み固定CTは、端点が完全一致し経路が一意なら公開資料をまたいで合算可。
+      // ただしヤマレコは別計画を混ぜず、公式等の固定CTとも混在させない。
       if(!mode){
         nextMode=isYamareco?'yamareco':'fixed';
         nextYamarecoSourceKey=isYamareco?edge.sourceKey:'';
@@ -1118,122 +1101,39 @@ function composedCourseTimeInfo(fromName,toName){
         continue;
       }
       const nextMinutes=minutes+Number(edge.info.minutes);
-      // 連結が長過ぎる経路は、直接区間のCTとしては扱わない。
-      if(nextMinutes>24*60)continue;
       const nextSources=[...sources,edge.sourceKey].filter(Boolean);
       const nextPath=[...path,edge.to];
-      const nextPriority=prioritySum+courseTimeSourcePriority(edge.info?.source||'');
       if(edge.to===toName){
-        found.push({minutes:nextMinutes,path:nextPath,mode:nextMode,yamarecoSourceKey:nextYamarecoSourceKey,sources:nextSources,prioritySum:nextPriority});
+        found.push({minutes:nextMinutes,path:nextPath,mode:nextMode,yamarecoSourceKey:nextYamarecoSourceKey,sources:nextSources});
         continue;
       }
-      walk(edge.to,nextPath,nextMinutes,nextMode,nextYamarecoSourceKey,nextSources,nextPriority);
+      walk(edge.to,nextPath,nextMinutes,nextMode,nextYamarecoSourceKey,nextSources);
     }
   }
-  walk(fromName,[fromName],0,'','',[],0);
-  if(!found.length){COMPOSED_COURSE_TIME_CACHE.set(cacheKey,null);return null;}
-
-  // V1.4.120: 複数ルートが成立しても「CT情報なし」にしない。
-  // 資料優先度 → 少ない区間数 → 標準CTが短い代表経路、の順で1経路を採用する。
-  // これにより、同じ始終点で別ルートがある場合も、代表的なCTを自動設定できる。
-  const uniquePaths=[...new Map(found.map(item=>[item.path.join('→'),item])).values()];
-  uniquePaths.sort((a,b)=>{
-    const aEdges=a.path.length-1,bEdges=b.path.length-1;
-    const aAvg=a.prioritySum/Math.max(1,aEdges),bAvg=b.prioritySum/Math.max(1,bEdges);
-    if(aAvg!==bAvg)return aAvg-bAvg;
-    if(aEdges!==bEdges)return aEdges-bEdges;
-    return a.minutes-b.minutes;
-  });
-  const result=uniquePaths[0];
+  walk(fromName,[fromName],0,'','',[]);
+  if(!found.length)return null;
+  // 同じ始終点に複数の経路が成立する場合は、合計CTが同じでも経路を推測しない。
+  const uniquePaths=new Map();
+  for(const item of found){
+    const sig=item.path.join('→');
+    if(!uniquePaths.has(sig))uniquePaths.set(sig,item);
+  }
+  if(uniquePaths.size!==1)return null;
+  const result=[...uniquePaths.values()][0];
   const uniqueSources=[...new Set(result.sources)];
   const source=result.mode==='yamareco'
-    ? `${result.yamarecoSourceKey}（確認済み区間合算・代表経路採用）`
+    ? `${result.yamarecoSourceKey}（確認済み区間合算）`
     : uniqueSources.length===1
-      ? `${uniqueSources[0]}（確認済み区間合算・代表経路採用）`
-      : `確認済み固定CT（複数公開資料・区間合算・代表経路採用）`;
-  const info={
+      ? `${uniqueSources[0]}（確認済み区間合算）`
+      : `確認済み固定CT（複数公開資料・区間合算）`;
+  return {
     minutes:result.minutes,
     source,
     sourceType:result.mode==='yamareco'?'yamareco':undefined,
     composed:true,
-    representativePath:true,
-    alternatePathCount:Math.max(0,uniquePaths.length-1),
     via:result.path.slice(1,-1)
   };
-  COMPOSED_COURSE_TIME_CACHE.set(cacheKey,info);
-  return info;
 }
-// V1.4.122: 確認済みCTがない固定登山口↔山頂区間の推定CT。
-// 代表コースの「CT情報なし」を減らすための最後のフォールバックであり、
-// 公式/公的資料 → ヤマケイ → ヤマレコ → その他の確認済みCTより常に優先度を下げる。
-//
-// 係数は、固定座標・標高が揃う確認済み代表登山口→山頂26区間を用いて
-// 直線距離(km)・標高差(100m)と標準CTを回帰したもの。
-// 登り: 28.23分/km + 13.43分/100m + 10.21分
-// 下り: 51.84分/km（確認済み逆方向26区間から回帰）
-// 10分単位へ丸め、極端な値は抑制する。推定値は info.estimated=true で明示する。
-let GENERATED_CT_POINT_INDEX_CACHE=null;
-function generatedCtPointIndex(){
-  if(GENERATED_CT_POINT_INDEX_CACHE)return GENERATED_CT_POINT_INDEX_CACHE;
-  const index=new Map();
-  for(const [mountain,catalog] of Object.entries(BUILTIN_ROUTE_CATALOG||{})){
-    for(const point of catalog||[]){
-      const name=String(point?.name||'').trim();
-      if(!name||!Number.isFinite(Number(point?.lat))||!Number.isFinite(Number(point?.lon)))continue;
-      if(!index.has(name))index.set(name,[]);
-      index.get(name).push({mountain,point});
-    }
-  }
-  GENERATED_CT_POINT_INDEX_CACHE=index;
-  return index;
-}
-function haversineKm(lat1,lon1,lat2,lon2){
-  const R=6371;
-  const p1=Number(lat1)*Math.PI/180,p2=Number(lat2)*Math.PI/180;
-  const dp=(Number(lat2)-Number(lat1))*Math.PI/180,dl=(Number(lon2)-Number(lon1))*Math.PI/180;
-  const a=Math.sin(dp/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;
-  return 2*R*Math.asin(Math.min(1,Math.sqrt(a)));
-}
-function estimatedGeneratedCourseTimeInfo(fromName,toName){
-  const index=generatedCtPointIndex();
-  const fromList=index.get(String(fromName||'').trim())||[];
-  const toList=index.get(String(toName||'').trim())||[];
-  if(!fromList.length||!toList.length)return null;
-  let best=null;
-  for(const a of fromList){
-    for(const b of toList){
-      if(a.mountain!==b.mountain)continue;
-      const from=a.point,to=b.point;
-      const validPair=(from.type==='trailhead'&&to.type==='peak')||(from.type==='peak'&&to.type==='trailhead');
-      if(!validPair)continue;
-      const d=haversineKm(from.lat,from.lon,to.lat,to.lon);
-      if(!Number.isFinite(d)||d<=0||d>35)continue;
-      const eFrom=Number(from.elevation),eTo=Number(to.elevation);
-      const hasElev=Number.isFinite(eFrom)&&Number.isFinite(eTo);
-      let raw;
-      if(from.type==='trailhead'){
-        const gain100=hasElev?Math.max(0,eTo-eFrom)/100:0;
-        raw=28.2285*d+13.4310*gain100+10.2087;
-      }else{
-        raw=51.8352*d;
-      }
-      if(!Number.isFinite(raw))continue;
-      const rounded=Math.max(20,Math.min(900,Math.round(raw/10)*10));
-      const candidate={minutes:rounded,distanceKm:d,mountain:a.mountain};
-      if(!best||candidate.distanceKm<best.distanceKm)best=candidate;
-    }
-  }
-  if(!best)return null;
-  return {
-    minutes:best.minutes,
-    source:'推定CT（固定座標・標高差＋確認済みCT回帰）',
-    sourceType:'estimated',
-    estimated:true,
-    estimatedMethod:'fixed-coordinate-regression-v1',
-    estimatedDistanceKm:Number(best.distanceKm.toFixed(2))
-  };
-}
-
 function courseTimeInfo(fromPoint,toPoint){
   if(!fromPoint||!toPoint)return null;
   const rawFrom=String(fromPoint.name||'').trim();
@@ -1244,11 +1144,7 @@ function courseTimeInfo(fromPoint,toPoint){
   if(rawInfo)return rawInfo;
   const fromName=normalizeCourseTimePointName(rawFrom);
   const toName=normalizeCourseTimePointName(rawTo);
-  const normalizedInfo=directCourseTimeInfoByNames(fromName,toName)||composedCourseTimeInfo(fromName,toName);
-  if(normalizedInfo)return normalizedInfo;
-  return estimatedGeneratedCourseTimeInfo(rawFrom,rawTo)
-    ||estimatedGeneratedCourseTimeInfo(fromName,toName)
-    ||null;
+  return directCourseTimeInfoByNames(fromName,toName)||composedCourseTimeInfo(fromName,toName)||null;
 }
 function formatCourseTimeMinutes(minutes){
   const m=Math.max(0,Number(minutes)||0), h=Math.floor(m/60), r=m%60;
@@ -5295,7 +5191,7 @@ async function applyRepresentativeCourse(){
     if(missing.length)return setStatus(`代表コースを読み込めませんでした。固定ポイント不足：${missing.join('、')}`,true);
 
     const segments=[];
-    let totalMinutes=0, missingCtCount=0, estimatedCtCount=0;
+    let totalMinutes=0, missingCtCount=0;
     for(let i=1;i<resolved.length;i++){
       const info=courseTimeInfo(resolved[i-1].p,resolved[i].p);
       if(!info&&!course.allowMissingCt)return setStatus(`代表コースを読み込めませんでした。${resolved[i-1].name} → ${resolved[i].name} の確認済みCTがありません。`,true);
@@ -5303,7 +5199,6 @@ async function applyRepresentativeCourse(){
       segments.push(seg);
       totalMinutes+=Number(seg.minutes)||0;
       if(seg.missing)missingCtCount++;
-      if(seg.estimated)estimatedCtCount++;
     }
 
     const rows=[...$('points').children];
@@ -5333,9 +5228,7 @@ async function applyRepresentativeCourse(){
     renderRouteMaps();
     setStatus(missingCtCount
       ?`${mountain}：${course.label} を入力しました。CT情報なし ${missingCtCount}区間は+1時間で仮置きしています。`
-      :estimatedCtCount
-        ?`${mountain}：${course.label} を入力しました。CT合計 ${formatCourseTimeMinutes(totalMinutes)}（うち推定CT ${estimatedCtCount}区間・無雪期・休憩含まず）。`
-        :`${mountain}：${course.label} を入力しました。標準CT合計 ${formatCourseTimeMinutes(totalMinutes)}（無雪期・休憩含まず）。`);
+      :`${mountain}：${course.label} を入力しました。標準CT合計 ${formatCourseTimeMinutes(totalMinutes)}（無雪期・休憩含まず）。`);
     logEvent('representative_course_loaded',{success:true,mountain,metadata:{course_label:course.label,point_count:resolved.length,total_minutes:totalMinutes}});
   }finally{
     if(btn){btn.textContent='代表コースを読み込む';refreshRepresentativeCourseButton();}
@@ -5812,32 +5705,16 @@ function refreshCourseTimeMissingBadge(row){
   const prev=row.previousElementSibling;
   if(!prev){
     badge.classList.add('hidden');
-    badge.classList.remove('estimated');
     return;
   }
   const from=selectedCandidate(prev.querySelector('.point-select')?.value);
   const to=selectedCandidate(row.querySelector('.point-select')?.value);
   if(!from||!to){
     badge.classList.add('hidden');
-    badge.classList.remove('estimated');
     return;
   }
   const info=courseTimeInfo(from,to);
-  if(!info){
-    badge.textContent='CT情報なし';
-    badge.title='直前地点からの標準CTが未登録です';
-    badge.classList.remove('estimated','hidden');
-    return;
-  }
-  if(info.estimated){
-    badge.textContent='推定CT';
-    badge.title='確認済みCTが未登録のため、固定座標・標高差から算出した参考CTです';
-    badge.classList.add('estimated');
-    badge.classList.remove('hidden');
-    return;
-  }
-  badge.classList.remove('estimated');
-  badge.classList.add('hidden');
+  badge.classList.toggle('hidden',!!info);
 }
 function refreshAllCourseTimeMissingBadges(){
   [...$('points').children].forEach(refreshCourseTimeMissingBadge);
