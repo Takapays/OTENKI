@@ -139,7 +139,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.110';
+const APP_VERSION = '1.4.111';
 
 
 
@@ -4558,7 +4558,8 @@ function setupNationalOutlook(){
   // 判定ボタンは地図ライブラリの成否に関係なく必ず有効化する。
   btn?.addEventListener('click',runNationalOutlook);
   if(!el||!date)return;
-  const today=new Date(); const local=new Date(today.getTime()-today.getTimezoneOffset()*60000).toISOString().slice(0,10); date.value=local;
+  const today=new Date(); const local=new Date(today.getTime()-today.getTimezoneOffset()*60000).toISOString().slice(0,10);
+  const tomorrow=new Date(today.getTime()+86400000); const tomorrowLocal=new Date(tomorrow.getTime()-tomorrow.getTimezoneOffset()*60000).toISOString().slice(0,10); date.value=tomorrowLocal;
   const max=new Date(today.getTime()+15*86400000); date.max=new Date(max.getTime()-max.getTimezoneOffset()*60000).toISOString().slice(0,10); date.min=local;
   if(!window.L){
     el.innerHTML='<div class="national-map-fallback">地図の読み込みに失敗しました。全国判定は実行できます。</div>';
@@ -4689,7 +4690,7 @@ function init(){
     candidates=[];
     $('points').innerHTML=''; pointSeq=0;
     const selected=!!select.value.trim();
-    $('candidateState').textContent=selected?'「通過ポイントを読み込む」を押してください':'';
+    $('candidateState').textContent='';
     updateLoadButtonAppearance(false);
     refreshRepresentativeCourseButton();
     updateForecastHorizon();
@@ -5078,12 +5079,21 @@ function refreshRepresentativeCourseButton(){
   const pathText=representativeCoursePathText(course);
   if(summary){
     if(hasCourse&&course){
-      summary.innerHTML=`<b>${escapeHtml(course.label||'代表コース')}</b><span>${escapeHtml(pathText||'コース内容を確認中')}</span>`;
-      summary.style.display='flex';
-      summary.setAttribute('title',pathText||course.label||'代表コース');
+      const label=course.label||'代表コース';
+      const route=pathText||course.points?.map(p=>p?.[1]).filter(Boolean).join(' → ')||'コース内容を確認中';
+      summary.replaceChildren();
+      const nameEl=document.createElement('b'); nameEl.textContent=label;
+      const pathEl=document.createElement('span'); pathEl.textContent=route;
+      summary.append(nameEl,pathEl);
+      summary.dataset.courseSummaryVisible='1';
+      summary.style.setProperty('display','flex','important');
+      summary.style.setProperty('visibility','visible','important');
+      summary.style.setProperty('opacity','1','important');
+      summary.setAttribute('title',route);
     }else{
-      summary.innerHTML='';
-      summary.style.display='none';
+      summary.replaceChildren();
+      summary.dataset.courseSummaryVisible='0';
+      summary.style.setProperty('display','none','important');
       summary.removeAttribute('title');
     }
   }
