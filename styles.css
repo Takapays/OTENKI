@@ -3860,3 +3860,6 @@ body.install-guide-open{overflow:hidden}
 .national-cache-stats{display:inline-flex;flex-wrap:wrap;gap:3px 5px;align-items:center;margin-top:5px;padding:4px 8px;border:1px solid #cfe2d8;border-radius:999px;background:#fff;color:#45665a;font-size:10px;line-height:1.35;font-weight:700}
 .national-cache-stats b{font-weight:950;color:#215d48}
 @media(max-width:700px){.national-cache-stats{font-size:10px;border-radius:8px}}
+
+/* V1.4.148 nationwide cache guidance */
+.national-cache-help{display:inline-block;margin-top:3px;color:#71847b;font-size:10px;line-height:1.45}

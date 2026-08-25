@@ -139,7 +139,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.128';
+const APP_VERSION = '1.4.143';
 
 
 
@@ -903,6 +903,48 @@ const CENTRAL_SOUTH_ALPS_COURSE_TIMES = Object.freeze({
 // V1.4.127: ヤマレコの公開計画はユーザー設定ペースで時間が変わる場合があるため、計画1件だけを標準CTとはみなさない。
 // 複数計画の同一区間値が一致するものを優先し、山行記録で歩くペース倍率が表示される場合は1.0基準へ逆算した候補値を照合に使う。
 const SUPPLEMENTAL_COURSE_TIMES = Object.freeze({
+  // V1.4.143: 残存推定CTの確認済み化 batch17。複数ソース一致・標準モデルの起終点一致を優先。
+  'あわすのスキー場・鍬崎山登山口→鍬崎山': {minutes:405, source:'YAMAP標準モデル・あわすのスキー場駐車場→鍬崎山（6時間45分）。ヤマレコ標準計画とも同水準', sourceType:'yamap'},
+  '蓬莱駅 登山口→蓬来山': {minutes:277, source:'YAMAP標準モデル・蓬莱駅→小女郎峠→蓬莱山（4時間37分）', sourceType:'yamap'},
+  '別所駐車場・英彦山登山口→英彦山': {minutes:146, source:'YAMAP標準モデル・別所駐車場→奉幣殿→英彦山（南岳）（2時間26分）', sourceType:'yamap'},
+  '豊前坊・高住神社登山口→英彦山': {minutes:146, source:'YAMAP標準モデル・豊前坊駐車場→北岳→中岳→英彦山（南岳）（2時間26分）', sourceType:'yamap'},
+  '大箆柄岳 垂桜コース駐車場・登山口→高隈山（大箆柄岳）': {minutes:165, source:'YAMAP標準モデル・垂桜コース登山口駐車場→大箆柄岳（2時間45分）', sourceType:'yamap'},
+  '吉部（坊ガツル）登山口駐車場→大船山': {minutes:278, source:'YAMAP標準モデル・吉部登山口駐車場→坊ガツル→段原→大船山（4時間38分）', sourceType:'yamap'},
+  // V1.4.142: 残存推定CTの確認済み化 batch16。長距離・難ルートを優先して標準CTへ置換。
+  '札内川ヒュッテ駐車場→カムイエクウチカウシ山': {minutes:560, source:'YAMAP標準モデル・駐車場→札内川七ノ沢分岐→八ノ沢分岐→八ノ沢カール→山頂（9時間20分）', sourceType:'yamap'},
+  '神威山荘（ペテガリ岳アプローチ起点）→ペテガリ岳': {minutes:650, source:'日本二百名山コースデータ・神威山荘→ペテガリ岳 参考タイム10時間50分', sourceType:'other'},
+  '椹島→聖岳': {minutes:500, source:'日本百名山コースデータ・椹島コース 上り8時間20分', sourceType:'other'},
+  '笠新道登山口→笠ヶ岳（岐阜）': {minutes:435, source:'笠新道登山口案内板・笠ヶ岳山荘まで約7時間＋YAMAP標準モデル 山荘→山頂15分', sourceType:'other'},
+  '北沢峠→アサヨ峰': {minutes:230, source:'横浜ハイキングクラブ計画・北沢峠→仙水小屋40分→仙水峠40分→栗沢山90分→アサヨ峰60分', sourceType:'other'},
+  // V1.4.141: 残存推定CTの確認済み化 batch15。標準モデルのチェックポイントから片道CTを直接確定。
+  '祝子川 大崩山登山口→大崩山': {minutes:278, source:'YAMAP標準モデル・坊主尾根コース 大崩山登山口→大崩山（4時間38分）', sourceType:'yamap'},
+  '八丁原登山口→涌蓋山': {minutes:208, source:'YAMAP標準モデル・八丁原登山口駐車場→涌蓋山（3時間28分）', sourceType:'yamap'},
+  '国見岳新登山口（五勇谷橋ルート）→国見岳': {minutes:145, source:'YAMAP標準モデル・国見岳新登山口→国見岳（2時間25分）', sourceType:'yamap'},
+  // V1.4.140: 残存推定CTの確認済み化 batch14。公式・標準モデルで端点一致が確認できた区間のみ追加。
+  '鉢盛坂新道口→鉢盛山': {minutes:180, source:'朝日村公式・鉢盛山登山道 野俣沢林道ルート'},
+  '孫太尾根登山口→藤原岳': {minutes:200, source:'公共交通アクセス案内・孫太尾根標準CT'},
+  '雲母坂登山口（修学院）→比叡山（大比叡）': {minutes:128, source:'YAMAP標準モデル・雲母坂登山口〜大比叡'},
+  'びわ湖バレイ山頂駅→蓬来山': {minutes:60, source:'びわ湖バレイ公式・蓬莱山頂コース'},
+  '黒木第2駐車場・黒木登山口→多良岳': {minutes:150, source:'YAMAP標準モデル・黒木第2駐車場〜多良岳'},
+
+  // V1.4.139: 残存推定CTを実標準CTへ置換。長距離・難ルートを優先。
+  '伊奈川ダム上登山口→南駒ヶ岳': {minutes:627, source:'YAMAP標準モデル・伊奈川ダム駐車場→越百山→仙涯嶺→南駒ヶ岳（10時間27分）', sourceType:'yamap'},
+  '伊奈川ダム上登山口→越百山': {minutes:397, source:'YAMAP標準モデル・伊奈川ダム駐車場→越百避難小屋→越百山（6時間37分）', sourceType:'yamap'},
+  '九折登山口 傾山→傾山': {minutes:360, source:'好日山荘・九折登山口→林道60分→水場ルート分岐120分→傾山120分（6時間）', sourceType:'other'},
+  '万年橋 滑床渓谷 三本杭登山口→三本杭': {minutes:201, source:'YAMAP標準モデル・万年橋駐車場→三本杭（3時間21分）', sourceType:'yamap'},
+  '脊振山山頂駐車場→脊振山': {minutes:10, source:'神埼市公式・山頂手前駐車場から約10分', sourceType:'official'},
+  '別府ロープウェイ 鶴見山上駅→鶴見岳': {minutes:20, source:'別府ロープウェイ公式・山上駅から頂上まで約15〜30分（代表値20分）', sourceType:'official'},
+  // V1.4.138: 残存推定CTの継続削減。YAMAP標準モデルの起終点・チェックポイントが一致する区間を昇格。
+  '中房登山口（燕岳・大天井岳 表銀座ルート）→大天井岳': {minutes:445, source:'YAMAP標準モデル・大天井岳 中房温泉→山頂（7時間25分）', sourceType:'yamap'},
+  '上高地→霞沢岳': {minutes:512, source:'YAMAP標準モデル・霞沢岳 上高地→徳本峠→K1→山頂（8時間32分）', sourceType:'yamap'},
+  '蘭登山口→南木曽岳': {minutes:249, source:'YAMAP標準モデル・南木曽岳 蘭駐車場→山頂（4時間09分）', sourceType:'yamap'},
+  '新御坂トンネル御坂口駐車場（御坂黒岳ルート）→黒岳（御坂黒岳）': {minutes:161, source:'YAMAP標準モデル・三ツ峠入口→旧御坂峠→黒岳（2時間41分）', sourceType:'yamap'},
+  '水越峠 金剛山→金剛山': {minutes:167, source:'YAMAP標準モデル・水越峠登山口→金剛山（2時間47分）', sourceType:'yamap'},
+  // V1.4.137: 残存推定CTを継続削減。公的・観光公式・山と高原地図Webの標準所要時間を優先。
+  '斑尾高原ビジターセンター（山の家）→斑尾山': {minutes:90, source:'斑尾高原観光協会・かえでの木トレイル 山頂まで約1時間30分', sourceType:'official'},
+  '芦屋川 高座の滝→六甲山': {minutes:200, source:'山と高原地図Web・高座の滝→風吹岩40分→雨ヶ峠60分→一軒茶屋90分→六甲山最高峰10分（合計3時間20分）', sourceType:'yamakei'},
+  '蛇淵の滝 那岐山登山口→那岐山': {minutes:120, source:'岡山観光WEB公式・那岐山 登山道から山頂まで徒歩約2時間', sourceType:'official'},
+  '光石登山口→三嶺': {minutes:240, source:'高知県観光情報公式・三嶺 登頂時間目安 約4時間（光石登山口を県側代表登山口として照合）', sourceType:'official'},
   // V1.4.135: 残存推定CTの継続監査。公式/公的資料・山と高原地図・複数公開計画で起終点が一致する区間を昇格。
   '甘露水口・薬師岳登山口駐車場→和賀岳': {minutes:260, source:'YAMAP標準モデル・薬師岳登山口駐車場→甘露水→薬師岳→和賀岳（4時間20分）', sourceType:'yamap'},
   '赤倉沢登山口→会津朝日岳': {minutes:225, source:'山と高原地図Web系コース案内・赤倉沢登山口→三吉ミチギ→人見ノ松→叶ノ高手→熊ノ平→会津朝日岳（3時間45分）', sourceType:'yamakei'},
@@ -5090,14 +5132,34 @@ function refreshPointCandidateOptions(){
     updateMeta(row);
   });
 }
+// V1.4.136: 山頂候補は座標差ではなく山頂名を主キーにして1件へ統合する。
+// 同じ山頂が複数カタログから数十〜数百mずれた座標で入っても、UIには1候補だけ表示する。
+// 登山口・山小屋は同名別地点があり得るため従来どおり名前＋座標で判定する。
+function peakCandidateDedupeKey(name){
+  let n=String(name||'').normalize('NFKC').trim();
+  try{ n=canonicalMountainName(n)||n; }catch(_){ }
+  return n
+    .replace(/[\s　]+/g,'')
+    .replace(/[・･]/g,'・')
+    .replace(/ヶ/g,'ケ')
+    .toLowerCase();
+}
 function dedupeCandidateList(base){
   const seen=new Set();
   return base.filter(Boolean).filter(p=>{
     if(!Object.prototype.hasOwnProperty.call(TYPE_LABEL,p.type))return false;
-    const lat=Number(p.lat),lon=Number(p.lon);
-    const coord=hasResolvedCoord(p)?`${lat.toFixed(4)}|${lon.toFixed(4)}`:`unresolved|${p.name}`;
-    const k=`${p.type}|${p.name}|${coord}`;
-    if(seen.has(k))return false;seen.add(k);return true;
+    let k='';
+    if(p.type==='peak'){
+      const peakKey=peakCandidateDedupeKey(p.name);
+      k=`peak|${peakKey||String(p.name||'').trim()}`;
+    }else{
+      const lat=Number(p.lat),lon=Number(p.lon);
+      const coord=hasResolvedCoord(p)?`${lat.toFixed(4)}|${lon.toFixed(4)}`:`unresolved|${p.name}`;
+      k=`${p.type}|${p.name}|${coord}`;
+    }
+    if(seen.has(k))return false;
+    seen.add(k);
+    return true;
   });
 }
 function ensureCenterPeak(list,label,center){
