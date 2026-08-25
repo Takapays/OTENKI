@@ -3854,3 +3854,9 @@ body.install-guide-open{overflow:hidden}
 
 /* V1.4.122: verified CT and estimated CT are visually distinguished. */
 .course-time-missing-badge.estimated{background:#eef6ff;border-color:#9ec5ee;color:#245f91}
+
+
+/* V1.4.147: nationwide cache usage indicator */
+.national-cache-stats{display:inline-flex;flex-wrap:wrap;gap:3px 5px;align-items:center;margin-top:5px;padding:4px 8px;border:1px solid #cfe2d8;border-radius:999px;background:#fff;color:#45665a;font-size:10px;line-height:1.35;font-weight:700}
+.national-cache-stats b{font-weight:950;color:#215d48}
+@media(max-width:700px){.national-cache-stats{font-size:10px;border-radius:8px}}

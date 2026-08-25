@@ -29,7 +29,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.4.146"
+APP_VERSION = "1.4.147"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -92,12 +92,12 @@ OVERPASS_ENDPOINTS = [
 
 UA = os.environ.get(
     "UPSTREAM_USER_AGENT",
-    "TraverseWeatherDecision/1.4.21",
+    "TraverseWeatherDecision/1.4.147 https://otenki.onrender.com",
 )
 
 METNO_USER_AGENT = os.environ.get(
     "METNO_USER_AGENT",
-    "TRATEN/1.4.116 https://otenki.onrender.com",
+    "TRATEN/1.4.147 https://otenki.onrender.com",
 )
 
 NOAA_GFS_FILTER = os.environ.get(
@@ -124,8 +124,13 @@ OPENMETEO_PROXY_CACHE_TTL = int(os.environ.get("OPENMETEO_PROXY_CACHE_TTL", "180
 NATIONAL_OUTLOOK_CACHE_TTL = int(os.environ.get("NATIONAL_OUTLOOK_CACHE_TTL", "14400"))
 NATIONAL_METNO_FALLBACK_TTL = int(os.environ.get("NATIONAL_METNO_FALLBACK_TTL", "3600"))
 NATIONAL_METNO_MAX_DAYS = int(os.environ.get("NATIONAL_METNO_MAX_DAYS", "9"))
-NATIONAL_METNO_WORKERS = max(1, min(8, int(os.environ.get("NATIONAL_METNO_WORKERS", "6"))))
-NATIONAL_METNO_MIN_INTERVAL = float(os.environ.get("NATIONAL_METNO_MIN_INTERVAL", "0.08"))
+NATIONAL_METNO_WORKERS = max(1, min(8, int(os.environ.get("NATIONAL_METNO_WORKERS", "4"))))
+# MET Norway explicitly asks clients to avoid request bursts and to handle 429 throttling.
+# National outlook already reuses Supabase rows, so a gentler default is safer for cold fills.
+NATIONAL_METNO_MIN_INTERVAL = float(os.environ.get("NATIONAL_METNO_MIN_INTERVAL", "0.20"))
+NATIONAL_METNO_MAX_RETRIES = max(1, min(5, int(os.environ.get("NATIONAL_METNO_MAX_RETRIES", "3"))))
+NATIONAL_METNO_RETRY_BASE = float(os.environ.get("NATIONAL_METNO_RETRY_BASE", "1.2"))
+NATIONAL_METNO_RETRY_MAX = float(os.environ.get("NATIONAL_METNO_RETRY_MAX", "12"))
 _national_metno_lock = threading.Lock()
 _national_metno_last_request = 0.0
 NATIONAL_OUTLOOK_STALE_TTL = int(os.environ.get("NATIONAL_OUTLOOK_STALE_TTL", "86400"))
@@ -1094,22 +1099,49 @@ def _national_result_from_forecast(p: dict[str, Any], forecast: dict[str, Any]) 
 
 
 
+def _metno_retry_delay(exc: Exception, attempt: int) -> float:
+    retry_after=None
+    if isinstance(exc, urllib.error.HTTPError):
+        try: retry_after=float(exc.headers.get("Retry-After") or 0)
+        except (TypeError,ValueError): retry_after=None
+    if retry_after and retry_after>0:
+        return min(NATIONAL_METNO_RETRY_MAX,max(0.5,retry_after))
+    return min(NATIONAL_METNO_RETRY_MAX,NATIONAL_METNO_RETRY_BASE*(2**attempt))
+
+def _metno_error_kind(exc: Exception) -> str:
+    if isinstance(exc,urllib.error.HTTPError): return f"http_{exc.code}"
+    if isinstance(exc,urllib.error.URLError): return "url_error"
+    if isinstance(exc,TimeoutError): return "timeout"
+    return exc.__class__.__name__.lower()
+
 def _request_metno_national_point(p: dict[str, Any], timeout: int = UPSTREAM_TIMEOUT) -> dict[str, Any] | None:
-    """Fetch one location from MET Norway Locationforecast for national-outlook fallback."""
+    """Fetch one MET Norway Locationforecast point with throttling-aware retry."""
     global _national_metno_last_request
     params={"lat":f'{p["lat"]:.5f}',"lon":f'{p["lon"]:.5f}'}
     if p.get("elevation") is not None:
         try: params["altitude"]=str(round(float(p["elevation"])))
         except (TypeError,ValueError): pass
     url="https://api.met.no/weatherapi/locationforecast/2.0/compact?"+urllib.parse.urlencode(params)
-    with _national_metno_lock:
-        wait=NATIONAL_METNO_MIN_INTERVAL-(time.monotonic()-_national_metno_last_request)
-        if wait>0: time.sleep(wait)
-        _national_metno_last_request=time.monotonic()
-    req=urllib.request.Request(url,headers={"User-Agent":METNO_USER_AGENT,"Accept":"application/json"})
-    with urllib.request.urlopen(req,timeout=timeout) as resp:
-        if resp.status!=200: return None
-        return json.loads(resp.read().decode("utf-8"))
+    last_exc=None
+    for attempt in range(NATIONAL_METNO_MAX_RETRIES):
+        with _national_metno_lock:
+            wait=NATIONAL_METNO_MIN_INTERVAL-(time.monotonic()-_national_metno_last_request)
+            if wait>0: time.sleep(wait)
+            _national_metno_last_request=time.monotonic()
+        req=urllib.request.Request(url,headers={"User-Agent":METNO_USER_AGENT,"Accept":"application/json"})
+        try:
+            with urllib.request.urlopen(req,timeout=timeout) as resp:
+                if resp.status!=200: return None
+                return json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            last_exc=exc
+            if exc.code not in {429,500,502,503,504} or attempt>=NATIONAL_METNO_MAX_RETRIES-1: raise
+        except (urllib.error.URLError,TimeoutError) as exc:
+            last_exc=exc
+            if attempt>=NATIONAL_METNO_MAX_RETRIES-1: raise
+        time.sleep(_metno_retry_delay(last_exc,attempt))
+    if last_exc: raise last_exc
+    return None
 
 
 def _national_result_from_metno(p: dict[str, Any], date_text: str, payload: dict[str, Any]) -> dict[str, Any] | None:
@@ -1285,20 +1317,30 @@ def _national_gfs_results(date_text: str, points: list[dict[str, Any]]) -> dict[
     return results
 
 
-def _national_metno_results(date_text: str, points: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
-    out={}
+def _national_metno_results(date_text: str, points: list[dict[str, Any]]) -> tuple[dict[str, dict[str, Any]], dict[str, int]]:
+    out={}; stats={"requested":len(points),"ok":0,"http_429":0,"http_403":0,"http_5xx":0,"timeout":0,"other":0}
     try:
         target=datetime.strptime(date_text,"%Y-%m-%d").date(); today=(datetime.now(timezone.utc)+timedelta(hours=9)).date()
-        if target<today or target>today+timedelta(days=NATIONAL_METNO_MAX_DAYS): return out
-    except ValueError: return out
+        if target<today or target>today+timedelta(days=NATIONAL_METNO_MAX_DAYS): return out,stats
+    except ValueError: return out,stats
     def one(p):
-        try: return p,_national_result_from_metno(p,date_text,_request_metno_national_point(p) or {})
-        except Exception: return p,None
+        try: return p,_national_result_from_metno(p,date_text,_request_metno_national_point(p) or {}),None
+        except Exception as exc: return p,None,_metno_error_kind(exc)
     with ThreadPoolExecutor(max_workers=NATIONAL_METNO_WORKERS,thread_name_prefix="traten-national-metno") as ex:
         for fut in as_completed([ex.submit(one,p) for p in points]):
-            p,result=fut.result()
-            if result: out[p["name"]]=result
-    return out
+            p,result,kind=fut.result()
+            if result:
+                out[p["name"]]=result; stats["ok"]+=1
+            elif kind:
+                if kind=="http_429": stats["http_429"]+=1
+                elif kind=="http_403": stats["http_403"]+=1
+                elif kind.startswith("http_5"): stats["http_5xx"]+=1
+                elif kind in {"timeout","url_error"}: stats["timeout"]+=1
+                else: stats["other"]+=1
+    failed=stats["requested"]-stats["ok"]
+    if failed:
+        app.logger.warning("national_metno_partial requested=%s ok=%s http429=%s http403=%s http5xx=%s timeout=%s other=%s",stats["requested"],stats["ok"],stats["http_429"],stats["http_403"],stats["http_5xx"],stats["timeout"],stats["other"])
+    return out,stats
 
 
 def _national_grade_rank(g: str) -> int:
@@ -1339,8 +1381,14 @@ def _national_fetch_shared(date_text: str, points: list[dict[str, Any]]) -> tupl
     if missing:
         metno={}; gfs={}
         # Fetch both independent sources. One can still complete if the other is temporarily unavailable.
-        try: metno=_national_metno_results(date_text,missing)
-        except Exception as exc: warning_parts.append(f"MET Norwayの一部を取得できませんでした")
+        try:
+            metno,metno_stats=_national_metno_results(date_text,missing)
+            if metno_stats.get("http_429"): warning_parts.append("MET Norwayが混雑したため一部は保存済み結果を利用しました")
+            elif metno_stats.get("http_403"): warning_parts.append("MET Norwayの認証ヘッダー確認が必要です")
+            elif metno_stats.get("http_5xx") or metno_stats.get("timeout"): warning_parts.append("MET Norwayの一部応答が不安定でした")
+        except Exception as exc:
+            app.logger.warning("national_metno_failed kind=%s",_metno_error_kind(exc))
+            warning_parts.append("MET Norwayの一部を取得できませんでした")
         try: gfs=_national_gfs_results(date_text,missing)
         except Exception as exc: warning_parts.append(f"NOAA GFSの一部を取得できませんでした")
         for p in missing:
@@ -1354,7 +1402,7 @@ def _national_fetch_shared(date_text: str, points: list[dict[str, Any]]) -> tupl
     return ordered,complete,False,"。".join(dict.fromkeys(warning_parts)) or None
 
 
-def _national_response(data: dict[str, Any], state: str, *, rate_limited: bool=False, warning: str | None=None, cached_count: int | None=None, newly_fetched_count: int | None=None) -> Response:
+def _national_response(data: dict[str, Any], state: str, *, rate_limited: bool=False, warning: str | None=None, cached_count: int | None=None, newly_fetched_count: int | None=None, stale_fallback_count: int=0) -> Response:
     now=time.time(); generated=float(data.get("generated_ts") or now)
     results=data.get("results") or []; points=data.get("points") or []
     result_names={str(r.get("name") or "") for r in results if isinstance(r,dict)}
@@ -1365,6 +1413,7 @@ def _national_response(data: dict[str, Any], state: str, *, rate_limited: bool=F
         "cache":{"state":state,"backend":"supabase+local" if _national_supabase_enabled() else "local-only","generatedAt":data.get("generated_at"),"ageSeconds":max(0,round(now-generated)),"freshTtlSeconds":NATIONAL_OUTLOOK_CACHE_TTL,
                  "cachedCount":int(cached_count if cached_count is not None else data.get("cached_count") or got),
                  "newlyFetchedCount":int(newly_fetched_count or 0),
+                 "staleFallbackCount":max(0,int(stale_fallback_count or 0)),
                  "missingCount":max(0,total-got)},
         "rateLimited":False,
         "dualModelCount":sum(1 for r in results if r.get("source")=="metno+gfs"),
@@ -1544,15 +1593,18 @@ def national_outlook():
         data=_national_write_disk_cache(date_text,fingerprint,points,merged)
         _national_supabase_write(date_text,points,new_results)
         complete=len(merged)>=len(points)
-        newly_fetched=max(0,len({r.get('name') for r in new_results if isinstance(r,dict) and r.get('name')} - cached_names))
+        new_names={str(r.get('name') or '') for r in new_results if isinstance(r,dict) and r.get('name')}
+        newly_fetched=max(0,len(new_names - cached_names))
+        merged_names={str(r.get('name') or '') for r in merged if isinstance(r,dict) and r.get('name')}
+        stale_fallback_count=len((set(sb_stale) & merged_names)-new_names)
 
         if complete:
             response_state='partial-completed' if state_prefix=='partial' else 'live-generated'
-            return _national_response(data,response_state,cached_count=cached_count,newly_fetched_count=newly_fetched)
+            return _national_response(data,response_state,cached_count=cached_count,newly_fetched_count=newly_fetched,stale_fallback_count=stale_fallback_count)
 
         missing_count=max(0,len(points)-len(merged))
         warning=(error or f'保存済み結果を利用し、未取得の{missing_count}座だけ次回以降も追加取得します。')
-        return _national_response(data,'partial-updated',warning=warning,cached_count=cached_count,newly_fetched_count=newly_fetched)
+        return _national_response(data,'partial-updated',warning=warning,cached_count=cached_count,newly_fetched_count=newly_fetched,stale_fallback_count=stale_fallback_count)
     finally:
         _national_unlock(date_text,fingerprint)
 
