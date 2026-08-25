@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.4.87';
+const APP_VERSION = '1.4.89';
 
 
 
@@ -1003,7 +1003,7 @@ const SAVED_ROUTES_STORAGE_KEY='traten:saved-routes:v1';
 const SAVED_ROUTES_MAX=50;
 
 function routeSnapshotFromPoints(mountain,points){
-  return {mountain,points:(points||[]).map(p=>({id:p.id||'',name:p.name||'',type:p.type||'peak',date:p.date||'',time:p.time||'',stay:!!p.stay,role:p.role||''}))};
+  return {mountain,points:(points||[]).map(p=>({id:p.id||'',name:p.name||'',type:p.type||'peak',date:p.date||'',time:p.time||'',stay:!!p.stay,departureTime:p.departureTime||'',role:p.role||''}))};
 }
 function loadLastRouteSnapshot(){
   try{
@@ -1031,11 +1031,13 @@ function formatLastRouteSavedAt(ms){
 function refreshLastAnalysisPanel(){
   const panel=$('lastAnalysisPanel'); if(!panel)return;
   const data=loadLastRouteSnapshot();
-  panel.classList.toggle('hidden',!data);
-  if(!data)return;
+  panel.classList.remove('hidden');
+  const btn=$('lastRouteBtn');
+  if(btn)btn.disabled=!data;
+  const meta=$('lastAnalysisMeta');
+  if(!data){if(meta)meta.textContent='前回ルートはまだありません';return;}
   const mountain=data.route?.mountain||'前回ルート';
   const count=data.route?.points?.length||0;
-  const meta=$('lastAnalysisMeta');
   if(meta)meta.textContent=`${mountain} / ${count}地点 / ${formatLastRouteSavedAt(data.savedAt)}`;
 }
 function loadSavedRoutes(){
@@ -1060,9 +1062,25 @@ function currentRouteSnapshot(){
 }
 function defaultSavedRouteName(){
   const mountain=currentMountainLabel()||'山行ルート';
+  const course=representativeCourseFor(mountain);
+  if(course?.label)return `${mountain}｜${course.label}`.slice(0,50);
   const points=collectRouteMapPointsFromForm();
   const first=points[0]?.name||'';const last=points[points.length-1]?.name||'';
-  return first&&last&&first!==last?`${mountain} ${first}→${last}`:`${mountain} ルート`;
+  if(first&&last&&first!==last)return `${mountain}｜${first}→${last}`.slice(0,50);
+  const peaks=points.filter(p=>p.type==='peak').map(p=>p.name).filter(Boolean);
+  if(peaks.length>1)return `${mountain}｜${peaks.slice(0,3).join('→')}`.slice(0,50);
+  return `${mountain}｜山行ルート`.slice(0,50);
+}
+function shiftedRouteDatesForTomorrow(route){
+  if(!route?.points?.length)return route;
+  const firstDate=route.points.find(p=>p.date)?.date;
+  if(!firstDate)return route;
+  const target=addDays(todayLocal(),1);
+  const fromMs=new Date(`${firstDate}T12:00:00+09:00`).getTime();
+  const toMs=new Date(`${target}T12:00:00+09:00`).getTime();
+  if(!Number.isFinite(fromMs)||!Number.isFinite(toMs))return route;
+  const deltaDays=Math.round((toMs-fromMs)/86400000);
+  return {...route,points:route.points.map(p=>({...p,date:p.date?addDays(p.date,deltaDays):p.date}))};
 }
 function closeSavedRoutesModal(){
   const modal=$('savedRoutesModal');if(!modal)return;
@@ -1071,9 +1089,12 @@ function closeSavedRoutesModal(){
 function openSavedRoutesModal(focusName=false){
   const modal=$('savedRoutesModal');if(!modal)return;
   renderSavedRoutesList();
-  const input=$('savedRouteName');if(input&&!input.value.trim()){try{input.value=defaultSavedRouteName();}catch(_){}}
+  const input=$('savedRouteName');
+  if(input){
+    try{if(focusName||!input.value.trim())input.value=defaultSavedRouteName();}catch(_){}
+  }
   modal.classList.remove('hidden');modal.setAttribute('aria-hidden','false');document.body.classList.add('saved-routes-open');
-  if(focusName)setTimeout(()=>input?.focus(),30);
+  if(focusName)setTimeout(()=>{input?.focus();input?.select?.();},30);
 }
 function savedRouteDateLabel(route){
   const pts=route?.points||[];if(!pts.length)return '';
@@ -1097,6 +1118,7 @@ function renderSavedRoutesList(){
 }
 async function restoreRouteSnapshot(route,label='保存ルート'){
   if(!route?.mountain||!Array.isArray(route.points))throw new Error('ルートデータが壊れています。');
+  route=shiftedRouteDatesForTomorrow(route);
   const search=$('mountainSearch');if(!search)throw new Error('山行設定を開けませんでした。');
   search.value=route.mountain;search.dispatchEvent(new Event('change',{bubbles:true}));
   await new Promise(r=>setTimeout(r,60));
@@ -1113,12 +1135,16 @@ async function restoreRouteSnapshot(route,label='保存ルート'){
     if(!hit)continue;
     addPointRow(saved.type,hit.id,saved.role||'',{date:saved.date,time:saved.time});
     const row=$('points').lastElementChild;
-    if(row?.querySelector('.point-stay'))row.querySelector('.point-stay').checked=!!saved.stay;
+    const stayInput=row?.querySelector('.point-stay');
+    const departureInput=row?.querySelector('.stay-departure-time');
+    if(stayInput)stayInput.checked=!!saved.stay;
+    if(departureInput)departureInput.value=saved.departureTime||'05:00';
+    updateStayDepartureControl(row);
     updateMeta(row);restored++;
   }
   updateForecastHorizon();renderRouteMaps();refreshAllCourseTimeMissingBadges();
   if(!restored)throw new Error('保存した通過ポイントを現在のデータから復元できませんでした。');
-  setStatus(`${label}「${route.mountain}」を復元しました。通過日時も保存時のままです。`);
+  setStatus(`${label}「${route.mountain}」を復元しました。01の通過日は明日へ移し、日程間隔と宿泊翌朝の出発時刻は保持しています。`);
   $('points')?.scrollIntoView({behavior:'smooth',block:'start'});
 }
 function createFavoriteRoute(){
@@ -4420,13 +4446,28 @@ async function captureAnalysisResultsScreenshot(){
     const mountain=screenshotSafeName(currentMountainLabel()||'トラテン分析結果');
     const date=screenshotSafeName(screenshotRouteDate());
     const filename=`トラテン_${mountain}_${date}.png`;
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');
-    a.href=url;a.download=filename;a.rel='noopener';
-    document.body.appendChild(a);a.click();a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),30000);
-    if(status)status.textContent='PNG画像を作成しました。';
-    logEvent('result_screenshot',{success:true,mountain:currentMountainLabel(),metadata:{format:'png',full_result:true,model_details:false}});
+    let delivery='download';
+    const file=new File([blob],filename,{type:'image/png'});
+    const canShareFile=typeof navigator.share==='function'&&(!navigator.canShare||navigator.canShare({files:[file]}));
+    if(isMobileDevice()&&canShareFile){
+      try{
+        if(status)status.textContent='共有メニューから「画像を保存」を選ぶと写真ライブラリに保存できます。';
+        await navigator.share({files:[file],title:'トラテン分析結果'});
+        delivery='share';
+      }catch(e){
+        if(e?.name!=='AbortError')throw e;
+        if(status)status.textContent='共有をキャンセルしました。';
+        return;
+      }
+    }else{
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      a.href=url;a.download=filename;a.rel='noopener';
+      document.body.appendChild(a);a.click();a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),30000);
+      if(status)status.textContent='PNG画像を作成しました。';
+    }
+    logEvent('result_screenshot',{success:true,mountain:currentMountainLabel(),metadata:{format:'png',full_result:true,model_details:false,delivery}});
   }catch(e){
     console.error(e);
     if(status)status.textContent='画像を作成できませんでした。もう一度お試しください。';
@@ -5236,13 +5277,21 @@ function addManualPointRow(){
       const dt=new Date(lastValue);
       if(!Number.isNaN(dt.getTime())){
         if(last.querySelector('.point-stay')?.checked){
-          dt.setDate(dt.getDate()+1);
-          dt.setHours(5,0,0,0);
+          const base=stayDepartureDateTimeValue(last);
+          if(base){
+            const dep=new Date(base);
+            dep.setHours(dep.getHours()+1);
+            date=formatJstInput(dep.getTime()).date;
+            time=formatJstInput(dep.getTime()).time;
+          }else{
+            dt.setDate(dt.getDate()+1);dt.setHours(6,0,0,0);
+            date=formatLocalDate(dt);time=formatLocalTime(dt);
+          }
         }else{
           dt.setHours(dt.getHours()+1);
+          date=formatLocalDate(dt);
+          time=formatLocalTime(dt);
         }
-        date=formatLocalDate(dt);
-        time=formatLocalTime(dt);
       }
     }
   }
@@ -5288,12 +5337,13 @@ function addPointRow(type='peak',selected='',roleLabel='',initialDateTime=null){
     <label class="datetime-label date-label"><span class="field-caption">通過日</span><span class="date-control"><input class="point-date" type="date" value="${initialDateTime?.date||todayLocal()}"><button class="date-picker-btn" type="button" title="カレンダーを開く" aria-label="カレンダーを開く">📅</button></span></label>
     <label class="datetime-label time-label"><span class="field-caption">通過時刻</span><span class="time-control-with-ct"><input class="point-time" type="time" value="${initialDateTime?.time||'06:00'}"><span class="course-time-missing-badge hidden" title="直前地点からの標準CTが未登録です">CT情報なし</span></span></label>
     <label class="stay-option ${type==='hut'?'':'hidden'}"><span>宿泊</span><span class="stay-toggle"><input class="point-stay" type="checkbox"><b><span class="stay-label-desktop">ここに泊まる</span><span class="stay-label-mobile">泊まる</span></b></span></label>
+    <label class="stay-departure-option hidden"><span class="field-caption">翌朝出発</span><input class="stay-departure-time" type="time" value="05:00"></label>
     <button class="move up" type="button" title="上へ">↑</button><button class="move down" type="button" title="下へ">↓</button><button class="remove" type="button" title="削除">×</button>
     <div class="point-meta">地点を選択してください</div>`;
   $('points').appendChild(row); renumber();
   window.TratenTrailheadAccess?.attachRow?.(row);
   const typeSel=row.querySelector('.point-type'), pointSel=row.querySelector('.point-select'), stay=row.querySelector('.stay-option');
-  typeSel.addEventListener('change',()=>preservePointRowViewport(row,()=>{pointSel.innerHTML=candidateOptions(typeSel.value); stay.classList.toggle('hidden',typeSel.value!=='hut'); if(typeSel.value!=='hut')row.querySelector('.point-stay').checked=false; updateMeta(row); refreshAllCourseTimeMissingBadges();}));
+  typeSel.addEventListener('change',()=>preservePointRowViewport(row,()=>{pointSel.innerHTML=candidateOptions(typeSel.value); stay.classList.toggle('hidden',typeSel.value!=='hut'); if(typeSel.value!=='hut')row.querySelector('.point-stay').checked=false; updateStayDepartureControl(row); updateMeta(row); refreshAllCourseTimeMissingBadges();}));
   pointSel.addEventListener('change',()=>preservePointRowViewport(row,()=>{
     const p=selectedCandidate(pointSel.value);
     if(p){
@@ -5317,7 +5367,8 @@ function addPointRow(type='peak',selected='',roleLabel='',initialDateTime=null){
   dateInput.addEventListener('dblclick',openDatePicker);
   [dateInput,timeInput].forEach(input=>{
     input.addEventListener('change',()=>{
-      syncNextPointInitialTime(row);
+      if(row===row.parentElement?.firstElementChild)recalculateFollowingPointTimes(row);
+      else syncNextPointInitialTime(row);
       row.dataset.datetimeBefore=rowDateTimeValue(row)||'';
       updateForecastHorizon();
       renderRouteMaps();
@@ -5325,6 +5376,13 @@ function addPointRow(type='peak',selected='',roleLabel='',initialDateTime=null){
     });
   });
   row.querySelector('.point-stay').addEventListener('change',()=>{
+    updateStayDepartureControl(row);
+    syncNextPointInitialTime(row);
+    updateForecastHorizon();
+    renderRouteMaps();
+    refreshAllCourseTimeMissingBadges();
+  });
+  row.querySelector('.stay-departure-time')?.addEventListener('change',()=>{
     syncNextPointInitialTime(row);
     updateForecastHorizon();
     renderRouteMaps();
@@ -5341,6 +5399,22 @@ function renumber(){[...$('points').children].forEach((r,i)=>r.querySelector('.p
 function rowDateTimeValue(row){
   const date=row.querySelector('.point-date')?.value, time=row.querySelector('.point-time')?.value;
   return date&&time?`${date}T${time}:00+09:00`:'';
+}
+function updateStayDepartureControl(row){
+  if(!row)return;
+  const checked=!!row.querySelector('.point-stay')?.checked;
+  const wrap=row.querySelector('.stay-departure-option');
+  if(wrap)wrap.classList.toggle('hidden',!checked);
+}
+function stayDepartureDateTimeValue(row){
+  if(!row?.querySelector('.point-stay')?.checked)return '';
+  const date=row.querySelector('.point-date')?.value;
+  const departure=row.querySelector('.stay-departure-time')?.value||'05:00';
+  if(!date||!departure)return '';
+  const baseMs=new Date(`${date}T12:00:00+09:00`).getTime();
+  if(!Number.isFinite(baseMs))return '';
+  const nextDate=formatJstInput(baseMs+24*60*60*1000).date;
+  return `${nextDate}T${departure}:00+09:00`;
 }
 function formatJstInput(ms){
   const d=new Date(ms+9*60*60*1000);
@@ -5366,7 +5440,7 @@ function refreshCourseTimeMissingBadge(row){
   const badge=row?.querySelector('.course-time-missing-badge');
   if(!badge)return;
   const prev=row.previousElementSibling;
-  if(!prev||prev.querySelector('.point-stay')?.checked){
+  if(!prev){
     badge.classList.add('hidden');
     return;
   }
@@ -5385,11 +5459,12 @@ function refreshAllCourseTimeMissingBadges(){
 
 function applyCourseTimeFromPrevious(row,{announce=false}={}){
   const prev=row?.previousElementSibling;
-  if(!prev||prev.querySelector('.point-stay')?.checked)return false;
+  if(!prev)return false;
   const from=selectedCandidate(prev.querySelector('.point-select')?.value);
   const to=selectedCandidate(row.querySelector('.point-select')?.value);
   const info=courseTimeInfo(from,to);
-  const baseValue=rowDateTimeValue(prev);
+  const stayed=!!prev.querySelector('.point-stay')?.checked;
+  const baseValue=stayed?stayDepartureDateTimeValue(prev):rowDateTimeValue(prev);
   if(!info||!baseValue)return false;
   const base=new Date(baseValue);
   if(Number.isNaN(base.getTime()))return false;
@@ -5398,12 +5473,40 @@ function applyCourseTimeFromPrevious(row,{announce=false}={}){
   row.querySelector('.point-time').value=shifted.time;
   row.dataset.datetimeBefore=`${shifted.date}T${shifted.time}:00+09:00`;
   row.dataset.courseTimeAuto='1';
-  if(announce)setStatus(`${from.name} → ${to.name}：標準CT ${formatCourseTimeMinutes(info.minutes)}${info.sourceType==='yamareco'?'（補助ソース）':''} を加算して ${shifted.time} にしました。`);
+  if(announce){
+    const prefix=stayed?`翌朝 ${prev.querySelector('.stay-departure-time')?.value||'05:00'} 出発＋標準CT `:'標準CT ';
+    setStatus(`${from.name} → ${to.name}：${prefix}${formatCourseTimeMinutes(info.minutes)}${info.sourceType==='yamareco'?'（補助ソース）':''} で ${shifted.date} ${shifted.time} にしました。`);
+  }
   updateForecastHorizon();
   refreshCourseTimeMissingBadge(row);
   return true;
 }
 
+function recalculateFollowingPointTimes(startRow){
+  let prev=startRow;
+  while(prev?.nextElementSibling){
+    const next=prev.nextElementSibling;
+    const from=selectedCandidate(prev.querySelector('.point-select')?.value);
+    const to=selectedCandidate(next.querySelector('.point-select')?.value);
+    const stayed=!!prev.querySelector('.point-stay')?.checked;
+    const baseValue=stayed?stayDepartureDateTimeValue(prev):rowDateTimeValue(prev);
+    if(!baseValue)break;
+    const base=new Date(baseValue);
+    if(Number.isNaN(base.getTime()))break;
+    const info=from&&to?courseTimeInfo(from,to):null;
+    const minutes=info?.minutes||60;
+    const shifted=formatJstInput(base.getTime()+minutes*60*1000);
+    next.querySelector('.point-date').value=shifted.date;
+    next.querySelector('.point-time').value=shifted.time;
+    next.dataset.datetimeBefore=`${shifted.date}T${shifted.time}:00+09:00`;
+    next.dataset.courseTimeAuto=info?'1':'';
+    refreshCourseTimeMissingBadge(next);
+    prev=next;
+  }
+  updateForecastHorizon();
+  renderRouteMaps();
+  refreshAllCourseTimeMissingBadges();
+}
 function syncNextPointInitialTime(row){
   const next=row.nextElementSibling;
   const current=rowDateTimeValue(row);
@@ -5411,14 +5514,22 @@ function syncNextPointInitialTime(row){
   const dt=new Date(current);
   if(Number.isNaN(dt.getTime()))return;
   if(row.querySelector('.point-stay')?.checked){
-    const base=new Date(`${row.querySelector('.point-date').value}T12:00:00+09:00`);
-    base.setDate(base.getDate()+1);
-    const nextDate=formatLocalDate(base);
-    next.querySelector('.point-date').value=nextDate;
-    next.querySelector('.point-time').value='05:00';
-    next.dataset.datetimeBefore=`${nextDate}T05:00:00+09:00`;
-    next.dataset.courseTimeAuto='';
-    setStatus(`宿泊の次のポイントを翌朝 5:00 にしました。`);
+    const departureValue=stayDepartureDateTimeValue(row);
+    if(!departureValue)return;
+    if(!applyCourseTimeFromPrevious(next)){
+      const departure=new Date(departureValue);
+      const shifted=formatJstInput(departure.getTime()+60*60*1000);
+      next.querySelector('.point-date').value=shifted.date;
+      next.querySelector('.point-time').value=shifted.time;
+      next.dataset.datetimeBefore=`${shifted.date}T${shifted.time}:00+09:00`;
+      next.dataset.courseTimeAuto='';
+      setStatus(`翌朝 ${row.querySelector('.stay-departure-time')?.value||'05:00'} 出発。次区間はCT情報がないため仮に＋1時間で ${shifted.time} にしました。`);
+    }else{
+      const from=selectedCandidate(row.querySelector('.point-select')?.value);
+      const to=selectedCandidate(next.querySelector('.point-select')?.value);
+      const info=courseTimeInfo(from,to);
+      if(info)setStatus(`翌朝 ${row.querySelector('.stay-departure-time')?.value||'05:00'} 出発＋標準CT ${formatCourseTimeMinutes(info.minutes)} で次の地点を計算しました。`);
+    }
   }else if(!applyCourseTimeFromPrevious(next)){
     const shifted=formatJstInput(dt.getTime()+60*60*1000);
     next.querySelector('.point-date').value=shifted.date;
@@ -5470,7 +5581,9 @@ function collectPoints(){
     const date=row.querySelector('.point-date').value, time=row.querySelector('.point-time').value;
     if(!date||!time) throw new Error(`${p.name} の通過日・通過時刻を入力してください。`);
     if(!hasResolvedCoord(p)) throw new Error(`${p.name} の座標が確定していないため利用できません。別の確定済み地点を選択してください。`);
-    return {...p,date,time,type:row.querySelector('.point-type').value,stay:!!row.querySelector('.point-stay')?.checked,role:row.dataset.role||''};
+    const stay=!!row.querySelector('.point-stay')?.checked;
+    const departureTime=stay?(row.querySelector('.stay-departure-time')?.value||'05:00'):'';
+    return {...p,date,time,type:row.querySelector('.point-type').value,stay,departureTime,role:row.dataset.role||''};
   }).filter(Boolean);
 }
 function validateChronology(points){
@@ -6953,7 +7066,9 @@ function renderPointForecastTimeline(points){
 
 function renderAll(points,overnight=[]){
 
-  $('results').classList.remove('hidden'); renderWeatherCharts(points); renderDecisionCommentary(points); renderRouteMaps(points.map(x=>x.point)); const worst=points.reduce((a,b)=>gradeRank(b.grade)>gradeRank(a.grade)?b:a,points[0]);
+  $('results').classList.remove('hidden');
+  const screenshotBtn=$('resultScreenshotBtn');if(screenshotBtn)screenshotBtn.disabled=false;
+  const screenshotStatus=$('resultScreenshotStatus');if(screenshotStatus)screenshotStatus.textContent=''; renderWeatherCharts(points); renderDecisionCommentary(points); renderRouteMaps(points.map(x=>x.point)); const worst=points.reduce((a,b)=>gradeRank(b.grade)>gradeRank(a.grade)?b:a,points[0]);
   const maxWindValue=max(points.flatMap(x=>x.providerRows.map(y=>y.row.wind))); const maxRainValue=max(points.flatMap(x=>x.providerRows.map(y=>y.row.rain))); const thunderLevel=maxThunder(points.map(x=>x.thunder)); const confidenceLevel=overallConfidence(points.map(x=>x.confidence));
   $('grade').textContent=worst.grade; $('verdict').textContent=verdict(worst.grade);
   const gradeLabels={A:'EXCELLENT',B:'GOOD',C:'CAUTION',D:'HARD',E:'STOP'}; const verdictNotes={A:'全体としてかなり安定した予報です。',B:'一部に注意点はありますが、全体としては比較的安定しています。',C:'注意要素があります。通過時刻と場所を確認してください。',D:'強い気象リスクを含む計画です。見直しを推奨します。',E:'非常に強い気象リスクがあります。中止を含めて再検討してください。'};

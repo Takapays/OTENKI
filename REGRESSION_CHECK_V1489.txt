@@ -1,0 +1,9 @@
+V1.4.89 regression checks
+- APP_VERSION/index cache/version: 1.4.89
+- Result screenshot: mobile file share via Web Share API; desktop/unsupported fallback to PNG download
+- Saved/last route restore: first dated point shifts to tomorrow, preserving relative day offsets
+- Point 01 date/time change: recalculates all following points using CT, missing CT +1h
+- Stay departure: fixed user-selected departure time remains unchanged during downstream recalculation
+- Saved route name: auto candidate from mountain + representative course, fallback first->last
+- node --check app.js: PASS
+- py_compile server.py: PASS
