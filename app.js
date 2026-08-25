@@ -139,7 +139,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.122';
+const APP_VERSION = '1.4.124';
 
 
 
@@ -902,6 +902,18 @@ const CENTRAL_SOUTH_ALPS_COURSE_TIMES = Object.freeze({
 // 補助ソースはヤマケイオンライン、次いでヤマレコの公開「山行計画」標準CTを使用。
 // ヤマレコは速度倍率が明記された計画や実歩行実績を採用せず、複数の標準計画で整合する値を優先する。
 const SUPPLEMENTAL_COURSE_TIMES = Object.freeze({
+  // V1.4.123: 推定CTから確認済みCTへ置換。ヤマレコの公開山行計画（らくルート標準CT）を優先。
+  '羅臼温泉登山口→羅臼岳': {minutes:403, source:'ヤマレコ・羅臼岳 山行計画 p5230560（標準CT）', sourceType:'yamareco'},
+  '京極登山口→後方羊蹄山（羊蹄山）': {minutes:320, source:'ヤマレコ・羊蹄山 京極コース 山行計画 p5541585（標準CT）', sourceType:'yamareco'},
+  '畳平バスターミナル→乗鞍岳': {minutes:100, source:'ヤマレコ・畳平〜乗鞍岳（剣ヶ峰）山行計画 p5533460（標準CT）', sourceType:'yamareco'},
+  'かいもん山麓ふれあい公園→開聞岳': {minutes:195, source:'ヤマレコ・開聞岳 山行計画 p5592303（標準CT）', sourceType:'yamareco'},
+  '開聞岳→かいもん山麓ふれあい公園': {minutes:113, source:'ヤマレコ・開聞岳 山行計画 p5592303（標準CT）', sourceType:'yamareco'},
+  '八甲田ロープウェー山頂公園駅→八甲田山（大岳）': {minutes:148, source:'ヤマレコ・八甲田山 山頂公園駅〜大岳 山行計画 p5522141（区間CT合算）', sourceType:'yamareco'},
+  '須川高原温泉→栗駒山': {minutes:147, source:'ヤマレコ・栗駒山 須川温泉ルート 山行計画 p5542501（標準CT）', sourceType:'yamareco'},
+  '栗駒山→須川高原温泉': {minutes:98, source:'ヤマレコ・栗駒山 須川温泉ルート 山行計画 p5542501（標準CT）', sourceType:'yamareco'},
+  '猪苗代登山口（猪苗代スキー場）→磐梯山': {minutes:283, source:'ヤマレコ・磐梯山 猪苗代登山口ルート 山行計画 p5500273（標準CT）', sourceType:'yamareco'},
+  '御池登山口→燧ヶ岳（柴安嵓）': {minutes:231, source:'ヤマレコ・燧ヶ岳 御池ルート 山行計画 p5563896（標準CT）', sourceType:'yamareco'},
+  '燧ヶ岳（柴安嵓）→御池登山口': {minutes:145, source:'ヤマレコ・燧ヶ岳 御池ルート 山行計画 p5561223（標準CT）', sourceType:'yamareco'},
   // V1.4.122: 全国CT一括補完。ヤマケイ掲載の代表ルート総CTを優先採用。
   '沓形登山口→利尻山': {minutes:360, source:'山と溪谷オンライン・利尻山 沓形コース（登山口→山頂 約6時間）', sourceType:'yamakei'},
   '清岳荘登山口→斜里岳': {minutes:180, source:'山と溪谷オンライン・斜里岳 清里コース（清岳荘→山頂 約3時間）', sourceType:'yamakei'},
@@ -969,7 +981,10 @@ const SUPPLEMENTAL_COURSE_TIMES = Object.freeze({
 });
 
 function normalizeCourseTimePointName(name){
-  const raw=String(name||'').normalize('NFKC').replace(/\s+/g,'').trim();
+  // V1.4.123: 入力側だけ空白/NFKC正規化していたため、別名辞書に空白や全角括弧を含むキーが
+  // 実質マッチしない問題を修正。辞書キー側も同じ規則で比較し、登録済み確認CTを確実に拾う。
+  const compact=v=>String(v||'').normalize('NFKC').replace(/\s+/g,'').trim();
+  const raw=compact(name);
   const aliases={
     '三股登山口':'三股',
     '横尾山荘':'横尾',
@@ -1027,9 +1042,26 @@ function normalizeCourseTimePointName(name){
     ,'北谷登山口 祖母山':'北谷登山口'
     ,'北谷登山口駐車場・北谷登山口':'北谷登山口'
     ,'仁田峠第一展望所駐車場・普賢岳登山口':'仁田峠'
+    // V1.4.123: 登録済み確認CTの端点と固定候補名を接続
+    ,'つつじヶ丘':'つつじヶ丘登山口'
+    ,'馬返し登山口':'馬返し登山口岩手山'
+    ,'一本杉登山口':'一本杉登山口 姫神山'
+    ,'赤坂峠登山口':'赤坂峠 五葉山登山口'
+    ,'谷川岳（オキノ耳）':'谷川岳オキノ耳'
+    ,'谷川岳(オキノ耳)':'谷川岳オキノ耳'
+    ,'宮ノ浦岳':'宮之浦岳'
     ,'二分登山口':'二口登山口'
+    // V1.4.123 bulk: 固定候補の説明付き名称を既存の確認済みCT端点へ接続
+    ,'大貝戸登山口 藤原岳':'大貝戸登山口'
+    ,'みつえ青少年旅行村 三峰山登山口':'みつえ青少年旅行村（三峰山登山口）'
+    ,'月見ヶ丘登山口駐車場 道後山':'月見ヶ丘'
+    ,'かいもん山麓ふれあい公園駐車場・開聞岳登山口アクセス':'かいもん山麓ふれあい公園'
   };
-  return aliases[raw]||raw;
+  // aliases のキーは過去版から可読性重視の表記を維持しているため、比較時に同じcompact規則を適用する。
+  for(const [alias,target] of Object.entries(aliases)){
+    if(compact(alias)===raw)return target;
+  }
+  return raw;
 }
 const COURSE_TIME_TABLES = Object.freeze([
   NORTH_ALPS_COURSE_TIMES,
@@ -1039,6 +1071,31 @@ const COURSE_TIME_TABLES = Object.freeze([
   EAST_NORTH_COURSE_TIMES,
   SUPPLEMENTAL_COURSE_TIMES
 ]);
+// V1.4.123: NFKC/空白除去後の名称を、実際にCTテーブルで使っている端点表記へ戻す。
+// 例: 「霧島山（韓国岳）」→NFKCで「霧島山(韓国岳)」になっても、CTキー側の全角括弧表記へ再結合する。
+let COURSE_TIME_ENDPOINT_CANONICAL_CACHE=null;
+function courseTimePointMatchKey(name){
+  return String(name||'').normalize('NFKC').replace(/\s+/g,'').trim();
+}
+function canonicalCourseTimeEndpointName(name){
+  if(!COURSE_TIME_ENDPOINT_CANONICAL_CACHE){
+    const map=new Map(), ambiguous=new Set();
+    for(const table of COURSE_TIME_TABLES){
+      for(const key of Object.keys(table)){
+        const sep=key.indexOf('→');
+        if(sep<1)continue;
+        for(const endpoint of [key.slice(0,sep),key.slice(sep+1)]){
+          const mk=courseTimePointMatchKey(endpoint);
+          if(map.has(mk)&&map.get(mk)!==endpoint)ambiguous.add(mk);
+          else map.set(mk,endpoint);
+        }
+      }
+    }
+    for(const mk of ambiguous)map.delete(mk);
+    COURSE_TIME_ENDPOINT_CANONICAL_CACHE=map;
+  }
+  return COURSE_TIME_ENDPOINT_CANONICAL_CACHE.get(courseTimePointMatchKey(name))||name;
+}
 let COURSE_TIME_GRAPH_CACHE=null;
 function normalizedCourseTimeSource(source=''){
   const raw=String(source)
@@ -1242,8 +1299,8 @@ function courseTimeInfo(fromPoint,toPoint){
   // 括弧の全角/半角変換などで確認済みCTキーを取りこぼすのを防ぐ。
   const rawInfo=directCourseTimeInfoByNames(rawFrom,rawTo)||composedCourseTimeInfo(rawFrom,rawTo);
   if(rawInfo)return rawInfo;
-  const fromName=normalizeCourseTimePointName(rawFrom);
-  const toName=normalizeCourseTimePointName(rawTo);
+  const fromName=canonicalCourseTimeEndpointName(normalizeCourseTimePointName(rawFrom));
+  const toName=canonicalCourseTimeEndpointName(normalizeCourseTimePointName(rawTo));
   const normalizedInfo=directCourseTimeInfoByNames(fromName,toName)||composedCourseTimeInfo(fromName,toName);
   if(normalizedInfo)return normalizedInfo;
   return estimatedGeneratedCourseTimeInfo(rawFrom,rawTo)
@@ -4603,7 +4660,7 @@ async function openMountainFromNationalMap(name){
   }
   $('mountainPreset')?.scrollIntoView({behavior:'smooth',block:'center'});
 }
-const NATIONAL_OUTLOOK_BROWSER_CACHE_KEY='traten:national-outlook:v3';
+const NATIONAL_OUTLOOK_BROWSER_CACHE_KEY='traten:national-outlook:v4';
 const NATIONAL_OUTLOOK_BROWSER_CACHE_TTL=30*60*1000;
 function readNationalOutlookBrowserCache(date){
   try{
@@ -4628,24 +4685,27 @@ async function runNationalOutlook(){
     nationalOutlookResults=new Map(browserCached.map(x=>[x.name,x]));
     renderNationalOutlookMarkers();
     const counts={A:0,B:0,C:0};for(const r of nationalOutlookResults.values())if(counts[r.grade]!=null)counts[r.grade]++;
-    if(status)status.innerHTML=`端末キャッシュから表示：<b>A ${counts.A}座</b> / <b>B ${counts.B}座</b> / <b>C ${counts.C}座</b>（30分以内）`;
-    if(btn)btn.disabled=false;
-    return;
+    const missing=Math.max(0,eligible.length-nationalOutlookResults.size);
+    if(status)status.innerHTML=`保存済み ${nationalOutlookResults.size}座を先に表示：<b>A ${counts.A}座</b> / <b>B ${counts.B}座</b> / <b>C ${counts.C}座</b>${missing?`<br><small>未取得 ${missing}座だけ追加確認中…</small>`:'<br><small>共有キャッシュの更新有無を確認中…</small>'}`;
+    // Do not return: server-side partial cache is checked and only missing mountains are fetched.
+  }else{
+    nationalOutlookResults=new Map();
+    renderNationalOutlookMarkers();
+    if(status)status.textContent='全国共有キャッシュを確認中… MET Norway + NOAA GFSで簡易判定します。';
   }
-  nationalOutlookResults=new Map();
-  renderNationalOutlookMarkers();
-  if(status)status.textContent='全国共有キャッシュを確認中… MET Norway + NOAA GFSで簡易判定します。';
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),110000);
   try{
     const res=await fetch('/api/national-outlook',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date,points:eligible}),signal:controller.signal});
     const data=await res.json().catch(()=>({}));
     if(!res.ok)throw new Error(data.error||`HTTP ${res.status}`);
-    for(const x of (data.results||[]))nationalOutlookResults.set(x.name,x);
+    // Server returns the merged shared cache, so replace the local map with that snapshot.
+    nationalOutlookResults=new Map((data.results||[]).map(x=>[x.name,x]));
     renderNationalOutlookMarkers();
     const counts={A:0,B:0,C:0};for(const r of nationalOutlookResults.values())if(counts[r.grade]!=null)counts[r.grade]++;
     const got=nationalOutlookResults.size;
-    if(data.complete&&got)writeNationalOutlookBrowserCache(date,[...nationalOutlookResults.values()]);
+    // V1.4.124: save partial results too. The next run can show them instantly and fill only missing mountains.
+    if(got)writeNationalOutlookBrowserCache(date,[...nationalOutlookResults.values()]);
     const state=String(data.cache?.state||'');
     const missing=Math.max(0,points.length-got);
     const rateLimited=!!data.rateLimited;
@@ -4654,10 +4714,15 @@ async function runNationalOutlook(){
     }else{
       let lead='判定完了';
       if(state.includes('stale'))lead='保存済みの最新結果を表示';
-      else if(state==='shared-fresh')lead='最新の共有結果を表示';
-      else if(state==='live-generated')lead='判定完了';
+      else if(state==='shared-fresh')lead='共有キャッシュから即時表示';
+      else if(state==='partial-completed')lead='保存済み結果に不足分を追加して判定完了';
+      else if(state==='partial-updated')lead='保存済み結果を利用して一部更新';
+      else if(state==='shared-partial-refreshing')lead='保存済み結果を表示（不足分を更新中）';
+      else if(state==='live-generated')lead='判定完了・共有キャッシュを保存';
       else if(state==='partial')lead='一部の山を判定しました';
       let note='';
+      const cachedCount=Number(data.cache?.cachedCount||0), newlyFetched=Number(data.cache?.newlyFetchedCount||0);
+      if(cachedCount||newlyFetched)note+=`<br><small>共有キャッシュ ${cachedCount}座利用${newlyFetched?` ＋ 新規取得 ${newlyFetched}座`:''}。</small>`;
       const dualCount=Number(data.dualModelCount||0);
       const metnoOnly=Number(data.metnoOnlyCount||0), gfsOnly=Number(data.gfsOnlyCount||0);
       if(dualCount>0)note+=`<br><small>MET Norway + NOAA GFSの2モデルを比較して判定（2モデル取得 ${dualCount}座）。</small>`;

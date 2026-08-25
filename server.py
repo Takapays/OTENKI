@@ -29,7 +29,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.4.121"
+APP_VERSION = "1.4.124"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -885,7 +885,10 @@ def _national_read_disk_cache(date_text: str, fingerprint: str) -> tuple[dict[st
 
 
 def _national_write_disk_cache(date_text: str, fingerprint: str, points: list[dict[str, Any]], results: list[dict[str, Any]]) -> dict[str, Any]:
+    # V1.4.124: partial nationwide results are first-class shared cache entries.
+    # A cache does not need all mountains to be useful; later requests merge only newly obtained mountains.
     now = time.time()
+    result_names = {str(r.get("name") or "") for r in results if isinstance(r, dict)}
     data = {
         "date": date_text,
         "fingerprint": fingerprint,
@@ -895,6 +898,8 @@ def _national_write_disk_cache(date_text: str, fingerprint: str, points: list[di
         "stale_until": now + NATIONAL_OUTLOOK_STALE_TTL,
         "points": points,
         "results": results,
+        "complete": len(result_names) >= len(points),
+        "cached_count": len(result_names),
         "version": APP_VERSION,
     }
     path = _national_cache_file(date_text, fingerprint)
@@ -1269,16 +1274,22 @@ def _national_fetch_shared(date_text: str, points: list[dict[str, Any]]) -> tupl
     return ordered,complete,False,"。".join(dict.fromkeys(warning_parts)) or None
 
 
-def _national_response(data: dict[str, Any], state: str, *, rate_limited: bool=False, warning: str | None=None) -> Response:
+def _national_response(data: dict[str, Any], state: str, *, rate_limited: bool=False, warning: str | None=None, cached_count: int | None=None, newly_fetched_count: int | None=None) -> Response:
     now=time.time(); generated=float(data.get("generated_ts") or now)
+    results=data.get("results") or []; points=data.get("points") or []
+    result_names={str(r.get("name") or "") for r in results if isinstance(r,dict)}
+    total=len(points); got=len(result_names)
     payload={
-        "date":data.get("date"), "results":data.get("results") or [], "version":APP_VERSION,
-        "complete":len(data.get("results") or []) >= len(data.get("points") or []),
-        "cache":{"state":state,"generatedAt":data.get("generated_at"),"ageSeconds":max(0,round(now-generated)),"freshTtlSeconds":NATIONAL_OUTLOOK_CACHE_TTL},
+        "date":data.get("date"), "results":results, "version":APP_VERSION,
+        "complete":got >= total if total else False,
+        "cache":{"state":state,"generatedAt":data.get("generated_at"),"ageSeconds":max(0,round(now-generated)),"freshTtlSeconds":NATIONAL_OUTLOOK_CACHE_TTL,
+                 "cachedCount":int(cached_count if cached_count is not None else data.get("cached_count") or got),
+                 "newlyFetchedCount":int(newly_fetched_count or 0),
+                 "missingCount":max(0,total-got)},
         "rateLimited":False,
-        "dualModelCount":sum(1 for r in (data.get("results") or []) if r.get("source")=="metno+gfs"),
-        "metnoOnlyCount":sum(1 for r in (data.get("results") or []) if r.get("source")=="metno"),
-        "gfsOnlyCount":sum(1 for r in (data.get("results") or []) if r.get("source")=="gfs"),
+        "dualModelCount":sum(1 for r in results if r.get("source")=="metno+gfs"),
+        "metnoOnlyCount":sum(1 for r in results if r.get("source")=="metno"),
+        "gfsOnlyCount":sum(1 for r in results if r.get("source")=="gfs"),
     }
     if warning: payload["warning"]=warning
     body=json.dumps(payload,ensure_ascii=False).encode("utf-8")
@@ -1318,9 +1329,15 @@ def _ensure_national_refresh_worker() -> None:
                         try:
                             latest,state=_national_read_disk_cache(date_text,fp)
                             if state=='fresh': continue
-                            results,complete,rate_limited,error=_national_fetch_shared(date_text,points)
-                            if complete:
-                                _national_write_disk_cache(date_text,fp,points,results)
+                            latest_results=(latest or {}).get("results") or []
+                            latest_names={str(r.get("name") or "") for r in latest_results if isinstance(r,dict)}
+                            fetch_points=points if state=='stale' else [p for p in points if p.get("name") not in latest_names]
+                            results,complete,rate_limited,error=_national_fetch_shared(date_text,fetch_points) if fetch_points else ([],True,False,None)
+                            by_name={str(r.get("name") or ""):dict(r) for r in latest_results if isinstance(r,dict) and r.get("name")}
+                            for r in results:
+                                if isinstance(r,dict) and r.get("name"): by_name[str(r.get("name"))]=dict(r)
+                            merged=[by_name[p["name"]] for p in points if p.get("name") in by_name]
+                            _national_write_disk_cache(date_text,fp,points,merged)
                             if rate_limited:
                                 break
                         finally:
@@ -1357,35 +1374,75 @@ def national_outlook():
     fingerprint=_national_points_fingerprint(points)
     cached,state=_national_read_disk_cache(date_text,fingerprint)
     _ensure_national_refresh_worker()
-    if cached and state=='fresh':
-        return _national_response(cached,'shared-fresh')
 
-    stale=cached if cached and state=='stale' else None
+    def merge_results(base_results, new_results):
+        by_name={str(r.get("name") or ""):dict(r) for r in (base_results or []) if isinstance(r,dict) and r.get("name")}
+        for r in (new_results or []):
+            if isinstance(r,dict) and r.get("name"): by_name[str(r.get("name"))]=dict(r)
+        return [by_name[p["name"]] for p in points if p["name"] in by_name]
+
+    cached_results=(cached or {}).get("results") or []
+    cached_names={str(r.get("name") or "") for r in cached_results if isinstance(r,dict)}
+    cached_count=len(cached_names)
+    is_cached_complete=cached_count >= len(points)
+
+    # A complete fresh cache returns immediately. A fresh partial cache is useful,
+    # but we continue only for the missing mountains and merge the result back.
+    if cached and state=='fresh' and is_cached_complete:
+        return _national_response(cached,'shared-fresh',cached_count=cached_count,newly_fetched_count=0)
+
     if not _national_try_lock(date_text,fingerprint):
-        # Another worker/user is already refreshing this date. Prefer the last-good shared result.
-        if stale: return _national_response(stale,'shared-stale-refreshing',warning='共有キャッシュを更新中のため、直近の成功結果を表示しています。')
-        # Briefly wait for the first generator, then re-check once.
+        # Another worker/user is filling the same date. Return whatever partial/full cache exists immediately.
+        if cached_results:
+            cache_state='shared-partial-refreshing' if not is_cached_complete else 'shared-stale-refreshing'
+            warning='保存済みの判定結果を表示しています。未取得の山は別の処理で更新中です。' if not is_cached_complete else '共有キャッシュを更新中のため、保存済み結果を表示しています。'
+            return _national_response(cached,cache_state,warning=warning,cached_count=cached_count,newly_fetched_count=0)
         for _ in range(12):
             time.sleep(0.5)
             ready,ready_state=_national_read_disk_cache(date_text,fingerprint)
-            if ready and ready_state=='fresh': return _national_response(ready,'shared-fresh')
+            if ready and (ready.get('results') or []):
+                ready_count=len({str(r.get('name') or '') for r in (ready.get('results') or []) if isinstance(r,dict)})
+                ready_complete=ready_count>=len(points)
+                return _national_response(ready,'shared-fresh' if ready_complete else 'shared-partial-refreshing',cached_count=ready_count,newly_fetched_count=0)
         return jsonify(error="全国共有キャッシュを生成中です。数秒後に再度お試しください。"), 503
 
     try:
-        # Re-check after acquiring the cross-worker lock.
+        # Re-check after lock because another request may have completed while we waited.
         ready,ready_state=_national_read_disk_cache(date_text,fingerprint)
-        if ready and ready_state=='fresh': return _national_response(ready,'shared-fresh')
-        if ready and ready_state=='stale': stale=ready
-        results,complete,rate_limited,error=_national_fetch_shared(date_text,points)
+        if ready:
+            cached=ready; state=ready_state
+            cached_results=ready.get('results') or []
+            cached_names={str(r.get('name') or '') for r in cached_results if isinstance(r,dict)}
+            cached_count=len(cached_names)
+            if state=='fresh' and cached_count>=len(points):
+                return _national_response(ready,'shared-fresh',cached_count=cached_count,newly_fetched_count=0)
+
+        # Fresh partial cache: fetch ONLY missing mountains.
+        # Stale cache: refresh all points, but retain stale results as fallback for individual failures.
+        if cached and state=='fresh':
+            fetch_points=[p for p in points if p['name'] not in cached_names]
+            base_results=cached_results
+            state_prefix='partial'
+        else:
+            fetch_points=points
+            base_results=cached_results
+            state_prefix='refresh'
+
+        new_results=[]; error=None
+        if fetch_points:
+            new_results,_,_,error=_national_fetch_shared(date_text,fetch_points)
+        merged=merge_results(base_results,new_results)
+        data=_national_write_disk_cache(date_text,fingerprint,points,merged)
+        complete=len(merged)>=len(points)
+        newly_fetched=max(0,len({r.get('name') for r in new_results if isinstance(r,dict) and r.get('name')} - cached_names))
+
         if complete:
-            data=_national_write_disk_cache(date_text,fingerprint,points,results)
-            return _national_response(data,'live-generated')
-        if stale:
-            warning='最新データを取得できなかったため、直近に取得できた結果を表示しています。'
-            return _national_response(stale,'shared-stale',rate_limited=rate_limited,warning=warning)
-        # First-ever request has no last-good cache. Keep any completed point results instead of total failure.
-        partial={"date":date_text,"generated_at":datetime.now(timezone.utc).isoformat(),"generated_ts":time.time(),"points":points,"results":results}
-        return _national_response(partial,'partial',warning=(error or '一部の山のみ判定できました。少し時間をおいて再度お試しください。'))
+            response_state='partial-completed' if state_prefix=='partial' else 'live-generated'
+            return _national_response(data,response_state,cached_count=cached_count,newly_fetched_count=newly_fetched)
+
+        missing_count=max(0,len(points)-len(merged))
+        warning=(error or f'保存済み結果を利用し、未取得の{missing_count}座だけ次回以降も追加取得します。')
+        return _national_response(data,'partial-updated',warning=warning,cached_count=cached_count,newly_fetched_count=newly_fetched)
     finally:
         _national_unlock(date_text,fingerprint)
 
