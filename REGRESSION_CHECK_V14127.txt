@@ -1,0 +1,6 @@
+トラテン V1.4.127 回帰確認
+- node --check app.js: PASS
+- python3 -m py_compile server.py: PASS
+- CT coverage audit: 413/413 CT表示、確認済み249、推定164、CT情報なし0
+- ヤマレコ歩行ペース逆算方針を文書化
+- MutationObserverをaccess.jsへ再導入していないことを確認

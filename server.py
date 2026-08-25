@@ -29,7 +29,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.4.124"
+APP_VERSION = "1.4.146"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -855,6 +855,86 @@ def _national_grade(max_wind: float, max_gust: float, max_rain: float, max_cape:
         return "B", "6〜15時の一部で風または雨の影響が見込まれます。比較的よい時間帯を確認してください。"
     return "A", "6〜15時は風雨の大きな影響が比較的少なく、登山候補にしやすい条件です。詳細分析で最終確認してください。"
 
+
+NATIONAL_SUPABASE_CACHE_TABLE = os.environ.get("NATIONAL_SUPABASE_CACHE_TABLE", "national_outlook_cache")
+NATIONAL_SUPABASE_TIMEOUT = int(os.environ.get("NATIONAL_SUPABASE_TIMEOUT", "12"))
+
+def _national_supabase_enabled() -> bool:
+    return bool(SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY and NATIONAL_SUPABASE_CACHE_TABLE)
+
+def _national_supabase_key(date_text: str, p: dict[str, Any]) -> str:
+    raw=f'{NATIONAL_OUTLOOK_ENGINE}|{date_text}|{p["name"]}|{p["lat"]:.5f}|{p["lon"]:.5f}|{"" if p.get("elevation") is None else round(float(p["elevation"]))}'
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+def _national_supabase_read(date_text: str, points: list[dict[str, Any]]) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
+    """Return (fresh_by_name, stale_by_name) from persistent shared cache.
+    Missing table/config fails open so national outlook still works with local fallback.
+    """
+    if not _national_supabase_enabled():
+        return {}, {}
+    params={
+        "select":"cache_key,mountain_name,result,generated_ts,fresh_until,stale_until",
+        "forecast_date":f"eq.{date_text}",
+        "engine":f"eq.{NATIONAL_OUTLOOK_ENGINE}",
+        "stale_until":f"gt.{time.time()}",
+        "limit":"1000",
+    }
+    url=f"{SUPABASE_URL}/rest/v1/{NATIONAL_SUPABASE_CACHE_TABLE}?"+urllib.parse.urlencode(params,safe=",.:+-")
+    req=urllib.request.Request(url,headers={**_supabase_headers(accept_json=True)})
+    try:
+        with urllib.request.urlopen(req,timeout=NATIONAL_SUPABASE_TIMEOUT) as resp:
+            rows=json.loads(resp.read().decode("utf-8"))
+    except Exception:
+        return {}, {}
+    wanted={_national_supabase_key(date_text,p):p["name"] for p in points}
+    now=time.time(); fresh={}; stale={}
+    for row in rows if isinstance(rows,list) else []:
+        key=str(row.get("cache_key") or "")
+        name=wanted.get(key)
+        result=row.get("result")
+        if not name or not isinstance(result,dict): continue
+        result=dict(result); result["name"]=name
+        try: fu=float(row.get("fresh_until") or 0); su=float(row.get("stale_until") or 0)
+        except (TypeError,ValueError): continue
+        if su<=now: continue
+        (fresh if fu>now else stale)[name]=result
+    return fresh,stale
+
+def _national_supabase_write(date_text: str, points: list[dict[str, Any]], results: list[dict[str, Any]]) -> bool:
+    if not _national_supabase_enabled() or not results:
+        return False
+    by_name={p["name"]:p for p in points}
+    now=time.time(); generated_at=datetime.now(timezone.utc).isoformat()
+    rows=[]
+    for r in results:
+        if not isinstance(r,dict) or not r.get("name"): continue
+        p=by_name.get(str(r.get("name")))
+        if not p: continue
+        rows.append({
+            "cache_key":_national_supabase_key(date_text,p),
+            "forecast_date":date_text,
+            "engine":NATIONAL_OUTLOOK_ENGINE,
+            "mountain_name":p["name"],
+            "lat":round(float(p["lat"]),5),
+            "lon":round(float(p["lon"]),5),
+            "elevation":None if p.get("elevation") is None else round(float(p["elevation"])),
+            "result":r,
+            "generated_at":generated_at,
+            "generated_ts":now,
+            "fresh_until":now+NATIONAL_OUTLOOK_CACHE_TTL,
+            "stale_until":now+NATIONAL_OUTLOOK_STALE_TTL,
+            "app_version":APP_VERSION,
+        })
+    if not rows: return False
+    url=f"{SUPABASE_URL}/rest/v1/{NATIONAL_SUPABASE_CACHE_TABLE}?on_conflict=cache_key"
+    body=json.dumps(rows,ensure_ascii=False,separators=(",", ":")).encode("utf-8")
+    req=urllib.request.Request(url,data=body,method="POST",headers={**_supabase_headers(),"Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=minimal"})
+    try:
+        with urllib.request.urlopen(req,timeout=NATIONAL_SUPABASE_TIMEOUT) as resp:
+            return 200<=resp.status<300
+    except Exception:
+        return False
+
 def _national_points_fingerprint(points: list[dict[str, Any]]) -> str:
     raw = NATIONAL_OUTLOOK_ENGINE + "|" + "|".join(
         f'{p["name"]}:{p["lat"]:.5f}:{p["lon"]:.5f}:{"" if p.get("elevation") is None else round(float(p["elevation"]))}'
@@ -885,7 +965,7 @@ def _national_read_disk_cache(date_text: str, fingerprint: str) -> tuple[dict[st
 
 
 def _national_write_disk_cache(date_text: str, fingerprint: str, points: list[dict[str, Any]], results: list[dict[str, Any]]) -> dict[str, Any]:
-    # V1.4.124: partial nationwide results are first-class shared cache entries.
+    # V1.4.125: partial nationwide results are first-class shared cache entries.
     # A cache does not need all mountains to be useful; later requests merge only newly obtained mountains.
     now = time.time()
     result_names = {str(r.get("name") or "") for r in results if isinstance(r, dict)}
@@ -1282,7 +1362,7 @@ def _national_response(data: dict[str, Any], state: str, *, rate_limited: bool=F
     payload={
         "date":data.get("date"), "results":results, "version":APP_VERSION,
         "complete":got >= total if total else False,
-        "cache":{"state":state,"generatedAt":data.get("generated_at"),"ageSeconds":max(0,round(now-generated)),"freshTtlSeconds":NATIONAL_OUTLOOK_CACHE_TTL,
+        "cache":{"state":state,"backend":"supabase+local" if _national_supabase_enabled() else "local-only","generatedAt":data.get("generated_at"),"ageSeconds":max(0,round(now-generated)),"freshTtlSeconds":NATIONAL_OUTLOOK_CACHE_TTL,
                  "cachedCount":int(cached_count if cached_count is not None else data.get("cached_count") or got),
                  "newlyFetchedCount":int(newly_fetched_count or 0),
                  "missingCount":max(0,total-got)},
@@ -1372,8 +1452,33 @@ def national_outlook():
     if not points: return jsonify(error="有効な地点がありません"), 400
 
     fingerprint=_national_points_fingerprint(points)
+    sb_fresh,sb_stale=_national_supabase_read(date_text,points)
     cached,state=_national_read_disk_cache(date_text,fingerprint)
+    disk_state=state
     _ensure_national_refresh_worker()
+
+    # Persistent Supabase cache is authoritative across Render restarts/instances.
+    # Merge it ahead of the ephemeral /tmp cache; stale rows are fallback only.
+    disk_results=(cached or {}).get("results") or []
+    disk_by_name={str(r.get("name") or ""):dict(r) for r in disk_results if isinstance(r,dict) and r.get("name")}
+    persistent_seed=[]
+    for p in points:
+        name=p["name"]
+        if name in sb_fresh: persistent_seed.append(sb_fresh[name])
+        elif name in disk_by_name: persistent_seed.append(disk_by_name[name])
+        elif name in sb_stale: persistent_seed.append(sb_stale[name])
+    if persistent_seed:
+        now=time.time()
+        cached={
+            "date":date_text,"fingerprint":fingerprint,"generated_at":datetime.now(timezone.utc).isoformat(),"generated_ts":now,
+            "fresh_until":now+NATIONAL_OUTLOOK_CACHE_TTL,"stale_until":now+NATIONAL_OUTLOOK_STALE_TTL,
+            "points":points,"results":persistent_seed,"complete":len(persistent_seed)>=len(points),"cached_count":len(persistent_seed),"version":APP_VERSION,
+        }
+        # Supabase is authoritative across restarts. Preserve a genuinely fresh local snapshot
+        # when no persistent rows exist yet (useful during first deployment/migration).
+        if len(sb_fresh)>=len(points): state="fresh"
+        elif not sb_fresh and not sb_stale and disk_state=="fresh": state="fresh"
+        else: state="stale"
 
     def merge_results(base_results, new_results):
         by_name={str(r.get("name") or ""):dict(r) for r in (base_results or []) if isinstance(r,dict) and r.get("name")}
@@ -1389,7 +1494,7 @@ def national_outlook():
     # A complete fresh cache returns immediately. A fresh partial cache is useful,
     # but we continue only for the missing mountains and merge the result back.
     if cached and state=='fresh' and is_cached_complete:
-        return _national_response(cached,'shared-fresh',cached_count=cached_count,newly_fetched_count=0)
+        return _national_response(cached,'supabase-fresh' if len(sb_fresh)>=len(points) else 'shared-fresh',cached_count=cached_count,newly_fetched_count=0)
 
     if not _national_try_lock(date_text,fingerprint):
         # Another worker/user is filling the same date. Return whatever partial/full cache exists immediately.
@@ -1417,9 +1522,13 @@ def national_outlook():
             if state=='fresh' and cached_count>=len(points):
                 return _national_response(ready,'shared-fresh',cached_count=cached_count,newly_fetched_count=0)
 
-        # Fresh partial cache: fetch ONLY missing mountains.
-        # Stale cache: refresh all points, but retain stale results as fallback for individual failures.
-        if cached and state=='fresh':
+        # Supabase fresh rows survive deploy/restart and are never refetched within fresh TTL.
+        # Only stale/missing rows are refreshed; stale rows remain fallback for failures.
+        if sb_fresh:
+            fetch_points=[p for p in points if p['name'] not in sb_fresh]
+            base_results=cached_results
+            state_prefix='partial' if sb_fresh else 'refresh'
+        elif cached and state=='fresh':
             fetch_points=[p for p in points if p['name'] not in cached_names]
             base_results=cached_results
             state_prefix='partial'
@@ -1433,6 +1542,7 @@ def national_outlook():
             new_results,_,_,error=_national_fetch_shared(date_text,fetch_points)
         merged=merge_results(base_results,new_results)
         data=_national_write_disk_cache(date_text,fingerprint,points,merged)
+        _national_supabase_write(date_text,points,new_results)
         complete=len(merged)>=len(points)
         newly_fetched=max(0,len({r.get('name') for r in new_results if isinstance(r,dict) and r.get('name')} - cached_names))
 
@@ -1453,6 +1563,8 @@ def health():
         version=APP_VERSION,
         service="mountain-weather-decision",
         overpass_endpoints=len(OVERPASS_ENDPOINTS),
+        national_persistent_cache_configured=_national_supabase_enabled(),
+        national_persistent_cache_table=NATIONAL_SUPABASE_CACHE_TABLE if _national_supabase_enabled() else None,
         usage_logging=True,
         supabase_configured=bool(SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY),
         trail_regions_ready=sum(1 for r in _load_trail_manifest().get("regions", []) if r.get("ready")),
