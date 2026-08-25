@@ -158,15 +158,6 @@
     if((data.transitRows||[]).length) return data.transitRows;
     return [[`主要駅・バス停 → ${key}`,data.transit||'公共交通情報は要確認','時刻・運行日を公式確認']];
   }
-  function transitOfficialLinks(data){
-    const re=/(バス|交通|鉄道|電鉄|ロープウェイ|ゴンドラ|リフト|ケーブル|テレキャビン|シャトル|アルペンルート|八方尾根|白馬五竜|栂池)/i;
-    return (data.links||[]).filter(([label])=>re.test(String(label||'')));
-  }
-  function transitLinksHtml(data){
-    const rows=transitOfficialLinks(data);
-    if(!rows.length)return '';
-    return `<div class="ta-transit-official"><b>交通事業者の公式リンク</b><div>${rows.map(([label,url])=>`<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(label)} ↗</a>`).join('')}</div><small>時刻表・運行日・始発／最終便・運休情報はこちらで確認してください。</small></div>`;
-  }
 
   function ensureModal(){
     if(document.getElementById('trailheadAccessModal')) return;
@@ -201,7 +192,7 @@
       <div class="ta-alert"><b>⚠ アクセス注意</b><span>${esc(data.roadNote||'道路・林道・交通機関の最新状況を出発前に確認してください。')}</span></div>
       <div class="ta-grid">
         <article class="ta-card"><header><h3>🚗 車で行く</h3><span>ルート目安</span></header><div class="ta-card-body">${carRows.map(rowHtml).join('')}</div></article>
-        <article class="ta-card"><header><h3>🚌 公共交通で行く</h3><span>運行日要確認</span></header><div class="ta-card-body">${transitRows.map(transitHtml).join('')}${transitLinksHtml(data)}</div></article>
+        <article class="ta-card"><header><h3>🚌 公共交通で行く</h3><span>運行日要確認</span></header><div class="ta-card-body">${transitRows.map(transitHtml).join('')}</div></article>
       </div>
       <div class="ta-detail-grid">
         <article class="ta-card"><header><h3>🅿️ 駐車場・登山口設備</h3></header><div class="ta-card-body ta-detail-list">

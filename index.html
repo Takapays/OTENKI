@@ -124,6 +124,7 @@
     </div>
     <div class="national-outlook-legend" aria-label="判定凡例"><span class="grade-a">A</span>適性高め <span class="grade-b">B</span>注意あり <span class="grade-c">C</span>厳しい <span class="grade-u">?</span>未取得</div>
     <div id="nationalOutlookStatus" class="national-outlook-status">日付を選んで「全国を判定」を押してください。日本三百名山300座を6時から15時の予報でABC簡易判定します。</div>
+    <div class="national-mobile-map-hint" aria-hidden="true">山をクリックで詳細表示</div>
     <div class="national-outlook-body">
       <div id="nationalOutlookMap" class="national-outlook-map" aria-label="日本三百名山 全国一括簡易判定"></div>
       <aside id="nationalOutlookDetail" class="national-outlook-detail"><div style="padding:18px"><strong>山をタップすると詳細を表示</strong><p>ABC判定、6〜15時の気象要約、代表コース、近くの山をまとめて表示します。</p></div></aside>
@@ -134,14 +135,17 @@
   <aside class="planner-rail">
     <section class="panel plan-panel">
       <div class="panel-kicker">ROUTE PLAN</div>
-      <section id="lastAnalysisPanel" class="last-analysis-panel route-memory-panel" aria-label="ルート履歴">
-        <div class="last-analysis-copy"><strong>ルート履歴</strong><small id="lastAnalysisMeta">前回ルートはまだありません</small></div>
-        <div class="last-analysis-actions route-memory-actions">
-          <button id="lastRouteBtn" class="secondary" type="button" disabled>前回ルートを復元</button>
-          <button id="savedRoutesBtn" class="secondary saved-route-list" type="button">保存ルート一覧 <span id="savedRoutesCount">0</span></button>
+      <section id="lastAnalysisPanel" class="last-analysis-panel hidden" aria-label="前回の山行">
+        <div class="last-analysis-copy"><strong>前回の山行</strong><small id="lastAnalysisMeta"></small></div>
+        <div class="last-analysis-actions">
+          <button id="lastRouteBtn" class="secondary" type="button">前回ルートを復元</button>
         </div>
-        <p>前回ルートとお気に入り保存ルートを、この端末・このブラウザから呼び出せます。</p>
+        <p>この端末・このブラウザに保存された前回のルートと通過日時です。</p>
       </section>
+      <div class="saved-route-toolbar" aria-label="保存ルート">
+        <button id="saveRouteBtn" class="secondary saved-route-save" type="button">このルートを保存</button>
+        <button id="savedRoutesBtn" class="secondary saved-route-list" type="button">保存ルート一覧 <span id="savedRoutesCount">0</span></button>
+      </div>
 
       <div class="section-title compact-title">
         <span>01</span>
@@ -182,11 +186,6 @@
       <div class="actions route-actions">
         <button id="addPointBtn" class="secondary" type="button">＋ 地点を追加</button>
         <button id="analyzeBtn" class="primary" type="button"><span>この計画を分析開始</span><b>→</b></button>
-        <div class="post-analysis-actions">
-          <button id="saveRouteBtn" class="secondary saved-route-save" type="button">このルートを保存</button>
-          <button id="resultScreenshotBtn" class="secondary result-screenshot-btn" type="button" disabled><span aria-hidden="true">📷</span><b>結果をスクショ</b></button>
-        </div>
-        <small id="resultScreenshotStatus" class="result-screenshot-inline-status" aria-live="polite"></small>
         <section id="statusMobile" class="status status-mobile hidden" aria-live="polite"></section>
       </div>
     </section>
@@ -234,7 +233,7 @@
       <section class="route-map-shell route-map-preview-panel">
         <div class="route-map-head">
           <div><small>選択地点を自動表示</small><strong>ルートマップ</strong></div>
-          <span>地点を直線で接続</span>
+          <span>対応区間は登山道なりに表示</span>
         </div>
         <div id="routeMapPreviewEmpty" class="route-map-empty">山行設定で地点を選ぶと、登山口・山頂・山小屋・下山口を地図上に表示します。</div>
         <div id="routeMapPreview" class="route-map-canvas hidden" aria-label="ルートマップ（プレビュー）"></div>
@@ -243,6 +242,12 @@
     </section>
 
     <section id="results" class="hidden">
+      <div class="result-screenshot-toolbar screenshot-exclude" aria-label="分析結果の保存">
+        <button id="resultScreenshotBtn" class="secondary result-screenshot-btn" type="button">
+          <span aria-hidden="true">📷</span><b>結果をスクショ</b>
+        </button>
+        <small id="resultScreenshotStatus" aria-live="polite"></small>
+      </div>
       <section id="summaryResult" class="panel result-panel dashboard-primary">
         <div class="section-title"><span>02</span><div><h2>総合判断</h2><p id="updatedAt"></p></div></div>
         <div class="summary summary-infographic">
@@ -276,7 +281,7 @@
         <section class="route-map-shell route-map-results-panel">
           <div class="route-map-head">
             <div><small>分析対象ルート</small><strong>ルートマップ</strong></div>
-            <span>地点を直線で接続</span>
+            <span>対応区間は登山道なりに表示</span>
           </div>
           <div id="routeMapResultsEmpty" class="route-map-empty">分析した地点を地図上に表示します。</div>
           <div id="routeMapResults" class="route-map-canvas hidden" aria-label="ルートマップ（結果）"></div>
@@ -316,7 +321,7 @@
       <button id="savedRoutesClose" class="saved-routes-close" type="button" aria-label="閉じる">×</button>
     </div>
     <div class="saved-routes-create">
-      <label><span>保存名</span><input id="savedRouteName" type="text" maxlength="50" placeholder="山名・代表コースから自動入力"></label>
+      <label><span>保存名</span><input id="savedRouteName" type="text" maxlength="50" placeholder="例：槍ヶ岳 新穂高ルート"></label>
       <button id="savedRouteCreateBtn" class="primary" type="button">現在のルートを保存</button>
     </div>
     <div id="savedRoutesList" class="saved-routes-list"></div>

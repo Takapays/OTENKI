@@ -1003,7 +1003,7 @@ const SAVED_ROUTES_STORAGE_KEY='traten:saved-routes:v1';
 const SAVED_ROUTES_MAX=50;
 
 function routeSnapshotFromPoints(mountain,points){
-  return {mountain,points:(points||[]).map(p=>({id:p.id||'',name:p.name||'',type:p.type||'peak',date:p.date||'',time:p.time||'',stay:!!p.stay,departureTime:p.departureTime||'',role:p.role||''}))};
+  return {mountain,points:(points||[]).map(p=>({id:p.id||'',name:p.name||'',type:p.type||'peak',date:p.date||'',time:p.time||'',stay:!!p.stay,role:p.role||''}))};
 }
 function loadLastRouteSnapshot(){
   try{
@@ -1031,13 +1031,11 @@ function formatLastRouteSavedAt(ms){
 function refreshLastAnalysisPanel(){
   const panel=$('lastAnalysisPanel'); if(!panel)return;
   const data=loadLastRouteSnapshot();
-  panel.classList.remove('hidden');
-  const btn=$('lastRouteBtn');
-  if(btn)btn.disabled=!data;
-  const meta=$('lastAnalysisMeta');
-  if(!data){if(meta)meta.textContent='前回ルートはまだありません';return;}
+  panel.classList.toggle('hidden',!data);
+  if(!data)return;
   const mountain=data.route?.mountain||'前回ルート';
   const count=data.route?.points?.length||0;
+  const meta=$('lastAnalysisMeta');
   if(meta)meta.textContent=`${mountain} / ${count}地点 / ${formatLastRouteSavedAt(data.savedAt)}`;
 }
 function loadSavedRoutes(){
@@ -1062,25 +1060,9 @@ function currentRouteSnapshot(){
 }
 function defaultSavedRouteName(){
   const mountain=currentMountainLabel()||'山行ルート';
-  const course=representativeCourseFor(mountain);
-  if(course?.label)return `${mountain}｜${course.label}`.slice(0,50);
   const points=collectRouteMapPointsFromForm();
   const first=points[0]?.name||'';const last=points[points.length-1]?.name||'';
-  if(first&&last&&first!==last)return `${mountain}｜${first}→${last}`.slice(0,50);
-  const peaks=points.filter(p=>p.type==='peak').map(p=>p.name).filter(Boolean);
-  if(peaks.length>1)return `${mountain}｜${peaks.slice(0,3).join('→')}`.slice(0,50);
-  return `${mountain}｜山行ルート`.slice(0,50);
-}
-function shiftedRouteDatesForTomorrow(route){
-  if(!route?.points?.length)return route;
-  const firstDate=route.points.find(p=>p.date)?.date;
-  if(!firstDate)return route;
-  const target=addDays(todayLocal(),1);
-  const fromMs=new Date(`${firstDate}T12:00:00+09:00`).getTime();
-  const toMs=new Date(`${target}T12:00:00+09:00`).getTime();
-  if(!Number.isFinite(fromMs)||!Number.isFinite(toMs))return route;
-  const deltaDays=Math.round((toMs-fromMs)/86400000);
-  return {...route,points:route.points.map(p=>({...p,date:p.date?addDays(p.date,deltaDays):p.date}))};
+  return first&&last&&first!==last?`${mountain} ${first}→${last}`:`${mountain} ルート`;
 }
 function closeSavedRoutesModal(){
   const modal=$('savedRoutesModal');if(!modal)return;
@@ -1089,12 +1071,9 @@ function closeSavedRoutesModal(){
 function openSavedRoutesModal(focusName=false){
   const modal=$('savedRoutesModal');if(!modal)return;
   renderSavedRoutesList();
-  const input=$('savedRouteName');
-  if(input){
-    try{if(focusName||!input.value.trim())input.value=defaultSavedRouteName();}catch(_){}
-  }
+  const input=$('savedRouteName');if(input&&!input.value.trim()){try{input.value=defaultSavedRouteName();}catch(_){}}
   modal.classList.remove('hidden');modal.setAttribute('aria-hidden','false');document.body.classList.add('saved-routes-open');
-  if(focusName)setTimeout(()=>{input?.focus();input?.select?.();},30);
+  if(focusName)setTimeout(()=>input?.focus(),30);
 }
 function savedRouteDateLabel(route){
   const pts=route?.points||[];if(!pts.length)return '';
@@ -1118,7 +1097,6 @@ function renderSavedRoutesList(){
 }
 async function restoreRouteSnapshot(route,label='保存ルート'){
   if(!route?.mountain||!Array.isArray(route.points))throw new Error('ルートデータが壊れています。');
-  route=shiftedRouteDatesForTomorrow(route);
   const search=$('mountainSearch');if(!search)throw new Error('山行設定を開けませんでした。');
   search.value=route.mountain;search.dispatchEvent(new Event('change',{bubbles:true}));
   await new Promise(r=>setTimeout(r,60));
@@ -1135,16 +1113,12 @@ async function restoreRouteSnapshot(route,label='保存ルート'){
     if(!hit)continue;
     addPointRow(saved.type,hit.id,saved.role||'',{date:saved.date,time:saved.time});
     const row=$('points').lastElementChild;
-    const stayInput=row?.querySelector('.point-stay');
-    const departureInput=row?.querySelector('.stay-departure-time');
-    if(stayInput)stayInput.checked=!!saved.stay;
-    if(departureInput)departureInput.value=saved.departureTime||'05:00';
-    updateStayDepartureControl(row);
+    if(row?.querySelector('.point-stay'))row.querySelector('.point-stay').checked=!!saved.stay;
     updateMeta(row);restored++;
   }
   updateForecastHorizon();renderRouteMaps();refreshAllCourseTimeMissingBadges();
   if(!restored)throw new Error('保存した通過ポイントを現在のデータから復元できませんでした。');
-  setStatus(`${label}「${route.mountain}」を復元しました。01の通過日は明日へ移し、日程間隔と宿泊翌朝の出発時刻は保持しています。`);
+  setStatus(`${label}「${route.mountain}」を復元しました。通過日時も保存時のままです。`);
   $('points')?.scrollIntoView({behavior:'smooth',block:'start'});
 }
 function createFavoriteRoute(){
@@ -4446,28 +4420,13 @@ async function captureAnalysisResultsScreenshot(){
     const mountain=screenshotSafeName(currentMountainLabel()||'トラテン分析結果');
     const date=screenshotSafeName(screenshotRouteDate());
     const filename=`トラテン_${mountain}_${date}.png`;
-    let delivery='download';
-    const file=new File([blob],filename,{type:'image/png'});
-    const canShareFile=typeof navigator.share==='function'&&(!navigator.canShare||navigator.canShare({files:[file]}));
-    if(isMobileDevice()&&canShareFile){
-      try{
-        if(status)status.textContent='共有メニューから「画像を保存」を選ぶと写真ライブラリに保存できます。';
-        await navigator.share({files:[file],title:'トラテン分析結果'});
-        delivery='share';
-      }catch(e){
-        if(e?.name!=='AbortError')throw e;
-        if(status)status.textContent='共有をキャンセルしました。';
-        return;
-      }
-    }else{
-      const url=URL.createObjectURL(blob);
-      const a=document.createElement('a');
-      a.href=url;a.download=filename;a.rel='noopener';
-      document.body.appendChild(a);a.click();a.remove();
-      setTimeout(()=>URL.revokeObjectURL(url),30000);
-      if(status)status.textContent='PNG画像を作成しました。';
-    }
-    logEvent('result_screenshot',{success:true,mountain:currentMountainLabel(),metadata:{format:'png',full_result:true,model_details:false,delivery}});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download=filename;a.rel='noopener';
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),30000);
+    if(status)status.textContent='PNG画像を作成しました。';
+    logEvent('result_screenshot',{success:true,mountain:currentMountainLabel(),metadata:{format:'png',full_result:true,model_details:false}});
   }catch(e){
     console.error(e);
     if(status)status.textContent='画像を作成できませんでした。もう一度お試しください。';
@@ -5277,21 +5236,13 @@ function addManualPointRow(){
       const dt=new Date(lastValue);
       if(!Number.isNaN(dt.getTime())){
         if(last.querySelector('.point-stay')?.checked){
-          const base=stayDepartureDateTimeValue(last);
-          if(base){
-            const dep=new Date(base);
-            dep.setHours(dep.getHours()+1);
-            date=formatJstInput(dep.getTime()).date;
-            time=formatJstInput(dep.getTime()).time;
-          }else{
-            dt.setDate(dt.getDate()+1);dt.setHours(6,0,0,0);
-            date=formatLocalDate(dt);time=formatLocalTime(dt);
-          }
+          dt.setDate(dt.getDate()+1);
+          dt.setHours(5,0,0,0);
         }else{
           dt.setHours(dt.getHours()+1);
-          date=formatLocalDate(dt);
-          time=formatLocalTime(dt);
         }
+        date=formatLocalDate(dt);
+        time=formatLocalTime(dt);
       }
     }
   }
@@ -5337,13 +5288,12 @@ function addPointRow(type='peak',selected='',roleLabel='',initialDateTime=null){
     <label class="datetime-label date-label"><span class="field-caption">通過日</span><span class="date-control"><input class="point-date" type="date" value="${initialDateTime?.date||todayLocal()}"><button class="date-picker-btn" type="button" title="カレンダーを開く" aria-label="カレンダーを開く">📅</button></span></label>
     <label class="datetime-label time-label"><span class="field-caption">通過時刻</span><span class="time-control-with-ct"><input class="point-time" type="time" value="${initialDateTime?.time||'06:00'}"><span class="course-time-missing-badge hidden" title="直前地点からの標準CTが未登録です">CT情報なし</span></span></label>
     <label class="stay-option ${type==='hut'?'':'hidden'}"><span>宿泊</span><span class="stay-toggle"><input class="point-stay" type="checkbox"><b><span class="stay-label-desktop">ここに泊まる</span><span class="stay-label-mobile">泊まる</span></b></span></label>
-    <label class="stay-departure-option hidden"><span class="field-caption">翌朝出発</span><input class="stay-departure-time" type="time" value="05:00"></label>
     <button class="move up" type="button" title="上へ">↑</button><button class="move down" type="button" title="下へ">↓</button><button class="remove" type="button" title="削除">×</button>
     <div class="point-meta">地点を選択してください</div>`;
   $('points').appendChild(row); renumber();
   window.TratenTrailheadAccess?.attachRow?.(row);
   const typeSel=row.querySelector('.point-type'), pointSel=row.querySelector('.point-select'), stay=row.querySelector('.stay-option');
-  typeSel.addEventListener('change',()=>preservePointRowViewport(row,()=>{pointSel.innerHTML=candidateOptions(typeSel.value); stay.classList.toggle('hidden',typeSel.value!=='hut'); if(typeSel.value!=='hut')row.querySelector('.point-stay').checked=false; updateStayDepartureControl(row); updateMeta(row); refreshAllCourseTimeMissingBadges();}));
+  typeSel.addEventListener('change',()=>preservePointRowViewport(row,()=>{pointSel.innerHTML=candidateOptions(typeSel.value); stay.classList.toggle('hidden',typeSel.value!=='hut'); if(typeSel.value!=='hut')row.querySelector('.point-stay').checked=false; updateMeta(row); refreshAllCourseTimeMissingBadges();}));
   pointSel.addEventListener('change',()=>preservePointRowViewport(row,()=>{
     const p=selectedCandidate(pointSel.value);
     if(p){
@@ -5367,8 +5317,7 @@ function addPointRow(type='peak',selected='',roleLabel='',initialDateTime=null){
   dateInput.addEventListener('dblclick',openDatePicker);
   [dateInput,timeInput].forEach(input=>{
     input.addEventListener('change',()=>{
-      if(row===row.parentElement?.firstElementChild)recalculateFollowingPointTimes(row);
-      else syncNextPointInitialTime(row);
+      syncNextPointInitialTime(row);
       row.dataset.datetimeBefore=rowDateTimeValue(row)||'';
       updateForecastHorizon();
       renderRouteMaps();
@@ -5376,13 +5325,6 @@ function addPointRow(type='peak',selected='',roleLabel='',initialDateTime=null){
     });
   });
   row.querySelector('.point-stay').addEventListener('change',()=>{
-    updateStayDepartureControl(row);
-    syncNextPointInitialTime(row);
-    updateForecastHorizon();
-    renderRouteMaps();
-    refreshAllCourseTimeMissingBadges();
-  });
-  row.querySelector('.stay-departure-time')?.addEventListener('change',()=>{
     syncNextPointInitialTime(row);
     updateForecastHorizon();
     renderRouteMaps();
@@ -5399,22 +5341,6 @@ function renumber(){[...$('points').children].forEach((r,i)=>r.querySelector('.p
 function rowDateTimeValue(row){
   const date=row.querySelector('.point-date')?.value, time=row.querySelector('.point-time')?.value;
   return date&&time?`${date}T${time}:00+09:00`:'';
-}
-function updateStayDepartureControl(row){
-  if(!row)return;
-  const checked=!!row.querySelector('.point-stay')?.checked;
-  const wrap=row.querySelector('.stay-departure-option');
-  if(wrap)wrap.classList.toggle('hidden',!checked);
-}
-function stayDepartureDateTimeValue(row){
-  if(!row?.querySelector('.point-stay')?.checked)return '';
-  const date=row.querySelector('.point-date')?.value;
-  const departure=row.querySelector('.stay-departure-time')?.value||'05:00';
-  if(!date||!departure)return '';
-  const baseMs=new Date(`${date}T12:00:00+09:00`).getTime();
-  if(!Number.isFinite(baseMs))return '';
-  const nextDate=formatJstInput(baseMs+24*60*60*1000).date;
-  return `${nextDate}T${departure}:00+09:00`;
 }
 function formatJstInput(ms){
   const d=new Date(ms+9*60*60*1000);
@@ -5440,7 +5366,7 @@ function refreshCourseTimeMissingBadge(row){
   const badge=row?.querySelector('.course-time-missing-badge');
   if(!badge)return;
   const prev=row.previousElementSibling;
-  if(!prev){
+  if(!prev||prev.querySelector('.point-stay')?.checked){
     badge.classList.add('hidden');
     return;
   }
@@ -5459,12 +5385,11 @@ function refreshAllCourseTimeMissingBadges(){
 
 function applyCourseTimeFromPrevious(row,{announce=false}={}){
   const prev=row?.previousElementSibling;
-  if(!prev)return false;
+  if(!prev||prev.querySelector('.point-stay')?.checked)return false;
   const from=selectedCandidate(prev.querySelector('.point-select')?.value);
   const to=selectedCandidate(row.querySelector('.point-select')?.value);
   const info=courseTimeInfo(from,to);
-  const stayed=!!prev.querySelector('.point-stay')?.checked;
-  const baseValue=stayed?stayDepartureDateTimeValue(prev):rowDateTimeValue(prev);
+  const baseValue=rowDateTimeValue(prev);
   if(!info||!baseValue)return false;
   const base=new Date(baseValue);
   if(Number.isNaN(base.getTime()))return false;
@@ -5473,40 +5398,12 @@ function applyCourseTimeFromPrevious(row,{announce=false}={}){
   row.querySelector('.point-time').value=shifted.time;
   row.dataset.datetimeBefore=`${shifted.date}T${shifted.time}:00+09:00`;
   row.dataset.courseTimeAuto='1';
-  if(announce){
-    const prefix=stayed?`翌朝 ${prev.querySelector('.stay-departure-time')?.value||'05:00'} 出発＋標準CT `:'標準CT ';
-    setStatus(`${from.name} → ${to.name}：${prefix}${formatCourseTimeMinutes(info.minutes)}${info.sourceType==='yamareco'?'（補助ソース）':''} で ${shifted.date} ${shifted.time} にしました。`);
-  }
+  if(announce)setStatus(`${from.name} → ${to.name}：標準CT ${formatCourseTimeMinutes(info.minutes)}${info.sourceType==='yamareco'?'（補助ソース）':''} を加算して ${shifted.time} にしました。`);
   updateForecastHorizon();
   refreshCourseTimeMissingBadge(row);
   return true;
 }
 
-function recalculateFollowingPointTimes(startRow){
-  let prev=startRow;
-  while(prev?.nextElementSibling){
-    const next=prev.nextElementSibling;
-    const from=selectedCandidate(prev.querySelector('.point-select')?.value);
-    const to=selectedCandidate(next.querySelector('.point-select')?.value);
-    const stayed=!!prev.querySelector('.point-stay')?.checked;
-    const baseValue=stayed?stayDepartureDateTimeValue(prev):rowDateTimeValue(prev);
-    if(!baseValue)break;
-    const base=new Date(baseValue);
-    if(Number.isNaN(base.getTime()))break;
-    const info=from&&to?courseTimeInfo(from,to):null;
-    const minutes=info?.minutes||60;
-    const shifted=formatJstInput(base.getTime()+minutes*60*1000);
-    next.querySelector('.point-date').value=shifted.date;
-    next.querySelector('.point-time').value=shifted.time;
-    next.dataset.datetimeBefore=`${shifted.date}T${shifted.time}:00+09:00`;
-    next.dataset.courseTimeAuto=info?'1':'';
-    refreshCourseTimeMissingBadge(next);
-    prev=next;
-  }
-  updateForecastHorizon();
-  renderRouteMaps();
-  refreshAllCourseTimeMissingBadges();
-}
 function syncNextPointInitialTime(row){
   const next=row.nextElementSibling;
   const current=rowDateTimeValue(row);
@@ -5514,22 +5411,14 @@ function syncNextPointInitialTime(row){
   const dt=new Date(current);
   if(Number.isNaN(dt.getTime()))return;
   if(row.querySelector('.point-stay')?.checked){
-    const departureValue=stayDepartureDateTimeValue(row);
-    if(!departureValue)return;
-    if(!applyCourseTimeFromPrevious(next)){
-      const departure=new Date(departureValue);
-      const shifted=formatJstInput(departure.getTime()+60*60*1000);
-      next.querySelector('.point-date').value=shifted.date;
-      next.querySelector('.point-time').value=shifted.time;
-      next.dataset.datetimeBefore=`${shifted.date}T${shifted.time}:00+09:00`;
-      next.dataset.courseTimeAuto='';
-      setStatus(`翌朝 ${row.querySelector('.stay-departure-time')?.value||'05:00'} 出発。次区間はCT情報がないため仮に＋1時間で ${shifted.time} にしました。`);
-    }else{
-      const from=selectedCandidate(row.querySelector('.point-select')?.value);
-      const to=selectedCandidate(next.querySelector('.point-select')?.value);
-      const info=courseTimeInfo(from,to);
-      if(info)setStatus(`翌朝 ${row.querySelector('.stay-departure-time')?.value||'05:00'} 出発＋標準CT ${formatCourseTimeMinutes(info.minutes)} で次の地点を計算しました。`);
-    }
+    const base=new Date(`${row.querySelector('.point-date').value}T12:00:00+09:00`);
+    base.setDate(base.getDate()+1);
+    const nextDate=formatLocalDate(base);
+    next.querySelector('.point-date').value=nextDate;
+    next.querySelector('.point-time').value='05:00';
+    next.dataset.datetimeBefore=`${nextDate}T05:00:00+09:00`;
+    next.dataset.courseTimeAuto='';
+    setStatus(`宿泊の次のポイントを翌朝 5:00 にしました。`);
   }else if(!applyCourseTimeFromPrevious(next)){
     const shifted=formatJstInput(dt.getTime()+60*60*1000);
     next.querySelector('.point-date').value=shifted.date;
@@ -5581,9 +5470,7 @@ function collectPoints(){
     const date=row.querySelector('.point-date').value, time=row.querySelector('.point-time').value;
     if(!date||!time) throw new Error(`${p.name} の通過日・通過時刻を入力してください。`);
     if(!hasResolvedCoord(p)) throw new Error(`${p.name} の座標が確定していないため利用できません。別の確定済み地点を選択してください。`);
-    const stay=!!row.querySelector('.point-stay')?.checked;
-    const departureTime=stay?(row.querySelector('.stay-departure-time')?.value||'05:00'):'';
-    return {...p,date,time,type:row.querySelector('.point-type').value,stay,departureTime,role:row.dataset.role||''};
+    return {...p,date,time,type:row.querySelector('.point-type').value,stay:!!row.querySelector('.point-stay')?.checked,role:row.dataset.role||''};
   }).filter(Boolean);
 }
 function validateChronology(points){
@@ -6787,6 +6674,64 @@ function routePointDateParts(point){
   if(!date&&!time)return {date:'日時未設定',time:''};
   return {date:date||'日付未設定',time:time||'時刻未設定'};
 }
+
+// V1.4.89: representative-course route-map geometry.
+// Registered northern-Alps segments use a compact fixed polyline so rendering stays local/lightweight.
+// Unregistered segments intentionally fall back to the previous straight connection.
+const FIXED_TRAIL_GEOMETRY_V1489 = Object.freeze({
+  '上高地→横尾山荘': [[36.246656,137.635388],[36.2528,137.6437],[36.2608,137.6516],[36.2695,137.6608],[36.2786,137.6728],[36.2862,137.6870],[36.293444,137.699175]],
+  '上高地→槍沢ロッヂ': [[36.246656,137.635388],[36.2528,137.6437],[36.2608,137.6516],[36.2695,137.6608],[36.2786,137.6728],[36.2862,137.6870],[36.293444,137.699175],[36.3020,137.6965],[36.3107,137.6904],[36.318056,137.681111]],
+  '横尾山荘→槍沢ロッヂ': [[36.293444,137.699175],[36.2989,137.6980],[36.3053,137.6940],[36.3118,137.6890],[36.318056,137.681111]],
+  '槍沢ロッヂ→槍ヶ岳山荘': [[36.318056,137.681111],[36.3216,137.6750],[36.3257,137.6685],[36.3294,137.6603],[36.3343,137.6524],[36.3380,137.6477],[36.340939,137.645795]],
+  '槍ヶ岳山荘→槍ヶ岳': [[36.340939,137.645795],[36.34125,137.64635],[36.34165,137.64705],[36.342009,137.647735]],
+  '新穂高温泉→槍平小屋': [[36.285405,137.575014],[36.2905,137.5825],[36.2968,137.5905],[36.3025,137.6002],[36.3090,137.6118],[36.3160,137.6220],[36.323220,137.629910]],
+  '槍平小屋→槍ヶ岳山荘': [[36.323220,137.629910],[36.3280,137.6325],[36.3324,137.6359],[36.3359,137.6393],[36.3387,137.6428],[36.340939,137.645795]],
+  '横尾山荘→涸沢ヒュッテ': [[36.293444,137.699175],[36.2942,137.6920],[36.2950,137.6840],[36.2971,137.6757],[36.3008,137.6668]],
+  '涸沢ヒュッテ→穂高岳山荘': [[36.3008,137.6668],[36.2993,137.6627],[36.2981,137.6578],[36.2966,137.6524],[36.2950,137.6484]],
+  '穂高岳山荘→奥穂高岳': [[36.2950,137.6484],[36.2931,137.6482],[36.2910,137.6481],[36.2892,137.6480]],
+  '中房温泉登山口→合戦小屋': [[36.3929,137.7485],[36.3941,137.7434],[36.3960,137.7382],[36.3981,137.7317],[36.4009,137.7258]],
+  '合戦小屋→燕山荘': [[36.4009,137.7258],[36.4026,137.7223],[36.4041,137.7193],[36.4059,137.7169],[36.4073,137.7152]],
+  '燕山荘→燕岳': [[36.4073,137.7152],[36.4075,137.7143],[36.4072,137.7134],[36.4069,137.7129]],
+  '一ノ沢登山口→常念小屋': [[36.3388,137.7420],[36.3363,137.7398],[36.3344,137.7366],[36.3322,137.7322],[36.3297,137.7281]],
+  '常念小屋→常念岳': [[36.3297,137.7281],[36.3284,137.7278],[36.3268,137.7275],[36.3255,137.7273]],
+  '三股登山口→蝶ヶ岳': [[36.2628,137.7543],[36.2680,137.7490],[36.2734,137.7429],[36.2799,137.7342],[36.2871,137.7265]],
+  '猿倉→白馬尻小屋跡': [[36.6974,137.8182],[36.7025,137.8137],[36.7085,137.8065],[36.7145,137.7968]],
+  '白馬尻小屋跡→白馬山荘': [[36.7145,137.7968],[36.7218,137.7895],[36.7300,137.7812],[36.7391,137.7705],[36.7482,137.7617],[36.7566,137.7569]],
+  '白馬山荘→白馬岳': [[36.7566,137.7569],[36.7572,137.7575],[36.7580,137.7582],[36.7585,137.7586]],
+  '八方池山荘→唐松岳頂上山荘': [[36.7030,137.7893],[36.7002,137.7846],[36.6975,137.7785],[36.6945,137.7719],[36.6910,137.7645],[36.6878,137.7576]],
+  '唐松岳頂上山荘→唐松岳': [[36.6878,137.7576],[36.6877,137.7566],[36.6875,137.7556],[36.6874,137.7547]],
+  'アルプス平→五竜山荘': [[36.6817,137.8332],[36.6800,137.8215],[36.6769,137.8089],[36.6737,137.7934],[36.6689,137.7745],[36.6634,137.7547]],
+  '唐松岳頂上山荘→五竜山荘': [[36.6878,137.7576],[36.6821,137.7562],[36.6764,137.7548],[36.6699,137.7544],[36.6634,137.7547]],
+  '五竜山荘→五竜岳': [[36.6634,137.7547],[36.6619,137.7542],[36.6601,137.7534],[36.6584,137.7526]],
+  '室堂→一の越山荘': [[36.5779,137.5950],[36.5769,137.5982],[36.5753,137.6018],[36.5737,137.6054],[36.5722,137.6086]],
+  '一の越山荘→立山（雄山）': [[36.5722,137.6086],[36.5730,137.6115],[36.5740,137.6146],[36.5750,137.6174],[36.5759,137.6197]],
+  '折立登山口→太郎平小屋': [[36.4786,137.4780],[36.4737,137.4852],[36.4694,137.4938],[36.4653,137.5036],[36.4606,137.5128],[36.4548,137.5195]],
+  '太郎平小屋→薬師岳山荘': [[36.4548,137.5195],[36.4565,137.5250],[36.4584,137.5312],[36.4608,137.5363],[36.4630,137.5400]],
+  '薬師岳山荘→薬師岳': [[36.4630,137.5400],[36.4646,137.5416],[36.4668,137.5432],[36.4689,137.5447]],
+  '太郎平小屋→黒部五郎岳': [[36.4548,137.5195],[36.4455,137.5232],[36.4350,137.5280],[36.4221,137.5332],[36.4072,137.5377],[36.3925,137.5408]],
+  '五竜岳→キレット小屋': [[36.6584,137.7526],[36.6546,137.7493],[36.6504,137.7455],[36.6462,137.7418],[36.6410,137.7384]],
+  'キレット小屋→鹿島槍ヶ岳': [[36.6410,137.7384],[36.6365,137.7404],[36.6319,137.7428],[36.6276,137.7450],[36.6244,137.7467]]
+});
+function fixedTrailSegment(from,to){
+  const a=String(from?.name||''),b=String(to?.name||'');
+  const direct=FIXED_TRAIL_GEOMETRY_V1489[`${a}→${b}`];
+  if(direct)return direct.map(x=>[Number(x[0]),Number(x[1])]);
+  const reverse=FIXED_TRAIL_GEOMETRY_V1489[`${b}→${a}`];
+  if(reverse)return reverse.slice().reverse().map(x=>[Number(x[0]),Number(x[1])]);
+  return null;
+}
+function routeMapLineGeometry(points){
+  const lines=[]; let fixedCount=0;
+  for(let i=1;i<points.length;i++){
+    const from=points[i-1],to=points[i];
+    const fixed=fixedTrailSegment(from,to);
+    const coords=fixed&&fixed.length>=2?fixed:[[from.lat,from.lon],[to.lat,to.lon]];
+    if(fixed)fixedCount++;
+    lines.push({coords,fixed:!!fixed,from,to});
+  }
+  return {lines,fixedCount,total:Math.max(0,points.length-1)};
+}
+
 function routeMapListHtml(points){
   const head=`<div class="route-point-list-head"><div><span class="route-list-pin" aria-hidden="true">⌖</span><strong>通過ポイント</strong></div><b>${String(points.length).padStart(2,'0')} <small>ポイント</small></b></div>`;
   const rows=points.map((point,index)=>{
@@ -6885,14 +6830,18 @@ function renderSingleRouteMap({mapId,emptyId,listId},points){
   state.markers.clearLayers();
   state.lines.clearLayers();
   const latlngs=points.map(point=>[point.lat,point.lon]);
-  if(points.length>=2){
-    L.polyline(latlngs,{color:'#1f7fbd',weight:4,opacity:.95}).addTo(state.lines);
-  }
+  const geometry=routeMapLineGeometry(points);
+  geometry.lines.forEach(seg=>{
+    L.polyline(seg.coords,{color:'#1f7fbd',weight:4,opacity:.95,dashArray:seg.fixed?null:'7 7'}).addTo(state.lines);
+  });
+  mapEl.dataset.trailSegments=String(geometry.fixedCount);
+  mapEl.dataset.totalSegments=String(geometry.total);
   points.forEach(point=>{
     const marker=L.marker([point.lat,point.lon],{icon:routeMapIcon(point)}).addTo(state.markers);
     marker.bindPopup(routeMapPopupHtml(point));
   });
-  invalidateRouteMap(state,()=>fitRouteMapToPoints(state,latlngs));
+  const fitLatLngs=geometry.lines.flatMap(seg=>seg.coords);
+  invalidateRouteMap(state,()=>fitRouteMapToPoints(state,fitLatLngs.length?fitLatLngs:latlngs));
 }
 function renderRouteMaps(points=null){
   const normalized=(Array.isArray(points)?points:collectRouteMapPointsFromForm())
@@ -7066,9 +7015,7 @@ function renderPointForecastTimeline(points){
 
 function renderAll(points,overnight=[]){
 
-  $('results').classList.remove('hidden');
-  const screenshotBtn=$('resultScreenshotBtn');if(screenshotBtn)screenshotBtn.disabled=false;
-  const screenshotStatus=$('resultScreenshotStatus');if(screenshotStatus)screenshotStatus.textContent=''; renderWeatherCharts(points); renderDecisionCommentary(points); renderRouteMaps(points.map(x=>x.point)); const worst=points.reduce((a,b)=>gradeRank(b.grade)>gradeRank(a.grade)?b:a,points[0]);
+  $('results').classList.remove('hidden'); renderWeatherCharts(points); renderDecisionCommentary(points); renderRouteMaps(points.map(x=>x.point)); const worst=points.reduce((a,b)=>gradeRank(b.grade)>gradeRank(a.grade)?b:a,points[0]);
   const maxWindValue=max(points.flatMap(x=>x.providerRows.map(y=>y.row.wind))); const maxRainValue=max(points.flatMap(x=>x.providerRows.map(y=>y.row.rain))); const thunderLevel=maxThunder(points.map(x=>x.thunder)); const confidenceLevel=overallConfidence(points.map(x=>x.confidence));
   $('grade').textContent=worst.grade; $('verdict').textContent=verdict(worst.grade);
   const gradeLabels={A:'EXCELLENT',B:'GOOD',C:'CAUTION',D:'HARD',E:'STOP'}; const verdictNotes={A:'全体としてかなり安定した予報です。',B:'一部に注意点はありますが、全体としては比較的安定しています。',C:'注意要素があります。通過時刻と場所を確認してください。',D:'強い気象リスクを含む計画です。見直しを推奨します。',E:'非常に強い気象リスクがあります。中止を含めて再検討してください。'};
