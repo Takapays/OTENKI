@@ -139,7 +139,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.114';
+const APP_VERSION = '1.4.115';
 
 
 
@@ -4570,7 +4570,7 @@ function setupNationalOutlook(){
   }
   try{
     nationalOutlookMap=L.map(el,{zoomControl:true,scrollWheelZoom:false}).setView([36.2,138.0],5);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:11,attribution:'&copy; OpenStreetMap contributors'}).addTo(nationalOutlookMap);
+    L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png',{minZoom:5,maxZoom:18,attribution:'<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener noreferrer">地理院タイル</a>'}).addTo(nationalOutlookMap);
     renderNationalOutlookMarkers();
     const allCoords=nationalOutlookPoints().map(p=>[p.lat,p.lon]);
     if(allCoords.length)nationalOutlookMap.fitBounds(allCoords,{padding:[18,18],maxZoom:5});
@@ -7149,9 +7149,10 @@ function ensureRouteMap(mapId){
   let state=routeMapViews[mapId];
   if(state)return state;
   const map=L.map(host,{zoomControl:false,scrollWheelZoom:false,attributionControl:true});
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+  L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png',{
+    minZoom:5,
     maxZoom:18,
-    attribution:'&copy; OpenStreetMap contributors'
+    attribution:'<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener noreferrer">地理院タイル</a>'
   }).addTo(map);
   L.control.zoom({position:'bottomright'}).addTo(map);
   state={map,markers:L.layerGroup().addTo(map),lines:L.layerGroup().addTo(map)};
