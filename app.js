@@ -139,7 +139,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.175';
+const APP_VERSION = '1.4.177';
 
 
 
@@ -2261,8 +2261,8 @@ const BUILTIN_ROUTE_CATALOG = {
   '鹿島槍ヶ岳': [
     {id:'builtin-kashima-ogisawa',type:'trailhead',name:'扇沢登山口',lat:36.558056,lon:137.721389,elevation:1430},
     {id:'builtin-kashima-otani',type:'trailhead',name:'大谷原登山口',lat:36.604167,lon:137.800000,elevation:1070},
-    {id:'builtin-kashima-taneike',type:'hut',name:'種池山荘',lat:36.5769,lon:137.7039,elevation:2450},
-    {id:'builtin-kashima-tsumetaike',type:'hut',name:'冷池山荘',lat:36.6049,lon:137.7168,elevation:2410},
+    {id:'builtin-kashima-taneike',type:'hut',name:'種池山荘',lat:36.58778,lon:137.73556,elevation:2450},
+    {id:'builtin-kashima-tsumetaike',type:'hut',name:'冷池山荘',lat:36.60278,lon:137.74833,elevation:2410},
     {id:'builtin-kashima-kiretto',type:'hut',name:'キレット小屋',lat:36.6410,lon:137.7384,elevation:2470},
     {id:'builtin-kashima-peak',type:'peak',name:'鹿島槍ヶ岳',lat:36.6244,lon:137.7467,elevation:2889}
   ],
@@ -2636,9 +2636,9 @@ Object.assign(REGIONAL_CATALOG, {
     {id:'area-ut-happo',type:'trailhead',name:'八方池山荘',lat:36.7030,lon:137.7893,elevation:1830},
     {id:'area-ut-alpsdaira',type:'trailhead',name:'アルプス平',lat:36.6817,lon:137.8332,elevation:1515},
     {id:'area-ut-jiigatake',type:'peak',name:'爺ヶ岳',lat:36.5883,lon:137.7507,elevation:2670},
-    {id:'area-ut-taneike',type:'hut',name:'種池山荘',lat:36.5769,lon:137.7039,elevation:2450},
+    {id:'area-ut-taneike',type:'hut',name:'種池山荘',lat:36.58778,lon:137.73556,elevation:2450},
     {id:'area-ut-kashima',type:'peak',name:'鹿島槍ヶ岳',lat:36.6244,lon:137.7467,elevation:2889},
-    {id:'area-ut-tsumetaike',type:'hut',name:'冷池山荘',lat:36.6049,lon:137.7168,elevation:2410},
+    {id:'area-ut-tsumetaike',type:'hut',name:'冷池山荘',lat:36.60278,lon:137.74833,elevation:2410},
     {id:'area-ut-goryu',type:'peak',name:'五竜岳',lat:36.6584,lon:137.7526,elevation:2814},
     {id:'area-ut-goryugoya',type:'hut',name:'五竜山荘',lat:36.6634,lon:137.7547,elevation:2490},
     {id:'area-ut-karamatsu',type:'peak',name:'唐松岳',lat:36.6874,lon:137.7547,elevation:2696},
@@ -2689,7 +2689,7 @@ REGIONAL_CATALOG.harinoki_funakubo = [
   {id:'area-hf-nanakura',type:'trailhead',name:'七倉',lat:36.4740,lon:137.7200,elevation:1070},
   {id:'area-hf-funakubo',type:'hut',name:'船窪小屋',lat:36.50648,lon:137.69525,elevation:2459},
   {id:'area-hf-takase',type:'trailhead',name:'高瀬ダム',lat:36.4690,lon:137.6895,elevation:1270},
-  {id:'area-hf-taneike',type:'hut',name:'種池山荘',lat:36.5769,lon:137.7039,elevation:2450},
+  {id:'area-hf-taneike',type:'hut',name:'種池山荘',lat:36.58778,lon:137.73556,elevation:2450},
   {id:'area-hf-jiigatake',type:'peak',name:'爺ヶ岳',lat:36.5883,lon:137.7507,elevation:2670}
 ];
 
@@ -5755,20 +5755,22 @@ function representativeCourseWithDescent(mountain,course){
   const routeKey=`${key}|${course.label||''}`;
   const explicit=REPRESENTATIVE_DESCENT_PATHS_V14166[routeKey];
   if(Array.isArray(explicit)&&explicit.length){
+    const originalPointCount=points.length;
     points.push(...explicit.map(p=>[...p]));
-    return {...course,points,descentExtended:true,descentMode:'traverse'};
+    return {...course,points,descentExtended:true,descentMode:'traverse',originalPointCount};
   }
 
   // 通常の往復ルートは、往路の中間地点を逆順に戻す。
   // 例：登山口→小屋→山頂→小屋→登山口。
   const firstTrailIndex=points.findIndex(p=>p?.[0]==='trailhead');
   if(firstTrailIndex<0)return {...course,points};
+  const originalPointCount=points.length;
   const outbound=points.slice(firstTrailIndex,-1);
   const reverse=outbound.slice(1).reverse().map(p=>[p[0],p[1],p[2]]);
   const trail=points[firstTrailIndex];
   points.push(...reverse);
   points.push(['trailhead',trail[1],'下山口']);
-  return {...course,points,descentExtended:true,descentMode:'roundtrip'};
+  return {...course,points,descentExtended:true,descentMode:'roundtrip',originalPointCount};
 }
 function representativeCourseOptions(mountain){
   const key=canonicalMountainName(mountain);
@@ -5939,6 +5941,23 @@ function splitRepresentativeSegmentMinutes(points,totalMinutes){
   return mins;
 }
 
+// V1.4.177: 下山側に逆方向の確認済みCTがない場合、往路CTから下山参考CTを作る。
+// 代表コース全体を読み込み不能にしないための限定フォールバックで、確認済みCTそのものは上書きしない。
+function representativeDescentReverseFallbackInfo(fromPoint,toPoint){
+  if(!fromPoint||!toPoint)return null;
+  const reverse=courseTimeInfo(toPoint,fromPoint);
+  if(!reverse||!Number.isFinite(Number(reverse.minutes)))return null;
+  const minutes=Math.max(10,Math.round((Number(reverse.minutes)*0.75)/10)*10);
+  return {
+    minutes,
+    source:`${reverse.source||'確認済みCT'}・逆方向CTから下山参考値換算`,
+    sourceType:'estimated',
+    estimated:true,
+    derived:true,
+    derivedFromReverse:true
+  };
+}
+
 function buildRepresentativeResolvedRoute(mountain,course){
   const baseDefs=Array.isArray(course?.points)?course.points:[];
   const expandedDefs=representativeCourseExpandedPointDefs(mountain,course);
@@ -5956,7 +5975,11 @@ function buildRepresentativeResolvedRoute(mountain,course){
     }
     if(startIndex<0||endIndex<0)continue;
     const chain=resolvedExpanded.slice(startIndex,endIndex+1);
-    const parentInfo=chain[0]?.p&&chain.at(-1)?.p?courseTimeInfo(chain[0].p,chain.at(-1).p):null;
+    const isDescentExtendedSegment=!!course?.descentExtended&&Number.isFinite(Number(course?.originalPointCount))&&bi>=Number(course.originalPointCount);
+    let parentInfo=chain[0]?.p&&chain.at(-1)?.p?courseTimeInfo(chain[0].p,chain.at(-1).p):null;
+    if(!parentInfo&&isDescentExtendedSegment){
+      parentInfo=representativeDescentReverseFallbackInfo(chain[0]?.p,chain.at(-1)?.p);
+    }
     if(chain.length===2){
       const info=parentInfo;
       if(!info&&!course.allowMissingCt)return {error:`${prevDef[1]} → ${nextDef[1]} の確認済みCTがありません。`};
