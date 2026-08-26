@@ -139,7 +139,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.180';
+const APP_VERSION = '1.4.181';
 
 
 
@@ -6089,12 +6089,6 @@ function renderRepresentativeCourseSummaryNow(mountainOverride=''){
     item.append(name,path);
     item.addEventListener('click',()=>{
       setRepresentativeCourseSelectedIndex(mountain,i);
-      // V1.4.175: on mobile, the visible representative-course card is the load action.
-      // This removes the extra "代表コースを読み込む" tap and also makes course
-      // selection (including 白馬岳) immediately reflect in the itinerary.
-      if(typeof window!=='undefined'&&window.matchMedia?.('(max-width: 700px)').matches){
-        void applyRepresentativeCourse();
-      }
     });
     box.append(item);
   });
@@ -6125,58 +6119,10 @@ function refreshRepresentativeCourseButton(){
     sel.classList.add('hidden');
     sel.disabled=!hasCourse;
   }
-  // V1.4.179: always build the static representative-course buttons when a
-  // mountain has courses. Visibility is controlled only by CSS, avoiding
-  // mobile matchMedia/device-width differences that could leave the buttons hidden.
-  // V1.4.180: dedicated mobile course buttons live outside the legacy route-actions
-  // container so old responsive CSS cannot hide them.
-  if(mobileChoices){
-    mobileChoices.replaceChildren();
-    if(hasCourse){
-      const selectedIndex=representativeCourseSelectedIndex(mountain,options);
-      options.forEach((course,i)=>{
-        const choice=document.createElement('button');
-        choice.type='button';
-        choice.className=`mobile-representative-course-choice${i===selectedIndex?' is-active':''}`;
-        const label=course.label||'代表コース';
-        choice.innerHTML=`<b>${options.length>1?`${i+1}. `:''}${escapeHtml(label)}</b><span>${escapeHtml(representativeCoursePathText(course,mountain)||'')}</span>`;
-        choice.addEventListener('click',()=>{
-          setRepresentativeCourseSelectedIndex(mountain,i);
-          refreshRepresentativeCourseButton();
-          void applyRepresentativeCourse();
-        });
-        mobileChoices.append(choice);
-      });
-      mobileChoices.classList.remove('hidden');
-    }else{
-      mobileChoices.classList.add('hidden');
-    }
-  }
-
-  if(choices){
-    choices.replaceChildren();
-    if(hasCourse){
-      const selectedIndex=representativeCourseSelectedIndex(mountain,options);
-      options.forEach((course,i)=>{
-        const choice=document.createElement('button');
-        choice.type='button';
-        choice.className=`representative-course-choice${i===selectedIndex?' is-active':''}`;
-        choice.textContent=`${options.length>1?`${i+1}. `:''}${course.label||'代表コース'}`;
-        choice.title=representativeCoursePathText(course,mountain)||course.label||'代表コース';
-        choice.addEventListener('click',()=>{
-          setRepresentativeCourseSelectedIndex(mountain,i);
-          refreshRepresentativeCourseButton();
-          void applyRepresentativeCourse();
-        });
-        choices.append(choice);
-      });
-      choices.classList.remove('hidden');
-      choices.dataset.courseCount=String(options.length);
-    }else{
-      choices.classList.add('hidden');
-      choices.removeAttribute('data-course-count');
-    }
-  }
+  // V1.4.181: mobile UI reverted to the previously stable flow.
+  // Course summaries select a route; the explicit load button applies it.
+  if(choices){choices.replaceChildren();choices.classList.add('hidden');choices.removeAttribute('data-course-count');}
+  if(mobileChoices){mobileChoices.replaceChildren();mobileChoices.classList.add('hidden');}
   if(legacySummary){legacySummary.replaceChildren();legacySummary.style.setProperty('display','none','important');}
   renderRepresentativeCourseSummaryNow(mountain);
 }
