@@ -1,5 +1,0 @@
-V1.4.118 regression check
-- Desktop logo reduced to 70% of V1.4.117 target: 294px -> 206px.
-- Desktop topbar padding/gap/title/badges compacted to make the header thinner.
-- Mobile rules are unchanged because all V1.4.118 overrides are inside min-width:901px.
-- No MutationObserver added.

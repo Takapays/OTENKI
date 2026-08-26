@@ -1,6 +1,0 @@
-V1.4.86 regression check
-- visible label 全国一括判定 -> 全国一括簡易判定
-- mobile controls <=700px: one-column stacked layout
-- date input width/min-width constrained to container
-- national run button full width on mobile
-- app.js syntax and server.py syntax checked

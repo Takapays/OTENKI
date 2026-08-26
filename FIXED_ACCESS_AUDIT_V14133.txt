@@ -1,7 +1,0 @@
-Japan 300 fixed/resolved trailhead coverage: 296/300
-
-Missing fixed coordinates:
-- 幌尻岳
-- 西吾妻山
-- 八海山
-- 奥白根山
