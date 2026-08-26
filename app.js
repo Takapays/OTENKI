@@ -139,7 +139,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.184';
+const APP_VERSION = '1.4.185';
 
 
 
@@ -2718,6 +2718,8 @@ REGIONAL_CATALOG.southalps_shirane = [
   {id:'area-sas-kata',type:'hut',name:'北岳肩の小屋',lat:35.6771,lon:138.2405,elevation:3000},
   {id:'area-sas-kitazawa',type:'peak',name:'北岳',lat:35.6745,lon:138.2389,elevation:3193},
   {id:'area-sas-kitahut',type:'hut',name:'北岳山荘',lat:35.6585,lon:138.2315,elevation:2900},
+  // V1.4.185: 中白根山（3055m）。公開地形図・登山資料の山頂座標を照合して固定。
+  {id:'area-sas-nakashirane',type:'peak',name:'中白根山',lat:35.658602,lon:138.228191,elevation:3055,source:'公開地形図・登山資料照合'},
   {id:'area-sas-aino',type:'peak',name:'間ノ岳',lat:35.6461,lon:138.2283,elevation:3190},
   {id:'area-sas-noutori',type:'peak',name:'農鳥岳',lat:35.6210,lon:138.2360,elevation:3026},
   {id:'area-sas-noutorigoya',type:'hut',name:'農鳥小屋',lat:35.6290,lon:138.2265,elevation:2800},
@@ -9539,7 +9541,17 @@ MOUNTAIN_REGION['ジャンダルム'] = 'nishiho_yake';
 // when fixed points, representative courses, or CT tables are updated.
 window.TratenDataAudit = (()=>{
   const coordOk=p=>!!p&&Number.isFinite(Number(p.lat??p.latitude))&&Number.isFinite(Number(p.lon??p.longitude));
-  const catalogFor=mountain=>BUILTIN_ROUTE_CATALOG[canonicalMountainName(mountain)]||[];
+  // V1.4.185: 管理監査も山行計画と同じ固定候補範囲を見る。
+  // 山固有カタログだけでなく、縦走カタログと山域固定候補も含めることで、
+  // 別山の代表コース上にある既存固定地点を「座標未確認」と誤判定しない。
+  const catalogFor=mountain=>{
+    const key=canonicalMountainName(mountain);
+    return [
+      ...(BUILTIN_ROUTE_CATALOG[key]||[]),
+      ...(TRAVERSE_CATALOG[key]||[]),
+      ...regionalCandidates(key)
+    ];
+  };
   const uniquePoints=mountain=>{
     const seen=new Set();
     return catalogFor(mountain).filter(p=>{
