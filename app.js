@@ -139,7 +139,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.185';
+const APP_VERSION = '1.4.187';
 
 
 
@@ -1169,6 +1169,23 @@ const SUPPLEMENTAL_COURSE_TIMES = Object.freeze({
   '茶臼小屋→光岳': {minutes:283, source:'ヤマレコ・聖岳/光岳 山行計画（標準CT補完）', sourceType:'yamareco'},
   '光岳→茶臼小屋': {minutes:268, source:'ヤマレコ・聖岳/光岳 山行計画（標準CT補完）', sourceType:'yamareco'},
   '光岳→光岳小屋': {minutes:12, source:'ヤマレコ・光岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+
+
+  // V1.4.186: 代表コースで残っていた逆方向CT 13区間を方向別の公開標準CTで補完。
+  // 逆方向値の単純コピーはせず、各ルートの公開モデルコース/山行計画の方向別標準CTを採用。
+  '白馬山荘→白馬尻小屋': {minutes:157, source:'ヤマレコ・白馬岳 山行計画（白馬山荘→白馬尻小屋 標準CT区間合算）', sourceType:'yamareco'},
+  '白馬尻小屋→猿倉': {minutes:57, source:'ヤマレコ・白馬岳 山行計画（白馬尻小屋→猿倉 標準CT区間合算）', sourceType:'yamareco'},
+  '五竜山荘→唐松岳頂上山荘': {minutes:140, source:'ヤマレコ・五竜岳 山行計画（五竜山荘→唐松岳頂上山荘 標準CT区間合算）', sourceType:'yamareco'},
+  '剱澤小屋→室堂': {minutes:190, source:'ヤマレコ・剱岳 室堂/別山尾根 山行計画（剱澤小屋→室堂 標準CT区間合算）', sourceType:'yamareco'},
+  '双六小屋→鏡平山荘': {minutes:96, source:'ヤマレコ・新穂高〜双六 山行計画（標準CT区間合算）', sourceType:'yamareco'},
+  '鏡平山荘→新穂高温泉': {minutes:214, source:'ヤマレコ・新穂高〜双六 山行計画（標準CT区間合算）', sourceType:'yamareco'},
+  '燕岳→燕山荘': {minutes:25, source:'ヤマレコ・燕岳 山行計画（標準CT）', sourceType:'yamareco'},
+  '燕山荘→合戦小屋': {minutes:46, source:'ヤマレコ・燕岳 山行計画（標準CT）', sourceType:'yamareco'},
+  '合戦小屋→中房': {minutes:120, source:'ヤマレコ・燕岳 山行計画（合戦小屋→中房温泉登山口 標準CT区間合算）', sourceType:'yamareco'},
+  '常念小屋→一ノ沢': {minutes:149, source:'ヤマレコ・常念岳 一ノ沢ルート山行計画（標準CT区間合算）', sourceType:'yamareco'},
+  '荒川岳→千枚小屋': {minutes:87, source:'ヤマレコ・荒川三山 山行計画（悪沢岳→千枚小屋 標準CT区間合算）', sourceType:'yamareco'},
+  '久住山→久住分かれ避難小屋': {minutes:47, source:'YAMAP・牧ノ戸峠〜久住山モデルコース（下山方向区間合算）', sourceType:'yamap'},
+  '久住分かれ避難小屋→牧ノ戸峠': {minutes:82, source:'YAMAP・牧ノ戸峠〜久住山モデルコース（下山方向区間合算）', sourceType:'yamap'},
 
   // V1.4.153: CT最終精査。起点一致の標準CTを優先して推定値を置換。
   '楢原・樽原登山口→諏訪山（上野村）': {minutes:280, source:'上野村公式・諏訪山コース（楢原登山口→諏訪山 区間合算）'},
@@ -5057,13 +5074,7 @@ function showNationalOutlookDetail(p,result){
   box.querySelector('.national-detail-open')?.addEventListener('click',()=>openMountainFromNationalMap(p.name));
   box.querySelector('.national-detail-close')?.addEventListener('click',()=>box.classList.remove('is-open'));
   box.querySelectorAll('[data-national-nearby]').forEach(btn=>btn.addEventListener('click',()=>nationalSelectNearby(btn.dataset.nationalNearby)));
-  box.querySelectorAll('[data-national-trailhead-access]').forEach(btn=>btn.addEventListener('click',()=>{
-    const trailhead=btn.dataset.nationalTrailheadAccess||'';
-    if(!trailhead)return;
-    const access=window.TratenTrailheadAccess;
-    if(access?.open)access.open(trailhead);
-    else setStatus('アクセス情報画面を開けませんでした。ページを再読み込みしてお試しください。',true);
-  }));
+  // V1.4.187: 山情報のアクセスボタンは access.js の委譲クリックで処理。
   if(!photo){
     const requestedName=p.name;
     fetchWikiMountainPhoto(requestedName).then(found=>{

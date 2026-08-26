@@ -216,6 +216,25 @@
   }
   function closeModal(){const m=document.getElementById('trailheadAccessModal');if(m){m.classList.add('hidden');document.body.classList.remove('ta-modal-open');}}
 
+  // V1.4.187: 山情報画面は動的に再描画されるため、個別イベントではなく
+  // access.js 側の委譲クリックで既存アクセスモーダルを確実に開く。
+  document.addEventListener('click',e=>{
+    const btn=e.target.closest?.('[data-national-trailhead-access]');
+    if(!btn)return;
+    e.preventDefault();
+    e.stopPropagation();
+    const trailhead=btn.dataset.nationalTrailheadAccess||'';
+    if(!trailhead)return;
+    const hit=findAccess(trailhead);
+    if(hit){
+      openModal(hit.key);
+      return;
+    }
+    // ボタンを押して無反応に見えないよう、未登録時は明示する。
+    if(typeof window.setStatus==='function') window.setStatus(`${trailhead}のアクセス情報は現在未登録です。`,true);
+    else window.alert(`${trailhead}のアクセス情報は現在未登録です。`);
+  });
+
   function setButtonVisibility(select,isTrailhead){
     if(!select) return;
     if(isTrailhead) makeButton(select);
