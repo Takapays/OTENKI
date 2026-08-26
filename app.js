@@ -139,7 +139,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.168';
+const APP_VERSION = '1.4.183';
 
 
 
@@ -2261,8 +2261,8 @@ const BUILTIN_ROUTE_CATALOG = {
   '鹿島槍ヶ岳': [
     {id:'builtin-kashima-ogisawa',type:'trailhead',name:'扇沢登山口',lat:36.558056,lon:137.721389,elevation:1430},
     {id:'builtin-kashima-otani',type:'trailhead',name:'大谷原登山口',lat:36.604167,lon:137.800000,elevation:1070},
-    {id:'builtin-kashima-taneike',type:'hut',name:'種池山荘',lat:36.5769,lon:137.7039,elevation:2450},
-    {id:'builtin-kashima-tsumetaike',type:'hut',name:'冷池山荘',lat:36.6049,lon:137.7168,elevation:2410},
+    {id:'builtin-kashima-taneike',type:'hut',name:'種池山荘',lat:36.58778,lon:137.73556,elevation:2450},
+    {id:'builtin-kashima-tsumetaike',type:'hut',name:'冷池山荘',lat:36.60278,lon:137.74833,elevation:2410},
     {id:'builtin-kashima-kiretto',type:'hut',name:'キレット小屋',lat:36.6410,lon:137.7384,elevation:2470},
     {id:'builtin-kashima-peak',type:'peak',name:'鹿島槍ヶ岳',lat:36.6244,lon:137.7467,elevation:2889}
   ],
@@ -2636,9 +2636,9 @@ Object.assign(REGIONAL_CATALOG, {
     {id:'area-ut-happo',type:'trailhead',name:'八方池山荘',lat:36.7030,lon:137.7893,elevation:1830},
     {id:'area-ut-alpsdaira',type:'trailhead',name:'アルプス平',lat:36.6817,lon:137.8332,elevation:1515},
     {id:'area-ut-jiigatake',type:'peak',name:'爺ヶ岳',lat:36.5883,lon:137.7507,elevation:2670},
-    {id:'area-ut-taneike',type:'hut',name:'種池山荘',lat:36.5769,lon:137.7039,elevation:2450},
+    {id:'area-ut-taneike',type:'hut',name:'種池山荘',lat:36.58778,lon:137.73556,elevation:2450},
     {id:'area-ut-kashima',type:'peak',name:'鹿島槍ヶ岳',lat:36.6244,lon:137.7467,elevation:2889},
-    {id:'area-ut-tsumetaike',type:'hut',name:'冷池山荘',lat:36.6049,lon:137.7168,elevation:2410},
+    {id:'area-ut-tsumetaike',type:'hut',name:'冷池山荘',lat:36.60278,lon:137.74833,elevation:2410},
     {id:'area-ut-goryu',type:'peak',name:'五竜岳',lat:36.6584,lon:137.7526,elevation:2814},
     {id:'area-ut-goryugoya',type:'hut',name:'五竜山荘',lat:36.6634,lon:137.7547,elevation:2490},
     {id:'area-ut-karamatsu',type:'peak',name:'唐松岳',lat:36.6874,lon:137.7547,elevation:2696},
@@ -2689,7 +2689,7 @@ REGIONAL_CATALOG.harinoki_funakubo = [
   {id:'area-hf-nanakura',type:'trailhead',name:'七倉',lat:36.4740,lon:137.7200,elevation:1070},
   {id:'area-hf-funakubo',type:'hut',name:'船窪小屋',lat:36.50648,lon:137.69525,elevation:2459},
   {id:'area-hf-takase',type:'trailhead',name:'高瀬ダム',lat:36.4690,lon:137.6895,elevation:1270},
-  {id:'area-hf-taneike',type:'hut',name:'種池山荘',lat:36.5769,lon:137.7039,elevation:2450},
+  {id:'area-hf-taneike',type:'hut',name:'種池山荘',lat:36.58778,lon:137.73556,elevation:2450},
   {id:'area-hf-jiigatake',type:'peak',name:'爺ヶ岳',lat:36.5883,lon:137.7507,elevation:2670}
 ];
 
@@ -4986,7 +4986,7 @@ function nationalMountainGuideHtml(name,area,elevation){
   return `<section class="national-guide-grid" aria-label="山の基本情報">
     <div class="national-guide-item"><span>標高</span><strong>${esc(elevation)}</strong></div>
     <div class="national-guide-item"><span>山域</span><strong>${esc(area)}</strong></div>
-    <div class="national-guide-item wide"><span>代表登山口</span><strong>${esc(info.trailhead)}</strong></div>
+    <div class="national-guide-item wide national-guide-trailhead"><span>代表登山口</span><div class="national-guide-trailhead-row"><strong>${esc(info.trailhead)}</strong>${info.trailhead&&info.trailhead!=='情報なし'?`<button type="button" class="national-trailhead-access-btn" data-national-trailhead-access="${esc(info.trailhead)}">アクセス</button>`:''}</div></div>
     <div class="national-guide-item"><span>標準CT</span><strong>${esc(info.ctLabel)}</strong><small>${esc(info.ctNote)}</small></div>
     <div class="national-guide-item"><span>代表コース数</span><strong>${info.routeCount?`${info.routeCount}コース`:'情報なし'}</strong></div>
     <div class="national-guide-item wide"><span>主な山小屋</span><strong>${esc(huts)}</strong>${hutSub?`<small>${esc(hutSub)}</small>`:''}</div>
@@ -5054,6 +5054,13 @@ function showNationalOutlookDetail(p,result){
   box.querySelector('.national-detail-open')?.addEventListener('click',()=>openMountainFromNationalMap(p.name));
   box.querySelector('.national-detail-close')?.addEventListener('click',()=>box.classList.remove('is-open'));
   box.querySelectorAll('[data-national-nearby]').forEach(btn=>btn.addEventListener('click',()=>nationalSelectNearby(btn.dataset.nationalNearby)));
+  box.querySelectorAll('[data-national-trailhead-access]').forEach(btn=>btn.addEventListener('click',()=>{
+    const trailhead=btn.dataset.nationalTrailheadAccess||'';
+    if(!trailhead)return;
+    const access=window.TratenTrailheadAccess;
+    if(access?.open)access.open(trailhead);
+    else setStatus('アクセス情報画面を開けませんでした。ページを再読み込みしてお試しください。',true);
+  }));
   if(!photo){
     const requestedName=p.name;
     fetchWikiMountainPhoto(requestedName).then(found=>{
@@ -5243,13 +5250,41 @@ async function captureAnalysisResultsScreenshot(sourceBtn=null,sourceStatus=null
     const mountain=screenshotSafeName(currentMountainLabel()||'トラテン分析結果');
     const date=screenshotSafeName(screenshotRouteDate());
     const filename=`トラテン_${mountain}_${date}.png`;
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');
-    a.href=url;a.download=filename;a.rel='noopener';
-    document.body.appendChild(a);a.click();a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),30000);
-    if(status)status.textContent='PNG画像を作成しました。';
-    logEvent('result_screenshot',{success:true,mountain:currentMountainLabel(),metadata:{format:'png',full_result:true,model_details:false}});
+    const isMobileSave=(sourceBtn?.id==='resultScreenshotBtn') || window.matchMedia?.('(max-width: 760px)').matches;
+    const file=new File([blob],filename,{type:'image/png'});
+    let delivery='download';
+
+    // スマホではブラウザから写真ライブラリへ直接書き込めないため、
+    // Web Share APIで画像付きのOS共有画面を開く。iPhoneでは「画像を保存」で写真に入れられる。
+    if(isMobileSave && navigator.share && navigator.canShare?.({files:[file]})){
+      delivery='share';
+      if(status)status.textContent='写真への保存画面を開きます…';
+      try{
+        await navigator.share({files:[file],title:'トラテン分析結果'});
+        if(status)status.textContent='共有画面を開きました。「画像を保存」を選ぶと写真ライブラリに保存できます。';
+      }catch(shareError){
+        if(shareError?.name==='AbortError'){
+          if(status)status.textContent='保存をキャンセルしました。';
+          return;
+        }
+        console.warn('画像共有に失敗したためダウンロードへ切り替えます',shareError);
+        delivery='download-fallback';
+        const url=URL.createObjectURL(blob);
+        const a=document.createElement('a');
+        a.href=url;a.download=filename;a.rel='noopener';
+        document.body.appendChild(a);a.click();a.remove();
+        setTimeout(()=>URL.revokeObjectURL(url),30000);
+        if(status)status.textContent='共有画面を開けなかったため、PNG画像として保存しました。';
+      }
+    }else{
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      a.href=url;a.download=filename;a.rel='noopener';
+      document.body.appendChild(a);a.click();a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),30000);
+      if(status)status.textContent=isMobileSave?'このブラウザでは写真保存画面を開けないため、PNG画像として保存しました。':'PNG画像を作成しました。';
+    }
+    logEvent('result_screenshot',{success:true,mountain:currentMountainLabel(),metadata:{format:'png',full_result:true,model_details:false,delivery}});
   }catch(e){
     console.error(e);
     if(status)status.textContent='画像を作成できませんでした。もう一度お試しください。';
@@ -5295,7 +5330,7 @@ function init(){
   $('representativeCourseBtn')?.addEventListener('click',applyRepresentativeCourse);
   $('representativeCourseBtn')?.addEventListener('mouseenter',()=>renderRepresentativeCourseSummaryNow());
   $('representativeCourseBtn')?.addEventListener('focus',()=>renderRepresentativeCourseSummaryNow());
-  $('representativeCourseSelect')?.addEventListener('change',()=>{setRepresentativeCourseSelectedIndex(currentMountainLabel(),Number($('representativeCourseSelect')?.value)||0);});
+  $('representativeCourseSelect')?.addEventListener('change',()=>{setRepresentativeCourseSelectedIndex(currentMountainLabel(),Number($('representativeCourseSelect')?.value)||0);renderRepresentativeCourseStaticPreview();});
   $('addPointBtn').addEventListener('click',()=>addManualPointRow());
   $('analyzeBtn').addEventListener('click',analyze);
   $('resultScreenshotBtn')?.addEventListener('click',()=>captureAnalysisResultsScreenshot($('resultScreenshotBtn'),$('resultScreenshotStatus')));
@@ -5372,7 +5407,7 @@ function updateLoadButtonAppearance(loaded){
   if(!btn)return;
   const hasMountain=!!$('mountainPreset')?.value?.trim();
   btn.disabled=!hasMountain;
-  btn.textContent=loaded?'読み込み済み':'通過ポイントを読み込む';
+  btn.textContent=loaded?'設計用ポイント表示中':'通過ポイントを自分で設計';
   btn.classList.toggle('primary',hasMountain&&!loaded);
   btn.classList.toggle('secondary',!hasMountain||loaded);
   btn.classList.toggle('route-load-needed',hasMountain&&!loaded);
@@ -5727,20 +5762,22 @@ function representativeCourseWithDescent(mountain,course){
   const routeKey=`${key}|${course.label||''}`;
   const explicit=REPRESENTATIVE_DESCENT_PATHS_V14166[routeKey];
   if(Array.isArray(explicit)&&explicit.length){
+    const originalPointCount=points.length;
     points.push(...explicit.map(p=>[...p]));
-    return {...course,points,descentExtended:true,descentMode:'traverse'};
+    return {...course,points,descentExtended:true,descentMode:'traverse',originalPointCount};
   }
 
   // 通常の往復ルートは、往路の中間地点を逆順に戻す。
   // 例：登山口→小屋→山頂→小屋→登山口。
   const firstTrailIndex=points.findIndex(p=>p?.[0]==='trailhead');
   if(firstTrailIndex<0)return {...course,points};
+  const originalPointCount=points.length;
   const outbound=points.slice(firstTrailIndex,-1);
   const reverse=outbound.slice(1).reverse().map(p=>[p[0],p[1],p[2]]);
   const trail=points[firstTrailIndex];
   points.push(...reverse);
   points.push(['trailhead',trail[1],'下山口']);
-  return {...course,points,descentExtended:true,descentMode:'roundtrip'};
+  return {...course,points,descentExtended:true,descentMode:'roundtrip',originalPointCount};
 }
 function representativeCourseOptions(mountain){
   const key=canonicalMountainName(mountain);
@@ -5911,6 +5948,23 @@ function splitRepresentativeSegmentMinutes(points,totalMinutes){
   return mins;
 }
 
+// V1.4.177: 下山側に逆方向の確認済みCTがない場合、往路CTから下山参考CTを作る。
+// 代表コース全体を読み込み不能にしないための限定フォールバックで、確認済みCTそのものは上書きしない。
+function representativeDescentReverseFallbackInfo(fromPoint,toPoint){
+  if(!fromPoint||!toPoint)return null;
+  const reverse=courseTimeInfo(toPoint,fromPoint);
+  if(!reverse||!Number.isFinite(Number(reverse.minutes)))return null;
+  const minutes=Math.max(10,Math.round((Number(reverse.minutes)*0.75)/10)*10);
+  return {
+    minutes,
+    source:`${reverse.source||'確認済みCT'}・逆方向CTから下山参考値換算`,
+    sourceType:'estimated',
+    estimated:true,
+    derived:true,
+    derivedFromReverse:true
+  };
+}
+
 function buildRepresentativeResolvedRoute(mountain,course){
   const baseDefs=Array.isArray(course?.points)?course.points:[];
   const expandedDefs=representativeCourseExpandedPointDefs(mountain,course);
@@ -5928,7 +5982,11 @@ function buildRepresentativeResolvedRoute(mountain,course){
     }
     if(startIndex<0||endIndex<0)continue;
     const chain=resolvedExpanded.slice(startIndex,endIndex+1);
-    const parentInfo=chain[0]?.p&&chain.at(-1)?.p?courseTimeInfo(chain[0].p,chain.at(-1).p):null;
+    const isDescentExtendedSegment=!!course?.descentExtended&&Number.isFinite(Number(course?.originalPointCount))&&bi>=Number(course.originalPointCount);
+    let parentInfo=chain[0]?.p&&chain.at(-1)?.p?courseTimeInfo(chain[0].p,chain.at(-1).p):null;
+    if(!parentInfo&&isDescentExtendedSegment){
+      parentInfo=representativeDescentReverseFallbackInfo(chain[0]?.p,chain.at(-1)?.p);
+    }
     if(chain.length===2){
       const info=parentInfo;
       if(!info&&!course.allowMissingCt)return {error:`${prevDef[1]} → ${nextDef[1]} の確認済みCTがありません。`};
@@ -5981,6 +6039,7 @@ function setRepresentativeCourseSelectedIndex(mountain,index){
   const sel=$('representativeCourseSelect');
   if(sel&&options[idx])sel.value=String(idx);
   renderRepresentativeCourseSummaryNow(key);
+  renderRepresentativeCourseStaticPreview(key);
   const btn=$('representativeCourseBtn');
   if(btn){
     const active=options[idx];
@@ -6049,10 +6108,33 @@ function renderRepresentativeCourseSummaryNow(mountainOverride=''){
   btn.title=activeRoute?`${active.label||'代表コース'}\n${activeRoute}`:(active.label||'代表コース');
 }
 
+function renderRepresentativeCourseStaticPreview(mountainOverride=''){
+  const mountain=(mountainOverride||currentMountainLabel()).trim();
+  const options=representativeCourseOptions(mountain);
+  const preview=$('representativeCoursePreview');
+  if(!preview)return;
+  if(!options.length){
+    preview.replaceChildren();
+    preview.classList.add('hidden','is-empty');
+    preview.setAttribute('aria-hidden','true');
+    return;
+  }
+  const idx=representativeCourseSelectedIndex(mountain,options);
+  const course=options[idx]||options[0];
+  const label=document.createElement('b');
+  label.textContent=course.label||'代表コース';
+  const route=document.createElement('span');
+  route.textContent=representativeCoursePathText(course,mountain)||course.points?.map(p=>p?.[1]).filter(Boolean).join(' → ')||'';
+  preview.replaceChildren(label,route);
+  preview.classList.remove('hidden','is-empty');
+  preview.setAttribute('aria-hidden','false');
+}
+
 function refreshRepresentativeCourseButton(){
   const btn=$('representativeCourseBtn');
   const sel=$('representativeCourseSelect');
   const choices=$('representativeCourseChoices');
+  const mobileChoices=$('mobileRepresentativeCourses');
   const legacySummary=$('representativeCourseSummaryFixed');
   if(!btn)return;
   const mountain=currentMountainLabel();
@@ -6064,12 +6146,15 @@ function refreshRepresentativeCourseButton(){
     const idx=representativeCourseSelectedIndex(mountain,options);
     sel.innerHTML=options.map((course,i)=>`<option value="${i}">${escapeHtml(course.label)}</option>`).join('');
     sel.value=String(idx);
-    sel.classList.add('hidden');
+    sel.classList.toggle('hidden',!hasCourse);
     sel.disabled=!hasCourse;
   }
-  // V1.4.113: course summaries themselves are the selector, so the old pills are hidden.
-  if(choices){choices.replaceChildren();choices.classList.add('hidden');}
+  // V1.4.182: mountain selection immediately exposes the representative-course selector
+  // and its route preview. Loading remains an explicit button action.
+  if(choices){choices.replaceChildren();choices.classList.add('hidden');choices.removeAttribute('data-course-count');}
+  if(mobileChoices){mobileChoices.replaceChildren();mobileChoices.classList.add('hidden');}
   if(legacySummary){legacySummary.replaceChildren();legacySummary.style.setProperty('display','none','important');}
+  renderRepresentativeCourseStaticPreview(mountain);
   renderRepresentativeCourseSummaryNow(mountain);
 }
 function representativeCandidate(type,name){
@@ -6379,7 +6464,7 @@ async function loadCandidates(){
   }
   const mountain=canonicalMountainName(label);
   const btn=$('loadPoiBtn');
-  btn.disabled=true; btn.textContent='通過ポイントを出力中…';
+  btn.disabled=true; btn.textContent='設計用ポイントを準備中…';
   try{
     const center=await resolveMountainCenter(label);
     if(!MOUNTAIN_PRESETS[mountain])MOUNTAIN_PRESETS[mountain]=center;
@@ -6406,7 +6491,7 @@ async function loadCandidates(){
 
     // 固定候補がまったく無い山だけ、非常用フォールバックとして従来の外部探索を実施。
     $('candidateState').textContent='固定ポイントがないため通過ポイントを検索中…';
-    btn.textContent='通過ポイントを検索中…';
+    btn.textContent='設計用ポイントを検索中…';
     const fullCacheKey=`full:${mountainCacheKey(mountain)}`;
     const cachedFull=routeCacheGet(fullCacheKey,7*24*60*60*1000);
     if(Array.isArray(cachedFull)&&cachedFull.length){
@@ -6968,11 +7053,11 @@ async function fetchNoaaGfsFallback(point){
   return payload?.row||null;
 }
 
-async function analyzePointsBatch(points){
+async function analyzePointsBatch(points,providerList=providers,statusLabel='気象モデル'){
   const buckets=points.map(()=>({rows:[],errors:[]}));
-  for(let pi=0;pi<providers.length;pi++){
-    const provider=providers[pi];
-    setStatus(`気象モデル ${pi+1}/${providers.length}：${provider.name} を全地点まとめて取得中…`);
+  for(let pi=0;pi<providerList.length;pi++){
+    const provider=providerList[pi];
+    setStatus(`${statusLabel} ${pi+1}/${providerList.length}：${provider.name} を全地点まとめて取得中…`);
     try{
       const fetched=await fetchProviderBatch(provider,points);
       fetched.forEach(x=>{
@@ -7028,27 +7113,59 @@ async function scrollToSummaryResult(){
   });
 }
 
+let activeAnalysisRun=0;
 async function analyze(){
+  const runId=++activeAnalysisRun;
   const started=performance.now(); let points=[];
   try{
     points=collectPoints(); if(points.length<1)throw new Error('分析する地点を1つ以上選択してください。');
     validateChronology(points);
-    $('analyzeBtn').disabled=true; setStatus(`分析開始：${points.length}地点を一括取得する準備をしています…`);
+    $('analyzeBtn').disabled=true; setStatus(`分析開始：${points.length}地点を高速取得する準備をしています…`);
     await ensureElevations(points);
-    const results=await analyzePointsBatch(points);
     const stayPoints=points.filter(p=>p.stay);
-    let overnight=[];
-    let overnightWarning='';
-    if(stayPoints.length){
-      setStatus(`宿泊分析：${stayPoints.length}泊分をまとめて取得しています…`);
-      try{overnight=await analyzeOvernightsBatch(stayPoints);}catch(e){overnightWarning=` / 宿泊詳細は取得できませんでした（${e?.message||'取得失敗'}）`;}
-    }
+    const maxAhead=Math.max(...points.map(p=>daysAhead(p.date)));
+    // V1.4.174: first paint uses JMA + ECMWF. Only the farthest GFS-only horizon
+    // falls back to the full set so a valid result is always available.
+    const primaryProviders=maxAhead>15?providers:providers.filter(p=>p.id==='jma'||p.id==='ecmwf');
+    const overnightPromise=stayPoints.length
+      ? analyzeOvernightsBatch(stayPoints).then(v=>({items:v,warning:''})).catch(e=>({items:[],warning:` / 宿泊詳細は取得できませんでした（${e?.message||'取得失敗'}）`}))
+      : Promise.resolve({items:[],warning:''});
+    const [results,overnightState]=await Promise.all([
+      analyzePointsBatch(points,primaryProviders,'先行モデル'),
+      overnightPromise
+    ]);
+    if(runId!==activeAnalysisRun)return;
+    const overnight=overnightState.items, overnightWarning=overnightState.warning;
     const mountain=currentMountainLabel();
-    renderAll(results,overnight); saveLastRouteSnapshot(mountain,points); setStatus(`分析完了：${points.length}地点${stayPoints.length?` / 宿泊 ${stayPoints.length}泊`:''}${overnightWarning}（一括取得）`,false); scrollToSummaryResult();
+    renderAll(results,overnight); saveLastRouteSnapshot(mountain,points);
+    const initialMs=Math.round(performance.now()-started);
+    setStatus(`分析結果を先行表示：${points.length}地点${stayPoints.length?` / 宿泊 ${stayPoints.length}泊`:''}${overnightWarning}（残りモデルを更新中…）`,false);
+    scrollToSummaryResult();
+    $('analyzeBtn').disabled=false;
     points.forEach(p=>logEvent('route_point_used',{success:true,mountain,metadata:{point_name:p.name||'',point_type:p.type||'other',point_role:p.role||'',source:p.source||''}}));
-    logEvent('weather_analysis',{success:true,duration_ms:performance.now()-started,mountain,route_points:points.length,stay_count:stayPoints.length,metadata:{provider_count:providers.length,manual_datetime:true,batch_weather:true}});
-  }catch(e){setStatus(e.message||String(e),true);logEvent('weather_analysis',{success:false,duration_ms:performance.now()-started,mountain:currentMountainLabel(),route_points:points.length,error_message:e.message||String(e)});}
-  finally{$('analyzeBtn').disabled=false;}
+    logEvent('weather_analysis',{success:true,duration_ms:initialMs,mountain,route_points:points.length,stay_count:stayPoints.length,metadata:{provider_count:primaryProviders.length,provider_count_final:providers.length,manual_datetime:true,batch_weather:true,progressive:true}});
+
+    // Finish GFS / ICON after the usable result is already on screen. The first
+    // two requests are normally served from the proxy cache, so only the
+    // remaining models need upstream time.
+    if(primaryProviders.length<providers.length){
+      try{
+        const fullResults=await analyzePointsBatch(points,providers,'追加モデル');
+        if(runId!==activeAnalysisRun)return;
+        renderAll(fullResults,overnight);
+        setStatus(`分析完了：${points.length}地点${stayPoints.length?` / 宿泊 ${stayPoints.length}泊`:''}${overnightWarning}（4モデル比較まで更新済み）`,false);
+      }catch(e){
+        if(runId===activeAnalysisRun)setStatus(`先行分析は表示済みです。追加モデルのみ更新できませんでした（${e?.message||'取得失敗'}）`,false);
+      }
+    }else{
+      setStatus(`分析完了：${points.length}地点${stayPoints.length?` / 宿泊 ${stayPoints.length}泊`:''}${overnightWarning}`,false);
+    }
+  }catch(e){
+    if(runId===activeAnalysisRun)setStatus(e.message||String(e),true);
+    logEvent('weather_analysis',{success:false,duration_ms:performance.now()-started,mountain:currentMountainLabel(),route_points:points.length,error_message:e.message||String(e)});
+  }finally{
+    if(runId===activeAnalysisRun)$('analyzeBtn').disabled=false;
+  }
 }
 function analyzeOvernightJson(point,nightNo,j){
   const next=addDays(point.date,1), h=j?.hourly||{}, d=j?.daily||{};
