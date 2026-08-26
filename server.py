@@ -29,7 +29,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.4.187"
+APP_VERSION = "1.4.190"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -1596,6 +1596,7 @@ def national_outlook_refresh_cache():
 @app.post("/api/national-outlook")
 def national_outlook():
     payload = request.get_json(silent=True) or {}
+    cache_only = bool(payload.get("cacheOnly"))
     date_text = str(payload.get("date") or "")[:10]
     try: target = datetime.strptime(date_text, "%Y-%m-%d").date()
     except ValueError: return jsonify(error="日付が不正です"), 400
@@ -1654,6 +1655,19 @@ def national_outlook():
     cached_names={str(r.get("name") or "") for r in cached_results if isinstance(r,dict)}
     cached_count=len(cached_names)
     is_cached_complete=cached_count >= len(points)
+
+    # V1.4.190: initial nationwide display may ask only for already-saved results.
+    # Never generate/fetch forecasts for cacheOnly requests.
+    if cache_only:
+        if cached_results:
+            cache_state='cache-only-fresh' if state=='fresh' else 'cache-only-stale'
+            return _national_response(cached,cache_state,cached_count=cached_count,newly_fetched_count=0)
+        now=time.time()
+        empty={
+            'date':date_text,'fingerprint':fingerprint,'generated_at':datetime.now(timezone.utc).isoformat(),'generated_ts':now,
+            'fresh_until':now,'stale_until':now,'points':points,'results':[],'complete':False,'cached_count':0,'version':APP_VERSION,
+        }
+        return _national_response(empty,'cache-miss',cached_count=0,newly_fetched_count=0)
 
     # A complete fresh cache returns immediately. A fresh partial cache is useful,
     # but we continue only for the missing mountains and merge the result back.

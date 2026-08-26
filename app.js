@@ -139,7 +139,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.187';
+const APP_VERSION = '1.4.190';
 
 
 
@@ -1280,7 +1280,47 @@ function normalizeCourseTimePointName(name){
   }
   return raw;
 }
+// V1.4.188: user-priority mountains. Replace fallback estimated CT only where a public standard/model time can be tied to the same endpoints.
+const V14188_PRIORITY_VERIFIED_COURSE_TIMES = Object.freeze({
+  '針ノ木岳→扇沢登山口': {minutes:230, source:'公開登山ガイド・針ノ木岳→針ノ木峠40分→大沢小屋120分→扇沢70分（計3時間50分）', sourceType:'other'},
+  '蓮華岳→扇沢登山口': {minutes:255, source:'YAMAP蓮華岳（扇沢）モデル 山頂→針ノ木小屋65分＋公開登山ガイド 針ノ木峠→扇沢190分（計4時間15分）', sourceType:'yamap'},
+  '烏帽子岳→高瀬ダム': {minutes:164, source:'公開登山ガイド・烏帽子岳→高瀬ダム 2時間44分', sourceType:'other'},
+  '水晶岳（黒岳）→折立登山口': {minutes:680, source:'公開登山ガイド・水晶岳→祖父岳115分→アラスカ庭園115分→薬師沢125分→太郎平145分→折立180分（計11時間20分）', sourceType:'other'},
+  '折立登山口→赤牛岳': {minutes:960, source:'山旅旅・折立→雲ノ平→水晶岳→赤牛岳 標準区間合算16時間', sourceType:'other'},
+  '笠ヶ岳（岐阜）→新穂高温泉': {minutes:412, source:'YAMAP標準モデル・新穂高温泉〜笠新道〜笠ヶ岳往復の下山区間 6時間52分', sourceType:'yamap'},
+  '乗鞍岳→畳平バスターミナル': {minutes:70, source:'信州山学ガイド・剣ヶ峰→畳平 下り1時間10分', sourceType:'other'},
+  '御嶽山（剣ヶ峰）→中の湯登山口（黒沢口）': {minutes:170, source:'公開登山ガイド・黒沢口 中の湯〜剣ヶ峰 復路2時間50分', sourceType:'other'},
+  '富士山（剣ヶ峰）→富士スバルライン五合目（吉田口）': {minutes:240, source:'富士登山オフィシャルサイト2026 吉田ルート図・剣ヶ峰から五合目まで区間合算4時間', sourceType:'official'},
+  '富士山（剣ヶ峰）→須走口五合目': {minutes:245, source:'富士登山オフィシャルサイト2026 須走ルート図・剣ヶ峰から五合目まで区間合算4時間05分', sourceType:'official'},
+  '白山（御前峰）→市ノ瀬': {minutes:330, source:'白山観光協会・白山禅定道 室堂→市ノ瀬5時間＋石川県公式 御前峰→室堂30分（計5時間30分）', sourceType:'official'},
+  '伊吹山→伊吹山ドライブウェイ山頂駐車場': {minutes:20, source:'伊吹山ドライブウェイ公式・中央登山道 山頂〜駐車場 約20分', sourceType:'official'},
+  '藤原岳→孫太尾根登山口': {minutes:150, source:'公共交通アクセス案内・孫太尾根 藤原岳→孫太尾根登山口 2時間30分', sourceType:'other'},
+  '御在所岳→中登山道口 御在所岳': {minutes:90, source:'公開登山ガイド・御在所岳 中登山道 下り約1時間30分', sourceType:'other'},
+  '御在所岳→武平峠登山口': {minutes:70, source:'YAMAP標準モデル・御在所岳→武平トンネル東登山口 約1時間10分', sourceType:'yamap'},
+  '日出ヶ岳→大台ヶ原ビジターセンター': {minutes:28, source:'YAMAP標準モデル・日出ヶ岳→大台ヶ原ビジターセンター28分', sourceType:'yamap'},
+  '山上ヶ岳→清浄大橋 大峯山登山口': {minutes:120, source:'ヤマレコ公開記録・山上ヶ岳→大峯大橋 標準区間表示合算2時間', sourceType:'yamareco'},
+  '釈迦ヶ岳（奈良）→太尾登山口 釈迦ヶ岳 奈良': {minutes:105, source:'YAMAP標準モデル・釈迦ヶ岳→太尾登山口駐車場 1時間45分', sourceType:'yamap'},
+  '金剛山→千早本道登山口': {minutes:99, source:'YAMAP標準モデル・金剛山→千早本道登山口 1時間39分', sourceType:'yamap'},
+  '金剛山→水越峠 金剛山': {minutes:106, source:'YAMAP標準モデル・金剛山→水越峠 1時間46分', sourceType:'yamap'},
+  '武奈ヶ岳→イン谷口': {minutes:161, source:'YAMAP標準モデル・武奈ヶ岳→イン谷口駐車場 2時間41分', sourceType:'yamap'},
+  '大山（弥山）→夏山登山口 大山': {minutes:150, source:'大山登山ホームページ・夏山登山道 山頂→夏山登山口 区間合算2時間30分', sourceType:'official'},
+  '大山（弥山）→博労座': {minutes:165, source:'環境省・博労座〜夏山登山口15分＋大山公式 夏山登山道下山150分（計2時間45分）', sourceType:'official'},
+  '吾妻山→吾妻山キャンプ場駐車場': {minutes:42, source:'YAMAP標準モデル・吾妻山→吾妻山ロッジ駐車場 42分', sourceType:'yamap'},
+  '伊予富士→寒風山登山口': {minutes:150, source:'公開登山ガイド・伊予富士→桑瀬峠90分→寒風山登山口60分（計2時間30分）', sourceType:'other'},
+  '瓶ヶ森→瓶ヶ森駐車場': {minutes:35, source:'YAMAP標準モデル・瓶ヶ森→男山→登山口→駐車場 35分', sourceType:'yamap'},
+  '英彦山→別所駐車場・英彦山登山口': {minutes:132, source:'YAMAP標準モデル・英彦山（南岳）→別所駐車場 2時間12分', sourceType:'yamap'},
+  '英彦山→豊前坊・高住神社登山口': {minutes:114, source:'YAMAP標準モデル・英彦山（南岳）→北岳→豊前坊駐車場 1時間54分', sourceType:'yamap'},
+  '多良岳→黒木第2駐車場・黒木登山口': {minutes:119, source:'YAMAP標準モデル・多良岳→黒木第2駐車場 1時間59分', sourceType:'yamap'},
+  '多良岳→中山キャンプ場（中山登山口）': {minutes:71, source:'YAMAP標準モデル・多良岳→中山キャンプ場登山口 1時間11分', sourceType:'yamap'},
+  '祖母山→神原登山口': {minutes:175, source:'YAMAP標準モデル・祖母山→神原登山口 2時間55分', sourceType:'yamap'},
+  '傾山→九折登山口 傾山': {minutes:253, source:'YAMAP標準モデル・傾山→九折登山口駐車場（九折越経由）4時間13分', sourceType:'yamap'},
+  '大崩山→祝子川 大崩山登山口': {minutes:200, source:'YAMAP標準モデル・坊主尾根コース 大崩山→大崩山登山口 3時間20分', sourceType:'yamap'},
+  '霧島山（韓国岳）→大浪池登山口': {minutes:89, source:'YAMAP標準モデル・韓国岳→大浪池登山口 1時間29分', sourceType:'yamap'},
+  '笊ヶ岳→老平・笊ヶ岳登山口': {minutes:353, source:'YAMAP標準モデル・笊ヶ岳（老平） 山頂→老平登山口 5時間53分', sourceType:'yamap'}
+});
+
 const COURSE_TIME_TABLES = Object.freeze([
+  V14188_PRIORITY_VERIFIED_COURSE_TIMES,
   NORTH_ALPS_COURSE_TIMES,
   CENTRAL_SOUTH_ALPS_COURSE_TIMES,
   YATSUGATAKE_CHUSHIN_COURSE_TIMES,
@@ -4888,6 +4928,26 @@ function nationalMountainPoint(name){
   return {name,lat,lon,elevation:Number.isFinite(elevation)?elevation:null,eligible:representativeCourseOptions(name).length>0};
 }
 function nationalOutlookPoints(){return JAPAN_300_MOUNTAINS.map(nationalMountainPoint).filter(Boolean);}
+function nationalOutlookSelectedHonors(){
+  const selected=new Set();
+  if($('nationalFilter100')?.checked)selected.add('100');
+  if($('nationalFilter200')?.checked)selected.add('200');
+  if($('nationalFilter300')?.checked)selected.add('300');
+  return selected;
+}
+function nationalOutlookVisiblePoints(){
+  const selected=nationalOutlookSelectedHonors();
+  if(!selected.size)return [];
+  return nationalOutlookPoints().filter(p=>selected.has(nationalMountainHonor(p.name).tone));
+}
+function nationalOutlookSelectedLabel(){
+  const selected=nationalOutlookSelectedHonors();
+  const labels=[];
+  if(selected.has('100'))labels.push('百名山');
+  if(selected.has('200'))labels.push('二百名山');
+  if(selected.has('300'))labels.push('三百名山');
+  return labels.join('・')||'選択なし';
+}
 function nationalMarkerIcon(grade='?'){
   const g=['A','B','C'].includes(grade)?grade:'?';
   return L.divIcon({className:'national-marker-wrap',html:`<div class="national-marker grade-${g==='?'?'u':g.toLowerCase()}">${g}</div>`,iconSize:[26,26],iconAnchor:[13,13]});
@@ -4896,7 +4956,7 @@ function renderNationalOutlookMarkers(){
   if(!nationalOutlookMap||!window.L)return;
   if(nationalOutlookLayer)nationalOutlookLayer.remove();
   nationalOutlookLayer=L.layerGroup().addTo(nationalOutlookMap);
-  for(const p of nationalOutlookPoints()){
+  for(const p of nationalOutlookVisiblePoints()){
     const result=nationalOutlookResults.get(p.name);
     const grade=result?.grade||'?';
     const marker=L.marker([p.lat,p.lon],{icon:nationalMarkerIcon(grade),title:`${p.name} ${grade}`}).addTo(nationalOutlookLayer);
@@ -5115,16 +5175,63 @@ function readNationalOutlookBrowserCache(date){
 function writeNationalOutlookBrowserCache(date,results){
   try{localStorage.setItem(NATIONAL_OUTLOOK_BROWSER_CACHE_KEY,JSON.stringify({date,savedAt:Date.now(),results}));}catch(_){}
 }
+async function loadNationalOutlookSharedCacheOnly({silentMiss=false}={}){
+  const date=$('nationalOutlookDate')?.value, status=$('nationalOutlookStatus');
+  if(!date)return false;
+  const points=nationalOutlookVisiblePoints();
+  const eligible=points.filter(x=>x.eligible);
+  if(!eligible.length){
+    nationalOutlookResults=new Map();
+    renderNationalOutlookMarkers();
+    if(status)status.textContent='表示する山の区分を1つ以上選択してください。';
+    return false;
+  }
+  const browserCached=readNationalOutlookBrowserCache(date);
+  if(browserCached?.length){
+    const wanted=new Set(eligible.map(x=>x.name));
+    const picked=browserCached.filter(x=>wanted.has(x.name));
+    if(picked.length){
+      nationalOutlookResults=new Map(picked.map(x=>[x.name,x]));
+      renderNationalOutlookMarkers();
+    }
+  }
+  try{
+    const res=await fetch('/api/national-outlook',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date,points:eligible,cacheOnly:true})});
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok)throw new Error(data.error||`HTTP ${res.status}`);
+    const results=Array.isArray(data.results)?data.results:[];
+    if(!results.length){
+      nationalOutlookResults=new Map();
+      renderNationalOutlookMarkers();
+      if(status&&!silentMiss)status.innerHTML=`${esc(nationalOutlookSelectedLabel())}の共有キャッシュはまだありません。<small> 「全国を判定」を押すと取得します。</small>`;
+      return false;
+    }
+    nationalOutlookResults=new Map(results.map(x=>[x.name,x]));
+    renderNationalOutlookMarkers();
+    writeNationalOutlookBrowserCache(date,results);
+    const counts={A:0,B:0,C:0};for(const r of nationalOutlookResults.values())if(counts[r.grade]!=null)counts[r.grade]++;
+    const state=String(data.cache?.state||'');
+    const freshness=state.includes('stale')?'保存済みの最新キャッシュ':'共有キャッシュ';
+    if(status)status.innerHTML=`${freshness}から${esc(nationalOutlookSelectedLabel())} ${results.length}座を初期表示：<b>A ${counts.A}座</b> / <b>B ${counts.B}座</b> / <b>C ${counts.C}座</b>`;
+    return true;
+  }catch(_){
+    if(status&&!silentMiss)status.textContent='共有キャッシュを確認できませんでした。「全国を判定」は利用できます。';
+    return false;
+  }
+}
+
 async function runNationalOutlook(){
   const date=$('nationalOutlookDate')?.value, status=$('nationalOutlookStatus'), btn=$('nationalOutlookRun');
   if(!date){if(status)status.textContent='日付を選択してください。';return;}
-  const points=nationalOutlookPoints();
+  const points=nationalOutlookVisiblePoints();
   const eligible=points.filter(x=>x.eligible);
-  if(!eligible.length){if(status)status.textContent='簡易判定できる山がありません。';return;}
+  if(!eligible.length){if(status)status.textContent='表示する山の区分を1つ以上選択してください。';return;}
   if(btn)btn.disabled=true;
   const browserCached=readNationalOutlookBrowserCache(date);
   if(browserCached?.length){
-    nationalOutlookResults=new Map(browserCached.map(x=>[x.name,x]));
+    const wanted=new Set(eligible.map(x=>x.name));
+    const selectedCached=browserCached.filter(x=>wanted.has(x.name));
+    nationalOutlookResults=new Map(selectedCached.map(x=>[x.name,x]));
     renderNationalOutlookMarkers();
     const counts={A:0,B:0,C:0};for(const r of nationalOutlookResults.values())if(counts[r.grade]!=null)counts[r.grade]++;
     const missing=Math.max(0,eligible.length-nationalOutlookResults.size);
@@ -5184,25 +5291,38 @@ async function runNationalOutlook(){
 }
 function setupNationalOutlook(){
   const el=$('nationalOutlookMap'),date=$('nationalOutlookDate'),btn=$('nationalOutlookRun'),status=$('nationalOutlookStatus');
+  const filters=[$('nationalFilter100'),$('nationalFilter200'),$('nationalFilter300')].filter(Boolean);
   // 判定ボタンは地図ライブラリの成否に関係なく必ず有効化する。
   btn?.addEventListener('click',runNationalOutlook);
   if(!el||!date)return;
   const today=new Date(); const local=new Date(today.getTime()-today.getTimezoneOffset()*60000).toISOString().slice(0,10);
   const tomorrow=new Date(today.getTime()+86400000); const tomorrowLocal=new Date(tomorrow.getTime()-tomorrow.getTimezoneOffset()*60000).toISOString().slice(0,10); date.value=tomorrowLocal;
   const max=new Date(today.getTime()+15*86400000); date.max=new Date(max.getTime()-max.getTimezoneOffset()*60000).toISOString().slice(0,10); date.min=local;
+  const refreshFilteredView=()=>{
+    nationalOutlookResults=new Map();
+    renderNationalOutlookMarkers();
+    const coords=nationalOutlookVisiblePoints().map(p=>[p.lat,p.lon]);
+    if(nationalOutlookMap&&coords.length)nationalOutlookMap.fitBounds(coords,{padding:[18,18],maxZoom:5});
+    loadNationalOutlookSharedCacheOnly();
+  };
+  filters.forEach(cb=>cb.addEventListener('change',refreshFilteredView));
+  date.addEventListener('change',refreshFilteredView);
   if(!window.L){
     el.innerHTML='<div class="national-map-fallback">地図の読み込みに失敗しました。全国判定は実行できます。</div>';
-    if(status)status.textContent='地図ライブラリを読み込めませんでしたが、「全国を判定」は実行できます。';
+    if(status)status.textContent='地図ライブラリを読み込めませんでしたが、共有キャッシュを確認します。';
+    loadNationalOutlookSharedCacheOnly();
     return;
   }
   try{
     nationalOutlookMap=L.map(el,{zoomControl:true,scrollWheelZoom:false}).setView([36.2,138.0],5);
     L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png',{minZoom:5,maxZoom:18,attribution:'<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener noreferrer">地理院タイル</a>'}).addTo(nationalOutlookMap);
     renderNationalOutlookMarkers();
-    const allCoords=nationalOutlookPoints().map(p=>[p.lat,p.lon]);
+    const allCoords=nationalOutlookVisiblePoints().map(p=>[p.lat,p.lon]);
     if(allCoords.length)nationalOutlookMap.fitBounds(allCoords,{padding:[18,18],maxZoom:5});
+    loadNationalOutlookSharedCacheOnly();
   }catch(e){
-    if(status)status.textContent=`地図の初期化に失敗しましたが、全国判定は実行できます：${e.message||e}`;
+    if(status)status.textContent=`地図の初期化に失敗しましたが、共有キャッシュを確認します：${e.message||e}`;
+    loadNationalOutlookSharedCacheOnly();
   }
 }
 
