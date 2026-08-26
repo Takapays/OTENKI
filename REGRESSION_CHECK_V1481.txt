@@ -1,0 +1,16 @@
+Traten V1.4.81 regression check
+
+[PASS] app.js syntax: node --check
+[PASS] server.py syntax: python3 -m py_compile
+[PASS] APP_VERSION app.js = 1.4.81
+[PASS] APP_VERSION server.py = 1.4.81
+[PASS] index asset cache versions = 1.4.81
+[PASS] National detail PC: right side rich panel
+[PASS] National detail mobile: bottom sheet (.is-open)
+[PASS] Rich detail contains grade / elevation / area / 6-15 summary
+[PASS] Rich detail contains wind / rain / thunder / temperature / visibility / confidence
+[PASS] Representative route shown from representativeCourseOptions()
+[PASS] Nearby 5 mountains computed from fixed 300 mountain coordinates
+[PASS] Nearby mountains are clickable
+[PASS] CTA: この山を山行設定に入力
+[PASS] Existing national-outlook API unchanged except version cache key

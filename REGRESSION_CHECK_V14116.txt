@@ -1,0 +1,9 @@
+V1.4.116 regression checks
+- HTML action DOM order: add point -> save route -> analyze: PASS
+- Final CSS forced visual order: add point 1 / save 2 / analyze 3: PASS
+- Removed 「対応区間は登山道なりに表示」: PASS
+- Route map GSI layers: std / pale / seamlessphoto / hillshademap: PASS
+- Route map default: 標準地図: PASS
+- Route-map preview + results use ensureRouteMap shared switcher: PASS
+- app/server visible cache version 1.4.116: PASS
+- MutationObserver not introduced by V1.4.116: PASS

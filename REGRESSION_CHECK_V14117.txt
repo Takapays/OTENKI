@@ -1,0 +1,7 @@
+V1.4.117 regression check
+- app.js: node --check PASS
+- server.py: py_compile PASS
+- GSI pale layer removed: PASS
+- desktop route map full-width override: PASS
+- desktop layer control compact override: PASS
+- access.js MutationObserver absent: PASS

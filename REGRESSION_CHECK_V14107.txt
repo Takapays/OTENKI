@@ -1,0 +1,11 @@
+V1.4.107 regression/static checks
+- app.js: node --check PASS
+- server.py: py_compile + AST parse PASS
+- APP_VERSION / index cache-busting: 1.4.107 PASS
+- national browser request: single 300-point request PASS (static inspection)
+- shared full-date disk cache: 4h fresh / 24h stale PASS (static inspection)
+- 429 policy: stop refresh + stale last-good fallback PASS (static inspection)
+- background refresh: only previously requested cached dates PASS (static inspection)
+- per-point national cache reuse PASS (static inspection)
+- Open-Meteo proxy exact-URL cache: 30 min PASS (static inspection)
+- runtime Flask endpoint test: NOT RUN (Flask package unavailable in this container; package install blocked by DNS)

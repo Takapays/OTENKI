@@ -1,0 +1,11 @@
+V1.4.154 mountain honor badge audit
+
+National outlook mountains: 300
+Japan 100 Famous Mountains badge: 100
+Japan 200 Famous Mountains additional entries overlapping Japan 300: 99
+Japan 300 Famous Mountains-only badge: 101
+Total classified: 300/300
+
+Note:
+Japan 200 Famous Mountains includes 荒沢岳, which is not in Japan 300 Famous Mountains, while 山上ヶ岳 is in Japan 300 but not Japan 200. Therefore the 300-mountain dataset naturally splits 100 / 99 / 101.
+Project-specific representative names (e.g. 三本槍岳 for 那須岳, 塔ノ岳 for 丹沢山, 地蔵岳(鳳凰) for 鳳凰山) retain the intended famous-mountain category used by the app's national 300 dataset.

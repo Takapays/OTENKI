@@ -1,0 +1,9 @@
+Traten V1.4.82 regression check
+- APP_VERSION: 1.4.82
+- PC representative course layout: button left / selected course preview right
+- Multiple representative course choices: second row
+- PC ROUTE PLAN outer panel: min-height calc(100vh - 130px), no shortened max-height
+- PC ROUTE PLAN inner controls: vertically compacted
+- Mobile representative course layout: existing stacked layout unchanged
+- app.js syntax: PASS
+- server.py syntax: PASS
