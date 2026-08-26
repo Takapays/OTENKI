@@ -139,7 +139,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.197';
+const APP_VERSION = '1.4.201';
 
 
 
@@ -1280,6 +1280,74 @@ function normalizeCourseTimePointName(name){
   }
   return raw;
 }
+
+// V1.4.201: 富士山・富士宮ルートの公式標準CT。
+// 富士登山オフィシャルサイトの富士宮ルート標準時間（山頂まで約5時間10分／下り約2時間40分）に、
+// 山頂浅間大社奥宮〜剣ヶ峰の標準移動約20分を加えて剣ヶ峰端点に合わせる。
+const V14201_REPRESENTATIVE_VERIFIED_COURSE_TIMES = Object.freeze({
+  '富士宮口五合目→富士山（剣ヶ峰）': {minutes:330, source:'富士登山オフィシャルサイト2026・富士宮ルート（五合目→山頂5時間10分＋剣ヶ峰約20分）', sourceType:'official'},
+  '富士山（剣ヶ峰）→富士宮口五合目': {minutes:180, source:'富士登山オフィシャルサイト2026・富士宮ルート（山頂→五合目2時間40分＋剣ヶ峰から山頂約20分）', sourceType:'official'},
+  '真狩登山口・真狩キャンプ場→後方羊蹄山（羊蹄山）': {minutes:310, source:'YAMAP標準モデル・羊蹄山 真狩コース（真狩登山口→山頂 5時間10分）', sourceType:'yamap'},
+  '後方羊蹄山（羊蹄山）→真狩登山口・真狩キャンプ場': {minutes:190, source:'YAMAP標準モデル・比羅夫→羊蹄山→真狩縦走（山頂→真狩登山口 3時間10分）', sourceType:'yamap'},
+  '百沢コース登山口→岩木山': {minutes:258, source:'YAMAP標準モデル・百沢コース（百沢コース登山口→岩木山 4時間18分）', sourceType:'yamap'},
+  '岩木山→百沢コース登山口': {minutes:190, source:'YAMAP標準モデル・百沢コース（岩木山→百沢コース登山口 3時間10分）', sourceType:'yamap'},
+  '唐沢鉱泉→天狗岳': {minutes:240, source:'YAMAP標準モデル・天狗岳（唐沢鉱泉）西尾根（唐沢鉱泉→西天狗岳 4時間）', sourceType:'yamap'},
+  '天狗岳→唐沢鉱泉': {minutes:130, source:'YAMAP標準モデル・天狗岳（唐沢鉱泉）西尾根（西天狗岳→唐沢鉱泉 2時間10分）', sourceType:'yamap'},
+  '蓮華温泉→白馬大池山荘': {minutes:195, source:'白馬館公式・蓮華温泉ルート（蓮華温泉登山口→白馬大池山荘 3時間15分）', sourceType:'official'},
+  '比羅夫登山口・半月湖畔自然公園→後方羊蹄山（羊蹄山）': {minutes:359, source:'YAMAP標準モデル・比羅夫→羊蹄山→真狩縦走（比羅夫登山口→山頂 5時間59分）', sourceType:'yamap'},
+  '岩木山→嶽温泉・嶽コース登山口': {minutes:159, source:'YAMAP標準モデル・百沢→岩木山→嶽温泉縦走（山頂→嶽コース登山口 2時間39分）', sourceType:'yamap'},
+  '十勝岳温泉登山口→十勝岳': {minutes:305, source:'YAMAP標準モデル・上ホロカメットク山-十勝岳縦走（十勝岳温泉登山口→十勝岳 5時間05分）', sourceType:'yamap'},
+  '十勝岳→吹上温泉登山口': {minutes:130, source:'YAMAP標準モデル・上ホロカメットク山-十勝岳縦走（十勝岳→吹上温泉登山口 2時間10分）', sourceType:'yamap'},
+  '坊村登山口→武奈ヶ岳': {minutes:232, source:'既存確認済みCT「坊村→武奈ヶ岳」と同一登山口名称を接続', sourceType:'yamareco'},
+  '武奈ヶ岳→坊村登山口': {minutes:143, source:'既存確認済みCT「武奈ヶ岳→坊村」と同一登山口名称を接続', sourceType:'yamareco'}
+});
+
+// V1.4.200: representative-course expansion verification pass.
+// These times are only promoted where the same fixed endpoint/direction is supported by a published route guide/model course.
+const V14199_REPRESENTATIVE_VERIFIED_COURSE_TIMES = Object.freeze({
+  'みずがき山自然公園→瑞牆山': {minutes:150, source:'北杜市公式・瑞牆山自然公園ルート（登り 約2時間30分）', sourceType:'official'},
+  '瑞牆山→みずがき山自然公園': {minutes:110, source:'北杜市公式・瑞牆山自然公園ルート（下り 約1時間50分）', sourceType:'official'},
+  '瑞牆山荘・富士見平口→金峰山': {minutes:260, source:'北杜市公式・金峰山 瑞牆山荘ルート（登り 約4時間20分）', sourceType:'official'},
+  '金峰山→瑞牆山荘・富士見平口': {minutes:210, source:'北杜市公式・金峰山 瑞牆山荘ルート（下り 約3時間30分）', sourceType:'official'},
+  '広河原登山口・峰越林道ゲート→恵那山': {minutes:200, source:'公開登山ガイド・峰越林道ゲート駐車場→恵那山 3時間20分', sourceType:'other'},
+  '恵那山→広河原登山口・峰越林道ゲート': {minutes:150, source:'公開登山ガイド・恵那山→峰越林道ゲート駐車場 2時間30分', sourceType:'other'},
+  '戸沢出合→塔ノ岳': {minutes:189, source:'YAMAP標準モデル・戸沢の出合駐車場→塔ノ岳（チェックポイント合算 3時間09分）', sourceType:'yamap'},
+  '塔ノ岳→戸沢出合': {minutes:121, source:'YAMAP標準モデル・塔ノ岳→戸沢の出合駐車場（チェックポイント合算 2時間01分）', sourceType:'yamap'},
+  '山ノ鼻（至仏山東面登山道入口・登り専用）→至仏山': {minutes:150, source:'YAMAP標準モデル・鳩待峠-山ノ鼻-至仏山周回（山ノ鼻側分岐→至仏山 約2時間30分）', sourceType:'yamap'},
+  '燕温泉登山口→妙高山': {minutes:295, source:'YAMAP標準モデル・妙高山（燕温泉）（燕温泉登山口→妙高山南峰 4時間55分）', sourceType:'yamap'},
+  '妙高山→燕温泉登山口': {minutes:150, source:'YAMAP標準モデル・妙高山（燕温泉）（妙高山南峰→燕温泉登山口 2時間30分）', sourceType:'yamap'}
+});
+
+// V1.4.198: bulk verification pass for remaining estimated CTs.
+// Only promote segments where the same endpoint/direction can be tied to a published official/YAMAP model time.
+const V14198_BULK_VERIFIED_COURSE_TIMES = Object.freeze({
+  '阿蘇山（高岳）→仙酔峡駐車場・仙酔峡登山口': {minutes:109, source:'YAMAP標準モデル・仙酔峡登山口-中岳-高岳往復（高岳→仙酔峡駐車場 1時間49分）', sourceType:'yamap'},
+  '蓬来山→びわ湖バレイ山頂駅': {minutes:13, source:'YAMAP標準モデル・打見山-蓬莱山往復（蓬莱山→ロープウェイ山頂駅 13分）', sourceType:'yamap'},
+  '三瓶山（男三瓶山）→西の原登山口': {minutes:106, source:'YAMAP標準モデル・西の原登山口-男三瓶山往復（山頂→西の原駐車場 1時間46分）', sourceType:'yamap'},
+  '樽前山→7合目登山口': {minutes:40, source:'YAMAP標準モデル・樽前山7合目登山口往復（東山山頂→7合目駐車場 40分）', sourceType:'yamap'},
+  '後方羊蹄山（羊蹄山）→京極登山口': {minutes:197, source:'YAMAP標準モデル・京極登山口-羊蹄山往復（山頂→京極登山口 3時間17分）', sourceType:'yamap'},
+  '岩手山→御神坂登山口': {minutes:211, source:'YAMAP標準モデル・御神坂登山口-岩手山往復（山頂→御神坂駐車場 3時間31分）', sourceType:'yamap'},
+  '磐梯山→猪苗代登山口（猪苗代スキー場）': {minutes:166, source:'YAMAP標準モデル・猪苗代登山口-赤埴山-磐梯山往復（山頂→猪苗代登山口 2時間46分）', sourceType:'yamap'},
+  '利尻山→沓形登山口': {minutes:240, source:'環境省・利尻山沓形コース参考プラン（下り4時間45分のうち休憩45分を除いた歩行4時間）', sourceType:'official'},
+  '斜里岳→清岳荘登山口': {minutes:130, source:'北海道・斜里岳道立自然公園 清里コース新道（下り2時間10分）', sourceType:'official'},
+  '早池峰山→小田越登山口': {minutes:129, source:'YAMAP標準モデル・小田越コース（山頂→小田越 2時間09分）', sourceType:'yamap'},
+  '蔵王山（熊野岳）→蔵王ロープウェイ地蔵山頂駅': {minutes:35, source:'YAMAP標準モデル・地蔵山頂駅-蔵王山往復（熊野岳→地蔵山頂駅 35分）', sourceType:'yamap'},
+  '安達太良山→奥岳登山口・あだたら山ロープウェイ': {minutes:93, source:'YAMAP標準モデル・奥岳-安達太良山往復（山頂→奥岳登山口 1時間33分）', sourceType:'yamap'},
+  '四阿山→菅平牧場登山口': {minutes:135, source:'YAMAP標準モデル・四阿山登山口-四阿山往復（山頂→登山口 2時間15分）', sourceType:'yamap'},
+  '谷川岳（オキノ耳）→天神平': {minutes:114, source:'YAMAP標準モデル・天神尾根（オキノ耳→登山入口112分＋天神平駅2分）', sourceType:'yamap'},
+  '奥白根山（日光白根山）→菅沼登山口': {minutes:79, source:'YAMAP標準モデル・菅沼-弥陀ヶ池-日光白根山往復（山頂→菅沼 1時間19分）', sourceType:'yamap'},
+  '赤城山（黒檜山）→黒檜山登山口': {minutes:73, source:'YAMAP標準モデル・黒檜山往復（山頂→黒檜山登山口 1時間13分）', sourceType:'yamap'},
+  '櫛形山→池ノ茶屋登山口': {minutes:35, source:'YAMAP標準モデル・池の茶屋林道登山口-櫛形山往復（山頂→駐車場 35分）', sourceType:'yamap'},
+  '愛宕山→清滝 愛宕山登山口': {minutes:134, source:'YAMAP標準モデル・愛宕山表参道往復（山頂→表登山道入口 2時間14分）', sourceType:'yamap'},
+  '雲仙岳（普賢岳）→仁田峠': {minutes:49, source:'YAMAP標準モデル・普賢岳往復（普賢岳→紅葉茶屋→あざみ谷→仁田峠駐車場 49分）', sourceType:'yamap'},
+  '阿蘇高岳→仙酔峡': {minutes:109, source:'YAMAP標準モデル・仙酔峡登山口-中岳-高岳往復（高岳→仙酔峡駐車場 1時間49分）', sourceType:'yamap'},
+  '剣山→見ノ越 剣山登山口': {minutes:76, source:'YAMAP標準モデル・見ノ越登山口-剣山往復（山頂→見ノ越 1時間16分）', sourceType:'yamap'},
+  '剣山観光登山リフト西島駅→剣山': {minutes:37, source:'YAMAP標準モデル・見ノ越登山口-剣山往復（西島駅→山頂 37分）', sourceType:'yamap'},
+  '剣山→剣山観光登山リフト西島駅': {minutes:29, source:'YAMAP標準モデル・見ノ越登山口-剣山往復（山頂→西島駅 29分）', sourceType:'yamap'},
+  '鶴見岳→火男火売神社登山口駐車場': {minutes:100, source:'YAMAP標準モデル・火男火売神社-鶴見岳往復（山頂→登山口駐車場 1時間40分）', sourceType:'yamap'},
+  '六甲山→有馬温泉 六甲山登山口': {minutes:94, source:'YAMAP標準モデル・六甲山〜有馬温泉（山頂→有馬側登山口 1時間34分）', sourceType:'yamap'}
+});
+
 // V1.4.188: user-priority mountains. Replace fallback estimated CT only where a public standard/model time can be tied to the same endpoints.
 const V14188_PRIORITY_VERIFIED_COURSE_TIMES = Object.freeze({
   '針ノ木岳→扇沢登山口': {minutes:230, source:'公開登山ガイド・針ノ木岳→針ノ木峠40分→大沢小屋120分→扇沢70分（計3時間50分）', sourceType:'other'},
@@ -1320,6 +1388,9 @@ const V14188_PRIORITY_VERIFIED_COURSE_TIMES = Object.freeze({
 });
 
 const COURSE_TIME_TABLES = Object.freeze([
+  V14201_REPRESENTATIVE_VERIFIED_COURSE_TIMES,
+  V14199_REPRESENTATIVE_VERIFIED_COURSE_TIMES,
+  V14198_BULK_VERIFIED_COURSE_TIMES,
   V14188_PRIORITY_VERIFIED_COURSE_TIMES,
   NORTH_ALPS_COURSE_TIMES,
   CENTRAL_SOUTH_ALPS_COURSE_TIMES,
@@ -4808,6 +4879,7 @@ function logPointSelected(row,p){
 
 let nationalOutlookMap=null;
 let nationalOutlookLayer=null;
+let nationalOutlookDateControl=null;
 let nationalOutlookResults=new Map();
 
 // V1.4.77: 全国マップ用の山頂座標補完。国土地理院「日本の主な山岳」を基準。
@@ -4940,6 +5012,17 @@ function nationalOutlookVisiblePoints(){
   if(!selected.size)return [];
   return nationalOutlookPoints().filter(p=>selected.has(nationalMountainHonor(p.name).tone));
 }
+function nationalOutlookDateLabel(value){
+  const m=String(value||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(!m)return '';
+  return `${Number(m[2])}/${Number(m[3])}`;
+}
+function updateNationalOutlookMapDate(){
+  const label=nationalOutlookDateLabel($('nationalOutlookDate')?.value);
+  const el=document.querySelector('.national-map-date-badge');
+  if(el)el.textContent=label||'--/--';
+}
+
 function nationalOutlookSelectedLabel(){
   const selected=nationalOutlookSelectedHonors();
   const labels=[];
@@ -5041,15 +5124,16 @@ function nationalMountainGuideInfo(name){
     }
   }
   let ctLabel='情報なし',ctNote='代表コースのCT未登録';
-  if(primary){
-    const route=buildRepresentativeResolvedRoute(key,primary);
-    if(route&&!route.error&&Array.isArray(route.segments)&&route.segments.length){
-      const missing=route.segments.some(seg=>seg?.missing);
-      const total=route.segments.filter(seg=>!seg?.missing).reduce((sum,seg)=>sum+Math.max(0,Number(seg?.minutes)||0),0);
-      if(!missing&&total>0){ctLabel=formatCourseTimeMinutes(total);ctNote='代表コース・登り目安';}
-      else if(total>0){ctLabel=`${formatCourseTimeMinutes(total)}+`;ctNote='確認済みCT合計（一部未登録）';}
-      else if(missing){ctLabel='一部未登録';ctNote='代表コースにCT情報なし区間あり';}
-    }
+  // V1.4.201: コース追加で先頭候補が固定地点解決できない場合でも、
+  // その山に有効な代表コースがあれば全国判定の標準CTを失わないようにする。
+  for(const course of options){
+    const route=buildRepresentativeResolvedRoute(key,course);
+    if(!route||route.error||!Array.isArray(route.segments)||!route.segments.length)continue;
+    const missing=route.segments.some(seg=>seg?.missing);
+    const total=route.segments.filter(seg=>!seg?.missing).reduce((sum,seg)=>sum+Math.max(0,Number(seg?.minutes)||0),0);
+    if(!missing&&total>0){ctLabel=formatCourseTimeMinutes(total);ctNote=`${course.label||'代表コース'}・登り目安`;break;}
+    if(total>0&&ctLabel==='情報なし'){ctLabel=`${formatCourseTimeMinutes(total)}+`;ctNote='確認済みCT合計（一部未登録）';}
+    else if(missing&&ctLabel==='情報なし'){ctLabel='一部未登録';ctNote='代表コースにCT情報なし区間あり';}
   }
   return {
     trailhead:trailhead||'情報なし',
@@ -5298,7 +5382,9 @@ function setupNationalOutlook(){
   const today=new Date(); const local=new Date(today.getTime()-today.getTimezoneOffset()*60000).toISOString().slice(0,10);
   const tomorrow=new Date(today.getTime()+86400000); const tomorrowLocal=new Date(tomorrow.getTime()-tomorrow.getTimezoneOffset()*60000).toISOString().slice(0,10); date.value=tomorrowLocal;
   const max=new Date(today.getTime()+15*86400000); date.max=new Date(max.getTime()-max.getTimezoneOffset()*60000).toISOString().slice(0,10); date.min=local;
+  updateNationalOutlookMapDate();
   const refreshFilteredView=()=>{
+    updateNationalOutlookMapDate();
     nationalOutlookResults=new Map();
     renderNationalOutlookMarkers();
     const coords=nationalOutlookVisiblePoints().map(p=>[p.lat,p.lon]);
@@ -5316,6 +5402,15 @@ function setupNationalOutlook(){
   try{
     nationalOutlookMap=L.map(el,{zoomControl:true,scrollWheelZoom:false}).setView([36.2,138.0],5);
     L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png',{minZoom:5,maxZoom:18,attribution:'<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener noreferrer">地理院タイル</a>'}).addTo(nationalOutlookMap);
+    nationalOutlookDateControl=L.control({position:'topright'});
+    nationalOutlookDateControl.onAdd=()=>{
+      const badge=L.DomUtil.create('div','national-map-date-badge');
+      badge.setAttribute('aria-label','全国判定の表示日');
+      badge.textContent=nationalOutlookDateLabel(date.value)||'--/--';
+      L.DomEvent.disableClickPropagation(badge);
+      return badge;
+    };
+    nationalOutlookDateControl.addTo(nationalOutlookMap);
     renderNationalOutlookMarkers();
     const allCoords=nationalOutlookVisiblePoints().map(p=>[p.lat,p.lon]);
     if(allCoords.length)nationalOutlookMap.fitBounds(allCoords,{padding:[18,18],maxZoom:5});
@@ -5830,6 +5925,139 @@ const EXTRA_REPRESENTATIVE_COURSES_V1466 = Object.freeze({
   ]
 });
 
+// V1.4.200: curated major alternate routes.
+// Existing fixed coordinates are reused; route existence was checked against public/official route information.
+const EXTRA_REPRESENTATIVE_COURSES_V14199 = Object.freeze({
+  '至仏山': [
+    {label:'山ノ鼻・東面登山道ルート', points:[['trailhead','山ノ鼻（至仏山東面登山道入口・登り専用）','登山口'],['peak','至仏山','山頂']]}
+  ],
+  '妙高山': [
+    {label:'燕温泉ルート', points:[['trailhead','燕温泉登山口','登山口'],['peak','妙高山','山頂']]}
+  ],
+  '赤城山（黒檜山）': [
+    {label:'駒ヶ岳登山口・駒ヶ岳経由ルート', points:[['trailhead','おのこ駐車場・駒ヶ岳登山口','登山口'],['peak','赤城山（黒檜山）','山頂']]}
+  ],
+  '瑞牆山': [
+    {label:'みずがき山自然公園ルート', points:[['trailhead','みずがき山自然公園','登山口'],['peak','瑞牆山','山頂']]}
+  ],
+  '金峰山': [
+    {label:'瑞牆山荘・富士見平ルート', points:[['trailhead','瑞牆山荘・富士見平口','登山口'],['peak','金峰山','山頂']]}
+  ],
+  '恵那山': [
+    {label:'広河原ルート', points:[['trailhead','広河原登山口・峰越林道ゲート','登山口'],['peak','恵那山','山頂']]}
+  ],
+  '塔ノ岳': [
+    {label:'戸沢出合・天神尾根ルート', points:[['trailhead','戸沢出合','登山口'],['peak','塔ノ岳','山頂']]}
+  ],
+  '高見山': [
+    {label:'たかすみ温泉ルート', points:[['trailhead','たかすみ温泉 高見山登山口','登山口'],['peak','高見山','山頂']]}
+  ],
+  '大山（神奈川）': [
+    {label:'大山ケーブル・阿夫利神社下社ルート', points:[['trailhead','大山ケーブル口・市営第二駐車場','登山口'],['peak','大山（神奈川）','山頂']]}
+  ],
+  '鹿島槍ヶ岳': [
+    {label:'大谷原・赤岩尾根ルート', points:[['trailhead','大谷原登山口','登山口'],['peak','鹿島槍ヶ岳','山頂']]}
+  ]
+});
+
+// V1.4.201: 代表コース増 第2弾。
+// 既存の固定座標を再利用し、主要な別登山口・別アプローチをまとめて追加。
+// CTは確認済みを最優先し、未確認区間は既存の推定CTロジックで明示する。
+const EXTRA_REPRESENTATIVE_COURSES_V14201 = Object.freeze({
+  '富士山': [
+    {label:'富士宮ルート', points:[['trailhead','富士宮口五合目','登山口'],['peak','富士山（剣ヶ峰）','山頂']]},
+    {label:'御殿場ルート', points:[['trailhead','御殿場口新五合目','登山口'],['peak','富士山（剣ヶ峰）','山頂']]}
+  ],
+  '筑波山': [
+    {label:'筑波山神社・御幸ヶ原ルート', points:[['trailhead','筑波山神社入口','登山口'],['peak','筑波山（女体山）','山頂']]}
+  ],
+  '岩手山': [
+    {label:'焼走りルート', points:[['trailhead','焼走り登山口','登山口'],['peak','岩手山','山頂']]}
+  ],
+  '鳥海山': [
+    {label:'湯ノ台口ルート', points:[['trailhead','湯ノ台口登山口','登山口'],['peak','鳥海山（新山）','山頂']]}
+  ],
+  '磐梯山': [
+    {label:'猪苗代ルート', points:[['trailhead','猪苗代登山口（猪苗代スキー場）','登山口'],['peak','磐梯山','山頂']]}
+  ],
+  '白山': [
+    {label:'大白川・平瀬道ルート', points:[['trailhead','大白川・平瀬道登山口','登山口'],['peak','白山（御前峰）','山頂']]}
+  ],
+  '白馬岳': [
+    {label:'蓮華温泉・白馬大池ルート', points:[['trailhead','蓮華温泉','登山口'],['hut','白馬大池山荘','山小屋'],['peak','小蓮華山','山頂'],['peak','白馬岳','山頂']]}
+  ],
+  '西穂高岳': [
+    {label:'新穂高ロープウェイ・西穂山荘ルート', points:[['trailhead','新穂高ロープウェイ 西穂高口駅','登山口'],['peak','西穂高岳','山頂']]}
+  ],
+  '笠ヶ岳（岐阜）': [
+    {label:'笠新道ルート', points:[['trailhead','笠新道登山口','登山口'],['peak','笠ヶ岳','山頂']]}
+  ],
+  '金剛山': [
+    {label:'千早本道ルート', points:[['trailhead','千早本道登山口','登山口'],['peak','金剛山','山頂']]}
+  ],
+  '三嶺': [
+    {label:'光石ルート', points:[['trailhead','光石登山口','登山口'],['peak','三嶺','山頂']]}
+  ],
+  '美ヶ原': [
+    {label:'山本小屋・王ヶ頭ルート', points:[['trailhead','山本小屋ふる里館・町営駐車場','登山口'],['peak','美ヶ原（王ヶ頭）','山頂']]}
+  ],
+  '天狗岳': [
+    {label:'唐沢鉱泉ルート', points:[['trailhead','唐沢鉱泉','登山口'],['peak','天狗岳','山頂']]}
+  ],
+  '編笠山': [
+    {label:'富士見高原ルート', points:[['trailhead','富士見高原登山口','登山口'],['peak','編笠山','山頂']]}
+  ],
+  '三瓶山': [
+    {label:'北の原・姫逃池ルート', points:[['trailhead','北の原・姫逃池登山口','登山口'],['peak','三瓶山（男三瓶山）','山頂']]}
+  ],
+  '医王山': [
+    {label:'しがらくびルート', points:[['trailhead','しがらくび駐車場','登山口'],['peak','医王山（奥医王山）','山頂']]}
+  ],
+  '乳頭山（烏帽子岳）': [
+    {label:'蟹場温泉ルート', points:[['trailhead','蟹場温泉','登山口'],['peak','乳頭山（烏帽子岳）','山頂']]}
+  ],
+  'トムラウシ山': [
+    {label:'トムラウシ温泉ルート', points:[['trailhead','トムラウシ温泉登山口（東大雪荘）','登山口'],['peak','トムラウシ山','山頂']]}
+  ],
+  '早池峰山': [
+    {label:'岳登山口ルート', points:[['trailhead','岳登山口・岳駐車場','登山口'],['peak','早池峰山','山頂']]}
+  ],
+  '戸隠山': [
+    {label:'戸隠キャンプ場・戸隠牧場ルート', points:[['trailhead','戸隠キャンプ場・戸隠牧場','登山口'],['peak','戸隠山','山頂']]}
+  ],
+  '雨飾山': [
+    {label:'大網ルート', points:[['trailhead','大網登山口','登山口'],['peak','雨飾山','山頂']]}
+  ],
+  '鹿島槍ヶ岳': [
+    {label:'扇沢・柏原新道ルート', points:[['trailhead','扇沢登山口','登山口'],['peak','鹿島槍ヶ岳','山頂']]}
+  ],
+  '常念岳': [
+    {label:'三股ルート', points:[['trailhead','三股登山口','登山口'],['peak','常念岳','山頂']]}
+  ],
+  '空木岳': [
+    {label:'池山尾根ルート', points:[['trailhead','池山口登山口','登山口'],['peak','空木岳','山頂']]}
+  ],
+  '農鳥岳': [
+    {label:'奈良田ルート', points:[['trailhead','奈良田','登山口'],['peak','農鳥岳','山頂']]}
+  ],
+  '経ヶ岳（福井）': [
+    {label:'展望台駐車場ルート', points:[['trailhead','経ヶ岳登山口展望台駐車場','登山口'],['peak','経ヶ岳（福井）','山頂']]}
+  ],
+  '大日ヶ岳': [
+    {label:'高鷲スノーパークルート', points:[['trailhead','高鷲スノーパーク','登山口'],['peak','大日ヶ岳','山頂']]}
+  ],
+  '位山': [
+    {label:'モンデウス飛騨位山ルート', points:[['trailhead','モンデウス飛騨位山','登山口'],['peak','位山','山頂']]}
+  ],
+  '久住山': [
+    {label:'長者原ルート', points:[['trailhead','長者原','登山口'],['peak','久住山','山頂']]}
+  ],
+  '大船山': [
+    {label:'長者原ルート', points:[['trailhead','長者原','登山口'],['peak','大船山','山頂']]}
+  ]
+});
+
+
 function generatedRepresentativeCourseOptions(mountain){
   // V1.4.77: 未対応山は固定候補の代表登山口→山頂から代表コースを自動生成する。
   // CTが確認済みなら自動加算、未登録なら読み込み自体は許可してCT情報なしを明示する。
@@ -5852,6 +6080,11 @@ function generatedRepresentativeCourseOptions(mountain){
 // 縦走コースは実際の出口へつなぎ、往復コースは往路を逆順にたどって登山口まで戻す。
 // これにより「山頂→登山口」の不自然な直結を避け、既存の区間CTをできるだけそのまま利用する。
 const REPRESENTATIVE_DESCENT_PATHS_V14166 = Object.freeze({
+  // V1.4.201: 代表コース増 第2弾の実用縦走ルート。
+  // V1.4.200: 至仏山東面登山道は上り専用。山頂からは鳩待峠側へ下山する。
+  '至仏山|山ノ鼻・東面登山道ルート': [
+    ['trailhead','鳩待峠','下山口']
+  ],
   // 白峰三山：広河原から入り、農鳥岳を越えて奈良田へ抜ける。
   '間ノ岳|広河原・北岳縦走ルート': [
     ['hut','農鳥小屋','山小屋'],['peak','農鳥岳','山頂'],['trailhead','奈良田','下山口']
@@ -5918,13 +6151,56 @@ function representativeCourseWithDescent(mountain,course){
   points.push(['trailhead',trail[1],'下山口']);
   return {...course,points,descentExtended:true,descentMode:'roundtrip',originalPointCount};
 }
+// V1.4.198: add safe alternate representative routes even when a primary route already exists.
+// A supplemental route is generated only when both trailhead→summit and summit→trailhead are confirmed CTs.
+// This keeps the representative-course catalog growing without introducing new guessed coordinates or guessed CTs.
+function confirmedGeneratedRepresentativeCourseOptions(mountain,existingCourses=[]){
+  const key=canonicalMountainName(mountain);
+  const catalog=BUILTIN_ROUTE_CATALOG[key]||[];
+  const trailheads=catalog.filter(p=>p.type==='trailhead'&&hasResolvedCoord(p));
+  const peaks=catalog.filter(p=>p.type==='peak'&&hasResolvedCoord(p));
+  if(!trailheads.length||!peaks.length)return [];
+  const exactPeak=peaks.find(p=>canonicalMountainName(p.name)===key)||peaks[0];
+  if(!exactPeak)return [];
+  const usedTrailheads=new Set();
+  for(const course of existingCourses){
+    for(const point of (course?.points||[])){
+      if(point?.[0]==='trailhead')usedTrailheads.add(String(point[1]||''));
+    }
+  }
+  const seen=new Set();
+  const seenCoords=new Set();
+  const out=[];
+  for(const th of trailheads){
+    const coordKey=`${Number(th.lat).toFixed(4)},${Number(th.lon).toFixed(4)}`;
+    if(seen.has(th.name)||seenCoords.has(coordKey)||usedTrailheads.has(th.name))continue;
+    seen.add(th.name);
+    seenCoords.add(coordKey);
+    const up=courseTimeInfo({name:th.name},{name:exactPeak.name});
+    const down=courseTimeInfo({name:exactPeak.name},{name:th.name});
+    if(!up||!down||up.estimated||down.estimated)continue;
+    out.push({
+      label:`${th.name}ルート`,
+      points:[['trailhead',th.name,'登山口'],['peak',exactPeak.name,'山頂']],
+      generated:true,
+      generatedConfirmed:true
+    });
+    if(out.length>=2)break;
+  }
+  return out;
+}
 function representativeCourseOptions(mountain){
   const key=canonicalMountainName(mountain);
   const manual=REPRESENTATIVE_COURSES[key];
   const base=manual?(Array.isArray(manual)?manual:[manual]):(AUTO_REPRESENTATIVE_COURSES_V1466[key]||[]);
   const extra=EXTRA_REPRESENTATIVE_COURSES_V1466[key]||[];
-  const generated=(!base.length&&!extra.length)?generatedRepresentativeCourseOptions(key):[];
-  return [...base,...extra,...generated].map(course=>representativeCourseWithDescent(key,course));
+  const extra199=EXTRA_REPRESENTATIVE_COURSES_V14199[key]||[];
+  const extra201=EXTRA_REPRESENTATIVE_COURSES_V14201[key]||[];
+  const primary=[...base,...extra,...extra199,...extra201];
+  const generated=primary.length
+    ? confirmedGeneratedRepresentativeCourseOptions(key,primary)
+    : generatedRepresentativeCourseOptions(key);
+  return [...primary,...generated].map(course=>representativeCourseWithDescent(key,course));
 }
 
 
