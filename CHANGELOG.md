@@ -1,3 +1,7 @@
+## V1.4.192
+- PC版の山行設定カラムに画面下端近くまでの最低高さを設定。初期表示で内容が少なくても左パネルが縦に広がるよう調整。
+- スマホ版は従来どおり内容高さに追従し、PCのみ適用。
+
 ## V1.4.190
 - 全国一括判定に「百名山・二百名山・三百名山」の表示チェックを追加。初期表示は百名山のみ。
 - 翌日を初期日付とし、共有キャッシュが存在する場合は判定ボタンを押さずに初期表示。
@@ -374,3 +378,9 @@
 - Render起動/復帰直後にも翌日百名山キャッシュを確認・補完。
 - `NATIONAL_CACHE_REFRESH_TOKEN` を render.yaml の環境変数項目に追加。
 - `/api/health` に翌日百名山自動キャッシュ設定、固定シード件数、直近更新レポートを追加。
+
+## V1.4.193
+- 全国自動キャッシュのバックグラウンドワーカーをGunicorn起動時に即開始する方式へ変更。
+- Gunicorn複数workerでの二重更新をOSファイルロックで防止。
+- リクエスト到着時にワーカー消失を検知して再取得を試みるフェイルオーバーを追加。
+- `/api/health` に `national_refresh_runtime`（state / workerPid / lastCheckAt / lastRunStartedAt / lastRunFinishedAt / lastRunOk / lastError / nextCheckAt）を追加。

@@ -1998,3 +1998,12 @@ Start Command:
 翌日の日本百名山100座は `national-100-points.json` を固定シードとして扱います。共有キャッシュが存在しない場合は新規作成し、存在する場合は4時間のTTLを超えた地点のみ再取得します。Renderプロセス起動時にも確認し、GitHub Actions の `/api/national-outlook/refresh-cache` 呼び出しでも同じ処理を行います。
 
 定期起動を有効にするには、Render の `NATIONAL_CACHE_REFRESH_TOKEN` と GitHub Actions Secret の `TRATEN_CACHE_REFRESH_TOKEN` に同じ任意の長い文字列を設定してください。
+
+
+### V1.4.192 山行設定カラム初期高さ拡張
+- PC版の山行設定パネルを画面下端近くまで初期表示時から拡張。
+- 内容が増えた場合は従来どおりパネル内スクロール。
+- 900px以下のスマホ・タブレット表示では最低高さを解除。
+
+### V1.4.193 全国自動キャッシュ監視
+`/api/health` の `national_refresh_runtime` でバックグラウンド更新の実動作を確認できます。`state=running` は取得中、`state=sleeping` は直近チェック完了後の待機中、`state=standby` は同一Gunicornインスタンス内の別workerが更新担当であることを示します。

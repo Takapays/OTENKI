@@ -29,7 +29,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.4.191"
+APP_VERSION = "1.4.193"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -139,7 +139,20 @@ NATIONAL_OUTLOOK_AUTO_REFRESH = os.environ.get("NATIONAL_OUTLOOK_AUTO_REFRESH", 
 NATIONAL_CACHE_REFRESH_TOKEN = os.environ.get("NATIONAL_CACHE_REFRESH_TOKEN", "")
 NATIONAL_NEXTDAY_100_AUTO_CACHE = os.environ.get("NATIONAL_NEXTDAY_100_AUTO_CACHE", "1").lower() not in {"0", "false", "no"}
 NATIONAL_100_POINTS_FILE = os.path.join(BASE, "national-100-points.json")
+NATIONAL_REFRESH_STATUS_FILE = os.path.join(tempfile.gettempdir(), "traten-national-refresh-status.json")
 _national_last_refresh_report: dict[str, Any] = {}
+_national_refresh_runtime: dict[str, Any] = {
+    "state": "not-started",
+    "workerPid": None,
+    "workerThreadAlive": False,
+    "lastCheckAt": None,
+    "lastRunStartedAt": None,
+    "lastRunFinishedAt": None,
+    "lastRunOk": None,
+    "lastError": None,
+}
+_national_refresh_worker_thread: threading.Thread | None = None
+_national_refresh_worker_lock_handle = None
 NATIONAL_OUTLOOK_CHUNK_SIZE = int(os.environ.get("NATIONAL_OUTLOOK_CHUNK_SIZE", "50"))
 NATIONAL_OUTLOOK_ENGINE = "metno-gfs-v1"
 NATIONAL_GFS_MIN_INTERVAL = float(os.environ.get("NATIONAL_GFS_MIN_INTERVAL", "0.35"))
@@ -1603,62 +1616,124 @@ def _national_response(data: dict[str, Any], state: str, *, rate_limited: bool=F
     return resp
 
 
-def _ensure_national_refresh_worker() -> None:
-    global _national_refresh_thread_started
-    with _national_refresh_thread_lock:
-        if _national_refresh_thread_started: return
-        _national_refresh_thread_started=True
-    def worker():
-        # V1.4.191: on every Render boot/wake, immediately seed tomorrow's 百名山 cache.
+def _save_national_refresh_runtime() -> None:
+    payload = dict(_national_refresh_runtime)
+    payload["workerThreadAlive"] = bool(_national_refresh_worker_thread and _national_refresh_worker_thread.is_alive())
+    payload["statusWrittenAt"] = datetime.now(timezone.utc).isoformat()
+    tmp = NATIONAL_REFRESH_STATUS_FILE + f".{os.getpid()}.tmp"
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, separators=(",", ":"))
+        os.replace(tmp, NATIONAL_REFRESH_STATUS_FILE)
+    except Exception:
         try:
-            if NATIONAL_OUTLOOK_AUTO_REFRESH and NATIONAL_NEXTDAY_100_AUTO_CACHE and _national_supabase_enabled():
-                _refresh_national_persistent_cache(force=False)
+            if os.path.exists(tmp): os.unlink(tmp)
+        except OSError:
+            pass
+
+
+def _national_refresh_runtime_snapshot() -> dict[str, Any]:
+    snap = dict(_national_refresh_runtime)
+    # /tmp is shared by Gunicorn workers. Prefer the status written by the lock owner
+    # so /api/health is consistent no matter which worker serves the request.
+    try:
+        with open(NATIONAL_REFRESH_STATUS_FILE, "r", encoding="utf-8") as f:
+            shared = json.load(f)
+        if isinstance(shared, dict):
+            snap.update(shared)
+    except Exception:
+        pass
+    thread = _national_refresh_worker_thread
+    if snap.get("workerPid") == os.getpid():
+        snap["workerThreadAlive"] = bool(thread and thread.is_alive())
+    if snap.get("lastCheckAt"):
+        try:
+            last = datetime.fromisoformat(str(snap["lastCheckAt"]).replace("Z", "+00:00"))
+            nxt = last + timedelta(seconds=max(300, NATIONAL_OUTLOOK_REFRESH_INTERVAL))
+            snap["nextCheckAt"] = nxt.astimezone(timezone.utc).isoformat()
         except Exception:
-            app.logger.exception("national_refresh_bootstrap_failed")
-        while True:
-            time.sleep(max(300,NATIONAL_OUTLOOK_REFRESH_INTERVAL))
+            snap["nextCheckAt"] = None
+    else:
+        snap["nextCheckAt"] = None
+    return snap
+
+
+def _run_national_refresh_cycle(trigger: str) -> None:
+    now_iso = datetime.now(timezone.utc).isoformat()
+    _national_refresh_runtime["lastCheckAt"] = now_iso
+    _national_refresh_runtime["lastRunStartedAt"] = now_iso
+    _national_refresh_runtime["state"] = "running"
+    _national_refresh_runtime["lastError"] = None
+    _save_national_refresh_runtime()
+    try:
+        if NATIONAL_OUTLOOK_AUTO_REFRESH and _national_supabase_enabled():
+            report = _refresh_national_persistent_cache(force=False)
+            _national_refresh_runtime["lastRunOk"] = bool(report.get("ok"))
+            _national_refresh_runtime["lastError"] = None if report.get("ok") else str(report.get("errors") or report.get("error") or "refresh failed")[:500]
+        else:
+            _national_refresh_runtime["lastRunOk"] = True
+        _national_refresh_runtime["state"] = "sleeping"
+    except Exception as exc:
+        _national_refresh_runtime["lastRunOk"] = False
+        _national_refresh_runtime["lastError"] = str(exc)[:500]
+        _national_refresh_runtime["state"] = "error"
+        app.logger.exception("national_refresh_cycle_failed trigger=%s", trigger)
+    finally:
+        _national_refresh_runtime["lastRunFinishedAt"] = datetime.now(timezone.utc).isoformat()
+        _save_national_refresh_runtime()
+
+
+def _ensure_national_refresh_worker() -> None:
+    """Start one refresh worker per Render instance, safely across Gunicorn workers."""
+    global _national_refresh_thread_started, _national_refresh_worker_thread, _national_refresh_worker_lock_handle
+    if not NATIONAL_OUTLOOK_AUTO_REFRESH:
+        _national_refresh_runtime["state"] = "disabled"
+        return
+    with _national_refresh_thread_lock:
+        if _national_refresh_worker_thread and _national_refresh_worker_thread.is_alive():
+            return
+        # Gunicorn runs two workers. Use an OS file lock so only one owns the
+        # background refresh loop; the other workers remain standby.
+        try:
+            import fcntl
+            lock_path = os.path.join(tempfile.gettempdir(), "traten-national-refresh-worker.lock")
+            handle = open(lock_path, "a+")
             try:
-                if NATIONAL_OUTLOOK_AUTO_REFRESH and _national_supabase_enabled():
-                    _refresh_national_persistent_cache(force=False)
-                files=[os.path.join(NATIONAL_OUTLOOK_CACHE_DIR,n) for n in os.listdir(NATIONAL_OUTLOOK_CACHE_DIR) if n.endswith('.json')]
-                now=time.time()
-                for path in files:
-                    try:
-                        with open(path,'r',encoding='utf-8') as f: data=json.load(f)
-                        if float(data.get('stale_until') or 0)<=now: continue
-                        if float(data.get('fresh_until') or 0)>now: continue
-                        date_text=str(data.get('date') or '')
-                        points=data.get('points') or []
-                        fp=str(data.get('fingerprint') or '')
-                        if not date_text or not fp or not points: continue
-                        try:
-                            target_date=datetime.strptime(date_text,'%Y-%m-%d').date()
-                            today_jst=(datetime.now(timezone.utc)+timedelta(hours=9)).date()
-                            if target_date < today_jst or target_date > today_jst + timedelta(days=15): continue
-                        except ValueError:
-                            continue
-                        if not _national_try_lock(date_text,fp): continue
-                        try:
-                            latest,state=_national_read_disk_cache(date_text,fp)
-                            if state=='fresh': continue
-                            latest_results=(latest or {}).get("results") or []
-                            latest_names={str(r.get("name") or "") for r in latest_results if isinstance(r,dict)}
-                            fetch_points=points if state=='stale' else [p for p in points if p.get("name") not in latest_names]
-                            results,complete,rate_limited,error=_national_fetch_shared(date_text,fetch_points) if fetch_points else ([],True,False,None)
-                            by_name={str(r.get("name") or ""):dict(r) for r in latest_results if isinstance(r,dict) and r.get("name")}
-                            for r in results:
-                                if isinstance(r,dict) and r.get("name"): by_name[str(r.get("name"))]=dict(r)
-                            merged=[by_name[p["name"]] for p in points if p.get("name") in by_name]
-                            _national_write_disk_cache(date_text,fp,points,merged)
-                            if rate_limited:
-                                break
-                        finally:
-                            _national_unlock(date_text,fp)
-                    except Exception:
-                        continue
-            except Exception:
-                continue
-    threading.Thread(target=worker,name='traten-national-refresh',daemon=True).start()
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                handle.close()
+                _national_refresh_runtime["state"] = "standby"
+                _national_refresh_runtime["workerPid"] = None
+                return
+            _national_refresh_worker_lock_handle = handle
+        except Exception as exc:
+            # Render is Linux, but keep a fallback so local Windows development still works.
+            app.logger.warning("national_refresh_worker_lock_unavailable %s", exc)
+        _national_refresh_thread_started = True
+        _national_refresh_runtime["state"] = "starting"
+        _national_refresh_runtime["workerPid"] = os.getpid()
+        _save_national_refresh_runtime()
+
+        def worker():
+            _national_refresh_runtime["state"] = "boot-check"
+            _national_refresh_runtime["workerPid"] = os.getpid()
+            _save_national_refresh_runtime()
+            _run_national_refresh_cycle("boot")
+            while True:
+                time.sleep(max(300, NATIONAL_OUTLOOK_REFRESH_INTERVAL))
+                _run_national_refresh_cycle("interval")
+
+        thread = threading.Thread(target=worker, name="traten-national-refresh", daemon=True)
+        _national_refresh_worker_thread = thread
+        thread.start()
+
+
+@app.before_request
+def _ensure_refresh_worker_on_request():
+    # A request after a Render wake is a second safety net. If the owning Gunicorn
+    # worker disappeared, the next request lets another worker acquire the lock.
+    if NATIONAL_OUTLOOK_AUTO_REFRESH and not (_national_refresh_worker_thread and _national_refresh_worker_thread.is_alive()):
+        _ensure_national_refresh_worker()
 
 
 @app.post("/api/national-outlook/refresh-cache")
@@ -1839,6 +1914,7 @@ def health():
         national_nextday_100_auto_cache=NATIONAL_NEXTDAY_100_AUTO_CACHE,
         national_nextday_100_seed_count=len(_national_load_100_points()),
         national_last_refresh_report=_national_last_refresh_report or None,
+        national_refresh_runtime=_national_refresh_runtime_snapshot(),
         usage_logging=True,
         supabase_configured=bool(SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY),
         trail_regions_ready=sum(1 for r in _load_trail_manifest().get("regions", []) if r.get("ready")),
@@ -2135,11 +2211,11 @@ def security_headers(response: Response):
     return response
 
 
-# V1.4.174: start the cache watcher on process boot, not only after a user opens 全国判定.
-# Render free instances can sleep, so the GitHub Actions wake-up endpoint below is the
-# reliable scheduler; this worker covers periods while the process stays awake.
+# V1.4.193: start the cache watcher immediately when each Gunicorn worker imports
+# the app. An OS-level lock makes exactly one worker the background-loop owner.
+# before_request above provides failover after Render wakes or a worker restarts.
 if NATIONAL_OUTLOOK_AUTO_REFRESH:
-    threading.Timer(2.0, _ensure_national_refresh_worker).start()
+    _ensure_national_refresh_worker()
 
 
 if __name__ == "__main__":
