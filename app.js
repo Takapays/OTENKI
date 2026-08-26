@@ -139,7 +139,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.195';
+const APP_VERSION = '1.4.197';
 
 
 
@@ -1753,7 +1753,7 @@ const providers = [
   {id:'gfs',name:'GFS',kind:'openmeteo',endpoint:'https://api.open-meteo.com/v1/gfs',forecastDays:16,vars:['temperature_2m','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_gusts_10m','wind_direction_10m','cape','visibility','freezing_level_height']},
   {id:'icon',name:'ICON',kind:'openmeteo',endpoint:'https://api.open-meteo.com/v1/dwd-icon',forecastDays:8,vars:['temperature_2m','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_gusts_10m','wind_direction_10m','cape','visibility','freezing_level_height']}
 ];
-const TYPE_LABEL={trailhead:'登山口・下山口',peak:'山頂',hut:'山小屋・避難小屋',pass:'峠・分岐',camp:'テント場'};
+const TYPE_LABEL={trailhead:'登山口・下山口',peak:'山頂',hut:'山小屋',pass:'峠・分岐',camp:'テント場'};
 const ROUTE_MAP_DEFAULT_VIEW=[36.2,138.2];
 const routeMapViews={};
 const MOUNTAIN_PRESETS = {
@@ -5615,40 +5615,40 @@ function ensureCenterPeak(list,label,center){
 const REPRESENTATIVE_COURSES = Object.freeze({
   // 北アルプス（V1.4.63）
   '槍ヶ岳': {label:'上高地・槍沢ルート', points:[
-    ['trailhead','上高地','登山口'],['hut','槍沢ロッヂ','山小屋・避難小屋'],['hut','槍ヶ岳山荘','山小屋・避難小屋'],['peak','槍ヶ岳','山頂']
+    ['trailhead','上高地','登山口'],['hut','槍沢ロッヂ','山小屋'],['hut','槍ヶ岳山荘','山小屋'],['peak','槍ヶ岳','山頂']
   ]},
   '奥穂高岳': {label:'上高地・涸沢ルート', points:[
-    ['trailhead','上高地','登山口'],['hut','横尾山荘','山小屋・避難小屋'],['hut','涸沢ヒュッテ','山小屋・避難小屋'],['hut','穂高岳山荘','山小屋・避難小屋'],['peak','奥穂高岳','山頂']
+    ['trailhead','上高地','登山口'],['hut','横尾山荘','山小屋'],['hut','涸沢ヒュッテ','山小屋'],['hut','穂高岳山荘','山小屋'],['peak','奥穂高岳','山頂']
   ]},
   '燕岳': {label:'中房温泉・合戦尾根ルート', points:[
-    ['trailhead','中房温泉登山口','登山口'],['hut','合戦小屋','山小屋・避難小屋'],['hut','燕山荘','山小屋・避難小屋'],['peak','燕岳','山頂']
+    ['trailhead','中房温泉登山口','登山口'],['hut','合戦小屋','山小屋'],['hut','燕山荘','山小屋'],['peak','燕岳','山頂']
   ]},
   '常念岳': {label:'一ノ沢ルート', points:[
-    ['trailhead','一ノ沢登山口','登山口'],['hut','常念小屋','山小屋・避難小屋'],['peak','常念岳','山頂']
+    ['trailhead','一ノ沢登山口','登山口'],['hut','常念小屋','山小屋'],['peak','常念岳','山頂']
   ]},
   '蝶ヶ岳': {label:'三股ルート', points:[
     ['trailhead','三股登山口','登山口'],['peak','蝶ヶ岳','山頂']
   ]},
   '白馬岳': {label:'猿倉・大雪渓ルート', points:[
-    ['trailhead','猿倉','登山口'],['hut','白馬尻小屋跡','山小屋・避難小屋'],['hut','白馬山荘','山小屋・避難小屋'],['peak','白馬岳','山頂']
+    ['trailhead','猿倉','登山口'],['hut','白馬尻小屋跡','山小屋'],['hut','白馬山荘','山小屋'],['peak','白馬岳','山頂']
   ]},
   '唐松岳': {label:'八方尾根ルート', points:[
-    ['trailhead','八方池山荘','登山口'],['hut','唐松岳頂上山荘','山小屋・避難小屋'],['peak','唐松岳','山頂']
+    ['trailhead','八方池山荘','登山口'],['hut','唐松岳頂上山荘','山小屋'],['peak','唐松岳','山頂']
   ]},
   '剱岳': {label:'室堂・別山尾根ルート', points:[
-    ['trailhead','室堂','登山口'],['hut','剱澤小屋','山小屋・避難小屋'],['hut','剣山荘','山小屋・避難小屋'],['peak','剱岳','山頂']
+    ['trailhead','室堂','登山口'],['hut','剱澤小屋','山小屋'],['hut','剣山荘','山小屋'],['peak','剱岳','山頂']
   ]},
   '五竜岳': {label:'アルプス平ルート', points:[
-    ['trailhead','アルプス平','登山口'],['hut','五竜山荘','山小屋・避難小屋'],['peak','五竜岳','山頂']
+    ['trailhead','アルプス平','登山口'],['hut','五竜山荘','山小屋'],['peak','五竜岳','山頂']
   ]},
   '立山': {label:'室堂・一ノ越・雄山ルート', points:[
-    ['trailhead','室堂','登山口'],['hut','一の越山荘','山小屋・避難小屋'],['peak','立山（雄山）','山頂']
+    ['trailhead','室堂','登山口'],['hut','一の越山荘','山小屋'],['peak','立山（雄山）','山頂']
   ]},
   '薬師岳': {label:'折立・太郎平ルート', points:[
-    ['trailhead','折立登山口','登山口'],['hut','太郎平小屋','山小屋・避難小屋'],['hut','薬師岳山荘','山小屋・避難小屋'],['peak','薬師岳','山頂']
+    ['trailhead','折立登山口','登山口'],['hut','太郎平小屋','山小屋'],['hut','薬師岳山荘','山小屋'],['peak','薬師岳','山頂']
   ]},
   '黒部五郎岳': {label:'折立・太郎平ルート', points:[
-    ['trailhead','折立登山口','登山口'],['hut','太郎平小屋','山小屋・避難小屋'],['peak','黒部五郎岳','山頂']
+    ['trailhead','折立登山口','登山口'],['hut','太郎平小屋','山小屋'],['peak','黒部五郎岳','山頂']
   ]},
 
   // 中央アルプス（V1.4.66）
@@ -5668,7 +5668,7 @@ const REPRESENTATIVE_COURSES = Object.freeze({
     ['trailhead','千畳敷','登山口'],['peak','宝剣岳','山頂'],['peak','檜尾岳','山頂'],['peak','熊沢岳','山頂'],['peak','東川岳','山頂']
   ]},
   '空木岳': {label:'千畳敷・中央アルプス縦走ルート', points:[
-    ['trailhead','千畳敷','登山口'],['peak','宝剣岳','山頂'],['peak','檜尾岳','山頂'],['peak','熊沢岳','山頂'],['peak','東川岳','山頂'],['hut','木曽殿山荘','山小屋・避難小屋'],['peak','空木岳','山頂']
+    ['trailhead','千畳敷','登山口'],['peak','宝剣岳','山頂'],['peak','檜尾岳','山頂'],['peak','熊沢岳','山頂'],['peak','東川岳','山頂'],['hut','木曽殿山荘','山小屋'],['peak','空木岳','山頂']
   ]},
 
   // 南アルプス（V1.4.66）
@@ -5679,28 +5679,28 @@ const REPRESENTATIVE_COURSES = Object.freeze({
     ['trailhead','北沢峠','登山口'],['peak','仙丈ヶ岳','山頂']
   ]},
   '北岳': {label:'広河原・草すべりルート', points:[
-    ['trailhead','広河原','登山口'],['hut','白根御池小屋','山小屋・避難小屋'],['hut','北岳肩の小屋','山小屋・避難小屋'],['peak','北岳','山頂']
+    ['trailhead','広河原','登山口'],['hut','白根御池小屋','山小屋'],['hut','北岳肩の小屋','山小屋'],['peak','北岳','山頂']
   ]},
   '間ノ岳': {label:'広河原・北岳縦走ルート', points:[
-    ['trailhead','広河原','登山口'],['hut','白根御池小屋','山小屋・避難小屋'],['hut','北岳肩の小屋','山小屋・避難小屋'],['peak','北岳','山頂'],['hut','北岳山荘','山小屋・避難小屋'],['peak','間ノ岳','山頂']
+    ['trailhead','広河原','登山口'],['hut','白根御池小屋','山小屋'],['hut','北岳肩の小屋','山小屋'],['peak','北岳','山頂'],['hut','北岳山荘','山小屋'],['peak','間ノ岳','山頂']
   ]},
   '農鳥岳': {label:'広河原・白峰三山縦走ルート', points:[
-    ['trailhead','広河原','登山口'],['hut','白根御池小屋','山小屋・避難小屋'],['hut','北岳肩の小屋','山小屋・避難小屋'],['peak','北岳','山頂'],['hut','北岳山荘','山小屋・避難小屋'],['peak','間ノ岳','山頂'],['hut','農鳥小屋','山小屋・避難小屋'],['peak','農鳥岳','山頂']
+    ['trailhead','広河原','登山口'],['hut','白根御池小屋','山小屋'],['hut','北岳肩の小屋','山小屋'],['peak','北岳','山頂'],['hut','北岳山荘','山小屋'],['peak','間ノ岳','山頂'],['hut','農鳥小屋','山小屋'],['peak','農鳥岳','山頂']
   ]},
   '塩見岳': {label:'鳥倉・三伏峠ルート', points:[
-    ['trailhead','鳥倉登山口','登山口'],['hut','三伏峠小屋','山小屋・避難小屋'],['hut','塩見小屋','山小屋・避難小屋'],['peak','塩見岳','山頂']
+    ['trailhead','鳥倉登山口','登山口'],['hut','三伏峠小屋','山小屋'],['hut','塩見小屋','山小屋'],['peak','塩見岳','山頂']
   ]},
   '薬師岳(鳳凰)': {label:'夜叉神・南御室ルート', points:[
-    ['trailhead','夜叉神峠登山口','登山口'],['hut','南御室小屋','山小屋・避難小屋'],['peak','薬師岳(鳳凰)','山頂']
+    ['trailhead','夜叉神峠登山口','登山口'],['hut','南御室小屋','山小屋'],['peak','薬師岳(鳳凰)','山頂']
   ]},
   '観音岳(鳳凰)': {label:'夜叉神・鳳凰三山ルート', points:[
-    ['trailhead','夜叉神峠登山口','登山口'],['hut','南御室小屋','山小屋・避難小屋'],['peak','薬師岳(鳳凰)','山頂'],['peak','観音岳(鳳凰)','山頂']
+    ['trailhead','夜叉神峠登山口','登山口'],['hut','南御室小屋','山小屋'],['peak','薬師岳(鳳凰)','山頂'],['peak','観音岳(鳳凰)','山頂']
   ]},
   '地蔵岳(鳳凰)': {label:'夜叉神・鳳凰三山縦走ルート', points:[
-    ['trailhead','夜叉神峠登山口','登山口'],['hut','南御室小屋','山小屋・避難小屋'],['peak','薬師岳(鳳凰)','山頂'],['peak','観音岳(鳳凰)','山頂'],['peak','地蔵岳(鳳凰)','山頂']
+    ['trailhead','夜叉神峠登山口','登山口'],['hut','南御室小屋','山小屋'],['peak','薬師岳(鳳凰)','山頂'],['peak','観音岳(鳳凰)','山頂'],['peak','地蔵岳(鳳凰)','山頂']
   ]},
   '荒川岳': {label:'椹島・千枚小屋ルート', points:[
-    ['trailhead','椹島','登山口'],['hut','千枚小屋','山小屋・避難小屋'],['peak','荒川岳','山頂']
+    ['trailhead','椹島','登山口'],['hut','千枚小屋','山小屋'],['peak','荒川岳','山頂']
   ]},
 
   // 八ヶ岳（V1.4.66）
@@ -5708,16 +5708,16 @@ const REPRESENTATIVE_COURSES = Object.freeze({
     ['trailhead','観音平','登山口'],['peak','編笠山','山頂']
   ]},
   '権現岳': {label:'観音平・編笠山ルート', points:[
-    ['trailhead','観音平','登山口'],['peak','編笠山','山頂'],['hut','青年小屋','山小屋・避難小屋'],['peak','権現岳','山頂']
+    ['trailhead','観音平','登山口'],['peak','編笠山','山頂'],['hut','青年小屋','山小屋'],['peak','権現岳','山頂']
   ]},
   '天狗岳': {label:'渋の湯・黒百合ヒュッテルート', points:[
-    ['trailhead','渋の湯','登山口'],['hut','黒百合ヒュッテ','山小屋・避難小屋'],['peak','天狗岳','山頂']
+    ['trailhead','渋の湯','登山口'],['hut','黒百合ヒュッテ','山小屋'],['peak','天狗岳','山頂']
   ]},
   '北横岳': {label:'北八ヶ岳ロープウェイルート', points:[
-    ['trailhead','北八ヶ岳ロープウェイ山頂駅','登山口'],['hut','北横岳ヒュッテ','山小屋・避難小屋'],['peak','北横岳','山頂']
+    ['trailhead','北八ヶ岳ロープウェイ山頂駅','登山口'],['hut','北横岳ヒュッテ','山小屋'],['peak','北横岳','山頂']
   ]},
   '蓼科山': {label:'七合目登山口ルート', points:[
-    ['trailhead','蓼科山七合目登山口','登山口'],['hut','蓼科山頂ヒュッテ','山小屋・避難小屋'],['peak','蓼科山','山頂']
+    ['trailhead','蓼科山七合目登山口','登山口'],['hut','蓼科山頂ヒュッテ','山小屋'],['peak','蓼科山','山頂']
   ]}
 });
 
@@ -5773,11 +5773,11 @@ const AUTO_REPRESENTATIVE_COURSES_V1466 = Object.freeze({
   '戸隠山': [{label:'戸隠神社奥社ルート', points:[['trailhead','戸隠神社奥社登山口','登山口'],['peak','戸隠山','山頂']]}],
   '高妻山': [{label:'戸隠キャンプ場・高妻山登山者駐車場ルート', points:[['trailhead','戸隠キャンプ場・高妻山登山者駐車場','登山口'],['peak','高妻山','山頂']]}],
   '妙高山': [{label:'笹ヶ峰ルート', points:[['trailhead','笹ヶ峰登山口','登山口'],['peak','妙高山','山頂']]}],
-  '火打山': [{label:'笹ヶ峰ルート', points:[['trailhead','笹ヶ峰登山口','登山口'],['hut','高谷池ヒュッテ','山小屋・避難小屋'],['peak','火打山','山頂']]}],
+  '火打山': [{label:'笹ヶ峰ルート', points:[['trailhead','笹ヶ峰登山口','登山口'],['hut','高谷池ヒュッテ','山小屋'],['peak','火打山','山頂']]}],
   '雨飾山': [{label:'雨飾高原キャンプ場ルート', points:[['trailhead','雨飾高原キャンプ場登山口','登山口'],['peak','雨飾山','山頂']]}],
-  '鹿島槍ヶ岳': [{label:'アルプス平ルート', points:[['trailhead','アルプス平','登山口'],['hut','五竜山荘','山小屋・避難小屋'],['peak','五竜岳','山頂'],['hut','キレット小屋','山小屋・避難小屋'],['peak','鹿島槍ヶ岳','山頂']]}],
-  '野口五郎岳': [{label:'高瀬ダムルート', points:[['trailhead','高瀬ダム','登山口'],['hut','烏帽子小屋','山小屋・避難小屋'],['peak','野口五郎岳','山頂']]}],
-  '三俣蓮華岳': [{label:'新穂高温泉ルート', points:[['trailhead','新穂高温泉','登山口'],['hut','鏡平山荘','山小屋・避難小屋'],['hut','双六小屋','山小屋・避難小屋'],['peak','三俣蓮華岳','山頂']]}],
+  '鹿島槍ヶ岳': [{label:'アルプス平ルート', points:[['trailhead','アルプス平','登山口'],['hut','五竜山荘','山小屋'],['peak','五竜岳','山頂'],['hut','キレット小屋','山小屋'],['peak','鹿島槍ヶ岳','山頂']]}],
+  '野口五郎岳': [{label:'高瀬ダムルート', points:[['trailhead','高瀬ダム','登山口'],['hut','烏帽子小屋','山小屋'],['peak','野口五郎岳','山頂']]}],
+  '三俣蓮華岳': [{label:'新穂高温泉ルート', points:[['trailhead','新穂高温泉','登山口'],['hut','鏡平山荘','山小屋'],['hut','双六小屋','山小屋'],['peak','三俣蓮華岳','山頂']]}],
   '小秀山': [{label:'乙女渓谷（小秀山）ルート', points:[['trailhead','乙女渓谷（小秀山登山口）','登山口'],['peak','小秀山','山頂']]}],
   '奥三界岳': [{label:'川上林道ゲート（夕森渓谷）ルート', points:[['trailhead','川上林道ゲート（夕森渓谷）','登山口'],['peak','奥三界岳','山頂']]}],
   '経ヶ岳（長野）': [{label:'権兵衛峠ルート', points:[['trailhead','権兵衛峠登山口','登山口'],['peak','経ヶ岳','山頂']]}],
@@ -5796,7 +5796,7 @@ const AUTO_REPRESENTATIVE_COURSES_V1466 = Object.freeze({
   '塔ノ岳': [{label:'大倉ルート', points:[['trailhead','大倉登山口','登山口'],['peak','塔ノ岳','山頂']]}],
   '山伏': [{label:'百畳峠（百畳平）駐車場・山伏ルート', points:[['trailhead','百畳峠（百畳平）駐車場・山伏登山口','登山口'],['peak','山伏','山頂']]}],
   '御正体山': [{label:'道坂トンネル都留側駐車場・御正体山ルート', points:[['trailhead','道坂トンネル都留側駐車場・御正体山登山口','登山口'],['peak','御正体山','山頂']]}],
-  '赤石岳': [{label:'椹島ルート', points:[['trailhead','椹島','登山口'],['hut','千枚小屋','山小屋・避難小屋'],['peak','荒川岳','山頂'],['hut','荒川小屋','山小屋・避難小屋'],['peak','赤石岳','山頂']]}],
+  '赤石岳': [{label:'椹島ルート', points:[['trailhead','椹島','登山口'],['hut','千枚小屋','山小屋'],['peak','荒川岳','山頂'],['hut','荒川小屋','山小屋'],['peak','赤石岳','山頂']]}],
   '白木峰': [{label:'白木峰8合目駐車場ルート', points:[['trailhead','白木峰8合目駐車場','登山口'],['peak','白木峰','山頂']]}],
   '人形山': [{label:'人形堂・中根平ルート', points:[['trailhead','人形堂・中根平登山口','登山口'],['peak','人形山','山頂']]}],
   '経ヶ岳（福井）': [{label:'奥越高原青少年自然の家ルート', points:[['trailhead','奥越高原青少年自然の家','登山口'],['peak','経ヶ岳（福井）','山頂']]}],
@@ -5806,27 +5806,27 @@ const AUTO_REPRESENTATIVE_COURSES_V1466 = Object.freeze({
   '荒島岳': [{label:'勝原コースルート', points:[['trailhead','勝原コース登山口','登山口'],['peak','荒島岳','山頂']]},{label:'中出コースルート', points:[['trailhead','中出コース登山口','登山口'],['peak','荒島岳','山頂']]}],
   '冠山': [{label:'冠山峠ルート', points:[['trailhead','冠山峠','登山口'],['peak','冠山','山頂']]}],
   '高見山': [{label:'高見峠ルート', points:[['trailhead','高見峠','登山口'],['peak','高見山','山頂']]}],
-  '八経ヶ岳': [{label:'行者還トンネル西口ルート', points:[['trailhead','行者還トンネル西口','登山口'],['hut','弥山小屋','山小屋・避難小屋'],['peak','八経ヶ岳','山頂']]}],
+  '八経ヶ岳': [{label:'行者還トンネル西口ルート', points:[['trailhead','行者還トンネル西口','登山口'],['hut','弥山小屋','山小屋'],['peak','八経ヶ岳','山頂']]}],
   '大和葛城山': [{label:'水越峠ルート', points:[['trailhead','水越峠','登山口'],['peak','大和葛城山','山頂']]}],
   '瓶ヶ森': [{label:'瓶ヶ森駐車場ルート', points:[['trailhead','瓶ヶ森駐車場','登山口'],['peak','瓶ヶ森','山頂']]}],
-  '久住山': [{label:'牧ノ戸峠ルート', points:[['trailhead','牧ノ戸峠','登山口'],['hut','久住分かれ避難小屋','山小屋・避難小屋'],['peak','久住山','山頂']]}],
+  '久住山': [{label:'牧ノ戸峠ルート', points:[['trailhead','牧ノ戸峠','登山口'],['hut','久住分かれ避難小屋','山小屋'],['peak','久住山','山頂']]}],
 });
 
 // V1.4.66: 主要山の複数代表コース。
 const EXTRA_REPRESENTATIVE_COURSES_V1466 = Object.freeze({
   '槍ヶ岳': [
-    {label:'新穂高・槍平ルート', points:[['trailhead','新穂高温泉','登山口'],['hut','槍平小屋','山小屋・避難小屋'],['hut','槍ヶ岳山荘','山小屋・避難小屋'],['peak','槍ヶ岳','山頂']]}
+    {label:'新穂高・槍平ルート', points:[['trailhead','新穂高温泉','登山口'],['hut','槍平小屋','山小屋'],['hut','槍ヶ岳山荘','山小屋'],['peak','槍ヶ岳','山頂']]}
   ],
   '剱岳': [
-    {label:'馬場島・早月尾根ルート', points:[['trailhead','馬場島（早月尾根登山口）','登山口'],['hut','早月小屋','山小屋・避難小屋'],['peak','剱岳','山頂']]}
+    {label:'馬場島・早月尾根ルート', points:[['trailhead','馬場島（早月尾根登山口）','登山口'],['hut','早月小屋','山小屋'],['peak','剱岳','山頂']]}
   ],
   '五竜岳': [
-    {label:'八方尾根・唐松岳経由ルート', points:[['trailhead','八方池山荘','登山口'],['hut','唐松岳頂上山荘','山小屋・避難小屋'],['hut','五竜山荘','山小屋・避難小屋'],['peak','五竜岳','山頂']]}
+    {label:'八方尾根・唐松岳経由ルート', points:[['trailhead','八方池山荘','登山口'],['hut','唐松岳頂上山荘','山小屋'],['hut','五竜山荘','山小屋'],['peak','五竜岳','山頂']]}
   ],
   // V1.4.194: 白馬村公式モデルコースに沿った栂池自然園側の代表コースを追加。
   // 既存固定ポイントと確認済みCTのみを使用し、座標推測は行わない。
   '白馬岳': [
-    {label:'栂池自然園・白馬大池ルート', points:[['trailhead','栂池自然園','登山口'],['hut','白馬大池山荘','山小屋・避難小屋'],['peak','小蓮華山','山頂'],['peak','白馬岳','山頂']]}
+    {label:'栂池自然園・白馬大池ルート', points:[['trailhead','栂池自然園','登山口'],['hut','白馬大池山荘','山小屋'],['peak','小蓮華山','山頂'],['peak','白馬岳','山頂']]}
   ]
 });
 
@@ -5854,7 +5854,7 @@ function generatedRepresentativeCourseOptions(mountain){
 const REPRESENTATIVE_DESCENT_PATHS_V14166 = Object.freeze({
   // 白峰三山：広河原から入り、農鳥岳を越えて奈良田へ抜ける。
   '間ノ岳|広河原・北岳縦走ルート': [
-    ['hut','農鳥小屋','山小屋・避難小屋'],['peak','農鳥岳','山頂'],['trailhead','奈良田','下山口']
+    ['hut','農鳥小屋','山小屋'],['peak','農鳥岳','山頂'],['trailhead','奈良田','下山口']
   ],
   '農鳥岳|広河原・白峰三山縦走ルート': [
     ['trailhead','奈良田','下山口']
@@ -5862,34 +5862,34 @@ const REPRESENTATIVE_DESCENT_PATHS_V14166 = Object.freeze({
 
   // 中央アルプス縦走：千畳敷から南下し、空木岳経由で池山尾根側へ下山。
   '檜尾岳|千畳敷・宝剣岳縦走ルート': [
-    ['peak','熊沢岳','山頂'],['peak','東川岳','山頂'],['hut','木曽殿山荘','山小屋・避難小屋'],
-    ['peak','空木岳','山頂'],['hut','空木駒峰ヒュッテ','山小屋・避難小屋'],
-    ['hut','空木平避難小屋','山小屋・避難小屋'],['trailhead','池山口登山口','下山口']
+    ['peak','熊沢岳','山頂'],['peak','東川岳','山頂'],['hut','木曽殿山荘','山小屋'],
+    ['peak','空木岳','山頂'],['hut','空木駒峰ヒュッテ','山小屋'],
+    ['hut','空木平避難小屋','山小屋'],['trailhead','池山口登山口','下山口']
   ],
   '熊沢岳|千畳敷・中央アルプス縦走ルート': [
-    ['peak','東川岳','山頂'],['hut','木曽殿山荘','山小屋・避難小屋'],
-    ['peak','空木岳','山頂'],['hut','空木駒峰ヒュッテ','山小屋・避難小屋'],
-    ['hut','空木平避難小屋','山小屋・避難小屋'],['trailhead','池山口登山口','下山口']
+    ['peak','東川岳','山頂'],['hut','木曽殿山荘','山小屋'],
+    ['peak','空木岳','山頂'],['hut','空木駒峰ヒュッテ','山小屋'],
+    ['hut','空木平避難小屋','山小屋'],['trailhead','池山口登山口','下山口']
   ],
   '東川岳|千畳敷・中央アルプス縦走ルート': [
-    ['hut','木曽殿山荘','山小屋・避難小屋'],['peak','空木岳','山頂'],
-    ['hut','空木駒峰ヒュッテ','山小屋・避難小屋'],['hut','空木平避難小屋','山小屋・避難小屋'],
+    ['hut','木曽殿山荘','山小屋'],['peak','空木岳','山頂'],
+    ['hut','空木駒峰ヒュッテ','山小屋'],['hut','空木平避難小屋','山小屋'],
     ['trailhead','池山口登山口','下山口']
   ],
   '空木岳|千畳敷・中央アルプス縦走ルート': [
-    ['hut','空木駒峰ヒュッテ','山小屋・避難小屋'],['hut','空木平避難小屋','山小屋・避難小屋'],
+    ['hut','空木駒峰ヒュッテ','山小屋'],['hut','空木平避難小屋','山小屋'],
     ['trailhead','池山口登山口','下山口']
   ],
 
   // 後立山：五竜側から鹿島槍へ縦走し、冷池・爺ヶ岳・種池を経て扇沢へ。
   '鹿島槍ヶ岳|アルプス平ルート': [
-    ['hut','冷池山荘','山小屋・避難小屋'],['peak','爺ヶ岳','山頂'],
-    ['hut','種池山荘','山小屋・避難小屋'],['trailhead','扇沢登山口','下山口']
+    ['hut','冷池山荘','山小屋'],['peak','爺ヶ岳','山頂'],
+    ['hut','種池山荘','山小屋'],['trailhead','扇沢登山口','下山口']
   ],
 
   // 南アルプス南部：荒川三山から赤石岳へつなぐ周回は赤石小屋経由で椹島へ戻る。
   '赤石岳|椹島ルート': [
-    ['hut','赤石小屋','山小屋・避難小屋'],['trailhead','椹島','下山口']
+    ['hut','赤石小屋','山小屋'],['trailhead','椹島','下山口']
   ]
 });
 function representativeCourseWithDescent(mountain,course){
@@ -5933,7 +5933,7 @@ function representativeCourseOptions(mountain){
 // 中間地点に直接CTが無い場合は、親区間の標準CTを距離比で按分して総CTを維持する。
 const REPRESENTATIVE_COURSE_ENRICHMENTS_V14158 = Object.freeze({
   '槍ヶ岳|上高地・槍沢ルート': [
-    {after:'上高地',before:'槍沢ロッヂ',points:[['hut','横尾山荘','山小屋・避難小屋']]},
+    {after:'上高地',before:'槍沢ロッヂ',points:[['hut','横尾山荘','山小屋']]},
     {after:'槍沢ロッヂ',before:'槍ヶ岳山荘',points:[
       ['camp','ババ平（槍沢キャンプ場）','テント場'],
       ['pass','大曲（水俣乗越分岐）','峠・分岐'],
@@ -5957,16 +5957,16 @@ const REPRESENTATIVE_COURSE_ENRICHMENTS_V14158 = Object.freeze({
     {after:'千畳敷',before:'木曽駒ヶ岳',points:[['pass','乗越浄土','峠・分岐']]}
   ],
   '高妻山|戸隠キャンプ場・高妻山登山者駐車場ルート': [
-    {after:'戸隠キャンプ場・高妻山登山者駐車場',before:'高妻山',points:[['hut','一不動避難小屋','山小屋・避難小屋']]}
+    {after:'戸隠キャンプ場・高妻山登山者駐車場',before:'高妻山',points:[['hut','一不動避難小屋','山小屋']]}
   ],
   '妙高山|笹ヶ峰ルート': [
-    {after:'笹ヶ峰登山口',before:'妙高山',points:[['hut','黒沢池ヒュッテ','山小屋・避難小屋']]}
+    {after:'笹ヶ峰登山口',before:'妙高山',points:[['hut','黒沢池ヒュッテ','山小屋']]}
   ],
   '瑞牆山|瑞牆山荘・富士見平口ルート': [
-    {after:'瑞牆山荘・富士見平口',before:'瑞牆山',points:[['hut','富士見平小屋','山小屋・避難小屋']]}
+    {after:'瑞牆山荘・富士見平口',before:'瑞牆山',points:[['hut','富士見平小屋','山小屋']]}
   ],
   '白木峰|白木峰8合目駐車場ルート': [
-    {after:'白木峰8合目駐車場',before:'白木峰',points:[['hut','白木山荘（避難小屋）','山小屋・避難小屋']]}
+    {after:'白木峰8合目駐車場',before:'白木峰',points:[['hut','白木山荘（避難小屋）','山小屋']]}
   ]
 });
 
@@ -5981,7 +5981,7 @@ function representativeCourseEnrichmentRules(mountain,course){
 function representativeRoleLabel(type){
   if(type==='trailhead')return '登山口';
   if(type==='peak')return '山頂';
-  if(type==='hut')return '山小屋・避難小屋';
+  if(type==='hut')return '山小屋';
   if(type==='pass')return '峠・分岐';
   if(type==='camp')return 'テント場';
   return '地点';
@@ -6107,7 +6107,7 @@ function representativeDescentReverseFallbackInfo(fromPoint,toPoint){
 function buildRepresentativeResolvedRoute(mountain,course){
   const baseDefs=Array.isArray(course?.points)?course.points:[];
   const expandedDefs=representativeCourseExpandedPointDefs(mountain,course);
-  const resolvedExpanded=expandedDefs.map(([type,name,role])=>({type,name,role,p:representativeCandidate(type,name)}));
+  const resolvedExpanded=expandedDefs.map(([type,name,role])=>({type,name,role,p:representativeCandidate(type,name,mountain)}));
   const byName=new Map(resolvedExpanded.filter(x=>x.p).map(x=>[`${x.type}|${x.name}`,x]));
   const segments=[];
   let distributedPointCount=0;
@@ -6296,7 +6296,29 @@ function refreshRepresentativeCourseButton(){
   renderRepresentativeCourseStaticPreview(mountain);
   renderRepresentativeCourseSummaryNow(mountain);
 }
-function representativeCandidate(type,name){
+// V1.4.197: 全国一括判定など、現在選択中ではない山でも代表コースの固定地点を解決する。
+// これまで representativeCandidate() が画面上の candidates（現在選択中の山）だけを見ていたため、
+// 全国の山情報ではCTが登録済みでも「CT情報なし」になるケースがあった。
+function representativeCandidateForMountain(mountain,type,name){
+  const key=canonicalMountainName(String(mountain||'').trim());
+  if(!key)return null;
+  const pool=[
+    ...(BUILTIN_ROUTE_CATALOG[key]||[]),
+    ...(TRAVERSE_CATALOG[key]||[]),
+    ...regionalCandidates(key),
+    ...fixedNameFallbackCandidates(key)
+  ].filter(p=>p&&p.type===type&&hasResolvedCoord(p));
+  const raw=String(name||'').trim();
+  const exact=pool.find(p=>String(p.name||'').trim()===raw);
+  if(exact)return exact;
+  const normalized=canonicalCourseTimeEndpointName(normalizeCourseTimePointName(raw));
+  return pool.find(p=>canonicalCourseTimeEndpointName(normalizeCourseTimePointName(p.name))===normalized)||null;
+}
+function representativeCandidate(type,name,mountain=''){
+  if(mountain){
+    const fixed=representativeCandidateForMountain(mountain,type,name);
+    if(fixed)return fixed;
+  }
   return candidates.find(p=>p.type===type&&p.name===name&&hasResolvedCoord(p))||null;
 }
 async function applyRepresentativeCourse(){
@@ -6377,16 +6399,16 @@ async function applyRepresentativeCourse(){
 const CENTRAL_ALPS_AUTO_ROUTE_V121=[
   ['trailhead','area-cku-senjojiki','登山口'],
   ['peak','area-cku-kisokoma','山頂'],
-  ['hut','area-cku-chojo','山小屋・避難小屋'],
-  ['hut','area-cku-hoken-sanso','山小屋・避難小屋'],
+  ['hut','area-cku-chojo','山小屋'],
+  ['hut','area-cku-hoken-sanso','山小屋'],
   ['peak','area-cku-hoken','山頂'],
   ['peak','area-cku-hinokio','山頂'],
-  ['hut','area-cku-hinokio-hut','山小屋・避難小屋'],
+  ['hut','area-cku-hinokio-hut','山小屋'],
   ['peak','area-cku-kumazawa','山頂'],
   ['peak','area-cku-higashikawa','山頂'],
-  ['hut','area-cku-kisodono','山小屋・避難小屋'],
+  ['hut','area-cku-kisodono','山小屋'],
   ['peak','area-cku-utsugi','山頂'],
-  ['hut','area-cku-komaho','山小屋・避難小屋'],
+  ['hut','area-cku-komaho','山小屋'],
   ['trailhead','area-cku-ikeyama','下山口']
 ];
 function centralAlpsAutoRouteFor(mountain){
@@ -6419,7 +6441,7 @@ function renderCandidateRows(label,center,{resetPoints=false}={}){
     const hasTrail=candidates.some(p=>p.type==='trailhead'), hasHut=candidates.some(p=>p.type==='hut');
     if(hasTrail)addPointRow('trailhead','','登山口');
     addPointRow('peak','','山頂');
-    if(hasHut)addPointRow('hut','','山小屋・避難小屋');
+    if(hasHut)addPointRow('hut','','山小屋');
     if(hasTrail)addPointRow('trailhead','','下山口');
     updateForecastHorizon();
     renderRouteMaps();
@@ -6704,12 +6726,12 @@ function formatLocalTime(dt){
   return `${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
 }
 
-// V1.4.195: 山小屋・避難小屋とテント場はUI上で1つの種類にまとめる。
+// V1.4.197: 避難小屋は山小屋に含め、山小屋とテント場をUI上で1つの種類にまとめる。
 // 候補データ自体の type は hut / camp のまま保持し、宿泊判定・地図表示との互換性を維持する。
 const POINT_TYPE_OPTIONS=[
   ['trailhead','登山口・下山口'],
   ['peak','山頂'],
-  ['hutcamp','山小屋・避難小屋・テント場'],
+  ['hutcamp','山小屋・テント場'],
   ['pass','峠・分岐']
 ];
 function pointTypeGroup(type){return type==='hut'||type==='camp'?'hutcamp':type;}
