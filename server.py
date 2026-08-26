@@ -29,7 +29,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.4.190"
+APP_VERSION = "1.4.191"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -137,6 +137,9 @@ NATIONAL_OUTLOOK_STALE_TTL = int(os.environ.get("NATIONAL_OUTLOOK_STALE_TTL", "8
 NATIONAL_OUTLOOK_REFRESH_INTERVAL = int(os.environ.get("NATIONAL_OUTLOOK_REFRESH_INTERVAL", "900"))
 NATIONAL_OUTLOOK_AUTO_REFRESH = os.environ.get("NATIONAL_OUTLOOK_AUTO_REFRESH", "1").lower() not in {"0", "false", "no"}
 NATIONAL_CACHE_REFRESH_TOKEN = os.environ.get("NATIONAL_CACHE_REFRESH_TOKEN", "")
+NATIONAL_NEXTDAY_100_AUTO_CACHE = os.environ.get("NATIONAL_NEXTDAY_100_AUTO_CACHE", "1").lower() not in {"0", "false", "no"}
+NATIONAL_100_POINTS_FILE = os.path.join(BASE, "national-100-points.json")
+_national_last_refresh_report: dict[str, Any] = {}
 NATIONAL_OUTLOOK_CHUNK_SIZE = int(os.environ.get("NATIONAL_OUTLOOK_CHUNK_SIZE", "50"))
 NATIONAL_OUTLOOK_ENGINE = "metno-gfs-v1"
 NATIONAL_GFS_MIN_INTERVAL = float(os.environ.get("NATIONAL_GFS_MIN_INTERVAL", "0.35"))
@@ -942,6 +945,81 @@ def _national_supabase_write(date_text: str, points: list[dict[str, Any]], resul
     except Exception:
         return False
 
+
+
+def _national_load_100_points() -> list[dict[str, Any]]:
+    try:
+        with open(NATIONAL_100_POINTS_FILE, "r", encoding="utf-8") as f:
+            rows = json.load(f)
+    except Exception as exc:
+        app.logger.warning("national_100_seed_load_failed %s", exc)
+        return []
+    out=[]
+    seen=set()
+    for row in rows if isinstance(rows,list) else []:
+        if not isinstance(row,dict): continue
+        name=str(row.get("name") or "")[:80]
+        try:
+            lat=float(row.get("lat")); lon=float(row.get("lon"))
+        except (TypeError,ValueError):
+            continue
+        if not name or name in seen or not (20 <= lat <= 50 and 120 <= lon <= 155):
+            continue
+        try: elev=float(row.get("elevation")) if row.get("elevation") is not None else None
+        except (TypeError,ValueError): elev=None
+        seen.add(name); out.append({"name":name,"lat":lat,"lon":lon,"elevation":elev})
+    return out
+
+
+def _national_nextday_date_text() -> str:
+    today_jst=(datetime.now(timezone.utc)+timedelta(hours=9)).date()
+    return (today_jst+timedelta(days=1)).isoformat()
+
+
+def _refresh_nextday_100_cache(*, force: bool=False) -> dict[str, Any]:
+    """Ensure tomorrow's Japan 100 Famous Mountains cache exists and stays within TTL.
+
+    Missing rows are created. Existing fresh rows are reused. Stale rows are refreshed.
+    This is the seed cache used by the nationwide page's default view.
+    """
+    points=_national_load_100_points()
+    report={"ok":True,"date":_national_nextday_date_text(),"seedCount":len(points),"freshBefore":0,"staleBefore":0,"missingBefore":0,"pointsDue":0,"pointsUpdated":0,"error":None}
+    if len(points)!=100:
+        report.update(ok=False,error=f"百名山固定座標が100件ではありません: {len(points)}")
+        return report
+    if not _national_supabase_enabled():
+        report.update(ok=False,error="Supabase national cache is not configured")
+        return report
+    date_text=report["date"]
+    fresh,stale=_national_supabase_read(date_text,points)
+    report["freshBefore"]=len(fresh); report["staleBefore"]=len(stale)
+    due=points if force else [p for p in points if p["name"] not in fresh]
+    report["missingBefore"]=sum(1 for p in points if p["name"] not in fresh and p["name"] not in stale)
+    report["pointsDue"]=len(due)
+    if not due:
+        return report
+    fingerprint=_national_points_fingerprint(points)
+    if not _national_try_lock(date_text,fingerprint):
+        report["locked"]=True
+        return report
+    try:
+        results,complete,rate_limited,error=_national_fetch_shared(date_text,due)
+        if results:
+            _national_supabase_write(date_text,due,results)
+            report["pointsUpdated"]=len(results)
+        report["completeFetch"]=bool(complete)
+        report["rateLimited"]=bool(rate_limited)
+        if error:
+            report["error"]=error; report["ok"]=False
+        if rate_limited:
+            report["ok"]=False
+    except Exception as exc:
+        app.logger.exception("national_nextday_100_refresh_failed")
+        report["ok"]=False; report["error"]=str(exc)[:200]
+    finally:
+        _national_unlock(date_text,fingerprint)
+    return report
+
 def _national_supabase_refresh_candidates(force: bool = False) -> dict[str, list[dict[str, Any]]]:
     """Load persistent cache rows that should be refreshed, grouped by forecast date.
 
@@ -995,18 +1073,18 @@ def _national_supabase_refresh_candidates(force: bool = False) -> dict[str, list
 
 
 def _refresh_national_persistent_cache(*, force: bool = False) -> dict[str, Any]:
-    """Refresh stale nationwide rows stored in Supabase.
-
-    The operation is intentionally stale-only by default: an hourly external wake-up
-    is cheap when nothing is due, while each row is actually fetched only after its
-    four-hour TTL has expired.
-    """
+    """Ensure tomorrow's 100-mountain seed, then refresh other stale shared rows."""
+    global _national_last_refresh_report
     started = time.time()
+    nextday = _refresh_nextday_100_cache(force=force) if NATIONAL_NEXTDAY_100_AUTO_CACHE else {"ok":True,"disabled":True,"pointsDue":0,"pointsUpdated":0}
     groups = _national_supabase_refresh_candidates(force=force)
     report: dict[str, Any] = {
-        "ok": True, "force": force, "datesChecked": len(groups), "pointsDue": sum(len(v) for v in groups.values()),
-        "pointsUpdated": 0, "datesUpdated": 0, "errors": [],
+        "ok": bool(nextday.get("ok", True)), "force": force, "nextday100": nextday,
+        "datesChecked": len(groups), "pointsDue": int(nextday.get("pointsDue") or 0) + sum(len(v) for v in groups.values()),
+        "pointsUpdated": int(nextday.get("pointsUpdated") or 0), "datesUpdated": 1 if nextday.get("pointsUpdated") else 0, "errors": [],
     }
+    if not nextday.get("ok", True) and nextday.get("error"):
+        report["errors"].append({"date":nextday.get("date"),"error":nextday.get("error")})
     for date_text in sorted(groups):
         points = groups[date_text]
         if not points:
@@ -1032,6 +1110,8 @@ def _refresh_national_persistent_cache(*, force: bool = False) -> dict[str, Any]
             _national_unlock(date_text, fingerprint)
     report["elapsedSeconds"] = round(time.time() - started, 2)
     report["ok"] = not report["errors"]
+    _national_last_refresh_report = dict(report)
+    _national_last_refresh_report["finishedAt"] = datetime.now(timezone.utc).isoformat()
     return report
 
 
@@ -1529,6 +1609,12 @@ def _ensure_national_refresh_worker() -> None:
         if _national_refresh_thread_started: return
         _national_refresh_thread_started=True
     def worker():
+        # V1.4.191: on every Render boot/wake, immediately seed tomorrow's 百名山 cache.
+        try:
+            if NATIONAL_OUTLOOK_AUTO_REFRESH and NATIONAL_NEXTDAY_100_AUTO_CACHE and _national_supabase_enabled():
+                _refresh_national_persistent_cache(force=False)
+        except Exception:
+            app.logger.exception("national_refresh_bootstrap_failed")
         while True:
             time.sleep(max(300,NATIONAL_OUTLOOK_REFRESH_INTERVAL))
             try:
@@ -1750,6 +1836,9 @@ def health():
         national_auto_refresh_enabled=NATIONAL_OUTLOOK_AUTO_REFRESH,
         national_refresh_interval_seconds=NATIONAL_OUTLOOK_REFRESH_INTERVAL,
         national_refresh_token_configured=bool(NATIONAL_CACHE_REFRESH_TOKEN),
+        national_nextday_100_auto_cache=NATIONAL_NEXTDAY_100_AUTO_CACHE,
+        national_nextday_100_seed_count=len(_national_load_100_points()),
+        national_last_refresh_report=_national_last_refresh_report or None,
         usage_logging=True,
         supabase_configured=bool(SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY),
         trail_regions_ready=sum(1 for r in _load_trail_manifest().get("regions", []) if r.get("ready")),

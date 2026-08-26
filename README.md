@@ -1993,3 +1993,8 @@ Start Command:
 
 ### V1.4.188 priority estimated CT cleanup
 指定30山の推定CTを優先監査し、端点一致の公開標準CTを確認できた区間を確認済みCTへ昇格。根拠が不十分な区間は推定のまま維持。
+
+### V1.4.191 全国一括判定・翌日百名山自動キャッシュ
+翌日の日本百名山100座は `national-100-points.json` を固定シードとして扱います。共有キャッシュが存在しない場合は新規作成し、存在する場合は4時間のTTLを超えた地点のみ再取得します。Renderプロセス起動時にも確認し、GitHub Actions の `/api/national-outlook/refresh-cache` 呼び出しでも同じ処理を行います。
+
+定期起動を有効にするには、Render の `NATIONAL_CACHE_REFRESH_TOKEN` と GitHub Actions Secret の `TRATEN_CACHE_REFRESH_TOKEN` に同じ任意の長い文字列を設定してください。

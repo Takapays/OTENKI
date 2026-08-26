@@ -2,7 +2,7 @@ name: Refresh nationwide cache
 
 on:
   schedule:
-    # Check hourly. The server refreshes only rows older than the 4-hour TTL.
+    # Check hourly. The server seeds tomorrow's 100 mountains if missing, and refreshes rows only after the 4-hour TTL.
     - cron: '17 * * * *'
   workflow_dispatch:
 

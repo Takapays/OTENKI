@@ -25,6 +25,10 @@ services:
         value: "86400"
       - key: NATIONAL_OUTLOOK_REFRESH_INTERVAL
         value: "900"
+      - key: NATIONAL_NEXTDAY_100_AUTO_CACHE
+        value: "1"
+      - key: NATIONAL_CACHE_REFRESH_TOKEN
+        sync: false
       - key: TRAIL_GRAPH_CACHE_MAX
         value: "2"
       - key: TRAIL_BUILD_TIMEOUT
