@@ -139,11 +139,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-<<<<<<< HEAD
-const APP_VERSION = '1.4.183';
-=======
-const APP_VERSION = '1.4.181';
->>>>>>> 57918b13bb8d2d76fb509d73f6b1e55faf4daa69
+const APP_VERSION = '1.4.184';
 
 
 
@@ -1765,6 +1761,7 @@ const MOUNTAIN_PRESETS = {
   '日出ヶ岳': {latitude:34.185278, longitude:136.109167},
   '御在所岳': {latitude:35.020457, longitude:136.418668},
   '山上ヶ岳': {latitude:34.252500, longitude:135.941111},
+  '稲村ヶ岳': {latitude:34.237629, longitude:135.923656},
   // V1.12.6: 国土地理院/JMAの韓国岳山頂座標を固定
   '霧島山（韓国岳）': {latitude:31.934167, longitude:130.861667}
 };
@@ -6153,13 +6150,8 @@ function refreshRepresentativeCourseButton(){
     sel.classList.toggle('hidden',!hasCourse);
     sel.disabled=!hasCourse;
   }
-<<<<<<< HEAD
   // V1.4.182: mountain selection immediately exposes the representative-course selector
   // and its route preview. Loading remains an explicit button action.
-=======
-  // V1.4.181: mobile UI reverted to the previously stable flow.
-  // Course summaries select a route; the explicit load button applies it.
->>>>>>> 57918b13bb8d2d76fb509d73f6b1e55faf4daa69
   if(choices){choices.replaceChildren();choices.classList.add('hidden');choices.removeAttribute('data-course-count');}
   if(mobileChoices){mobileChoices.replaceChildren();mobileChoices.classList.add('hidden');}
   if(legacySummary){legacySummary.replaceChildren();legacySummary.style.setProperty('display','none','important');}

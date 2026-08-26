@@ -29,11 +29,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-<<<<<<< HEAD
-APP_VERSION = "1.4.183"
-=======
-APP_VERSION = "1.4.181"
->>>>>>> 57918b13bb8d2d76fb509d73f6b1e55faf4daa69
+APP_VERSION = "1.4.184"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
