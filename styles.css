@@ -3984,3 +3984,44 @@ body.install-guide-open{overflow:hidden}
     width:100%!important;
   }
 }
+
+
+/* V1.4.180: dedicated mobile representative-course area. */
+.mobile-representative-courses{display:none}
+@media(max-width:700px){
+  .planner-rail .mobile-representative-courses:not(.hidden){
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:8px!important;
+    width:100%!important;
+    margin:10px 0 2px!important;
+  }
+  .planner-rail .mobile-representative-courses:not(.hidden)::before{
+    content:'代表コース（タップで山行設定に反映）';
+    display:block;
+    font-size:12px;
+    font-weight:850;
+    color:#355247;
+    margin-bottom:1px;
+  }
+  .planner-rail .mobile-representative-course-choice{
+    appearance:none;
+    display:flex!important;
+    flex-direction:column;
+    align-items:flex-start;
+    gap:3px;
+    width:100%!important;
+    min-height:48px;
+    padding:10px 12px;
+    border:1px solid #c8d8cf;
+    border-radius:11px;
+    background:#fff;
+    color:#29493c;
+    text-align:left;
+    font:inherit;
+  }
+  .planner-rail .mobile-representative-course-choice b{font-size:14px;line-height:1.3}
+  .planner-rail .mobile-representative-course-choice span{font-size:12px;line-height:1.35;color:#60756b}
+  .planner-rail .mobile-representative-course-choice.is-active{border-color:#1f6a4b;background:#eef7f2}
+  .planner-rail #representativeCourseChoices{display:none!important}
+}

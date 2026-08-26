@@ -139,7 +139,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.179';
+const APP_VERSION = '1.4.180';
 
 
 
@@ -6110,6 +6110,7 @@ function refreshRepresentativeCourseButton(){
   const btn=$('representativeCourseBtn');
   const sel=$('representativeCourseSelect');
   const choices=$('representativeCourseChoices');
+  const mobileChoices=$('mobileRepresentativeCourses');
   const legacySummary=$('representativeCourseSummaryFixed');
   if(!btn)return;
   const mountain=currentMountainLabel();
@@ -6127,6 +6128,31 @@ function refreshRepresentativeCourseButton(){
   // V1.4.179: always build the static representative-course buttons when a
   // mountain has courses. Visibility is controlled only by CSS, avoiding
   // mobile matchMedia/device-width differences that could leave the buttons hidden.
+  // V1.4.180: dedicated mobile course buttons live outside the legacy route-actions
+  // container so old responsive CSS cannot hide them.
+  if(mobileChoices){
+    mobileChoices.replaceChildren();
+    if(hasCourse){
+      const selectedIndex=representativeCourseSelectedIndex(mountain,options);
+      options.forEach((course,i)=>{
+        const choice=document.createElement('button');
+        choice.type='button';
+        choice.className=`mobile-representative-course-choice${i===selectedIndex?' is-active':''}`;
+        const label=course.label||'代表コース';
+        choice.innerHTML=`<b>${options.length>1?`${i+1}. `:''}${escapeHtml(label)}</b><span>${escapeHtml(representativeCoursePathText(course,mountain)||'')}</span>`;
+        choice.addEventListener('click',()=>{
+          setRepresentativeCourseSelectedIndex(mountain,i);
+          refreshRepresentativeCourseButton();
+          void applyRepresentativeCourse();
+        });
+        mobileChoices.append(choice);
+      });
+      mobileChoices.classList.remove('hidden');
+    }else{
+      mobileChoices.classList.add('hidden');
+    }
+  }
+
   if(choices){
     choices.replaceChildren();
     if(hasCourse){
