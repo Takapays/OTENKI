@@ -139,7 +139,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.201';
+const APP_VERSION = '1.4.202';
 
 
 
@@ -2364,6 +2364,12 @@ const BUILTIN_ROUTE_CATALOG = {
     {id:'builtin-fuji-subashiri',type:'trailhead',name:'須走口五合目',lat:35.364942,lon:138.777077,elevation:1980,source:'固定候補'},
     {id:'builtin-fuji-gotemba',type:'trailhead',name:'御殿場口新五合目',lat:35.335281,lon:138.794672,elevation:1430,source:'固定候補'},
     {id:'builtin-fuji-fujinomiya',type:'trailhead',name:'富士宮口五合目',lat:35.336540,lon:138.734233,elevation:2380,source:'固定候補'},
+    {id:'builtin-fuji-fujiichikan',type:'hut',name:'富士一館',lat:35.377222,lon:138.743333,elevation:2816,source:'固定候補'},
+    {id:'builtin-fuji-toyokan',type:'hut',name:'東洋館',lat:35.375833,lon:138.742778,elevation:2911,source:'固定候補'},
+    {id:'builtin-fuji-fujisanhotel',type:'hut',name:'富士山ホテル',lat:35.369167,lon:138.738889,elevation:3356,source:'固定候補'},
+    {id:'builtin-fuji-goraiko',type:'hut',name:'御来光山荘',lat:35.344722,lon:138.736667,elevation:2795,source:'固定候補'},
+    {id:'builtin-fuji-chojo-yamaguchiya',type:'hut',name:'頂上山口屋',lat:35.365000,lon:138.733056,elevation:3715,source:'固定候補'},
+    {id:'builtin-fuji-chojo-fujikan',type:'hut',name:'頂上富士館',lat:35.359444,lon:138.730833,elevation:3713,source:'固定候補'},
     {id:'builtin-fuji-yoshida7',type:'hut',name:'吉田口七合目',lat:35.3817,lon:138.7317,elevation:2700},
     {id:'builtin-fuji-hachigo',type:'hut',name:'八合目',lat:35.3719,lon:138.7315,elevation:3100},
     {id:'builtin-fuji-peak',type:'peak',name:'富士山（剣ヶ峰）',lat:35.3606,lon:138.7274,elevation:3776}
@@ -5580,6 +5586,21 @@ function init(){
     updateForecastHorizon();
     renderRouteMaps();
   };
+  $('plannerClearBtn')?.addEventListener('click',()=>{
+    area.value='';
+    select.value='';
+    search.value='';
+    populateMountainSelect('');
+    resetForMountainChange();
+    const pace=$('walkingPaceRange');
+    if(pace&&pace.value!=='100'){
+      pace.value='100';
+      pace.dispatchEvent(new Event('input',{bubbles:true}));
+    }
+    setStatus('山行設定をクリアしました。');
+    logEvent('planner_clear',{success:true});
+  });
+
   area.addEventListener('change',()=>{
     const current=select.value;
     populateMountainSelect(area.value,current);

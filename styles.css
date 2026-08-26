@@ -4069,3 +4069,12 @@ body.install-guide-open{overflow:hidden}
 /* V1.4.200: show the currently selected 全国判定 date inside the map. */
 .national-map-date-badge{min-width:58px;padding:7px 11px;border:1px solid rgba(29,76,58,.18);border-radius:999px;background:rgba(255,255,255,.94);box-shadow:0 2px 10px rgba(25,58,46,.14);color:#183f31;font-size:15px;font-weight:950;line-height:1;text-align:center;letter-spacing:.02em;backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);pointer-events:none}
 @media(max-width:520px){.national-map-date-badge{min-width:52px;padding:6px 9px;font-size:14px}}
+
+
+/* V1.4.202: planner clear button beside the 01 heading */
+.planner-title-row{align-items:center;}
+.planner-title-row>div{min-width:0;}
+.planner-clear-btn{margin-left:auto;align-self:center;flex:0 0 auto;border:1px solid #b8d4c8;background:#fff;color:#24684e;border-radius:999px;padding:8px 14px;font:inherit;font-size:12px;font-weight:850;line-height:1;box-shadow:0 4px 14px rgba(36,104,78,.06);cursor:pointer;}
+.planner-clear-btn:hover{background:#f2f8f5;border-color:#79b59c;}
+.planner-clear-btn:active{transform:translateY(1px);}
+@media(max-width:680px){.planner-clear-btn{padding:8px 12px;font-size:12px;min-height:34px;}}
