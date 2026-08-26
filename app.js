@@ -139,7 +139,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.193';
+const APP_VERSION = '1.4.195';
 
 
 
@@ -4801,7 +4801,7 @@ function logMountainSelected(source='select'){
 function logPointSelected(row,p){
   if(!p)return;
   logEvent('point_selected',{success:true,mountain:currentMountainLabel(),metadata:{
-    point_name:p.name||'',point_type:row?.querySelector('.point-type')?.value||p.type||'other',
+    point_name:p.name||'',point_type:p.type||row?.querySelector('.point-type')?.value||'other',
     point_role:row?.dataset?.role||'',source:p.source||''
   }});
 }
@@ -5822,6 +5822,11 @@ const EXTRA_REPRESENTATIVE_COURSES_V1466 = Object.freeze({
   ],
   '五竜岳': [
     {label:'八方尾根・唐松岳経由ルート', points:[['trailhead','八方池山荘','登山口'],['hut','唐松岳頂上山荘','山小屋・避難小屋'],['hut','五竜山荘','山小屋・避難小屋'],['peak','五竜岳','山頂']]}
+  ],
+  // V1.4.194: 白馬村公式モデルコースに沿った栂池自然園側の代表コースを追加。
+  // 既存固定ポイントと確認済みCTのみを使用し、座標推測は行わない。
+  '白馬岳': [
+    {label:'栂池自然園・白馬大池ルート', points:[['trailhead','栂池自然園','登山口'],['hut','白馬大池山荘','山小屋・避難小屋'],['peak','小蓮華山','山頂'],['peak','白馬岳','山頂']]}
   ]
 });
 
@@ -6699,12 +6704,28 @@ function formatLocalTime(dt){
   return `${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
 }
 
-function typeOptions(selected){return Object.entries(TYPE_LABEL).map(([v,l])=>`<option value="${v}" ${v===selected?'selected':''}>${l}</option>`).join('');}
+// V1.4.195: 山小屋・避難小屋とテント場はUI上で1つの種類にまとめる。
+// 候補データ自体の type は hut / camp のまま保持し、宿泊判定・地図表示との互換性を維持する。
+const POINT_TYPE_OPTIONS=[
+  ['trailhead','登山口・下山口'],
+  ['peak','山頂'],
+  ['hutcamp','山小屋・避難小屋・テント場'],
+  ['pass','峠・分岐']
+];
+function pointTypeGroup(type){return type==='hut'||type==='camp'?'hutcamp':type;}
+function typeOptions(selected){
+  const group=pointTypeGroup(selected);
+  return POINT_TYPE_OPTIONS.map(([v,l])=>`<option value="${v}" ${v===group?'selected':''}>${l}</option>`).join('');
+}
 
 // V1.4.20: 座標未確定候補はUIに出さないため、個別の再取得処理は廃止。
 
 function candidateOptions(type,selected=''){
-  const list=candidates.filter(p=>p.type===type&&hasResolvedCoord(p));
+  const group=pointTypeGroup(type);
+  const list=candidates.filter(p=>{
+    if(!hasResolvedCoord(p))return false;
+    return group==='hutcamp'?(p.type==='hut'||p.type==='camp'):p.type===group;
+  });
   return `<option value="">地点を選択</option>`+list.map(p=>`<option value="${esc(p.id)}" ${p.id===selected?'selected':''}>${esc(p.name)}${p.elevation?` / ${p.elevation}m`:''}</option>`).join('');
 }
 
@@ -6727,32 +6748,43 @@ function addPointRow(type='peak',selected='',roleLabel='',initialDateTime=null){
   const row=document.createElement('div'); row.className='point-row'; row.dataset.id=String(pointSeq); row.dataset.role=roleLabel||'';
   row.innerHTML=`<div class="point-no"></div>
     <label class="point-type-label"><span class="field-caption">種類</span><select class="point-type">${typeOptions(type)}</select></label>
-    <label class="point-name-label"><span class="field-caption">地点</span><span class="hut-select-access"><select class="point-select">${candidateOptions(type,selected)}</select><a class="hut-home-link hut-home-inline hidden" href="#" target="_blank" rel="noopener noreferrer">公式HP <span aria-hidden="true">↗</span></a></span></label>
+    <label class="point-name-label"><span class="field-caption">地点</span><span class="hut-select-access"><select class="point-select">${candidateOptions(pointTypeGroup(type),selected)}</select><a class="hut-home-link hut-home-inline hidden" href="#" target="_blank" rel="noopener noreferrer">公式HP <span aria-hidden="true">↗</span></a></span></label>
     <label class="datetime-label date-label"><span class="field-caption">通過日</span><span class="date-control"><input class="point-date" type="date" value="${initialDateTime?.date||todayLocal()}"><button class="date-picker-btn" type="button" title="カレンダーを開く" aria-label="カレンダーを開く">📅</button></span></label>
     <label class="datetime-label time-label"><span class="field-caption">通過時刻</span><span class="time-control-with-ct"><input class="point-time" type="time" step="600" value="${normalizeTimeToTenMinutes(initialDateTime?.time||'06:00')}"><span class="course-time-missing-badge hidden" title="直前地点からの標準CTが未登録です">CT情報なし</span></span></label>
-    <label class="stay-option ${type==='hut'?'':'hidden'}"><span>宿泊</span><span class="stay-toggle"><input class="point-stay" type="checkbox"><b><span class="stay-label-desktop">ここに泊まる</span><span class="stay-label-mobile">泊まる</span></b></span></label>
+    <label class="stay-option ${(type==='hut'||type==='camp')?'':'hidden'}"><span>宿泊</span><span class="stay-toggle"><input class="point-stay" type="checkbox"><b><span class="stay-label-desktop">ここに泊まる</span><span class="stay-label-mobile">泊まる</span></b></span></label>
     <label class="stay-departure hidden"><span class="field-caption">翌朝出発</span><input class="stay-departure-time" type="time" step="600" value="05:00" aria-label="翌朝出発時刻"></label>
     <button class="move up" type="button" title="上へ">↑</button><button class="move down" type="button" title="下へ">↓</button><button class="remove" type="button" title="削除">×</button>
     <div class="point-meta">地点を選択してください</div>`;
   $('points').appendChild(row); renumber();
   window.TratenTrailheadAccess?.attachRow?.(row);
   const typeSel=row.querySelector('.point-type'), pointSel=row.querySelector('.point-select'), stay=row.querySelector('.stay-option'), stayDeparture=row.querySelector('.stay-departure'), stayDepartureTime=row.querySelector('.stay-departure-time'), hutHomeLink=row.querySelector('.hut-home-link');
+  const selectedOvernightCandidate=()=>{
+    const p=selectedCandidate(pointSel.value);
+    return p&&(p.type==='hut'||p.type==='camp')?p:null;
+  };
+  const refreshStayOption=()=>{
+    const overnight=!!selectedOvernightCandidate();
+    stay.classList.toggle('hidden',!overnight);
+    if(!overnight)row.querySelector('.point-stay').checked=false;
+  };
   const refreshStayDeparture=()=>{
-    const enabled=typeSel.value==='hut'&&!!row.querySelector('.point-stay')?.checked;
+    const enabled=!!selectedOvernightCandidate()&&!!row.querySelector('.point-stay')?.checked;
     stayDeparture?.classList.toggle('hidden',!enabled);
   };
   const refreshHutHomepage=()=>{
     const p=selectedCandidate(pointSel.value);
-    const url=typeSel.value==='hut'?hutOfficialSite(p?.name||''):'';
+    const url=p?.type==='hut'?hutOfficialSite(p?.name||''):'';
     hutHomeLink?.classList.toggle('hidden',!url);
     if(hutHomeLink){hutHomeLink.href=url||'#';hutHomeLink.title=url?`${p?.name||'山小屋'}の公式ホームページを開く`:'';hutHomeLink.setAttribute('aria-label',url?`${p?.name||'山小屋'}の公式ホームページを開く`:'');}
   };
-  typeSel.addEventListener('change',()=>preservePointRowViewport(row,()=>{clearRepresentativeSegmentMeta(row);pointSel.innerHTML=candidateOptions(typeSel.value); stay.classList.toggle('hidden',typeSel.value!=='hut'); if(typeSel.value!=='hut')row.querySelector('.point-stay').checked=false; refreshStayDeparture(); refreshHutHomepage(); updateMeta(row); refreshAllCourseTimeMissingBadges();}));
+  typeSel.addEventListener('change',()=>preservePointRowViewport(row,()=>{clearRepresentativeSegmentMeta(row);pointSel.innerHTML=candidateOptions(typeSel.value); refreshStayOption(); refreshStayDeparture(); refreshHutHomepage(); updateMeta(row); refreshAllCourseTimeMissingBadges();}));
   pointSel.addEventListener('change',()=>preservePointRowViewport(row,()=>{
     clearRepresentativeSegmentMeta(row);
     const p=selectedCandidate(pointSel.value);
     if(p){
       logPointSelected(row,p);
+      refreshStayOption();
+      refreshStayDeparture();
       refreshHutHomepage();
       applyCourseTimeFromPrevious(row,{announce:true});
       updateMeta(row);
@@ -6760,6 +6792,8 @@ function addPointRow(type='peak',selected='',roleLabel='',initialDateTime=null){
       ensureNextPointIsLater(row);
       refreshAllCourseTimeMissingBadges();
     }else{
+      refreshStayOption();
+      refreshStayDeparture();
       refreshHutHomepage();
       updateMeta(row);
       refreshAllCourseTimeMissingBadges();
@@ -7071,7 +7105,7 @@ function collectPoints(){
     const date=row.querySelector('.point-date').value, time=row.querySelector('.point-time').value;
     if(!date||!time) throw new Error(`${p.name} の通過日・通過時刻を入力してください。`);
     if(!hasResolvedCoord(p)) throw new Error(`${p.name} の座標が確定していないため利用できません。別の確定済み地点を選択してください。`);
-    return {...p,date,time,type:row.querySelector('.point-type').value,stay:!!row.querySelector('.point-stay')?.checked,stayDepartureTime:row.querySelector('.stay-departure-time')?.value||'05:00',role:row.dataset.role||''};
+    return {...p,date,time,type:p.type||row.querySelector('.point-type').value,stay:!!row.querySelector('.point-stay')?.checked,stayDepartureTime:row.querySelector('.stay-departure-time')?.value||'05:00',role:row.dataset.role||''};
   }).filter(Boolean);
 }
 function validateChronology(points){
@@ -8306,7 +8340,7 @@ function collectRouteMapPointsFromForm(){
     if(!candidate||!hasResolvedCoord(candidate))return null;
     return normalizeRouteMapPoint({
       ...candidate,
-      type:row.querySelector('.point-type')?.value||candidate.type||'peak',
+      type:candidate.type||row.querySelector('.point-type')?.value||'peak',
       date:row.querySelector('.point-date')?.value||'',
       time:row.querySelector('.point-time')?.value||'',
       stay:!!row.querySelector('.point-stay')?.checked,
