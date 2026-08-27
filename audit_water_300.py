@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Audit mapped water sources for Japan 300 mountains using existing fixed route points.
 
-V1.4.235: batched, bounded audit for GitHub Actions.
+V1.4.236: incremental rotating audit for GitHub Actions.
 - never guesses coordinates
 - groups several mountains into one Overpass request
 - bounded request time and endpoint fallback
@@ -26,8 +26,9 @@ BASE = Path(__file__).resolve().parent
 APP_JS = BASE / "app.js"
 OUT = BASE / "water-mountain-cache.json"
 ENDPOINTS = [
+    "https://overpass.private.coffee/api/interpreter",
+    "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
     "https://overpass-api.de/api/interpreter",
-    "https://overpass.kumi.systems/api/interpreter",
 ]
 RADIUS_M = 1400
 MAX_CENTERS = 12
@@ -181,7 +182,7 @@ def fetch_batch(batch: list[str], points_map: dict[str,list[dict[str,Any]]], tim
         endpoint=ENDPOINTS[attempt % len(ENDPOINTS)]
         try:
             data=urllib.parse.urlencode({'data':q}).encode('utf-8')
-            req=urllib.request.Request(endpoint,data=data,method='POST',headers={'User-Agent':'TratenWaterAudit/1.4.235 (+https://otenki.onrender.com/)','Content-Type':'application/x-www-form-urlencoded'})
+            req=urllib.request.Request(endpoint,data=data,method='POST',headers={'User-Agent':'TratenWaterAudit/1.4.236 (+https://otenki.onrender.com/)','Content-Type':'application/x-www-form-urlencoded'})
             with urllib.request.urlopen(req,timeout=timeout) as r:
                 payload=json.loads(r.read().decode('utf-8','replace'))
             return {m:parse_sources(payload,points_map.get(m) or []) for m in batch},None,attempt+1
@@ -200,14 +201,21 @@ def load_previous() -> dict[str, Any]:
 
 
 def write_cache(mountains: list[str], rows: dict[str,Any]) -> None:
+    normalized={m:rows.get(m,{'checked':False,'available':False,'count':0,'sources':[]}) for m in mountains}
+    checked=sum(v.get('checked') is True for v in normalized.values())
+    available=sum(v.get('available') is True for v in normalized.values())
     payload={
-        'schema_version':3,
-        'app_version':'1.4.235',
+        'schema_version':4,
+        'app_version':'1.4.236',
         'generated_at':now_iso(),
         'source':'OpenStreetMap / Overpass API',
+        'audit_mode':'incremental-rotating',
         'radius_m':RADIUS_M,
         'mountain_count':len(mountains),
-        'mountains':{m:rows.get(m,{'checked':False,'available':False,'count':0,'sources':[]}) for m in mountains},
+        'checked_count':checked,
+        'available_count':available,
+        'unresolved_count':len(mountains)-checked,
+        'mountains':normalized,
     }
     OUT.write_text(json.dumps(payload,ensure_ascii=False,indent=2)+"\n",encoding='utf-8')
 
@@ -225,6 +233,7 @@ def main() -> int:
     ap.add_argument('--resume',action='store_true')
     ap.add_argument('--errors-only',action='store_true')
     ap.add_argument('--max-batches',type=int,default=0,help='0 = all pending batches')
+    ap.add_argument('--max-mountains',type=int,default=0,help='0 = all pending mountains; otherwise process only this many unresolved mountains')
     ap.add_argument('--dry-run',action='store_true')
     args=ap.parse_args()
 
@@ -236,12 +245,23 @@ def main() -> int:
         if missing: print('Missing:', ', '.join(missing)); return 1
         print('Dry-run OK: no network requests were sent.'); return 0
 
-    if args.errors_only:
-        candidates=[m for m in mountains if rows.get(m,{}).get('checked') is not True]
-    elif args.resume:
-        candidates=[m for m in mountains if rows.get(m,{}).get('checked') is not True]
+    if args.errors_only or args.resume:
+        # V1.4.236: rotate unresolved mountains by oldest attempt first.
+        # This prevents the same failing mountains at the head of the list from
+        # starving later unresolved mountains forever. Confirmed rows are never re-queried.
+        unresolved=[m for m in mountains if rows.get(m,{}).get('checked') is not True]
+        order={m:i for i,m in enumerate(mountains)}
+        def retry_key(m):
+            row=rows.get(m,{}) or {}
+            stamp=str(row.get('checked_at') or '')
+            # Never-attempted rows sort first; then oldest attempted rows.
+            return (0 if not stamp else 1, stamp, order[m])
+        candidates=sorted(unresolved,key=retry_key)
     else:
         candidates=list(mountains)
+
+    if args.max_mountains>0:
+        candidates=candidates[:max(1,args.max_mountains)]
 
     bsize=min(8,max(1,args.batch_size))
     batches=list(chunks(candidates,bsize))

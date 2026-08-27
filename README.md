@@ -1,3 +1,8 @@
+## V1.4.236
+- 水場監査を増分ローテーション方式へ変更。1回16座、確認済み35座を保持、失敗山は最後尾へ回して後続を停滞させない。
+- public Overpass endpoint を現行候補へ更新し、GitHub Actions は6時間ごと・5分上限で軽量実行。
+- GitHub Actions の checkout/setup-python を Node 24+ 世代へ更新。
+
 ## V1.4.235
 
 - 水場監査を1山1リクエスト方式から、複数山をまとめるOverpassバッチ方式へ変更。

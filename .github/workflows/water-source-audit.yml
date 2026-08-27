@@ -3,7 +3,8 @@ name: Refresh water source cache
 on:
   workflow_dispatch:
   schedule:
-    - cron: '23 18 * * 1'
+    # Small incremental run every 6 hours. Confirmed mountains are skipped forever.
+    - cron: '23 0,6,12,18 * * *'
   push:
     branches: [ main, master ]
     paths:
@@ -20,18 +21,18 @@ concurrency:
 jobs:
   audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
 
       - name: Validate all 300 mountains have fixed audit points
         run: python audit_water_300.py --dry-run
 
-      - name: Audit pending mountains in small batches
-        run: python audit_water_300.py --resume --batch-size 8 --sleep 0.4 --timeout 6 --attempts 2
+      - name: Audit only the next unresolved mountains
+        run: python audit_water_300.py --resume --batch-size 4 --max-mountains 16 --sleep 0.8 --timeout 7 --attempts 3
 
       - name: Summarize result
         run: |
@@ -45,7 +46,7 @@ jobs:
           print('checked',checked,'/',len(rows))
           print('available',available)
           print('unresolved',unresolved)
-          print('NOTE: unresolved is not treated as water-absent; the next run resumes only unresolved mountains.')
+          print('Incremental mode: confirmed rows are preserved; failed rows rotate to the back of the retry queue.')
           PY
 
       - name: Commit refreshed cache

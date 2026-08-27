@@ -1,3 +1,11 @@
+## V1.4.236
+- 水場固定監査を全件一括から増分ローテーションへ変更。
+- 1回16座（4座×最大4バッチ）、6時間ごと、5分上限。
+- checked=true の確定済み35座・水場あり7座を保持し、再取得しない。
+- 未解決は最終試行の古い順に回し、連続失敗山による先頭詰まりを解消。
+- Overpass fallback を private.coffee / maps.mail.ru / overpass-api.de へ更新。
+- actions/checkout と actions/setup-python を Node 24+ 世代へ更新。
+
 ## V1.4.235
 - 水場300山監査の通信方式を変更。1山ごとのOverpass問い合わせを廃止し、複数山を1回にまとめるバッチ取得へ移行。
 - GitHub Actionsの最大実行時間を12分へ短縮。
