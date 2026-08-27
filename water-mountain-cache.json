@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "app_version": "1.4.234",
-  "generated_at": "2026-08-27T15:56:57.171903Z",
+  "generated_at": "2026-08-27T16:06:43.501143Z",
   "source": "OpenStreetMap / Overpass API",
   "radius_m": 1400,
   "mountain_count": 300,
@@ -232,151 +232,242 @@
       "checked": false,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-27T15:57:21.040718Z",
+      "error": "https://overpass.kumi.systems/api/interpreter: URLError: <urlopen error _ssl.c:993: The handshake operation timed out>"
     },
     "八甲田山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 1,
+      "checked_at": "2026-08-27T15:57:23.711430Z"
     },
     "岩木山": {
       "checked": false,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-27T15:57:48.216303Z",
+      "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
     },
     "白神岳": {
       "checked": false,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-27T15:58:11.163378Z",
+      "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
     },
     "八幡平": {
       "checked": false,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-27T15:58:38.468555Z",
+      "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
     },
     "乳頭山（烏帽子岳）": {
       "checked": false,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-27T15:58:55.933261Z",
+      "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
     },
     "秋田駒ヶ岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 1,
+      "checked_at": "2026-08-27T15:59:01.517249Z"
     },
     "岩手山": {
-      "checked": false,
-      "available": false,
-      "count": 0,
-      "sources": []
+      "checked": true,
+      "available": true,
+      "count": 2,
+      "sources": [
+        {
+          "name": "鬼又清水",
+          "lat": 39.834227,
+          "lon": 141.039244,
+          "kind": "飲料水",
+          "potability": "confirmed",
+          "near_point": "馬返し登山口",
+          "distance_m": 15,
+          "osm_id": "node/5090771338"
+        },
+        {
+          "name": "御成清水",
+          "lat": 39.844029,
+          "lon": 141.006055,
+          "kind": "飲料水",
+          "potability": "confirmed",
+          "near_point": "八合目避難小屋",
+          "distance_m": 24,
+          "osm_id": "node/5086354143"
+        }
+      ],
+      "attempts": 1,
+      "checked_at": "2026-08-27T15:59:06.964773Z"
     },
     "姫神山": {
       "checked": false,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-27T15:59:34.835177Z",
+      "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
     },
     "早池峰山": {
       "checked": false,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-27T15:59:57.983942Z",
+      "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
     },
     "五葉山": {
       "checked": false,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-27T16:00:30.204138Z",
+      "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
     },
     "和賀岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 1,
+      "checked_at": "2026-08-27T16:00:43.907243Z"
     },
     "焼石岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 1,
+      "checked_at": "2026-08-27T16:01:00.034265Z"
     },
     "栗駒山": {
       "checked": false,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-27T16:01:22.273025Z",
+      "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
     },
     "神室山": {
       "checked": false,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-27T16:01:47.127795Z",
+      "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
     },
     "森吉山": {
       "checked": false,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-27T16:02:13.174453Z",
+      "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
     },
     "太平山": {
       "checked": false,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-27T16:02:41.588631Z",
+      "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
     },
     "鳥海山": {
       "checked": false,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-27T16:03:11.054596Z",
+      "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
     },
     "月山": {
       "checked": false,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-27T16:03:44.005834Z",
+      "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
     },
     "摩耶山": {
       "checked": false,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-27T16:04:10.025101Z",
+      "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
     },
     "以東岳": {
       "checked": false,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-27T16:04:42.975347Z",
+      "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
     },
     "大朝日岳": {
       "checked": false,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-27T16:05:15.929487Z",
+      "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
     },
     "祝瓶山": {
       "checked": false,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-27T16:05:48.875343Z",
+      "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
     },
     "船形山": {
       "checked": false,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-27T16:06:14.921877Z",
+      "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
     },
     "泉ヶ岳": {
       "checked": false,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-27T16:06:42.299138Z",
+      "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
     },
     "蔵王山（熊野岳）": {
       "checked": false,
