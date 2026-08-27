@@ -29,7 +29,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.4.216"
+APP_VERSION = "1.4.212"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -2057,7 +2057,7 @@ def proxy():
         is_openmeteo = (target.hostname or "").endswith("open-meteo.com")
         ttl = OPENMETEO_PROXY_CACHE_TTL if is_openmeteo else None
         _cache_put("get:" + url, status, ctype, body, ttl=ttl)
-        return _bytes_response(status, ctype, body, cache_control=(f"public, max-age={OPENMETEO_PROXY_CACHE_TTL}" if is_openmeteo else "public, max-age=60"))
+        return _bytes_response(status, ctype, body, cache_control=("public, max-age=300" if is_openmeteo else "public, max-age=60"))
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")[:1200]
         # Preserve the upstream status so the frontend can distinguish

@@ -24,6 +24,26 @@ def load_access(path:Path):
     lookup={norm(x):x for x in names+aliases if norm(x)}
     return names, lookup
 
+def load_base_access(path:Path):
+    text=path.read_text(encoding="utf-8",errors="ignore")
+    m=re.search(r"const\s+BASE_ACCESS_DB\s*=\s*\{(.*?)\n\s*\};\n\n\s*const\s+ACCESS_DB", text, re.S)
+    if not m:
+        return [], {}
+    body=m.group(1)
+    key_matches=list(re.finditer(r"^\s{4}[\"\']([^\"\']+)[\"\']\s*:\s*\{", body, re.M))
+    names=[]; lookup={}
+    for i,km in enumerate(key_matches):
+        name=km.group(1); names.append(name)
+        end=key_matches[i+1].start() if i+1<len(key_matches) else len(body)
+        block=body[km.end():end]
+        values=[name]
+        am=re.search(r"aliases\s*:\s*\[([^\]]*)\]",block,re.S)
+        if am:
+            values += re.findall(r"[\"\']([^\"\']+)[\"\']",am.group(1))
+        for x in values:
+            if norm(x): lookup[norm(x)]=name
+    return names, lookup
+
 def extract_candidates(text:str):
     """Extract actual trailhead candidate names from Traten JS objects.
 
@@ -43,6 +63,7 @@ def main():
     ap=argparse.ArgumentParser(description='Audit Traten trailhead access coverage')
     ap.add_argument('sources', nargs='*', default=['app.js'], help='app.js and/or other source files')
     ap.add_argument('--access-data', default='access-data.js')
+    ap.add_argument('--access-js', default='access.js')
     ap.add_argument('--out', default='ACCESS_COVERAGE_REPORT.md')
     ap.add_argument('--missing-out', default='ACCESS_MISSING_ONLY.txt')
     ap.add_argument('--csv-out', default='ACCESS_COVERAGE.csv')
@@ -50,6 +71,11 @@ def main():
     access=Path(args.access_data)
     if not access.exists(): raise SystemExit(f'not found: {access}')
     names,lookup=load_access(access)
+    access_js=Path(args.access_js)
+    base_names=[]; base_lookup={}
+    if access_js.exists():
+        base_names,base_lookup=load_base_access(access_js)
+        lookup.update(base_lookup)
     candidates=set(); used=[]
     for src in args.sources:
         p=Path(src)
@@ -62,7 +88,7 @@ def main():
     for x in candidates:
         hit=lookup.get(norm(x))
         (covered if hit else missing).append((x,hit))
-    lines=['# トラテン 登山口アクセス網羅性レポート','',f'- 監査対象: **{", ".join(used) if used else "なし"}**',f'- 候補抽出: **{len(candidates)}地点**',f'- アクセスDB登録: **{len(names)}地点**',f'- 一致: **{len(covered)}地点**',f'- 未一致: **{len(missing)}地点**','','## 未一致（要確認）','']
+    lines=['# トラテン 登山口アクセス網羅性レポート','',f'- 監査対象: **{", ".join(used) if used else "なし"}**',f'- 候補抽出: **{len(candidates)}地点**',f'- アクセスDB登録: **{len(set(names+base_names))}地点**（access-data.js + BASE_ACCESS_DB）',f'- 一致: **{len(covered)}地点**',f'- 未一致: **{len(missing)}地点**','','## 未一致（要確認）','']
     lines += [f'- {x}' for x,_ in missing] if missing else ['- なし']
     lines += ['', '## 一致済み','']
     lines += [f'- {x} → {hit}' for x,hit in covered]
@@ -73,5 +99,5 @@ def main():
         w=csv.writer(f); w.writerow(['candidate','status','matched_access_name'])
         for x,hit in covered: w.writerow([x,'covered',hit])
         for x,_ in missing: w.writerow([x,'missing',''])
-    print(json.dumps({'sources':used,'candidates':len(candidates),'db':len(names),'covered':len(covered),'missing':len(missing),'report':args.out,'missing_only':args.missing_out,'csv':args.csv_out},ensure_ascii=False))
+    print(json.dumps({'sources':used,'candidates':len(candidates),'db':len(set(names+base_names)),'covered':len(covered),'missing':len(missing),'report':args.out,'missing_only':args.missing_out,'csv':args.csv_out},ensure_ascii=False))
 if __name__=='__main__': main()

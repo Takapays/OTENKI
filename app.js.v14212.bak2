@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.216';
+const APP_VERSION = '1.4.211';
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
@@ -5269,13 +5269,10 @@ function nationalMountainGuideHtml(name,area,elevation){
   const info=nationalMountainGuideInfo(name);
   const huts=info.huts.length?info.huts.map(h=>{const url=hutOfficialSite(h);return url?`<span class="national-guide-hut"><b>${esc(h)}</b><a href="${esc(url)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(h)}の公式ホームページを開く">公式HP ↗</a></span>`:`<span class="national-guide-hut"><b>${esc(h)}</b></span>`;}).join(''):'<strong>情報なし</strong>';
   const hutSub=info.hutCount>3?`ほか${info.hutCount-3}件`:'';
-  const hasTrailhead=Boolean(info.trailhead&&info.trailhead!=='情報なし');
-  const hasAccess=hasTrailhead&&Boolean(window.TratenTrailheadAccess?.has?.(info.trailhead));
-  const accessButton=hasTrailhead?`<button type="button" class="national-trailhead-access-btn${hasAccess?'':' is-unavailable'}" data-national-trailhead-access="${esc(info.trailhead)}"${hasAccess?'':` disabled aria-disabled="true" title="${esc(info.trailhead)}のアクセス情報は現在未登録です"`}>${hasAccess?'アクセス':'アクセス情報なし'}</button>`:'';
   return `<section class="national-guide-grid" aria-label="山の基本情報">
     <div class="national-guide-item"><span>標高</span><strong>${esc(elevation)}</strong></div>
     <div class="national-guide-item"><span>山域</span><strong>${esc(area)}</strong></div>
-    <div class="national-guide-item wide national-guide-trailhead"><span>代表登山口</span><div class="national-guide-trailhead-row"><strong>${esc(info.trailhead)}</strong>${accessButton}</div></div>
+    <div class="national-guide-item wide national-guide-trailhead"><span>代表登山口</span><div class="national-guide-trailhead-row"><strong>${esc(info.trailhead)}</strong>${info.trailhead&&info.trailhead!=='情報なし'?`<button type="button" class="national-trailhead-access-btn" data-national-trailhead-access="${esc(info.trailhead)}">アクセス</button>`:''}</div></div>
     <div class="national-guide-item"><span>標準CT</span><strong>${esc(info.ctLabel)}</strong><small>${esc(info.ctNote)}</small></div>
     <div class="national-guide-item"><span>代表コース数</span><strong>${info.routeCount?`${info.routeCount}コース`:'情報なし'}</strong></div>
     <div class="national-guide-item wide"><span>主な山小屋</span><div class="national-guide-huts">${huts}</div>${hutSub?`<small>${esc(hutSub)}</small>`:''}</div>
@@ -7655,51 +7652,14 @@ function extractProviderRow(hourly,point){
   const get=k=>numberOrNaN(hourly[k]?.[idx]);
   return {time:hourly.time[idx],temp:get('temperature_2m'),rh:get('relative_humidity_2m'),rain:get('precipitation'),cloud:get('cloud_cover'),wind:get('wind_speed_10m'),gust:get('wind_gusts_10m'),windDir:get('wind_direction_10m'),cape:get('cape'),visibility:get('visibility'),freezing:get('freezing_level_height')};
 }
-// V1.4.213: short-lived per-point/model cache for repeated analyses in the same tab.
-// The server proxy also caches upstream Open-Meteo responses, but this avoids even the
-// round trip to Render when the user only tweaks the route or re-runs the same plan.
-const WEATHER_POINT_CACHE_TTL_MS=60*60*1000;
-const WEATHER_POINT_CACHE_PREFIX='traten:weather-point:v14213:';
-const weatherPointMemoryCache=new Map();
-function weatherPointCacheKey(provider,point){
-  return `${provider.id}|${Number(point.lat).toFixed(4)}|${Number(point.lon).toFixed(4)}|${Math.round(Number(point.elevation)||0)}|${point.date}|${point.time}`;
-}
-function weatherPointCacheGet(provider,point){
-  const key=weatherPointCacheKey(provider,point), now=Date.now();
-  const mem=weatherPointMemoryCache.get(key);
-  if(mem&&now-mem.savedAt<WEATHER_POINT_CACHE_TTL_MS)return mem.row;
-  if(mem)weatherPointMemoryCache.delete(key);
-  try{
-    const raw=sessionStorage.getItem(WEATHER_POINT_CACHE_PREFIX+key);
-    if(!raw)return null;
-    const parsed=JSON.parse(raw);
-    if(!parsed||now-Number(parsed.savedAt)>WEATHER_POINT_CACHE_TTL_MS){sessionStorage.removeItem(WEATHER_POINT_CACHE_PREFIX+key);return null;}
-    weatherPointMemoryCache.set(key,{savedAt:Number(parsed.savedAt),row:parsed.row});
-    return parsed.row||null;
-  }catch(_){return null;}
-}
-function weatherPointCachePut(provider,point,row){
-  if(!row)return;
-  const key=weatherPointCacheKey(provider,point), payload={savedAt:Date.now(),row};
-  weatherPointMemoryCache.set(key,payload);
-  try{sessionStorage.setItem(WEATHER_POINT_CACHE_PREFIX+key,JSON.stringify(payload));}catch(_){ }
-}
 async function fetchProviderBatch(provider,points){
   const eligible=points.map((point,index)=>({point,index})).filter(x=>providerEligible(provider,x.point));
   if(!eligible.length)return [];
-  const out=[];
-  const misses=[];
-  for(const item of eligible){
-    const cached=weatherPointCacheGet(provider,item.point);
-    if(cached)out.push({index:item.index,row:cached,cacheHit:true});
-    else misses.push(item);
-  }
-  if(!misses.length)return out;
-  const dates=misses.map(x=>x.point.date).sort();
+  const dates=eligible.map(x=>x.point.date).sort();
   const params=new URLSearchParams({
-    latitude:misses.map(x=>x.point.lat).join(','),
-    longitude:misses.map(x=>x.point.lon).join(','),
-    elevation:misses.map(x=>Number(x.point.elevation)||'nan').join(','),
+    latitude:eligible.map(x=>x.point.lat).join(','),
+    longitude:eligible.map(x=>x.point.lon).join(','),
+    elevation:eligible.map(x=>Number(x.point.elevation)||'nan').join(','),
     hourly:provider.vars.join(','),timezone:'Asia/Tokyo',start_date:dates[0],end_date:dates[dates.length-1],wind_speed_unit:'ms'
   });
   if(provider.model)params.set('models',provider.model);
@@ -7707,13 +7667,8 @@ async function fetchProviderBatch(provider,points){
   if(!r.ok)throw new Error(`HTTP ${r.status}`);
   const raw=await r.json();
   const locations=Array.isArray(raw)?raw:[raw];
-  if(locations.length!==misses.length)throw new Error(`地点数不一致 (${locations.length}/${misses.length})`);
-  misses.forEach((x,k)=>{
-    const row=extractProviderRow(locations[k]?.hourly,x.point);
-    if(row)weatherPointCachePut(provider,x.point,row);
-    out.push({index:x.index,row,cacheHit:false});
-  });
-  return out;
+  if(locations.length!==eligible.length)throw new Error(`地点数不一致 (${locations.length}/${eligible.length})`);
+  return eligible.map((x,k)=>({index:x.index,row:extractProviderRow(locations[k]?.hourly,x.point)}));
 }
 function extractMetNoRow(payload,point){
   const ts=payload?.properties?.timeseries;
@@ -7771,59 +7726,50 @@ async function fetchNoaaGfsFallback(point){
 
 async function analyzePointsBatch(points,providerList=providers,statusLabel='気象モデル'){
   const buckets=points.map(()=>({rows:[],errors:[]}));
-  if(providerList.length){
-    setStatus(`${statusLabel}：${providerList.map(p=>p.name).join(' / ')} を並列取得中…`);
-    const jobs=providerList.map(async provider=>{
-      try{return {provider,fetched:await fetchProviderBatch(provider,points),error:null};}
-      catch(error){return {provider,fetched:[],error};}
-    });
-    const settled=await Promise.all(jobs);
-    settled.forEach(({provider,fetched,error})=>{
-      if(error){
-        points.forEach((point,index)=>{if(providerEligible(provider,point))buckets[index].errors.push(`${provider.name}: ${error?.message||'取得失敗'}`);});
-        return;
-      }
+  for(let pi=0;pi<providerList.length;pi++){
+    const provider=providerList[pi];
+    setStatus(`${statusLabel} ${pi+1}/${providerList.length}：${provider.name} を全地点まとめて取得中…`);
+    try{
+      const fetched=await fetchProviderBatch(provider,points);
       fetched.forEach(x=>{
-        if(x.row)buckets[x.index].rows.push({provider,row:x.row,cacheHit:!!x.cacheHit});
+        if(x.row)buckets[x.index].rows.push({provider,row:x.row});
         else buckets[x.index].errors.push(`${provider.name}: 指定時刻なし`);
       });
-    });
+    }catch(e){
+      points.forEach((point,index)=>{if(providerEligible(provider,point))buckets[index].errors.push(`${provider.name}: ${e?.message||'取得失敗'}`);});
+    }
   }
-  // Open-Meteo 429 fallback is uncommon, but when needed fetch all affected
-  // points in parallel, and MET Norway / NOAA GFS in parallel per point.
+  // If a point has no Open-Meteo result and the eligible model calls were
+  // rate-limited, fall back to MET Norway Locationforecast so the plan can
+  // still be evaluated. This is a single-source fallback, not a 4-model vote.
   const metnoProvider={id:'metno',name:'MET Norway（予備）',kind:'fallback'};
   const noaaProvider={id:'noaa-gfs',name:'NOAA GFS（直取得）',kind:'fallback'};
-  const fallbackIndexes=buckets.map((bucket,index)=>({bucket,index})).filter(x=>!x.bucket.rows.length&&x.bucket.errors.some(v=>v.includes('HTTP 429'))).map(x=>x.index);
-  if(fallbackIndexes.length){
-    setStatus(`Open-Meteoが混雑中：${fallbackIndexes.length}地点を予備データで並列取得中…`);
-    await Promise.all(fallbackIndexes.map(async index=>{
-      const bucket=buckets[index], point=points[index];
-      const [met,noaa]=await Promise.allSettled([fetchMetNoFallback(point),fetchNoaaGfsFallback(point)]);
-      if(met.status==='fulfilled'&&met.value){bucket.rows.push({provider:metnoProvider,row:met.value});bucket.errors.push('Open-Meteo: HTTP 429 → MET Norway予備へ切替');}
-      else if(met.status==='rejected')bucket.errors.push(met.reason?.message||'MET Norway取得失敗');
-      else bucket.errors.push('MET Norway: 指定時刻の予報なし（約9日先まで）');
-      if(noaa.status==='fulfilled'&&noaa.value){bucket.rows.push({provider:noaaProvider,row:noaa.value});bucket.errors.push('NOAA GFS: NOMADS GRIB2を直接取得');}
-      else if(noaa.status==='rejected')bucket.errors.push(noaa.reason?.message||'NOAA GFS取得失敗');
-      else bucket.errors.push('NOAA GFS: 指定時刻の予報なし（約16日先まで）');
-    }));
+  for(let index=0;index<points.length;index++){
+    const bucket=buckets[index];
+    if(bucket.rows.length)continue;
+    const rateLimited=bucket.errors.some(x=>x.includes('HTTP 429'));
+    if(!rateLimited)continue;
+    setStatus(`Open-Meteoが混雑中：${points[index].name} を予備データで取得しています…`);
+    try{
+      const row=await fetchMetNoFallback(points[index]);
+      if(row){
+        bucket.rows.push({provider:metnoProvider,row});
+        bucket.errors.push('Open-Meteo: HTTP 429 → MET Norway予備へ切替');
+      }else bucket.errors.push('MET Norway: 指定時刻の予報なし（約9日先まで）');
+    }catch(e){bucket.errors.push(e?.message||'MET Norway取得失敗');}
+    try{
+      const row=await fetchNoaaGfsFallback(points[index]);
+      if(row){
+        bucket.rows.push({provider:noaaProvider,row});
+        bucket.errors.push('NOAA GFS: NOMADS GRIB2を直接取得');
+      }else bucket.errors.push('NOAA GFS: 指定時刻の予報なし（約16日先まで）');
+    }catch(e){bucket.errors.push(e?.message||'NOAA GFS取得失敗');}
   }
   return points.map((point,index)=>{
     const rows=buckets[index].rows, errors=buckets[index].errors;
     if(!rows.length)throw new Error(`${point.name}: 予報データを取得できませんでした。 ${errors.join(' / ')||'対応モデルがありません'}`);
     const avg=averageRows(rows.map(x=>x.row));
     return {point,providerRows:rows,errors,...avg,grade:assessGrade(avg),confidence:(rows.length===1&&rows[0].provider?.kind==='fallback'?'FALLBACK':assessConfidence(rows.map(x=>x.row))),thunder:thunderLevel(avg),hazards:assessHazards(avg)};
-  });
-}
-function mergeAnalysisResults(baseResults,extraResults){
-  return baseResults.map((base,index)=>{
-    const extra=extraResults[index];
-    if(!extra)return base;
-    const byId=new Map();
-    [...(base.providerRows||[]),...(extra.providerRows||[])].forEach(x=>byId.set(x.provider?.id||x.provider?.name,x));
-    const providerRows=[...byId.values()];
-    const avg=averageRows(providerRows.map(x=>x.row));
-    const errors=[...(base.errors||[]),...(extra.errors||[])].filter((v,i,a)=>a.indexOf(v)===i);
-    return {point:base.point,providerRows,errors,...avg,grade:assessGrade(avg),confidence:(providerRows.length===1&&providerRows[0].provider?.kind==='fallback'?'FALLBACK':assessConfidence(providerRows.map(x=>x.row))),thunder:thunderLevel(avg),hazards:assessHazards(avg)};
   });
 }
 
@@ -7849,52 +7795,42 @@ async function analyze(){
     await ensureElevations(points);
     const stayPoints=points.filter(p=>p.stay);
     const maxAhead=Math.max(...points.map(p=>daysAhead(p.date)));
-    // Fast first paint: JMA + ECMWF are fetched at the same time.
-    // For GFS-only horizons use the full eligible set so we still get a result.
+    // V1.4.174: first paint uses JMA + ECMWF. Only the farthest GFS-only horizon
+    // falls back to the full set so a valid result is always available.
     const primaryProviders=maxAhead>15?providers:providers.filter(p=>p.id==='jma'||p.id==='ecmwf');
-    const secondaryProviders=providers.filter(p=>!primaryProviders.some(x=>x.id===p.id));
     const overnightPromise=stayPoints.length
       ? analyzeOvernightsBatch(stayPoints).then(v=>({items:v,warning:''})).catch(e=>({items:[],warning:` / 宿泊詳細は取得できませんでした（${e?.message||'取得失敗'}）`}))
       : Promise.resolve({items:[],warning:''});
-
-    let latestResults=await analyzePointsBatch(points,primaryProviders,'先行モデル');
+    const [results,overnightState]=await Promise.all([
+      analyzePointsBatch(points,primaryProviders,'先行モデル'),
+      overnightPromise
+    ]);
     if(runId!==activeAnalysisRun)return;
-    let latestOvernight=[];
+    const overnight=overnightState.items, overnightWarning=overnightState.warning;
     const mountain=currentMountainLabel();
-
-    // Paint the actionable decision before charts, maps, overnight details and
-    // secondary models. This makes the page useful as soon as weather arrives.
-    renderSummaryCore(latestResults);
+    renderAll(results,overnight); saveLastRouteSnapshot(mountain,points);
     const initialMs=Math.round(performance.now()-started);
-    setStatus(`総合判断を先行表示：${points.length}地点（詳細・追加モデルを更新中…）`,false);
+    setStatus(`分析結果を先行表示：${points.length}地点${stayPoints.length?` / 宿泊 ${stayPoints.length}泊`:''}${overnightWarning}（残りモデルを更新中…）`,false);
     scrollToSummaryResult();
     $('analyzeBtn').disabled=false;
-    requestAnimationFrame(()=>{if(runId===activeAnalysisRun)renderAll(latestResults,latestOvernight);});
-    saveLastRouteSnapshot(mountain,points);
     points.forEach(p=>logEvent('route_point_used',{success:true,mountain,metadata:{point_name:p.name||'',point_type:p.type||'other',point_role:p.role||'',source:p.source||''}}));
-    logEvent('weather_analysis',{success:true,duration_ms:initialMs,mountain,route_points:points.length,stay_count:stayPoints.length,metadata:{provider_count:primaryProviders.length,provider_count_final:providers.length,manual_datetime:true,batch_weather:true,parallel_models:true,point_cache:true,progressive:true}});
+    logEvent('weather_analysis',{success:true,duration_ms:initialMs,mountain,route_points:points.length,stay_count:stayPoints.length,metadata:{provider_count:primaryProviders.length,provider_count_final:providers.length,manual_datetime:true,batch_weather:true,progressive:true}});
 
-    // Secondary models and overnight detail run independently after the first
-    // decision is visible. Neither blocks the other.
-    const secondaryPromise=secondaryProviders.length
-      ? analyzePointsBatch(points,secondaryProviders,'追加モデル').then(extra=>({ok:true,extra})).catch(error=>({ok:false,error}))
-      : Promise.resolve({ok:true,extra:[]});
-    const secondaryVisiblePromise=secondaryPromise.then(state=>{
-      if(runId!==activeAnalysisRun)return state;
-      if(state.ok&&state.extra.length){latestResults=mergeAnalysisResults(latestResults,state.extra);renderAll(latestResults,latestOvernight);}
-      return state;
-    });
-    const overnightVisiblePromise=overnightPromise.then(state=>{
-      if(runId!==activeAnalysisRun)return state;
-      latestOvernight=state.items||[]; renderAll(latestResults,latestOvernight);
-      return state;
-    });
-    const [secondaryState,overnightState]=await Promise.all([secondaryVisiblePromise,overnightVisiblePromise]);
-    if(runId!==activeAnalysisRun)return;
-    const notes=[];
-    if(!secondaryState.ok)notes.push(`追加モデル取得失敗: ${secondaryState.error?.message||'取得失敗'}`);
-    if(overnightState.warning)notes.push(overnightState.warning.replace(/^ \/ /,''));
-    setStatus(notes.length?`先行分析は完了。${notes.join(' / ')}`:`分析完了：${points.length}地点${stayPoints.length?` / 宿泊 ${stayPoints.length}泊`:''}（モデル並列・キャッシュ利用）`,false);
+    // Finish GFS / ICON after the usable result is already on screen. The first
+    // two requests are normally served from the proxy cache, so only the
+    // remaining models need upstream time.
+    if(primaryProviders.length<providers.length){
+      try{
+        const fullResults=await analyzePointsBatch(points,providers,'追加モデル');
+        if(runId!==activeAnalysisRun)return;
+        renderAll(fullResults,overnight);
+        setStatus(`分析完了：${points.length}地点${stayPoints.length?` / 宿泊 ${stayPoints.length}泊`:''}${overnightWarning}（4モデル比較まで更新済み）`,false);
+      }catch(e){
+        if(runId===activeAnalysisRun)setStatus(`先行分析は表示済みです。追加モデルのみ更新できませんでした（${e?.message||'取得失敗'}）`,false);
+      }
+    }else{
+      setStatus(`分析完了：${points.length}地点${stayPoints.length?` / 宿泊 ${stayPoints.length}泊`:''}${overnightWarning}`,false);
+    }
   }catch(e){
     if(runId===activeAnalysisRun)setStatus(e.message||String(e),true);
     logEvent('weather_analysis',{success:false,duration_ms:performance.now()-started,mountain:currentMountainLabel(),route_points:points.length,error_message:e.message||String(e)});
@@ -7902,7 +7838,6 @@ async function analyze(){
     if(runId===activeAnalysisRun)$('analyzeBtn').disabled=false;
   }
 }
-
 function analyzeOvernightJson(point,nightNo,j){
   const next=addDays(point.date,1), h=j?.hourly||{}, d=j?.daily||{};
   const sunset=d.sunset?.find(x=>String(x).startsWith(point.date))||d.sunset?.[0]||`${point.date}T18:00`;
@@ -9294,10 +9229,9 @@ function renderPointForecastTimeline(points){
   </div>`;
 }
 
-function renderSummaryCore(points){
-  $('results').classList.remove('hidden'); $('resultScreenshotToolbarDesktop')?.classList.remove('hidden');
-  renderDecisionCommentary(points);
-  const worst=points.reduce((a,b)=>gradeRank(b.grade)>gradeRank(a.grade)?b:a,points[0]);
+function renderAll(points,overnight=[]){
+
+  $('results').classList.remove('hidden'); $('resultScreenshotToolbarDesktop')?.classList.remove('hidden'); renderWeatherCharts(points); renderDecisionCommentary(points); renderRouteMaps(points); const worst=points.reduce((a,b)=>gradeRank(b.grade)>gradeRank(a.grade)?b:a,points[0]);
   const maxWindValue=max(points.flatMap(x=>x.providerRows.map(y=>y.row.wind))); const maxRainValue=max(points.flatMap(x=>x.providerRows.map(y=>y.row.rain))); const thunderLevel=maxThunder(points.map(x=>x.thunder)); const forecastConfidence=routeForecastConfidence(points); const confidenceLevel=forecastConfidence.level;
   $('grade').textContent=worst.grade; $('verdict').textContent=verdict(worst.grade);
   const gradeLabels={A:'EXCELLENT',B:'GOOD',C:'CAUTION',D:'HARD',E:'STOP'}; const verdictNotes={A:'全体としてかなり安定した予報です。',B:'一部に注意点はありますが、全体としては比較的安定しています。',C:'注意要素があります。通過時刻と場所を確認してください。',D:'強い気象リスクを含む計画です。見直しを推奨します。',E:'非常に強い気象リスクがあります。中止を含めて再検討してください。'};
@@ -9307,11 +9241,7 @@ function renderSummaryCore(points){
   $('thunderRisk').textContent=thunderLevel; $('thunderRiskLabel').textContent=({LOW:'低い',MEDIUM:'注意',HIGH:'高い',EXTREME:'非常に高い'})[thunderLevel]||'–';
   $('confidence').textContent=forecastConfidence.label; $('confidenceLabel').textContent=({LOW:'慎重に確認',MEDIUM:'まずまず',HIGH:'比較的安定'})[confidenceLevel]||'–'; const confidenceReason=$('confidenceReason'); if(confidenceReason)confidenceReason.textContent=forecastConfidence.reason;
   const setMarker=(id,pct)=>{const el=$(id);if(el)el.style.left=`${Math.max(2,Math.min(98,pct))}%`;}; setMarker('maxWindMarker',(maxWindValue/20)*100); setMarker('maxRainMarker',(maxRainValue/20)*100); setMarker('thunderMarker',({LOW:8,MEDIUM:38,HIGH:68,EXTREME:94})[thunderLevel]||8); setMarker('confidenceMarker',({LOW:8,MEDIUM:50,HIGH:94})[confidenceLevel]||8);
-  $('updatedAt').textContent=new Date().toLocaleString('ja-JP');
-}
-function renderAll(points,overnight=[]){
-  renderSummaryCore(points);
-  renderWeatherCharts(points); renderRouteMaps(points); renderPointForecastTimeline(points);
+  renderPointForecastTimeline(points);
   const overnightWithArrival=overnight.map(o=>{const match=points.find(r=>r.point===o.point||(r.point.name===o.point.name&&r.point.date===o.point.date&&r.point.time===o.point.time));return {...o,arrivalTemp:match?.temp};});
   renderOvernights(overnightWithArrival);
   $('modelDetails').innerHTML=points.map(r=>`<article class="model-block"><h3>${esc(r.point.name)} <small>${r.point.date} ${r.point.time}</small></h3><div class="table-wrap"><table><thead><tr><th>モデル</th><th>気温</th><th>風</th><th>突風</th><th>雨</th><th>雲</th><th>大気不安定度</th><th>視程</th></tr></thead><tbody>${r.providerRows.map(x=>`<tr><td>${x.provider.name}</td><td>${num(x.row.temp)}℃</td><td>${num(x.row.wind)}m/s</td><td>${num(x.row.gust)}m/s</td><td>${num(x.row.rain)}mm</td><td>${num(x.row.cloud,0)}%</td><td>${num(x.row.cape,0)} J/kg</td><td>${Number.isFinite(x.row.visibility)?Math.round(x.row.visibility)+'m':'–'}</td></tr>`).join('')}</tbody></table></div></article>`).join('');

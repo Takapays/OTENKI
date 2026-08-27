@@ -395,8 +395,6 @@
   });
   const GAS_EFFICIENCY = Object.freeze({urban:10,mountain:12.5,highway:17.5});
   const GAS_PRICE_KEY='traten_gas_price_yen_v1';
-  const NEXCO_DRIVE_COMPASS='https://dc.c-nexco.co.jp/dc/DriveCompass.html';
-  const NEXCO_ORIGIN_IC=Object.freeze({tokyo:'東京IC',osaka:'吹田IC'});
   function getGasPrice(){try{const n=Number(localStorage.getItem(GAS_PRICE_KEY));return Number.isFinite(n)&&n>0?n:180;}catch(_){return 180;}}
   function setGasPrice(v){const n=Number(v);if(!Number.isFinite(n)||n<=0)return;try{localStorage.setItem(GAS_PRICE_KEY,String(n));}catch(_){}}
   function geoKm(a,b){const R=6371,r=Math.PI/180;const dlat=(b.lat-a.lat)*r,dlon=(b.lon-a.lon)*r;const x=Math.sin(dlat/2)**2+Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(dlon/2)**2;return 2*R*Math.asin(Math.sqrt(x));}
@@ -422,28 +420,16 @@
   }
   function fmtDuration(h){const m=Math.round(h*60/10)*10; return `${Math.floor(m/60)}時間${m%60?`${m%60}分`:''}`;}
   function mapsUrl(origin,key,data){const dest=[key,data.prefecture].filter(Boolean).join(' ');return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin.label)}&destination=${encodeURIComponent(dest)}&travelmode=driving`;}
-  function nexcoUrl(vehicle){return `${NEXCO_DRIVE_COMPASS}?optCrTp=${vehicle==='kei'?1:2}&optSrt=ryokinetc`;}
-  function nexcoDestinationIC(data){
-    const raw=String(data.nearestIC||'').trim();
-    if(!raw||raw==='—'||/方面|網走|フェリー/.test(raw))return '最寄ICを現地情報で確認';
-    return raw.replace(/\s+/g,' ');
-  }
-  function etcEstimate(e){
-    const ordinary=Math.max(0,Math.round(e.toll/100)*100);
-    const kei=Math.max(0,Math.round((ordinary*0.8)/100)*100);
-    return {ordinary,kei};
-  }
   function driveEstimateHtml(key,data){
     const point=lookupTrailheadPoint(key,data), gas=getGasPrice();
-    const entries=Object.entries(ACCESS_ORIGINS);
-    const rows=entries.map(([originKey,o])=>{
+    const rows=Object.values(ACCESS_ORIGINS).map(o=>{
       const e=estimateDrive(o,point,data.prefecture);
       if(!e)return `<div class="ta-origin-row"><b>${esc(o.label)}から</b><span>固定座標を取得できず概算不可</span><a href="${esc(mapsUrl(o,key,data))}" target="_blank" rel="noopener noreferrer">Google Maps ↗</a></div>`;
       if(e.unsupported)return `<div class="ta-origin-row"><b>${esc(o.label)}から</b><span>${esc(e.unsupported)}</span><a href="${esc(mapsUrl(o,key,data))}" target="_blank" rel="noopener noreferrer">経路確認 ↗</a></div>`;
-      const gasCost=Math.round(e.liters*gas/100)*100, etc=etcEstimate(e), startIC=NEXCO_ORIGIN_IC[originKey]||'最寄IC', endIC=nexcoDestinationIC(data);
-      return `<div class="ta-origin-row"><b>${esc(o.label)}から</b><div><strong>約${Math.round(e.total)}km・${esc(fmtDuration(e.hours))}</strong><small>ETC目安：普通車 約${etc.ordinary.toLocaleString()}円 ／ 軽・二輪 約${etc.kei.toLocaleString()}円</small><small>燃料 約${e.liters.toFixed(1)}L・約${gasCost.toLocaleString()}円</small><small class="ta-nexco-ic">NEXCO検索目安：${esc(startIC)} → ${esc(endIC)}</small><span class="ta-nexco-links"><a href="${esc(nexcoUrl('ordinary'))}" target="_blank" rel="noopener noreferrer">NEXCO 普通車ETC ↗</a><a href="${esc(nexcoUrl('kei'))}" target="_blank" rel="noopener noreferrer">NEXCO 軽ETC ↗</a></span></div><a href="${esc(mapsUrl(o,key,data))}" target="_blank" rel="noopener noreferrer">実経路 ↗</a></div>`;
+      const gasCost=Math.round(e.liters*gas/100)*100;
+      return `<div class="ta-origin-row"><b>${esc(o.label)}から</b><div><strong>約${Math.round(e.total)}km・${esc(fmtDuration(e.hours))}</strong><small>高速代概算 約${e.toll.toLocaleString()}円 ／ 燃料 約${e.liters.toFixed(1)}L・約${gasCost.toLocaleString()}円</small></div><a href="${esc(mapsUrl(o,key,data))}" target="_blank" rel="noopener noreferrer">実経路 ↗</a></div>`;
     }).join('');
-    return `<article class="ta-card ta-origin-card"><header><h3>🗾 東京・大阪から車</h3><span>ETC対応</span></header><div class="ta-origin-controls"><label>ガソリン単価 <input id="taGasPrice" type="number" min="1" step="1" value="${gas}"> 円/L</label><small>燃費：都会10 / 山道12.5 / 高速17.5 km/L</small></div><div class="ta-card-body ta-origin-list">${rows}</div><p class="ta-estimate-note">※距離・所要時間・ETC金額は計画用の概算です。軽・二輪はNEXCOの車種区分比率（普通車1.0に対し軽自動車等0.8）を基準に表示しています。首都高・阪神高速などを含む実料金、ETC割引、経路差は一致しない場合があります。正確な料金は各行のNEXCO公式「ドライブコンパス」で車種別に確認してください。</p></article>`;
+    return `<article class="ta-card ta-origin-card"><header><h3>🗾 東京・大阪から車</h3><span>概算</span></header><div class="ta-origin-controls"><label>ガソリン単価 <input id="taGasPrice" type="number" min="1" step="1" value="${gas}"> 円/L</label><small>燃費：都会10 / 山道12.5 / 高速17.5 km/L</small></div><div class="ta-card-body ta-origin-list">${rows}</div><p class="ta-estimate-note">※距離・時間・高速代は固定座標からの概算です。実際の経路・渋滞・ETC割引・有料道路・フェリー料金は「実経路」で確認してください。</p></article>`;
   }
 
   function ensureModal(){
@@ -580,5 +566,5 @@
 
   ensureModal();
   scan();
-  window.TratenTrailheadAccess={open:openModal,data:ACCESS_DB,has:(name)=>Boolean(findAccess(name)),resolve:findAccess,refresh:scan,attachRow};
+  window.TratenTrailheadAccess={open:openModal,data:ACCESS_DB,refresh:scan,attachRow};
 })();
