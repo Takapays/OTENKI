@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """Audit mapped water sources for Japan 300 mountains using existing fixed route points.
 
-Output: water-mountain-cache.json
-This script is intended for GitHub Actions / a network-enabled maintenance environment.
-It never guesses coordinates: all query centers are parsed from fixed coordinates already in app.js.
+V1.4.234: resilient incremental audit for GitHub Actions.
+- never guesses coordinates
+- resumable / chunkable
+- bounded request time
+- multiple Overpass endpoints with retry/backoff
+- error-only retry pass
 """
 from __future__ import annotations
 import argparse
@@ -11,6 +14,7 @@ import json
 import math
 import re
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
@@ -23,6 +27,7 @@ OUT = BASE / "water-mountain-cache.json"
 ENDPOINTS = [
     "https://overpass-api.de/api/interpreter",
     "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.nchc.org.tw/api/interpreter",
 ]
 RADIUS_M = 1400
 MAX_CENTERS = 15
@@ -63,7 +68,6 @@ def array_blocks(text: str, name: str) -> list[str]:
 
 def parse_points(block: str) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
-    # Fixed route objects consistently contain name/type/lat/lon; order can vary.
     obj_pat = re.compile(r"\{([^{}]{0,900})\}", re.S)
     for m in obj_pat.finditer(block):
         body = m.group(1)
@@ -91,8 +95,6 @@ def load_mountains_and_points() -> tuple[list[str], dict[str, list[dict[str, Any
             for block in array_blocks(text, key):
                 pts = parse_points(block)
                 if any(p.get("type") == "trailhead" for p in pts): merged.extend(pts)
-            # Add an already-fixed mountain summit coordinate when present in MOUNTAIN_PRESETS.
-            # This is existing project data, not a guessed coordinate.
             preset_pat = re.compile(re.escape("'" + key + "'") + r"\s*:\s*\{\s*latitude\s*:\s*(-?\d+(?:\.\d+)?)\s*,\s*longitude\s*:\s*(-?\d+(?:\.\d+)?)")
             pm = preset_pat.search(text)
             if pm:
@@ -105,7 +107,6 @@ def load_mountains_and_points() -> tuple[list[str], dict[str, list[dict[str, Any
 
 
 def centers(points: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    # Use fixed route points first. Fill large gaps with interpolated centers, matching app behavior.
     if not points: return []
     raw: list[dict[str, Any]] = []
     for i,p in enumerate(points):
@@ -120,17 +121,22 @@ def centers(points: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for p in raw:
         if not any(haversine(p["lat"],p["lon"],q["lat"],q["lon"])<700 for q in out): out.append(p)
     if len(out) <= MAX_CENTERS: return out
-    # Preserve first/last and sample evenly so long routes do not overload Overpass.
     idxs=sorted(set(round(i*(len(out)-1)/(MAX_CENTERS-1)) for i in range(MAX_CENTERS)))
     return [out[i] for i in idxs]
 
 
 def overpass_query(points: list[dict[str, Any]]) -> str:
+    # nwr reduces 7 node/way clauses to 4 clauses per center while preserving coverage.
     parts=[]
     for p in centers(points):
         a=f"(around:{RADIUS_M},{p['lat']:.5f},{p['lon']:.5f})"
-        parts += [f'node["amenity"="drinking_water"]{a};', f'node["natural"="spring"]{a};', f'node["man_made"="water_tap"]{a};', f'node["drinking_water"="yes"]{a};', f'way["amenity"="drinking_water"]{a};', f'way["natural"="spring"]{a};', f'way["drinking_water"="yes"]{a};']
-    return '[out:json][timeout:30];(' + ''.join(parts) + ');out center tags;'
+        parts += [
+            f'nwr["amenity"="drinking_water"]{a};',
+            f'nwr["natural"="spring"]{a};',
+            f'nwr["man_made"="water_tap"]{a};',
+            f'nwr["drinking_water"="yes"]{a};',
+        ]
+    return '[out:json][timeout:18];(' + ''.join(parts) + ');out center tags;'
 
 
 def kind(tags: dict[str, Any]) -> tuple[str,str]:
@@ -163,50 +169,93 @@ def parse_sources(payload: dict[str,Any], route_points: list[dict[str,Any]]) -> 
     return ded[:MAX_SOURCES]
 
 
-def fetch(mountain: str, points: list[dict[str,Any]], timeout: int=40) -> tuple[list[dict[str,Any]],str|None]:
+def fetch(mountain: str, points: list[dict[str,Any]], timeout: int=10, attempts: int=2) -> tuple[list[dict[str,Any]],str|None,int]:
     q=overpass_query(points)
-    if not q or not points: return [],'fixed route points unavailable'
+    if not q or not points: return [],'fixed route points unavailable',0
     last=None
-    for endpoint in ENDPOINTS:
+    for attempt in range(max(1, attempts)):
+        endpoint=ENDPOINTS[attempt % len(ENDPOINTS)]
         try:
             data=urllib.parse.urlencode({'data':q}).encode('utf-8')
-            req=urllib.request.Request(endpoint,data=data,method='POST',headers={'User-Agent':'TratenWaterAudit/1.4.231 (+https://otenki.onrender.com/)','Content-Type':'application/x-www-form-urlencoded'})
+            req=urllib.request.Request(endpoint,data=data,method='POST',headers={'User-Agent':'TratenWaterAudit/1.4.234 (+https://otenki.onrender.com/)','Content-Type':'application/x-www-form-urlencoded'})
             with urllib.request.urlopen(req,timeout=timeout) as r:
                 payload=json.loads(r.read().decode('utf-8','replace'))
-            return parse_sources(payload,points),None
-        except Exception as e: last=f"{endpoint}: {type(e).__name__}: {e}"
-    return [],last
+            return parse_sources(payload,points),None,attempt+1
+        except urllib.error.HTTPError as e:
+            last=f"{endpoint}: HTTP {e.code}"
+        except Exception as e:
+            last=f"{endpoint}: {type(e).__name__}: {e}"
+        if attempt + 1 < attempts:
+            # Short bounded backoff. The workflow also spaces requests between mountains.
+            time.sleep(min(5.0, 1.5 * (attempt + 1)))
+    return [],last,attempts
+
+
+def load_previous() -> dict[str, Any]:
+    if not OUT.exists(): return {}
+    try: return (json.loads(OUT.read_text(encoding='utf-8')).get('mountains') or {})
+    except Exception: return {}
+
+
+def write_cache(mountains: list[str], rows: dict[str,Any]) -> None:
+    payload={
+        'schema_version':2,
+        'app_version':'1.4.234',
+        'generated_at':datetime.now(timezone.utc).isoformat().replace('+00:00','Z'),
+        'source':'OpenStreetMap / Overpass API',
+        'radius_m':RADIUS_M,
+        'mountain_count':len(mountains),
+        'mountains':{m:rows.get(m,{'checked':False,'available':False,'count':0,'sources':[]}) for m in mountains},
+    }
+    OUT.write_text(json.dumps(payload,ensure_ascii=False,indent=2)+"\n",encoding='utf-8')
 
 
 def main() -> int:
-    ap=argparse.ArgumentParser(); ap.add_argument('--limit',type=int,default=0); ap.add_argument('--sleep',type=float,default=0.45); ap.add_argument('--resume',action='store_true'); ap.add_argument('--dry-run',action='store_true'); args=ap.parse_args()
+    ap=argparse.ArgumentParser()
+    ap.add_argument('--start',type=int,default=0,help='0-based start index in Japan 300 list')
+    ap.add_argument('--limit',type=int,default=0)
+    ap.add_argument('--sleep',type=float,default=1.2)
+    ap.add_argument('--timeout',type=int,default=10)
+    ap.add_argument('--attempts',type=int,default=2)
+    ap.add_argument('--resume',action='store_true')
+    ap.add_argument('--errors-only',action='store_true')
+    ap.add_argument('--dry-run',action='store_true')
+    args=ap.parse_args()
     mountains, points_map=load_mountains_and_points()
-    prev={}
-    if args.resume and OUT.exists():
-        try: prev=(json.loads(OUT.read_text(encoding='utf-8')).get('mountains') or {})
-        except Exception: prev={}
-    rows=dict(prev); targets=mountains[:args.limit or None]
+    rows=load_previous() if (args.resume or args.errors_only) else {}
     if args.dry_run:
         missing=[m for m in mountains if not points_map.get(m)]
         print(f'Japan 300 audit route points: {len(mountains)-len(missing)}/{len(mountains)}')
         if missing:
-            print('Missing:', ', '.join(missing))
-            return 1
-        print('Dry-run OK: no network requests were sent.')
-        return 0
-    for i,m in enumerate(targets,1):
-        if args.resume and rows.get(m,{}).get('checked') is True: continue
+            print('Missing:', ', '.join(missing)); return 1
+        print('Dry-run OK: no network requests were sent.'); return 0
+
+    if args.errors_only:
+        candidates=[m for m in mountains if not rows.get(m,{}).get('checked')]
+    else:
+        start=max(0,args.start); end=(start+args.limit) if args.limit else len(mountains)
+        candidates=mountains[start:end]
+
+    total=len(candidates)
+    for i,m in enumerate(candidates,1):
+        prev=rows.get(m,{})
+        if args.resume and prev.get('checked') is True:
+            print(f"[{i:03}/{total}] {m}: SKIP checked / {prev.get('count',0)} source(s)",flush=True); continue
         pts=points_map.get(m) or []
         if not pts:
-            rows[m]={'checked':False,'available':False,'count':0,'sources':[],'error':'fixed route points unavailable'}
+            rows[m]={'checked':False,'available':False,'count':0,'sources':[],'error':'fixed route points unavailable','attempts':0}
         else:
-            sources,error=fetch(m,pts)
-            rows[m]={'checked':error is None,'available':bool(sources),'count':len(sources),'sources':sources}
+            sources,error,used=fetch(m,pts,timeout=max(3,args.timeout),attempts=max(1,args.attempts))
+            rows[m]={'checked':error is None,'available':bool(sources),'count':len(sources),'sources':sources,'attempts':used,'checked_at':datetime.now(timezone.utc).isoformat().replace('+00:00','Z')}
             if error: rows[m]['error']=error[:280]
-        print(f"[{i:03}/{len(targets)}] {m}: {'OK' if rows[m]['checked'] else 'ERR'} / {rows[m]['count']} source(s)",flush=True)
-        payload={'schema_version':1,'app_version':'1.4.231','generated_at':datetime.now(timezone.utc).isoformat().replace('+00:00','Z'),'source':'OpenStreetMap / Overpass API','radius_m':RADIUS_M,'mountain_count':len(mountains),'mountains':{m:rows.get(m,{'checked':False,'available':False,'count':0,'sources':[]}) for m in mountains}}
-        OUT.write_text(json.dumps(payload,ensure_ascii=False,indent=2)+"\n",encoding='utf-8')
+        print(f"[{i:03}/{total}] {m}: {'OK' if rows[m]['checked'] else 'ERR'} / {rows[m]['count']} source(s)",flush=True)
+        write_cache(mountains,rows)
         if args.sleep: time.sleep(args.sleep)
+    write_cache(mountains,rows)
+    checked=sum(v.get('checked') is True for v in rows.values())
+    errors=sum(bool(v.get('error')) and not v.get('checked') for v in rows.values())
+    avail=sum(v.get('available') is True for v in rows.values())
+    print(f'SUMMARY checked={checked}/{len(mountains)} available={avail} unresolved_errors={errors}',flush=True)
     return 0
 
 if __name__=='__main__': raise SystemExit(main())

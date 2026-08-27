@@ -32,7 +32,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.4.231"
+APP_VERSION = "1.4.232"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -60,6 +60,9 @@ INDEXNOW_PUBLIC_URLS = [
     "https://otenki.onrender.com/",
     "https://otenki.onrender.com/guide.html",
     "https://otenki.onrender.com/live-cameras.html",
+    "https://otenki.onrender.com/trailheads.html",
+    "https://otenki.onrender.com/huts.html",
+    "https://otenki.onrender.com/water-sources.html",
 ]
 
 ALLOWED_EVENT_NAMES = {
@@ -2785,7 +2788,7 @@ def bing_site_auth():
     return response
 
 
-PUBLIC_FILES = {"app.js", "styles.css", "access.js", "access-data.js", "access.css", "camera-data.js", "live-cameras.js", "live-cameras.css", "live-cameras.html", "water-sources.html", "water-sources.js", "water-sources.css", "water-mountain-cache.json", "favicon.ico", "robots.txt", "sitemap.xml", "guide.html", "manifest.json", "google5a7b3dfd79ff97f0.html", "BingSiteAuth.xml", INDEXNOW_KEY_FILENAME}
+PUBLIC_FILES = {"app.js", "styles.css", "access.js", "access-data.js", "access.css", "camera-data.js", "live-cameras.js", "live-cameras.css", "live-cameras.html", "water-sources.html", "water-sources.js", "water-sources.css", "water-mountain-cache.json", "trailheads.html", "trailheads.js", "huts.html", "huts.js", "hut-data.js", "resource-index.css", "favicon.ico", "robots.txt", "sitemap.xml", "guide.html", "manifest.json", "google5a7b3dfd79ff97f0.html", "BingSiteAuth.xml", INDEXNOW_KEY_FILENAME}
 PUBLIC_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif", ".ico"}
 
 

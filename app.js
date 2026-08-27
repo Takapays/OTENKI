@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.228';
+const APP_VERSION = '1.4.233';
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
@@ -6906,14 +6906,26 @@ function buildRepresentativeResolvedRoute(mountain,course){
   const segments=[];
   let distributedPointCount=0;
 
+  // V1.4.232: map base points to expanded points in route order.
+  // Round trips repeat the same hut/trailhead names on descent; using findIndex()
+  // from the head of the array re-selected the outbound occurrence and could
+  // create more CT segments than route legs.
+  const baseExpandedIndices=[];
+  let expandedCursor=0;
+  for(const def of baseDefs){
+    let found=-1;
+    for(let j=expandedCursor;j<expandedDefs.length;j++){
+      if(expandedDefs[j][0]===def[0]&&expandedDefs[j][1]===def[1]){found=j;break;}
+    }
+    baseExpandedIndices.push(found);
+    if(found>=0)expandedCursor=found+1;
+  }
+
   for(let bi=1;bi<baseDefs.length;bi++){
     const prevDef=baseDefs[bi-1],nextDef=baseDefs[bi];
-    const startIndex=expandedDefs.findIndex((x,idx)=>idx>=0&&x[0]===prevDef[0]&&x[1]===prevDef[1]);
-    let endIndex=-1;
-    for(let j=Math.max(0,startIndex+1);j<expandedDefs.length;j++){
-      if(expandedDefs[j][0]===nextDef[0]&&expandedDefs[j][1]===nextDef[1]){endIndex=j;break;}
-    }
-    if(startIndex<0||endIndex<0)continue;
+    const startIndex=baseExpandedIndices[bi-1];
+    const endIndex=baseExpandedIndices[bi];
+    if(startIndex<0||endIndex<0||endIndex<=startIndex)continue;
     const chain=resolvedExpanded.slice(startIndex,endIndex+1);
     const isDescentExtendedSegment=!!course?.descentExtended&&Number.isFinite(Number(course?.originalPointCount))&&bi>=Number(course.originalPointCount);
     let parentInfo=chain[0]?.p&&chain.at(-1)?.p?courseTimeInfo(chain[0].p,chain.at(-1).p):null;
@@ -10662,32 +10674,42 @@ window.TratenDataAudit = (()=>{
       ||null;
   };
   const routeAudit=(mountain,course)=>{
-    const defs=representativeCourseExpandedPointDefs(mountain,course);
-    const resolved=defs.map(([type,name,role])=>({type,name,role,p:resolveFixed(mountain,type,name)}));
-    const segments=[];
-    for(let i=1;i<resolved.length;i++){
-      const a=resolved[i-1],b=resolved[i];
-      if(!a.p||!b.p){
-        segments.push({from:a.name,to:b.name,kind:'missing-point',minutes:null,source:'固定座標なし'});
-        continue;
+    // V1.4.232: use exactly the same representative-route CT resolver as the planner.
+    // Expanded waypoints can split one verified parent CT into several derived subsegments;
+    // those are valid planner CTs and must not be reported as "CT情報なし".
+    const built=buildRepresentativeResolvedRoute(mountain,course);
+    if(built?.error){
+      return {resolved:[],segments:[{from:'',to:'',kind:'missing',minutes:null,source:String(built.error)}],error:String(built.error)};
+    }
+    const resolved=Array.isArray(built?.resolved)?built.resolved:[];
+    const rawSegments=Array.isArray(built?.segments)?built.segments:[];
+    const segments=rawSegments.map((info,i)=>{
+      const a=resolved[i],b=resolved[i+1];
+      const from=a?.name||a?.p?.name||'';
+      const to=b?.name||b?.p?.name||'';
+      if(!a?.p||!b?.p){
+        return {from,to,kind:'missing-point',minutes:null,source:'固定座標なし'};
       }
-      const info=courseTimeInfo(a.p,b.p);
-      if(!info){segments.push({from:a.name,to:b.name,kind:'missing',minutes:null,source:'CT情報なし'});continue;}
-      segments.push({
-        from:a.name,to:b.name,
-        kind:info.estimated?'estimated':(info.composed?'composed':'verified'),
+      if(!info||info.missing){
+        return {from,to,kind:'missing',minutes:Number(info?.minutes)||null,source:String(info?.source||'CT情報なし')};
+      }
+      return {
+        from,to,
+        kind:info.derived?'derived':(info.estimated?'estimated':(info.composed?'composed':'verified')),
         minutes:Number(info.minutes)||null,
         source:String(info.source||''),
         estimated:!!info.estimated,
+        derived:!!info.derived,
         composed:!!info.composed
-      });
-    }
-    return {resolved,segments};
+      };
+    });
+    return {resolved,segments,distributedPointCount:Number(built?.distributedPointCount)||0};
   };
   const build=()=>{
     const mountains=[...JAPAN_300_MOUNTAINS];
     const coordinateIssues=[];
     const estimatedCt=[];
+    const derivedCt=[];
     const missingCt=[];
     const noRepresentative=[];
     const sparseWaypoints=[];
@@ -10719,6 +10741,7 @@ window.TratenDataAudit = (()=>{
         audit.segments.forEach(seg=>{
           const row={mountain,course:course.label||`代表コース${courseIndex+1}`,from:seg.from,to:seg.to,minutes:seg.minutes,source:seg.source};
           if(seg.kind==='estimated')estimatedCt.push(row);
+          if(seg.kind==='derived')derivedCt.push(row);
           if(seg.kind==='missing'||seg.kind==='missing-point')missingCt.push(row);
         });
       });
@@ -10733,6 +10756,7 @@ window.TratenDataAudit = (()=>{
         mountains:mountains.length,
         coordinateIssues:coords.length,
         estimatedCt:estimatedCt.length,
+        derivedCt:derivedCt.length,
         missingCt:missingCt.length,
         noRepresentative:noRepresentative.length,
         sparseWaypoints:sparseWaypoints.length,
@@ -10740,6 +10764,7 @@ window.TratenDataAudit = (()=>{
       },
       coordinateIssues:coords,
       estimatedCt:dedupe(estimatedCt,r=>`${r.mountain}|${r.course}|${r.from}|${r.to}`),
+      derivedCt:dedupe(derivedCt,r=>`${r.mountain}|${r.course}|${r.from}|${r.to}`),
       missingCt:dedupe(missingCt,r=>`${r.mountain}|${r.course}|${r.from}|${r.to}`),
       noRepresentative,
       sparseWaypoints,
