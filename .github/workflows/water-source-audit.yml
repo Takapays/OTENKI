@@ -20,7 +20,7 @@ concurrency:
 jobs:
   audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -30,26 +30,8 @@ jobs:
       - name: Validate all 300 mountains have fixed audit points
         run: python audit_water_300.py --dry-run
 
-      - name: Audit in resumable 25-mountain chunks
-        shell: bash
-        run: |
-          set -u
-          for START in $(seq 0 25 275); do
-            echo "=== chunk start=${START} ==="
-            python audit_water_300.py --start "$START" --limit 25 --resume --sleep 1.2 --timeout 10 --attempts 2
-
-            # Persist every completed chunk. A later timeout/failure therefore does not discard earlier work.
-            if ! git diff --quiet -- water-mountain-cache.json; then
-              git config user.name "github-actions[bot]"
-              git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-              git add water-mountain-cache.json
-              git commit -m "chore: checkpoint water audit ${START} [skip ci]"
-              git push
-            fi
-          done
-
-      - name: Retry unresolved mountains once
-        run: python audit_water_300.py --errors-only --resume --sleep 2.0 --timeout 12 --attempts 2
+      - name: Audit pending mountains in small batches
+        run: python audit_water_300.py --resume --batch-size 8 --sleep 0.4 --timeout 6 --attempts 2
 
       - name: Summarize result
         run: |
@@ -59,16 +41,17 @@ jobs:
           rows=d['mountains']
           checked=sum(v.get('checked') is True for v in rows.values())
           available=sum(v.get('available') is True for v in rows.values())
-          errors=sum(not v.get('checked') for v in rows.values())
+          unresolved=sum(v.get('checked') is not True for v in rows.values())
           print('checked',checked,'/',len(rows))
           print('available',available)
-          print('unresolved',errors)
+          print('unresolved',unresolved)
+          print('NOTE: unresolved is not treated as water-absent; the next run resumes only unresolved mountains.')
           PY
 
-      - name: Commit final refreshed cache
+      - name: Commit refreshed cache
         run: |
           if git diff --quiet -- water-mountain-cache.json; then
-            echo "No final cache changes."
+            echo "No cache changes."
             exit 0
           fi
           git config user.name "github-actions[bot]"

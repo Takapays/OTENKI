@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """Audit mapped water sources for Japan 300 mountains using existing fixed route points.
 
-V1.4.234: resilient incremental audit for GitHub Actions.
+V1.4.235: batched, bounded audit for GitHub Actions.
 - never guesses coordinates
-- resumable / chunkable
-- bounded request time
-- multiple Overpass endpoints with retry/backoff
-- error-only retry pass
+- groups several mountains into one Overpass request
+- bounded request time and endpoint fallback
+- resumable; checked mountains are skipped
+- failed batches remain unresolved for a later run
+- network failures never masquerade as "no water"
 """
 from __future__ import annotations
 import argparse
@@ -27,12 +28,15 @@ OUT = BASE / "water-mountain-cache.json"
 ENDPOINTS = [
     "https://overpass-api.de/api/interpreter",
     "https://overpass.kumi.systems/api/interpreter",
-    "https://overpass.nchc.org.tw/api/interpreter",
 ]
 RADIUS_M = 1400
-MAX_CENTERS = 15
+MAX_CENTERS = 12
 MAX_SOURCES = 12
 ALIASES = {"八ヶ岳（赤岳）": "赤岳", "宮ノ浦岳": "宮之浦岳", "御嶽": "御嶽山"}
+
+
+def now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
 
 
 def haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -113,7 +117,7 @@ def centers(points: list[dict[str, Any]]) -> list[dict[str, Any]]:
         raw.append(p)
         if i+1 >= len(points): continue
         q=points[i+1]; dist=haversine(p["lat"],p["lon"],q["lat"],q["lon"])
-        steps=min(3,max(0,int(dist//4500)))
+        steps=min(2,max(0,int(dist//5000)))
         for step in range(1,steps+1):
             t=step/(steps+1)
             raw.append({"name":f"{p['name']}〜{q['name']}","type":"between","lat":p["lat"]+(q["lat"]-p["lat"])*t,"lon":p["lon"]+(q["lon"]-p["lon"])*t})
@@ -125,18 +129,18 @@ def centers(points: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [out[i] for i in idxs]
 
 
-def overpass_query(points: list[dict[str, Any]]) -> str:
-    # nwr reduces 7 node/way clauses to 4 clauses per center while preserving coverage.
-    parts=[]
-    for p in centers(points):
-        a=f"(around:{RADIUS_M},{p['lat']:.5f},{p['lon']:.5f})"
-        parts += [
-            f'nwr["amenity"="drinking_water"]{a};',
-            f'nwr["natural"="spring"]{a};',
-            f'nwr["man_made"="water_tap"]{a};',
-            f'nwr["drinking_water"="yes"]{a};',
-        ]
-    return '[out:json][timeout:18];(' + ''.join(parts) + ');out center tags;'
+def overpass_batch_query(batch: list[str], points_map: dict[str, list[dict[str, Any]]]) -> str:
+    clauses=[]
+    for mountain in batch:
+        for p in centers(points_map.get(mountain) or []):
+            a=f"(around:{RADIUS_M},{p['lat']:.5f},{p['lon']:.5f})"
+            clauses += [
+                f'nwr["amenity"="drinking_water"]{a};',
+                f'nwr["natural"="spring"]{a};',
+                f'nwr["man_made"="water_tap"]{a};',
+                f'nwr["drinking_water"="yes"]{a};',
+            ]
+    return '[out:json][timeout:12];(' + ''.join(clauses) + ');out center tags;'
 
 
 def kind(tags: dict[str, Any]) -> tuple[str,str]:
@@ -169,26 +173,24 @@ def parse_sources(payload: dict[str,Any], route_points: list[dict[str,Any]]) -> 
     return ded[:MAX_SOURCES]
 
 
-def fetch(mountain: str, points: list[dict[str,Any]], timeout: int=10, attempts: int=2) -> tuple[list[dict[str,Any]],str|None,int]:
-    q=overpass_query(points)
-    if not q or not points: return [],'fixed route points unavailable',0
+def fetch_batch(batch: list[str], points_map: dict[str,list[dict[str,Any]]], timeout: int=7, attempts: int=2) -> tuple[dict[str,list[dict[str,Any]]],str|None,int]:
+    q=overpass_batch_query(batch,points_map)
+    if not q: return {}, 'fixed route points unavailable', 0
     last=None
-    for attempt in range(max(1, attempts)):
+    for attempt in range(max(1,attempts)):
         endpoint=ENDPOINTS[attempt % len(ENDPOINTS)]
         try:
             data=urllib.parse.urlencode({'data':q}).encode('utf-8')
-            req=urllib.request.Request(endpoint,data=data,method='POST',headers={'User-Agent':'TratenWaterAudit/1.4.234 (+https://otenki.onrender.com/)','Content-Type':'application/x-www-form-urlencoded'})
+            req=urllib.request.Request(endpoint,data=data,method='POST',headers={'User-Agent':'TratenWaterAudit/1.4.235 (+https://otenki.onrender.com/)','Content-Type':'application/x-www-form-urlencoded'})
             with urllib.request.urlopen(req,timeout=timeout) as r:
                 payload=json.loads(r.read().decode('utf-8','replace'))
-            return parse_sources(payload,points),None,attempt+1
+            return {m:parse_sources(payload,points_map.get(m) or []) for m in batch},None,attempt+1
         except urllib.error.HTTPError as e:
             last=f"{endpoint}: HTTP {e.code}"
         except Exception as e:
             last=f"{endpoint}: {type(e).__name__}: {e}"
-        if attempt + 1 < attempts:
-            # Short bounded backoff. The workflow also spaces requests between mountains.
-            time.sleep(min(5.0, 1.5 * (attempt + 1)))
-    return [],last,attempts
+        if attempt+1<attempts: time.sleep(1.0)
+    return {},last,attempts
 
 
 def load_previous() -> dict[str, Any]:
@@ -199,9 +201,9 @@ def load_previous() -> dict[str, Any]:
 
 def write_cache(mountains: list[str], rows: dict[str,Any]) -> None:
     payload={
-        'schema_version':2,
-        'app_version':'1.4.234',
-        'generated_at':datetime.now(timezone.utc).isoformat().replace('+00:00','Z'),
+        'schema_version':3,
+        'app_version':'1.4.235',
+        'generated_at':now_iso(),
         'source':'OpenStreetMap / Overpass API',
         'radius_m':RADIUS_M,
         'mountain_count':len(mountains),
@@ -210,52 +212,66 @@ def write_cache(mountains: list[str], rows: dict[str,Any]) -> None:
     OUT.write_text(json.dumps(payload,ensure_ascii=False,indent=2)+"\n",encoding='utf-8')
 
 
+def chunks(items: list[str], n: int):
+    for i in range(0,len(items),n): yield items[i:i+n]
+
+
 def main() -> int:
     ap=argparse.ArgumentParser()
-    ap.add_argument('--start',type=int,default=0,help='0-based start index in Japan 300 list')
-    ap.add_argument('--limit',type=int,default=0)
-    ap.add_argument('--sleep',type=float,default=1.2)
-    ap.add_argument('--timeout',type=int,default=10)
+    ap.add_argument('--batch-size',type=int,default=5)
+    ap.add_argument('--sleep',type=float,default=0.6)
+    ap.add_argument('--timeout',type=int,default=7)
     ap.add_argument('--attempts',type=int,default=2)
     ap.add_argument('--resume',action='store_true')
     ap.add_argument('--errors-only',action='store_true')
+    ap.add_argument('--max-batches',type=int,default=0,help='0 = all pending batches')
     ap.add_argument('--dry-run',action='store_true')
     args=ap.parse_args()
-    mountains, points_map=load_mountains_and_points()
+
+    mountains,points_map=load_mountains_and_points()
     rows=load_previous() if (args.resume or args.errors_only) else {}
     if args.dry_run:
         missing=[m for m in mountains if not points_map.get(m)]
         print(f'Japan 300 audit route points: {len(mountains)-len(missing)}/{len(mountains)}')
-        if missing:
-            print('Missing:', ', '.join(missing)); return 1
+        if missing: print('Missing:', ', '.join(missing)); return 1
         print('Dry-run OK: no network requests were sent.'); return 0
 
     if args.errors_only:
-        candidates=[m for m in mountains if not rows.get(m,{}).get('checked')]
+        candidates=[m for m in mountains if rows.get(m,{}).get('checked') is not True]
+    elif args.resume:
+        candidates=[m for m in mountains if rows.get(m,{}).get('checked') is not True]
     else:
-        start=max(0,args.start); end=(start+args.limit) if args.limit else len(mountains)
-        candidates=mountains[start:end]
+        candidates=list(mountains)
 
-    total=len(candidates)
-    for i,m in enumerate(candidates,1):
-        prev=rows.get(m,{})
-        if args.resume and prev.get('checked') is True:
-            print(f"[{i:03}/{total}] {m}: SKIP checked / {prev.get('count',0)} source(s)",flush=True); continue
-        pts=points_map.get(m) or []
-        if not pts:
-            rows[m]={'checked':False,'available':False,'count':0,'sources':[],'error':'fixed route points unavailable','attempts':0}
+    bsize=min(8,max(1,args.batch_size))
+    batches=list(chunks(candidates,bsize))
+    if args.max_batches>0: batches=batches[:args.max_batches]
+    total=len(batches)
+
+    for bi,batch in enumerate(batches,1):
+        label=' / '.join(batch)
+        result,error,used=fetch_batch(batch,points_map,timeout=max(3,args.timeout),attempts=max(1,args.attempts))
+        if error is None:
+            for m in batch:
+                sources=result.get(m,[])
+                rows[m]={'checked':True,'available':bool(sources),'count':len(sources),'sources':sources,'attempts':used,'checked_at':now_iso()}
+            counts=', '.join(f"{m}:{len(result.get(m,[]))}" for m in batch)
+            print(f"[batch {bi:02}/{total:02}] OK  {counts}",flush=True)
         else:
-            sources,error,used=fetch(m,pts,timeout=max(3,args.timeout),attempts=max(1,args.attempts))
-            rows[m]={'checked':error is None,'available':bool(sources),'count':len(sources),'sources':sources,'attempts':used,'checked_at':datetime.now(timezone.utc).isoformat().replace('+00:00','Z')}
-            if error: rows[m]['error']=error[:280]
-        print(f"[{i:03}/{total}] {m}: {'OK' if rows[m]['checked'] else 'ERR'} / {rows[m]['count']} source(s)",flush=True)
+            for m in batch:
+                prev=rows.get(m,{})
+                rows[m]={'checked':False,'available':bool(prev.get('sources')),'count':len(prev.get('sources') or []),'sources':prev.get('sources') or [],'attempts':used,'checked_at':now_iso(),'error':error[:280]}
+            print(f"[batch {bi:02}/{total:02}] ERR {label} :: {error}",flush=True)
         write_cache(mountains,rows)
         if args.sleep: time.sleep(args.sleep)
+
     write_cache(mountains,rows)
-    checked=sum(v.get('checked') is True for v in rows.values())
-    errors=sum(bool(v.get('error')) and not v.get('checked') for v in rows.values())
-    avail=sum(v.get('available') is True for v in rows.values())
-    print(f'SUMMARY checked={checked}/{len(mountains)} available={avail} unresolved_errors={errors}',flush=True)
+    checked=sum((rows.get(m) or {}).get('checked') is True for m in mountains)
+    errors=sum((rows.get(m) or {}).get('checked') is not True for m in mountains)
+    avail=sum((rows.get(m) or {}).get('available') is True for m in mountains)
+    print(f'SUMMARY checked={checked}/{len(mountains)} available={avail} unresolved={errors}',flush=True)
+    # Deliberately return success even with unresolved batches. The cache records them as unresolved,
+    # and a later manual/scheduled run resumes only those mountains.
     return 0
 
 if __name__=='__main__': raise SystemExit(main())
