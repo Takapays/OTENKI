@@ -5833,7 +5833,7 @@ async function loadMountainWaterReports(name,p){
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),24000);
   try{
     const points=[{name,lat:Number(p.lat),lon:Number(p.lon)}];
-    const res=await fetch('/api/water-reports',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mountain:name,points}),signal:controller.signal});
+    const res=await fetch('/api/water-reports',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mountain:name,points,use_mountain_cache:true}),signal:controller.signal});
     const data=await res.json().catch(()=>({}));if(!res.ok)throw new Error(data?.error||`HTTP ${res.status}`);
     renderWaterReportResult(data);logEvent('water_report',{success:true,mountain:name,metadata:{mountain_info:true,water_sources:data?.water_sources?.length||0}});
   }catch(e){
@@ -5853,6 +5853,18 @@ async function refreshMountainExtraActions(box,p){
   if(cached!==undefined){waterBtn.classList.toggle('hidden',!cached);return;}
   waterBtn.classList.add('hidden');
   try{
+    // V1.4.231: prefer the weekly Japan-300 fixed audit cache. This avoids an
+    // Overpass request every time a mountain information card is opened.
+    const idxRes=await fetch(`/api/water-mountain-index?mountain=${encodeURIComponent(p.name)}`,{cache:'no-store'});
+    const idx=await idxRes.json().catch(()=>({}));
+    if(idxRes.ok&&idx?.entry?.checked===true){
+      const yes=!!idx.entry.available;mountainWaterAvailabilityMemory.set(p.name,yes);
+      const current=box.querySelector('.national-rich-hero h3')?.textContent?.trim();
+      if(current===p.name)waterBtn.classList.toggle('hidden',!yes);
+      return;
+    }
+    // Before the first GitHub Actions audit (or when that mountain had an audit
+    // error), retain the existing live summit-nearby check as a safe fallback.
     const res=await fetch('/api/route-extras-availability',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mountain:p.name,points:[{name:p.name,lat:p.lat,lon:p.lon}]})});
     const data=await res.json().catch(()=>({}));
     const yes=!!(res.ok&&data?.water);mountainWaterAvailabilityMemory.set(p.name,yes);

@@ -32,7 +32,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.4.227"
+APP_VERSION = "1.4.231"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -2103,6 +2103,45 @@ def overpass():
     return jsonify(error="Overpass取得失敗", detail=" / ".join(errors)), 502
 
 
+# V1.4.231: repository-backed Japan 300 water-source cache.
+WATER_MOUNTAIN_CACHE_PATH = os.path.join(BASE, "water-mountain-cache.json")
+_water_mountain_cache_state: dict[str, Any] = {"mtime": None, "data": None}
+
+def _water_mountain_cache_load() -> dict[str, Any]:
+    try:
+        mtime = os.path.getmtime(WATER_MOUNTAIN_CACHE_PATH)
+    except OSError:
+        return {"mountains": {}}
+    if _water_mountain_cache_state.get("mtime") == mtime and isinstance(_water_mountain_cache_state.get("data"), dict):
+        return _water_mountain_cache_state["data"]
+    try:
+        with open(WATER_MOUNTAIN_CACHE_PATH, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        if not isinstance(data, dict):
+            data = {"mountains": {}}
+    except Exception:
+        data = {"mountains": {}}
+    _water_mountain_cache_state["mtime"] = mtime
+    _water_mountain_cache_state["data"] = data
+    return data
+
+def _water_mountain_cache_entry(mountain: str) -> dict[str, Any] | None:
+    row = (_water_mountain_cache_load().get("mountains") or {}).get(str(mountain or "").strip())
+    return row if isinstance(row, dict) else None
+
+@app.get("/api/water-mountain-index")
+def water_mountain_index():
+    data = _water_mountain_cache_load()
+    mountains = data.get("mountains") or {}
+    name = str(request.args.get("mountain") or "").strip()
+    if name:
+        row = mountains.get(name)
+        return jsonify(ok=True, mountain=name, entry=row if isinstance(row, dict) else None, generated_at=data.get("generated_at"), source=data.get("source"), radius_m=data.get("radius_m"))
+    checked = sum(1 for v in mountains.values() if isinstance(v, dict) and v.get("checked") is True)
+    available = sum(1 for v in mountains.values() if isinstance(v, dict) and v.get("checked") is True and v.get("available") is True)
+    errors = sum(1 for v in mountains.values() if isinstance(v, dict) and v.get("error"))
+    return jsonify(ok=True, generated_at=data.get("generated_at"), source=data.get("source"), radius_m=data.get("radius_m"), mountain_count=len(mountains), checked_count=checked, available_count=available, error_count=errors, mountains=mountains)
+
 # V1.4.219: route water-source discovery + recent public search-result excerpts.
 # Water locations come from OpenStreetMap/Overpass. We do not fetch or reproduce
 # source article bodies; report text is limited to public search-result metadata/snippets.
@@ -2367,7 +2406,13 @@ def water_reports():
         points.append({"name": str(row.get("name") or "通過地点")[:100], "lat": lat, "lon": lon})
     if not mountain or len(points) < 1:
         return jsonify(error="山と座標付き地点を1地点以上設定してください。"), 400
-    waters, osm_errors = _discover_water_sources(points)
+    use_mountain_cache = bool(payload.get("use_mountain_cache"))
+    cached_mountain = _water_mountain_cache_entry(mountain) if use_mountain_cache else None
+    if cached_mountain and cached_mountain.get("checked") is True and cached_mountain.get("available") is True:
+        waters = [dict(x) for x in (cached_mountain.get("sources") or []) if isinstance(x, dict)][:WATER_REPORT_MAX_SOURCES]
+        osm_errors: list[str] = []
+    else:
+        waters, osm_errors = _discover_water_sources(points)
     search_errors: list[str] = []
     if waters:
         with ThreadPoolExecutor(max_workers=min(4, len(waters)), thread_name_prefix="traten-water") as ex:
@@ -2396,6 +2441,7 @@ def water_reports():
         "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "water_sources": waters, "generic_reports": generic_reports,
         "generic_search_url": "https://www.bing.com/search?" + urllib.parse.urlencode({"q": generic_query, "setlang": "ja-JP"}),
+        "fixed_mountain_cache": bool(cached_mountain and cached_mountain.get("checked") is True),
         "notes": [
             "水場位置はOpenStreetMap/Overpassの公開データから、入力した通過地点を直線で結ぶ概略ルート周辺を検索しています。",
             "最近の状況は検索結果に公開されているタイトル・抜粋・日付だけを整理し、元ページ本文は取得・転載していません。",
@@ -2739,7 +2785,7 @@ def bing_site_auth():
     return response
 
 
-PUBLIC_FILES = {"app.js", "styles.css", "access.js", "access-data.js", "access.css", "camera-data.js", "live-cameras.js", "live-cameras.css", "live-cameras.html", "favicon.ico", "robots.txt", "sitemap.xml", "guide.html", "manifest.json", "google5a7b3dfd79ff97f0.html", "BingSiteAuth.xml", INDEXNOW_KEY_FILENAME}
+PUBLIC_FILES = {"app.js", "styles.css", "access.js", "access-data.js", "access.css", "camera-data.js", "live-cameras.js", "live-cameras.css", "live-cameras.html", "water-sources.html", "water-sources.js", "water-sources.css", "water-mountain-cache.json", "favicon.ico", "robots.txt", "sitemap.xml", "guide.html", "manifest.json", "google5a7b3dfd79ff97f0.html", "BingSiteAuth.xml", INDEXNOW_KEY_FILENAME}
 PUBLIC_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif", ".ico"}
 
 

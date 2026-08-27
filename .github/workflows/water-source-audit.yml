@@ -1,0 +1,53 @@
+name: Refresh water source cache
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 18 * * 1'
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'audit_water_300.py'
+      - '.github/workflows/water-source-audit.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: traten-water-source-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate all 300 mountains have fixed audit points
+        run: python audit_water_300.py --dry-run
+      - name: Audit OpenStreetMap water sources
+        run: python audit_water_300.py --sleep 0.45
+      - name: Summarize result
+        run: |
+          python - <<'PY'
+          import json
+          d=json.load(open('water-mountain-cache.json',encoding='utf-8'))
+          rows=d['mountains']
+          print('checked',sum(v.get('checked') is True for v in rows.values()),'/',len(rows))
+          print('available',sum(v.get('available') is True for v in rows.values()))
+          print('errors',sum(bool(v.get('error')) for v in rows.values()))
+          PY
+      - name: Commit refreshed cache
+        run: |
+          if git diff --quiet -- water-mountain-cache.json; then
+            echo "No cache changes."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add water-mountain-cache.json
+          git commit -m "chore: refresh water source cache [skip ci]"
+          git push

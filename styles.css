@@ -4125,3 +4125,6 @@ body.install-guide-open{overflow:hidden}
 .topbar-nav-link.camera{border-color:#c5d8e8;background:#f3f8fc;color:#315b79}.topbar-nav-link.camera:hover{background:#eaf3fa}
 .national-extra-action{display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:7px 11px;border:1px solid #c9d7e5;border-radius:9px;background:#f5f9fc;color:#365b78;font-size:10px;font-weight:900;cursor:pointer}.national-extra-action.hidden{display:none!important}.mountain-water-action{background:#effaf8;border-color:#b8e2d7;color:#26735f}.mountain-camera-action{background:#f2f6fb;border-color:#c4d3e2;color:#355d7b}
 @media(max-width:700px){.national-rich-actions .national-extra-action{min-height:42px;font-size:11px;flex:1 1 46%}.topbar-nav-link.camera{display:inline-flex}}
+
+/* V1.4.231: water-source index shortcut. */
+.topbar-nav-link.water{border-color:#bfe2d3;background:#f1fbf6;color:#21634b}.topbar-nav-link.water:hover{background:#e5f7ee}

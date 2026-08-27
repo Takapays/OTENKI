@@ -1,3 +1,11 @@
+# V1.4.231
+
+- 日本三百名山の水場固定監査基盤を追加。既存代表ルートの固定座標を用いてOpenStreetMap / Overpassを監査し、`water-mountain-cache.json`へ保存する。
+- GitHub Actions `Refresh water source cache` を追加。初回導入push時・手動実行・毎週月曜に300山を再監査し、差分があればbotがキャッシュをcommitする。
+- 山情報ページの水場ボタン有無判定は監査済み固定キャッシュを優先。キャッシュ未監査時のみ従来のライブ判定へフォールバック。
+- 水場一覧ページ `water-sources.html` を追加。
+- 作業環境ではOverpassへのDNS接続ができないため、同梱初期キャッシュは300山すべて未監査状態。実データはGitHub Actions初回実行後に生成される。
+
 # V1.4.230
 
 - ヘッダー「ライブカメラ」から専用ページへ遷移できない問題を修正。

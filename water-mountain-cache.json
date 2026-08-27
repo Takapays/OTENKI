@@ -1,0 +1,1810 @@
+{
+  "schema_version": 1,
+  "app_version": "1.4.231",
+  "generated_at": null,
+  "source": "OpenStreetMap / Overpass API",
+  "radius_m": 1400,
+  "mountain_count": 300,
+  "mountains": {
+    "利尻山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "羅臼岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "斜里岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "雄阿寒岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "天塩岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "ニセイカウシュッペ山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "大雪山（旭岳）": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "石狩岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "トムラウシ山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "オプタテシケ山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "十勝岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "ニペソツ山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "幌尻岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "カムイエクウチカウシ山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "ペテガリ岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "神威岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "芦別岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "夕張岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "暑寒別岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "余市岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "樽前山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "後方羊蹄山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "ニセコアンヌプリ": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "狩場山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "渡島駒ヶ岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "大千軒岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "八甲田山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "岩木山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "白神岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "八幡平": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "乳頭山（烏帽子岳）": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "秋田駒ヶ岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "岩手山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "姫神山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "早池峰山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "五葉山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "和賀岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "焼石岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "栗駒山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "神室山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "森吉山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "太平山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "鳥海山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "月山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "摩耶山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "以東岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "大朝日岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "祝瓶山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "船形山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "泉ヶ岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "蔵王山（熊野岳）": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "飯豊山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "西吾妻山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "一切経山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "安達太良山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "磐梯山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "二岐山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "七ヶ岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "荒海山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "帝釈山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "会津駒ヶ岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "会津朝日岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "燧ヶ岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "大滝根山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "杁差岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "二王子岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "粟ヶ岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "御神楽岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "守門岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "浅草岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "平ヶ岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "越後駒ヶ岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "中ノ岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "八海山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "苗場山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "佐武流山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "鳥甲山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "金北山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "米山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "八溝山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "筑波山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "三本槍岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "男鹿岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "景鶴山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "至仏山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "釈迦ヶ岳（栃木）": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "女峰山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "男体山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "太郎山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "奥白根山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "皇海山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "袈裟丸山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "武尊山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "赤城山（黒檜山）": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "草津白根山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "浅間隠山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "榛名山（榛名富士）": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "妙義山（相馬岳）": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "荒船山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "諏訪山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "巻機山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "朝日岳（群馬）": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "谷川岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "仙ノ倉山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "白砂山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "横手山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "岩菅山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "笠ヶ岳（長野）": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "四阿山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "浅間山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "御座山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "蓼科山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "天狗岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "八ヶ岳（赤岳）": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "入笠山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "霧ヶ峰（車山）": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "鉢伏山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "美ヶ原": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "飯縄山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "戸隠山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "高妻山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "黒姫山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "斑尾山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "妙高山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "火打山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "焼山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "雨飾山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "青海黒姫山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "朝日岳（新潟・富山）": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "雪倉岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "白馬岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "唐松岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "五竜岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "鹿島槍ヶ岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "爺ヶ岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "針ノ木岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "蓮華岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "毛勝山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "剱岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "立山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "奥大日岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "鍬崎山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "薬師岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "黒部五郎岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "烏帽子岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "野口五郎岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "水晶岳（黒岳）": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "鷲羽岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "三俣蓮華岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "赤牛岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "笠ヶ岳（岐阜）": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "餓鬼岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "燕岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "有明山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "大天井岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "常念岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "槍ヶ岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "奥穂高岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "焼岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "霞沢岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "鉢盛山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "乗鞍岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "御嶽": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "小秀山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "奥三界岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "経ヶ岳（長野）": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "木曽駒ヶ岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "空木岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "南駒ヶ岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "越百山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "安平路山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "南木曽岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "恵那山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "武甲山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "両神山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "雲取山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "和名倉山（白石山）": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "甲武信ヶ岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "国師ヶ岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "金峰山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "瑞牆山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "茅ヶ岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "乾徳山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "大菩薩嶺": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "大岳山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "三頭山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "大山（神奈川）": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "塔ノ岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "金時山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "箱根山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "天城山（万三郎岳）": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "愛鷹山（越前岳）": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "毛無山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "七面山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "山伏": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "櫛形山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "御正体山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "三ッ峠山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "黒岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "富士山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "甲斐駒ヶ岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "鋸岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "仙丈ヶ岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "アサヨ峰": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "地蔵岳(鳳凰)": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "北岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "間ノ岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "農鳥岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "塩見岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "荒川岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "赤石岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "聖岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "上河内岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "茶臼岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "光岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "池口岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "奥茶臼山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "大無間山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "黒法師岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "笊ヶ岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "高塚山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "熊伏山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "白木峰": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "金剛堂山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "人形山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "医王山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "大門山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "大笠山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "笈ヶ岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "三方岩岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "猿ヶ馬場山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "白山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "経ヶ岳（福井）": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "野伏ヶ岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "大日ヶ岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "鷲ヶ岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "位山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "川上岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "荒島岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "能郷白山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "冠山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "伊吹山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "藤原岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "御在所岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "倶留尊山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "三峰山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "高見山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "日出ヶ岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "竜門岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "山上ヶ岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "八経ヶ岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "釈迦ヶ岳（奈良）": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "伯母子岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "護摩壇山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "大和葛城山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "金剛山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "武奈ヶ岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "蓬来山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "比叡山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "愛宕山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "六甲山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "扇ノ山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "氷ノ山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "那岐山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "大山（鳥取）": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "上蒜山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "道後山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "吾妻山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "三瓶山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "剣山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "三嶺": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "東赤石山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "笹ヶ峰": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "伊予富士": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "瓶ヶ森": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "石鎚山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "三本杭": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "篠山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "英彦山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "脊振山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "多良岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "雲仙岳（普賢岳）": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "鶴見岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "由布岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "大船山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "久住山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "湧蓋山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "阿蘇山（高岳）": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "祖母山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "傾山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "大崩山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "国見岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "市房山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "尾鈴山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "霧島山（韓国岳）": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "高千穂峰": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "桜島（御岳）": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "高隈山": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "開聞岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    },
+    "宮ノ浦岳": {
+      "checked": false,
+      "available": false,
+      "count": 0,
+      "sources": []
+    }
+  }
+}
