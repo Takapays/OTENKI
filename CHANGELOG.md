@@ -1,3 +1,9 @@
+# V1.4.230
+
+- ヘッダー「ライブカメラ」から専用ページへ遷移できない問題を修正。
+- Flask の公開ファイル許可リストへ `live-cameras.html` / `live-cameras.js` / `live-cameras.css` / `camera-data.js` を追加。
+- ライブカメラ専用ページの静的アセットを V1.4.230 でキャッシュ更新。
+
 # V1.4.229
 - 分析開始時にJMA MSMとECMWF IFSの両方を待つ方式を廃止。
 - JMA/ECMWFを同時開始し、全地点分を先に返したモデルだけで総合判断を即表示。
