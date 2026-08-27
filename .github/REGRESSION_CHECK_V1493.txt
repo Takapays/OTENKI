@@ -1,0 +1,10 @@
+Traten V1.4.93 regression/static checks
+- app.js syntax: PASS
+- server.py compile: PASS
+- APP_VERSION/index/server: 1.4.93
+- point time input step=600: PASS
+- stay departure time input step=600: PASS
+- manual time normalization to 10 minutes: PASS
+- hut official-site fixed DB: 18 entries
+- hut official HP UI only when registered: PASS
+- access.js MutationObserver: must remain absent

@@ -1,0 +1,9 @@
+V1.4.111 regression check
+- app.js node syntax: PASS
+- server.py compile: PASS
+- national outlook default date: tomorrowLocal
+- obsolete candidate instruction: removed
+- route action order: save -> analyze -> screenshot -> add
+- representative course summary: dedicated DOM + JS !important visibility enforcement
+- MutationObserver in access.js: checked below
+- access.js MutationObserver: PASS (absent)

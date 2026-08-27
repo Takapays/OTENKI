@@ -1,0 +1,47 @@
+services:
+  - type: web
+    name: mountain-weather-decision
+    runtime: python
+    plan: free
+    region: singapore
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 120 server:app
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: UPSTREAM_TIMEOUT
+        value: "45"
+      - key: OVERPASS_TIMEOUT
+        value: "70"
+      - key: CACHE_TTL
+        value: "120"
+      - key: OPENMETEO_PROXY_CACHE_TTL
+        value: "1800"
+      - key: NATIONAL_OUTLOOK_CACHE_TTL
+        value: "14400"
+      - key: NATIONAL_OUTLOOK_STALE_TTL
+        value: "86400"
+      - key: NATIONAL_OUTLOOK_REFRESH_INTERVAL
+        value: "900"
+      - key: NATIONAL_NEXTDAY_100_AUTO_CACHE
+        value: "1"
+      - key: NATIONAL_CACHE_REFRESH_TOKEN
+        sync: false
+      - key: TRAIL_GRAPH_CACHE_MAX
+        value: "2"
+      - key: TRAIL_BUILD_TIMEOUT
+        value: "180"
+
+      - key: USAGE_LOG_STDOUT
+        value: "1"
+
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: USAGE_DASHBOARD_USERNAME
+        value: "admin"
+      - key: USAGE_DASHBOARD_PASSWORD
+        sync: false

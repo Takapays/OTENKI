@@ -1,0 +1,8 @@
+V1.4.121 regression/static checks
+- node --check app.js: PASS
+- python3 -m py_compile server.py: PASS
+- audit_ct_coverage.js executed: PASS
+- representative-course coverage audit: 413 segments / 202 CT covered / 211 missing
+- curated representative segments: 176 / 176 covered
+- generated fallback segments: 26 / 237 covered
+- MutationObserver not reintroduced into access.js: checked separately

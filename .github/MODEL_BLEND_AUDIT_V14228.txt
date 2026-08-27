@@ -1,0 +1,10 @@
+PASS JMA rain priority
+PASS ECMWF wind priority
+PASS ECMWF gust priority
+PASS ICON visibility priority
+PASS GFS wind adverse guard
+PASS GFS rain adverse guard
+PASS GFS visibility adverse guard
+PASS GFS grade caution
+PASS GFS hazard message
+APP_VERSION PASS

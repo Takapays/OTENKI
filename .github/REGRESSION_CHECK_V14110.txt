@@ -1,0 +1,14 @@
+V1.4.110 regression/static checks
+- app.js syntax: PASS
+- server.py compile: PASS
+- dedicated representativeCourseSummaryFixed exists: PASS
+- legacy representativeCoursePreview forced hidden: PASS
+- PC course summary grid is button + summary: PASS
+- MET Norway national fallback helpers present: PASS
+- Open-Meteo national results marked source=openmeteo: PASS
+- MET Norway fallback results marked source=metno: PASS
+- backupCount returned to client: PASS
+- MET Norway fallback point cache TTL: 1 hour
+- existing national shared cache remains: 4 hours fresh / stale fallback preserved
+- access.js MutationObserver: ABSENT
+Note: external MET Norway/Open-Meteo network execution is not performed in this container.

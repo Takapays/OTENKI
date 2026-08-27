@@ -1,0 +1,9 @@
+V1.4.100 regression check
+- representativeCoursePreview exists without global hidden class: PASS
+- preview JS uses is-empty instead of hidden for normal state: PASS
+- PC mainline is explicit 2-column grid: PASS
+- Yari Shin-Hotaka geometry replaced with dense corridor points: PASS
+- V1.4.99 national 429 retry/cache code retained: PASS
+- V1.4.98 saved-route layout retained: PASS
+- V1.4.93 hut homepage links retained: PASS
+- MutationObserver absent from access.js: PASS

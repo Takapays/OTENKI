@@ -1,0 +1,18 @@
+トラテン 全国分析 厳しめ調整監査 V1.4.226
+====================================
+
+caution 1h stays A: A (expected A) => OK
+caution 2h becomes B: B (expected B) => OK
+severe 1h becomes B: B (expected B) => OK
+severe 4h becomes C: C (expected C) => OK
+extreme 1h becomes C: C (expected C) => OK
+
+openmeteo caution wind >=7: OK
+metno caution wind >=7: OK
+gfs caution wind >=7: OK
+severe unchanged 13/3: OK
+extreme unchanged 18/8: OK
+engine cache separated: OK
+browser cache separated: OK
+
+RESULT: PASS

@@ -1,0 +1,7 @@
+V1.4.90 regression checks
+- Removed V1.4.89 hand-shaped trail approximation geometry.
+- Route-map verified geometry registry exists; unregistered segments fall back to dashed straight lines.
+- PC representative-course preview is placed to the right of the load button.
+- Multiple representative-course choices remain visible and update the preview.
+- Mobile keeps the course summary in a readable stacked layout.
+- Access feature remains MutationObserver-free.
