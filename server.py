@@ -15,6 +15,9 @@ import heapq
 import json
 import math
 import os
+import re
+import html
+import xml.etree.ElementTree as ET
 import threading
 import time
 import urllib.error
@@ -29,7 +32,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.4.216"
+APP_VERSION = "1.4.220"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -68,6 +71,8 @@ ALLOWED_EVENT_NAMES = {
     "mountain_selected",
     "point_selected",
     "route_point_used",
+    "water_report",
+    "route_camera",
 }
 
 ALLOWED_HOSTS = {
@@ -2096,6 +2101,438 @@ def overpass():
 
     return jsonify(error="Overpass取得失敗", detail=" / ".join(errors)), 502
 
+
+# V1.4.219: route water-source discovery + recent public search-result excerpts.
+# Water locations come from OpenStreetMap/Overpass. We do not fetch or reproduce
+# source article bodies; report text is limited to public search-result metadata/snippets.
+WATER_REPORT_CACHE_TTL = int(os.environ.get("WATER_REPORT_CACHE_TTL", "21600"))
+WATER_REPORT_SEARCH_TIMEOUT = int(os.environ.get("WATER_REPORT_SEARCH_TIMEOUT", "12"))
+WATER_REPORT_MAX_SOURCES = max(1, min(12, int(os.environ.get("WATER_REPORT_MAX_SOURCES", "8"))))
+WATER_REPORT_MAX_RESULTS = max(1, min(5, int(os.environ.get("WATER_REPORT_MAX_RESULTS", "3"))))
+
+def _water_route_centers(points: list[dict[str, Any]]) -> list[tuple[float, float]]:
+    centers: list[tuple[float, float]] = []
+    for i, p in enumerate(points):
+        lat, lon = float(p["lat"]), float(p["lon"])
+        centers.append((lat, lon))
+        if i + 1 >= len(points):
+            continue
+        q = points[i + 1]
+        qlat, qlon = float(q["lat"]), float(q["lon"])
+        dist = _haversine(lat, lon, qlat, qlon)
+        steps = min(6, max(0, int(dist // 3500)))
+        for step in range(1, steps + 1):
+            t = step / (steps + 1)
+            centers.append((lat + (qlat - lat) * t, lon + (qlon - lon) * t))
+    out: list[tuple[float, float]] = []
+    for lat, lon in centers:
+        if not any(_haversine(lat, lon, a, b) < 700 for a, b in out):
+            out.append((lat, lon))
+    return out[:30]
+
+def _water_overpass_query(points: list[dict[str, Any]]) -> str:
+    arounds = _water_route_centers(points)
+    selectors = []
+    for lat, lon in arounds:
+        a = f"(around:1400,{lat:.5f},{lon:.5f})"
+        selectors.extend([
+            f'node["amenity"="drinking_water"]{a};',
+            f'node["natural"="spring"]{a};',
+            f'node["man_made"="water_tap"]{a};',
+            f'node["drinking_water"="yes"]{a};',
+            f'way["amenity"="drinking_water"]{a};',
+            f'way["natural"="spring"]{a};',
+            f'way["drinking_water"="yes"]{a};',
+        ])
+    return '[out:json][timeout:28];(' + ''.join(selectors) + ');out center tags;'
+
+def _water_kind(tags: dict[str, Any]) -> tuple[str, str]:
+    amenity = str(tags.get("amenity") or "")
+    natural = str(tags.get("natural") or "")
+    man_made = str(tags.get("man_made") or "")
+    drinking = str(tags.get("drinking_water") or "").lower()
+    if amenity == "drinking_water":
+        return "飲料水", "confirmed"
+    if man_made == "water_tap":
+        return "水栓", "confirmed" if drinking == "yes" else "unknown"
+    if natural == "spring":
+        return "湧水", "confirmed" if drinking == "yes" else ("not_drinking" if drinking == "no" else "unknown")
+    if drinking == "yes":
+        return "給水地点", "confirmed"
+    return "水場", "unknown"
+
+def _nearest_route_point(lat: float, lon: float, points: list[dict[str, Any]]) -> tuple[str, float]:
+    best_name, best_m = "", float("inf")
+    for p in points:
+        d = _haversine(lat, lon, float(p["lat"]), float(p["lon"]))
+        if d < best_m:
+            best_name, best_m = str(p.get("name") or "通過地点"), d
+    return best_name, best_m
+
+def _discover_water_sources(points: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[str]]:
+    query = _water_overpass_query(points)
+    cache_key = "water-overpass:" + hashlib.sha256(query.encode("utf-8")).hexdigest()
+    cached = _cache_get(cache_key)
+    errors: list[str] = []
+    body: bytes | None = None
+    if cached:
+        _, _, body = cached
+    else:
+        for endpoint in OVERPASS_ENDPOINTS:
+            try:
+                status, ctype, body0 = _request_overpass(endpoint, query, timeout=min(35, OVERPASS_TIMEOUT))
+                if status == 200:
+                    body = body0
+                    _cache_put(cache_key, status, ctype, body0, ttl=OVERPASS_CACHE_TTL)
+                    break
+                errors.append(f"{endpoint}: HTTP {status}")
+            except Exception as exc:
+                errors.append(f"{endpoint}: {exc}")
+    if not body:
+        return [], errors
+    try:
+        payload = json.loads(body.decode("utf-8", errors="replace"))
+    except Exception as exc:
+        return [], errors + [f"OSM JSON解析: {exc}"]
+    rows: list[dict[str, Any]] = []
+    for el in payload.get("elements", []):
+        tags = el.get("tags") or {}
+        lat = el.get("lat", (el.get("center") or {}).get("lat"))
+        lon = el.get("lon", (el.get("center") or {}).get("lon"))
+        try:
+            lat, lon = float(lat), float(lon)
+        except (TypeError, ValueError):
+            continue
+        near_name, near_m = _nearest_route_point(lat, lon, points)
+        if near_m > 1800:
+            continue
+        kind, potability = _water_kind(tags)
+        raw_name = str(tags.get("name:ja") or tags.get("name") or "").strip()
+        if raw_name:
+            name = raw_name
+        elif kind == "湧水":
+            name = f"{near_name}付近の湧水"
+        elif kind == "水栓":
+            name = f"{near_name}付近の水栓"
+        else:
+            name = f"{near_name}付近の水場"
+        rows.append({
+            "name": name, "lat": round(lat, 6), "lon": round(lon, 6),
+            "kind": kind, "potability": potability, "near_point": near_name,
+            "distance_m": int(round(near_m)),
+            "osm_id": f'{el.get("type", "node")}/{el.get("id", "")}',
+            "tags": {k: str(tags.get(k)) for k in ("description", "operator", "access", "drinking_water") if tags.get(k) is not None},
+        })
+    deduped: list[dict[str, Any]] = []
+    for row in sorted(rows, key=lambda x: (x["distance_m"], 0 if x["potability"] == "confirmed" else 1)):
+        if any(_haversine(row["lat"], row["lon"], x["lat"], x["lon"]) < 80 for x in deduped):
+            continue
+        deduped.append(row)
+    return deduped[:WATER_REPORT_MAX_SOURCES], errors
+
+def _clean_search_text(value: str) -> str:
+    value = html.unescape(re.sub(r"<[^>]+>", " ", value or ""))
+    value = re.sub(r"\s+", " ", value).strip()
+    return value[:360]
+
+def _extract_report_date(*values: str) -> str | None:
+    text = " ".join(v or "" for v in values)
+    now_jst = datetime.now(timezone.utc) + timedelta(hours=9)
+    patterns = [
+        r"(?P<y>20\d{2})[年/.-](?P<m>\d{1,2})[月/.-](?P<d>\d{1,2})日?",
+        r"(?P<m>\d{1,2})月(?P<d>\d{1,2})日",
+    ]
+    for pat in patterns:
+        m = re.search(pat, text)
+        if not m:
+            continue
+        try:
+            y = int(m.groupdict().get("y") or now_jst.year)
+            month, day = int(m.group("m")), int(m.group("d"))
+            dt = datetime(y, month, day)
+            if "y" not in m.groupdict() and dt.date() > now_jst.date() + timedelta(days=20):
+                dt = dt.replace(year=y - 1)
+            return dt.date().isoformat()
+        except Exception:
+            continue
+    return None
+
+def _report_signal(text: str) -> tuple[str, str]:
+    t = text.lower()
+    bad = ("枯れ", "涸れ", "水なし", "水無し", "出ていない", "出ません", "断水", "利用不可", "汲めない")
+    caution = ("水量少", "少なめ", "細い", "渇水", "要浄水", "煮沸", "濾過", "ろ過", "注意")
+    good = ("水量十分", "豊富", "出ている", "出ています", "汲めた", "給水可", "利用可", "問題なく", "水量あり")
+    if any(k in t for k in bad): return "bad", "利用できない可能性"
+    if any(k in t for k in caution): return "caution", "水量・飲用に注意"
+    if any(k in t for k in good): return "good", "利用できた報告"
+    return "unknown", "状態記述あり"
+
+def _bing_rss_search(query: str) -> list[dict[str, Any]]:
+    cache_key = "water-search:" + hashlib.sha256(query.encode("utf-8")).hexdigest()
+    cached = _cache_get(cache_key)
+    if cached:
+        _, _, body = cached
+    else:
+        url = "https://www.bing.com/search?format=rss&" + urllib.parse.urlencode({"q": query, "setlang": "ja-JP"})
+        req = urllib.request.Request(url, headers={
+            "User-Agent": UA,
+            "Accept": "application/rss+xml, application/xml;q=0.9, text/xml;q=0.8",
+        })
+        with urllib.request.urlopen(req, timeout=WATER_REPORT_SEARCH_TIMEOUT) as resp:
+            body = resp.read(512 * 1024)
+        _cache_put(cache_key, 200, "application/rss+xml", body, ttl=WATER_REPORT_CACHE_TTL)
+    root = ET.fromstring(body)
+    out: list[dict[str, Any]] = []
+    for item in root.findall(".//item")[:8]:
+        title = _clean_search_text(item.findtext("title") or "")
+        link = (item.findtext("link") or "").strip()
+        desc = _clean_search_text(item.findtext("description") or "")
+        pub = _clean_search_text(item.findtext("pubDate") or "")
+        if not link.startswith("https://"):
+            continue
+        host = urllib.parse.urlparse(link).hostname or ""
+        # Treat only a date visible in the result title/snippet/URL as the report date.
+        # RSS pubDate can represent feed/index timing and is not used as an article-date claim.
+        date = _extract_report_date(title, desc, link)
+        signal, signal_label = _report_signal(title + " " + desc)
+        out.append({"title": title[:180], "url": link, "snippet": desc[:220], "date": date, "signal": signal, "signal_label": signal_label, "host": host})
+    return out
+
+def _water_search_query(mountain: str, water: dict[str, Any]) -> str:
+    year = (datetime.now(timezone.utc) + timedelta(hours=9)).year
+    named = water["name"] if "付近の" not in water["name"] else water.get("near_point") or water["name"]
+    return f'"{mountain}" "{named}" 水場 水量 枯れ 汲めた {year}'
+
+def _search_reports_for_water(mountain: str, water: dict[str, Any]) -> tuple[list[dict[str, Any]], str | None]:
+    query = _water_search_query(mountain, water)
+    try:
+        rows = _bing_rss_search(query)
+    except Exception as exc:
+        return [], str(exc)
+    useful = []
+    for row in rows:
+        text = f'{row.get("title", "")} {row.get("snippet", "")}'
+        if not any(k in text for k in ("水", "湧", "枯", "涸", "給水", "汲")):
+            continue
+        useful.append(row)
+        if len(useful) >= WATER_REPORT_MAX_RESULTS:
+            break
+    return useful, None
+
+def _water_source_summary(water: dict[str, Any]) -> dict[str, Any]:
+    reports = water.get("reports") or []
+    today = (datetime.now(timezone.utc) + timedelta(hours=9)).date()
+    for r in reports:
+        age = None
+        if r.get("date"):
+            try: age = max(0, (today - datetime.fromisoformat(r["date"]).date()).days)
+            except Exception: pass
+        r["age_days"] = age
+    dated = [r for r in reports if r.get("date")]
+    dated.sort(key=lambda x: x["date"], reverse=True)
+    latest = dated[0] if dated else (reports[0] if reports else None)
+    recent30 = [r for r in reports if isinstance(r.get("age_days"), int) and r["age_days"] <= 30]
+    if any(r.get("signal") == "bad" for r in recent30):
+        level, label = "red", "30日以内に枯れ・利用不可の記述あり"
+    elif any(r.get("signal") == "caution" for r in recent30):
+        level, label = "orange", "30日以内に水量・飲用注意の記述あり"
+    elif any(r.get("signal") == "good" and isinstance(r.get("age_days"), int) and r["age_days"] <= 14 for r in reports):
+        level, label = "green", "14日以内に利用できた記述あり"
+    elif latest and latest.get("signal") == "bad":
+        level, label = "red", "枯れ・利用不可の記述あり（時期注意）"
+    elif latest and latest.get("signal") == "caution":
+        level, label = "orange", "水量・飲用注意の記述あり（時期注意）"
+    elif latest and latest.get("signal") == "good":
+        level, label = "yellow", "利用できた記述あり（時期注意）"
+    elif reports:
+        level, label = "yellow", "レポートはあるが状態判定できず"
+    else:
+        level, label = "gray", "最近の公開レポートを確認できず"
+    return {"level": level, "label": label, "latest_date": (latest or {}).get("date"), "age_days": (latest or {}).get("age_days")}
+
+@app.post("/api/water-reports")
+def water_reports():
+    payload = request.get_json(silent=True) or {}
+    mountain = str(payload.get("mountain") or "").strip()[:80]
+    raw_points = payload.get("points") or []
+    points: list[dict[str, Any]] = []
+    for row in raw_points[:24]:
+        try:
+            lat, lon = float(row.get("lat")), float(row.get("lon"))
+        except (TypeError, ValueError, AttributeError):
+            continue
+        if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+            continue
+        points.append({"name": str(row.get("name") or "通過地点")[:100], "lat": lat, "lon": lon})
+    if not mountain or len(points) < 2:
+        return jsonify(error="山と座標付き通過地点を2地点以上設定してください。"), 400
+    waters, osm_errors = _discover_water_sources(points)
+    search_errors: list[str] = []
+    if waters:
+        with ThreadPoolExecutor(max_workers=min(4, len(waters)), thread_name_prefix="traten-water") as ex:
+            futs = {ex.submit(_search_reports_for_water, mountain, w): w for w in waters}
+            for fut in as_completed(futs):
+                w = futs[fut]
+                try:
+                    reports, err = fut.result()
+                except Exception as exc:
+                    reports, err = [], str(exc)
+                w["reports"] = reports
+                if err: search_errors.append(f'{w["name"]}: {err}')
+                w["summary"] = _water_source_summary(w)
+                w["search_url"] = "https://www.bing.com/search?" + urllib.parse.urlencode({"q": _water_search_query(mountain, w), "setlang": "ja-JP"})
+    generic_query = f'"{mountain}" 水場 水量 枯れ 汲めた {(datetime.now(timezone.utc)+timedelta(hours=9)).year}'
+    generic_reports: list[dict[str, Any]] = []
+    generic_error = None
+    if not waters:
+        try:
+            generic_reports = _bing_rss_search(generic_query)[:WATER_REPORT_MAX_RESULTS]
+        except Exception as exc:
+            generic_error = str(exc)
+            search_errors.append(f"route: {exc}")
+    return jsonify({
+        "ok": True, "mountain": mountain,
+        "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "water_sources": waters, "generic_reports": generic_reports,
+        "generic_search_url": "https://www.bing.com/search?" + urllib.parse.urlencode({"q": generic_query, "setlang": "ja-JP"}),
+        "notes": [
+            "水場位置はOpenStreetMap/Overpassの公開データから、入力した通過地点を直線で結ぶ概略ルート周辺を検索しています。",
+            "最近の状況は検索結果に公開されているタイトル・抜粋・日付だけを整理し、元ページ本文は取得・転載していません。",
+            "湧水は飲用可否が未確認の場合があります。現地掲示・山小屋・自治体等の最新情報を優先してください。",
+        ],
+        "partial": bool(osm_errors or search_errors),
+        "diagnostics": {"osm_errors": osm_errors[-2:], "search_errors": search_errors[-4:], "generic_error": generic_error},
+    })
+
+
+
+# V1.4.220: route live / road camera discovery.
+CAMERA_MAX_RESULTS = int(os.environ.get("CAMERA_MAX_RESULTS", "12"))
+CAMERA_POINT_LIMIT = int(os.environ.get("CAMERA_POINT_LIMIT", "7"))
+
+def _camera_search_query(mountain: str, point_name: str) -> str:
+    # One compact query per route point. Results are filtered again below.
+    return f'"{point_name}" (ライブカメラ OR 道路カメラ OR 定点カメラ OR ライブ映像)'
+
+def _camera_type(text: str) -> str:
+    t = text.lower()
+    if any(k in t for k in ("道路", "国道", "県道", "林道", "峠", "路面", "road")):
+        return "road"
+    if any(k in t for k in ("山小屋", "山荘", "ヒュッテ", "ロッジ", "小屋")):
+        return "hut"
+    if any(k in t for k in ("ロープウェイ", "観光", "スキー", "ビジターセンター")):
+        return "tourism"
+    if any(k in t for k in ("気象", "山岳", "積雪", "天候")):
+        return "weather"
+    return "other"
+
+def _camera_official(host: str, text: str) -> bool:
+    h = (host or "").lower()
+    t = text.lower()
+    if h.endswith(".go.jp") or h.endswith(".lg.jp"):
+        return True
+    if any(k in h for k in ("mlit.go.jp", "pref.", "city.", "town.", "vill.")):
+        return True
+    if any(k in t for k in ("国土交通省", "道路情報", "県公式", "市公式", "町公式", "村公式", "観光協会", "山荘", "山小屋")):
+        return True
+    return False
+
+def _camera_useful(row: dict[str, Any]) -> bool:
+    text = f'{row.get("title", "")} {row.get("snippet", "")}'
+    return any(k in text for k in ("ライブカメラ", "道路カメラ", "監視カメラ", "カメラ画像", "路面状況", "道路情報カメラ", "定点カメラ", "webカメラ", "webcam", "ライブ映像"))
+
+def _route_camera_points(points: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if len(points) <= CAMERA_POINT_LIMIT:
+        return points
+    idxs = {0, len(points)-1}
+    for i in range(1, CAMERA_POINT_LIMIT-1):
+        idxs.add(round(i*(len(points)-1)/(CAMERA_POINT_LIMIT-1)))
+    return [points[i] for i in sorted(idxs)[:CAMERA_POINT_LIMIT]]
+
+def _search_cameras_for_point(mountain: str, point: dict[str, Any]) -> tuple[list[dict[str, Any]], str | None]:
+    query = _camera_search_query(mountain, point["name"])
+    try:
+        rows = _bing_rss_search(query)
+    except Exception as exc:
+        return [], str(exc)
+    out = []
+    search_url = "https://www.bing.com/search?" + urllib.parse.urlencode({"q": query, "setlang": "ja-JP"})
+    for row in rows:
+        if not _camera_useful(row):
+            continue
+        text = f'{row.get("title", "")} {row.get("snippet", "")}'
+        item = dict(row)
+        item["near_point"] = point["name"]
+        item["type"] = _camera_type(text)
+        item["official"] = _camera_official(row.get("host", ""), text)
+        item["search_url"] = search_url
+        out.append(item)
+    return out, None
+
+@app.post("/api/route-cameras")
+def route_cameras():
+    payload = request.get_json(silent=True) or {}
+    mountain = str(payload.get("mountain") or "").strip()[:80]
+    raw_points = payload.get("points") or []
+    points: list[dict[str, Any]] = []
+    for row in raw_points[:24]:
+        try:
+            lat, lon = float(row.get("lat")), float(row.get("lon"))
+        except (TypeError, ValueError, AttributeError):
+            continue
+        if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+            continue
+        name = str(row.get("name") or "通過地点").strip()[:100]
+        points.append({"name": name, "lat": lat, "lon": lon})
+    if not mountain or len(points) < 2:
+        return jsonify(error="山と座標付き通過地点を2地点以上設定してください。"), 400
+
+    selected = _route_camera_points(points)
+    found: list[dict[str, Any]] = []
+    errors: list[str] = []
+    with ThreadPoolExecutor(max_workers=min(6, len(selected)), thread_name_prefix="traten-camera") as ex:
+        futs = {ex.submit(_search_cameras_for_point, mountain, pt): pt for pt in selected}
+        for fut in as_completed(futs):
+            pt = futs[fut]
+            try:
+                rows, err = fut.result()
+            except Exception as exc:
+                rows, err = [], str(exc)
+            found.extend(rows)
+            if err:
+                errors.append(f'{pt["name"]}: {err}')
+
+    # Deduplicate by destination URL, while preferring official/public-authority candidates.
+    dedup: dict[str, dict[str, Any]] = {}
+    for row in found:
+        url = row.get("url") or ""
+        if not url:
+            continue
+        old = dedup.get(url)
+        if old is None or (row.get("official") and not old.get("official")):
+            dedup[url] = row
+    cameras = list(dedup.values())
+    type_rank = {"road": 0, "hut": 1, "weather": 2, "tourism": 3, "other": 4}
+    cameras.sort(key=lambda x: (0 if x.get("official") else 1, type_rank.get(x.get("type"), 9), x.get("near_point", "")))
+    cameras = cameras[:CAMERA_MAX_RESULTS]
+
+    search_links = []
+    for pt in selected[:6]:
+        q = f'"{pt["name"]}" (ライブカメラ OR 道路カメラ OR 定点カメラ)'
+        search_links.append({"label": f'{pt["name"]}のカメラを検索', "url": "https://www.bing.com/search?" + urllib.parse.urlencode({"q": q, "setlang": "ja-JP"})})
+
+    return jsonify({
+        "ok": True, "mountain": mountain,
+        "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "cameras": cameras, "search_links": search_links,
+        "notes": [
+            "通過地点名と山名から、ライブカメラ・道路カメラ・林道・山小屋等の公開ページを検索しています。",
+            "カメラ画像や映像自体はトラテンに転載せず、提供元の公開ページへのリンクだけを表示します。",
+            "検索結果は候補表示です。撮影地点・撮影方向・更新日時・冬季停止等はリンク先の提供元情報を確認してください。",
+        ],
+        "partial": bool(errors),
+        "diagnostics": {"search_errors": errors[-5:], "searched_points": [p["name"] for p in selected]},
+    })
 
 @app.get("/usage-dashboard")
 def usage_dashboard():

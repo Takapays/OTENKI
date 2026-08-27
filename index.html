@@ -71,19 +71,19 @@
     ]
   }
   </script>
-    <link rel="stylesheet" href="styles.css?v=1.4.216">
-  <link rel="stylesheet" href="access.css?v=1.4.216">
+    <link rel="stylesheet" href="styles.css?v=1.4.220">
+  <link rel="stylesheet" href="access.css?v=1.4.220">
 </head>
 <body>
 <header class="app-topbar">
   <div class="topbar-inner">
     <div class="brand-lockup">
-      <picture><source srcset="traten-logo.webp?v=1.4.216" type="image/webp"><img src="traten-logo.png?v=1.4.60" alt="トラテン｜トラバース天気" decoding="async"></picture>
+      <picture><source srcset="traten-logo.webp?v=1.4.220" type="image/webp"><img src="traten-logo.png?v=1.4.60" alt="トラテン｜トラバース天気" decoding="async"></picture>
     </div>
     <div class="topbar-center">
       <h1>その時、その場所の空を読む。</h1>
       <div class="topbar-badges">
-        <span>V1.4.216</span>
+        <span>V1.4.220</span>
         <span>日本三百名山 網羅</span>
         <span>5系統アラート</span>
         <span>全国一括簡易判定</span>
@@ -91,12 +91,16 @@
       </div>
     </div>
     <div class="mobile-topbar-copy">その時、その場所の空を読む。</div>
-    <span class="mobile-topbar-version">V1.4.216</span>
+    <span class="mobile-topbar-version">V1.4.220</span>
     <div class="mobile-topbar-badges" aria-label="トラテン機能"><span>日本三百名山 網羅</span><span>5系統アラート</span><span>全国一括簡易判定</span><span>登山口アクセス情報</span></div>
-    <a class="topbar-guide-link" href="guide.html" aria-label="トラテンの使い方を見る">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 5.5h6.5a3 3 0 0 1 3 3v10a3.6 3.6 0 0 0-3-2H4.5z"/><path d="M19.5 5.5H13a3 3 0 0 0-3 3"/><path d="M13.5 5.5h6v11H13a3.6 3.6 0 0 0-3 2"/></svg>
-      <span>使い方</span>
-    </a>
+    <nav class="topbar-nav" aria-label="トラテン主要メニュー">
+      <a class="topbar-nav-link portal" href="#nationalOutlook" aria-label="登山ポータルへ移動"><span>登山ポータル</span></a>
+      <a class="topbar-nav-link custom" href="#routePlanner" aria-label="天気の自由設計へ移動"><span>天気の自由設計</span></a>
+      <a class="topbar-guide-link" href="guide.html" aria-label="トラテンの使い方を見る">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 5.5h6.5a3 3 0 0 1 3 3v10a3.6 3.6 0 0 0-3-2H4.5z"/><path d="M19.5 5.5H13a3 3 0 0 0-3 3"/><path d="M13.5 5.5h6v11H13a3.6 3.6 0 0 0-3 2"/></svg>
+        <span>使い方</span>
+      </a>
+    </nav>
     <button id="installAppBtn" class="mobile-install-app hidden" type="button" aria-label="トラテンをホーム画面に追加">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0-11-4 4m4-4 4 4"/><path d="M5 11v8h14v-8"/></svg>
       <span>ホーム画面に追加</span>
@@ -138,7 +142,7 @@
   </section>
 
   <aside class="planner-rail">
-    <section class="panel plan-panel">
+    <section class="panel plan-panel" id="routePlanner">
       <div class="panel-kicker">ROUTE PLAN</div>
       <section id="lastAnalysisPanel" class="last-analysis-panel hidden" aria-label="前回の山行">
         <div class="last-analysis-copy"><strong>前回の山行</strong><small id="lastAnalysisMeta"></small></div>
@@ -199,6 +203,8 @@
       <div class="actions route-actions">
         <button id="addPointBtn" class="secondary route-add-below-analysis" type="button">＋ 地点を追加</button>
         <button id="saveRouteBtn" class="secondary saved-route-save route-save-primary-position" type="button">このルートを保存</button>
+        <button id="waterReportBtn" class="secondary water-report-btn" type="button"><span aria-hidden="true">💧</span><span>水場情報</span></button>
+        <button id="routeCameraBtn" class="secondary route-camera-btn" type="button"><span aria-hidden="true">📹</span><span>ライブカメラ</span></button>
         <button id="analyzeBtn" class="primary" type="button"><span>この計画を分析開始</span><b>→</b></button>
         <div id="resultScreenshotToolbarDesktop" class="result-screenshot-toolbar result-screenshot-toolbar-desktop hidden" aria-label="分析結果の保存">
           <button id="resultScreenshotBtnDesktop" class="secondary result-screenshot-btn" type="button">
@@ -349,6 +355,32 @@
   </section>
 </div>
 
+
+<div id="waterReportModal" class="water-report-modal hidden" aria-hidden="true">
+  <div class="water-report-backdrop" data-water-report-close="1"></div>
+  <section class="water-report-dialog" role="dialog" aria-modal="true" aria-labelledby="waterReportTitle">
+    <div class="water-report-head">
+      <div><span>WATER REPORT</span><h3 id="waterReportTitle">ルート上の水場情報</h3><p id="waterReportSubtitle">選択ルート周辺の水場と最近の公開レポートを確認します。</p></div>
+      <button id="waterReportClose" class="water-report-close" type="button" aria-label="閉じる">×</button>
+    </div>
+    <div id="waterReportBody" class="water-report-body"><div class="water-report-empty">ルートを設定して「水場情報」を押してください。</div></div>
+    <div class="water-report-foot"><small>水場の存在・水量・飲用可否は季節や天候で変わります。現地の最新情報を優先してください。</small></div>
+  </section>
+</div>
+
+
+<div id="routeCameraModal" class="route-camera-modal hidden" aria-hidden="true">
+  <div class="route-camera-backdrop" data-route-camera-close="1"></div>
+  <section class="route-camera-dialog" role="dialog" aria-modal="true" aria-labelledby="routeCameraTitle">
+    <div class="route-camera-head">
+      <div><span>LIVE CAMERA</span><h3 id="routeCameraTitle">ルート上のライブカメラ</h3><p id="routeCameraSubtitle">林道・道路・山小屋・観光施設などの公開カメラを探します。</p></div>
+      <button id="routeCameraClose" class="route-camera-close" type="button" aria-label="閉じる">×</button>
+    </div>
+    <div id="routeCameraBody" class="route-camera-body"><div class="route-camera-empty">ルートを設定して「ライブカメラ」を押してください。</div></div>
+    <div class="route-camera-foot"><small>映像の公開状況・更新頻度・撮影方向は各提供元で確認してください。トラテンはカメラ画像を転載せず、公開ページへの導線を表示します。</small></div>
+  </section>
+</div>
+
 <div id="installGuide" class="install-guide hidden" role="dialog" aria-modal="true" aria-labelledby="installGuideTitle">
   <div class="install-guide-backdrop" data-install-close="1"></div>
   <section class="install-guide-card">
@@ -386,8 +418,8 @@
     </a>
   </div>
 </footer>
-<script src="app.js?v=1.4.216" defer></script>
-  <script src="access-data.js?v=1.4.216" defer></script>
-  <script src="access.js?v=1.4.216" defer></script>
+<script src="app.js?v=1.4.220" defer></script>
+  <script src="access-data.js?v=1.4.220" defer></script>
+  <script src="access.js?v=1.4.220" defer></script>
 </body>
 </html>

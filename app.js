@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.216';
+const APP_VERSION = '1.4.220';
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
@@ -2312,6 +2312,52 @@ const JAPAN_300_MOUNTAINS = [
   "開聞岳",
   "宮ノ浦岳"
 ];
+
+// V1.4.218: 山の情報ページ用の読み。日本三百名山は公開一覧の「山名・よみ」順に対応させ、
+// 山名キー自体は変更しない（代表コース・CT・全国判定など既存処理への影響を避ける）。
+const JAPAN_300_MOUNTAIN_READINGS = [
+  'りしりざん','らうすだけ','しゃりだけ','おあかんだけ','てしおだけ','にせいかうしゅっぺやま','だいせつざん（あさひだけ）','いしかりだけ','とむらうしやま','おぷたてしけやま',
+  'とかちだけ','にぺそつやま','ぽろしりだけ','かむいえくうちかうしやま','ぺてがりだけ','かむいだけ','あしべつだけ','ゆうばりだけ','しょかんべつだけ','よいちだけ',
+  'たるまえさん','しりべしやま','にせこあんぬぷり','かりばやま','おしまこまがたけ','だいせんげんだけ','はっこうださん','いわきさん','しらかみだけ','はちまんたい',
+  'にゅうとうざん（えぼしだけ）','あきたこまがたけ','いわてさん','ひめかみやま','はやちねさん','ごようざん','わがだけ','やけいしだけ','くりこまやま','かむろさん',
+  'もりよしざん','たいへいざん','ちょうかいさん','がっさん','まやさん','いとうだけ','おおあさひだけ','いわいがめやま','ふながたやま','いずみがたけ',
+  'ざおうざん（くまのだけ）','いいでさん','にしあづまさん','いっさいきょうざん','あだたらやま','ばんだいさん','ふたまたやま','ななつがたけ','あらかいさん','たいしゃくざん',
+  'あいづこまがたけ','あいづあさひだけ','ひうちがたけ','おおたきねやま','えぶりさしだけ','にのうじだけ','あわがたけ','みかぐらだけ','すもんだけ','あさくさだけ',
+  'ひらがたけ','えちごこまがたけ','なかのだけ','はっかいさん','なえばさん','さぶりゅうやま','とりかぶとやま','きんぽくさん','よねやま','やみぞさん',
+  'つくばさん','さんぼんやりだけ','おじかだけ','けいつるやま','しぶつさん','しゃかがたけ','にょほうさん','なんたいさん','たろうさん','おくしらねさん',
+  'すかいさん','けさまるやま','ほたかやま','あかぎさん（くろびやま）','くさつしらねさん','あさまかくしやま','はるなさん（はるなふじ）','みょうぎさん（そうまだけ）','あらふねやま','すわやま',
+  'まきはたやま','あさひだけ','たにがわだけ','せんのくらやま','しらすなやま','よこてやま','いわすげやま','かさがたけ','あずまやさん','あさまやま',
+  'おぐらやま','たてしなやま','てんぐだけ','やつがたけ（あかだけ）','にゅうかさやま','きりがみね（くるまやま）','はちぶせやま','うつくしがはら','いいづなやま','とがくしやま',
+  'たかつまやま','くろひめやま','まだらおやま','みょうこうさん','ひうちやま','やけやま','あまかざりやま','おうみくろひめやま','あさひだけ','ゆきくらだけ',
+  'しろうまだけ','からまつだけ','ごりゅうだけ','かしまやりがたけ','じいがたけ','はりのきだけ','れんげだけ','けかちやま','つるぎだけ','たてやま',
+  'おくだいにちだけ','くわさきやま','やくしだけ','くろべごろうだけ','えぼしだけ','のぐちごろうだけ','すいしょうだけ（くろだけ）','わしばだけ','みつまたれんげだけ','あかうしだけ',
+  'かさがたけ','がきだけ','つばくろだけ','ありあけやま','おてんしょうだけ','じょうねんだけ','やりがたけ','おくほたかだけ','やけだけ','かすみざわだけ',
+  'はちもりやま','のりくらだけ','おんたけ','こひでやま','おくさんかいだけ','きょうがたけ','きそこまがたけ','うつぎだけ','みなみこまがたけ','こすもやま',
+  'あんぺいじやま','なぎそだけ','えなさん','ぶこうさん','りょうかみさん','くもとりやま','わなぐらやま（しろいしやま）','こぶしがたけ','こくしがたけ','きんぷさん',
+  'みずがきやま','かやがたけ','けんとくさん','だいぼさつれい','おおだけさん','みとうさん','おおやま','とうのたけ','きんときやま','はこねやま',
+  'あまぎさん（ばんさぶろうだけ）','あしたかやま（えちぜんだけ）','けなしやま','しちめんざん','やんぶし','くしがたやま','みしょうたいさん','みつとうげやま','くろだけ','ふじさん',
+  'かいこまがたけ','のこぎりだけ','せんじょうがたけ','あさよみね','じぞうがたけ','きただけ','あいのたけ','のうとりだけ','しおみだけ','あらかわだけ',
+  'あかいしだけ','ひじりだけ','かみこうちだけ','ちゃうすだけ','てかりだけ','いけぐちだけ','おくちゃうすやま','だいむげんざん','くろぼうしだけ','ざるがたけ',
+  'たかつかやま','くまぶしやま','しらきみね','こんごうどうざん','にんぎょうざん','いおうぜん','だいもんざん','おおがさやま','おいずるがだけ','さんぽういわだけ',
+  'さるがばんばやま','はくさん','きょうがだけ','のぶせがだけ','だいにちがたけ','わしがたけ','くらいやま','かおれだけ','あらしまだけ','のうごうはくさん',
+  'かんむりやま','いぶきやま','ふじわらだけ','ございしょだけ','くろそやま','みうねやま','たかみやま','ひのでがたけ','りゅうもんがだけ','さんじょうがたけ',
+  'はっきょうがたけ','しゃかがだけ','おばこだけ','ごまだんざん','やまとかつらぎさん','こんごうざん','ぶながたけ','ほうらいさん','ひえいざん','あたごやま',
+  'ろっこうさん','おおぎのせん','ひょうのせん','なぎさん','だいせん','かみひるぜん','どうごやま','あづまやま','さんべさん','つるぎさん',
+  'みうね','ひがしあかいしやま','ささがみね','いよふじ','かめがもり','いしづちさん','さんぼんぐい','ささやま','ひこさん','せふりやま',
+  'たらだけ','うんぜんだけ（ふげんだけ）','つるみだけ','ゆふだけ','たいせんざん','くじゅうさん','わいたざん','あそさん（たかだけ）','そぼさん','かたむきやま',
+  'おおくえやま','くにみだけ','いちふさやま','おすずやま','きりしまやま（からくにだけ）','たかちほのみね','さくらじま（おんたけ）','たかくまやま','かいもんだけ','みやのうらだけ'
+];
+const EXTRA_MOUNTAIN_READINGS = Object.freeze({
+  '蝶ヶ岳':'ちょうがたけ','西穂高岳':'にしほたかだけ','南岳':'みなみだけ','北穂高岳':'きたほたかだけ','前穂高岳':'まえほたかだけ',
+  '赤岳':'あかだけ','横岳（八ヶ岳）':'よこだけ（やつがたけ）','硫黄岳（八ヶ岳）':'いおうだけ（やつがたけ）','阿弥陀岳':'あみだだけ','権現岳':'ごんげんだけ','編笠山':'あみがさやま','北横岳':'きたよこだけ',
+  '薬師岳(鳳凰)':'やくしだけ（ほうおう）','観音岳(鳳凰)':'かんのんだけ（ほうおう）','地蔵岳(鳳凰)':'じぞうだけ（ほうおう）','御嶽山':'おんたけさん',
+  '宮之浦岳':'みやのうらだけ','大山':'だいせん','中岳(くじゅう)':'なかだけ（くじゅう）','三俣山':'みまたやま','星生山':'ほっしょうざん'
+});
+function nationalMountainReading(name){
+  if(EXTRA_MOUNTAIN_READINGS[name])return EXTRA_MOUNTAIN_READINGS[name];
+  const i=JAPAN_300_MOUNTAINS.indexOf(name);
+  return i>=0?(JAPAN_300_MOUNTAIN_READINGS[i]||''):'';
+}
 
 // V1.4.154: 全国分析の山紹介ページに、日本百名山・二百名山・三百名山の称号バッジを表示。
 // 日本二百名山は「日本百名山100座 + 追加100座」のうち、全国三百名山に含まれる追加99座を保持する。
@@ -5303,6 +5349,7 @@ function showNationalOutlookDetail(p,result){
   const gradeClass=grade==='?'?'u':grade.toLowerCase();
   const elevation=Number.isFinite(Number(p.elevation))?`${Math.round(Number(p.elevation)).toLocaleString()} m`:'標高情報なし';
   const area=nationalAreaLabel(p.name);
+  const reading=nationalMountainReading(p.name);
   const confidence=nationalOutlookConfidence(result);
   const course=nationalRepresentativeSummary(p.name);
   const guideHtml=nationalMountainGuideHtml(p.name,area,elevation);
@@ -5326,7 +5373,7 @@ function showNationalOutlookDetail(p,result){
     <button type="button" class="national-detail-close" aria-label="詳細を閉じる">×</button>
     <div class="national-rich-hero${photo?' has-photo':''}"${heroStyle}>
       <div class="national-rich-hero-overlay"></div>
-      <div class="national-rich-hero-copy"><span class="national-rich-area">${esc(area)}</span><div class="national-rich-title-row"><h3>${esc(p.name)}</h3>${nationalMountainHonorHtml(p.name)}</div><p>${esc(elevation)}</p></div>
+      <div class="national-rich-hero-copy"><span class="national-rich-area">${esc(area)}</span><div class="national-rich-title-row"><h3>${esc(p.name)}</h3>${nationalMountainHonorHtml(p.name)}</div>${reading?`<div class="national-rich-reading">${esc(reading)}</div>`:''}<p>${esc(elevation)}</p></div>
       <div class="national-rich-grade grade-${gradeClass}"><b>${grade}</b><span>${nationalGradeLabel(grade)}</span></div>
       ${photoCredit}
     </div>
@@ -5718,6 +5765,126 @@ async function captureAnalysisResultsScreenshot(sourceBtn=null,sourceStatus=null
   }
 }
 
+
+
+// V1.4.220: route live / road camera discovery panel.
+function cameraTypeLabel(type){
+  return ({road:'道路・林道',hut:'山小屋',tourism:'観光・施設',weather:'気象・山岳',other:'公開カメラ'})[type]||'公開カメラ';
+}
+function openRouteCameraModal(){const m=$('routeCameraModal');if(!m)return;m.classList.remove('hidden');m.setAttribute('aria-hidden','false');document.body.classList.add('route-camera-open');}
+function closeRouteCameraModal(){const m=$('routeCameraModal');if(!m)return;m.classList.add('hidden');m.setAttribute('aria-hidden','true');document.body.classList.remove('route-camera-open');}
+function renderRouteCameraLoading(){const b=$('routeCameraBody'),sub=$('routeCameraSubtitle');if(sub)sub.textContent='林道・道路・山小屋・観光施設などの公開カメラを確認しています。';if(b)b.innerHTML='<div class="route-camera-loading"><span aria-hidden="true">📹</span><strong>ルート周辺のカメラを探しています</strong><small>各通過地点名と山名を使って、公開カメラページを検索します。</small></div>';}
+function routeCameraCard(row){
+  const official=row.official?'<span class="camera-official">公的・公式候補</span>':'<span class="camera-public">公開ページ</span>';
+  const point=row.near_point?`<small>関連地点：${esc(row.near_point)}</small>`:'';
+  const snippet=row.snippet?`<p>${esc(row.snippet)}</p>`:'';
+  return `<article class="route-camera-card"><div class="route-camera-card-head"><div><span class="camera-kind">${esc(cameraTypeLabel(row.type))}</span><h4>${esc(row.title||'ライブカメラ')}</h4>${point}</div>${official}</div>${snippet}<div class="route-camera-meta"><span>${esc(row.host||'提供元')}</span>${row.date?`<time>${esc(row.date)}</time>`:''}</div><div class="route-camera-actions"><a href="${esc(row.url)}" target="_blank" rel="noopener noreferrer">カメラページを開く ↗</a>${row.search_url?`<a class="sub" href="${esc(row.search_url)}" target="_blank" rel="noopener noreferrer">周辺を追加検索 ↗</a>`:''}</div></article>`;
+}
+function renderRouteCameraResults(data){
+  const b=$('routeCameraBody'),sub=$('routeCameraSubtitle');if(!b)return;
+  const rows=Array.isArray(data?.cameras)?data.cameras:[];
+  if(sub)sub.textContent=`${data?.mountain||currentMountainLabel()} / カメラ候補 ${rows.length}件`;
+  if(rows.length){
+    b.innerHTML=`<div class="route-camera-summary"><strong>${rows.length}</strong><span>件の公開カメラ候補</span><p>ルートの通過地点名を基準に、道路・林道・山小屋・観光施設などの公開ページを優先表示します。</p></div><div class="route-camera-grid">${rows.map(routeCameraCard).join('')}</div><details class="route-camera-notes"><summary>この情報の見方・注意点</summary><ul>${(data?.notes||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul></details>`;
+  }else{
+    const links=Array.isArray(data?.search_links)?data.search_links:[];
+    b.innerHTML=`<div class="route-camera-empty-state"><div>📹</div><h4>公開カメラ候補を確認できませんでした</h4><p>カメラがないとは限りません。地点別の追加検索を利用してください。</p></div><div class="route-camera-search-links">${links.map(x=>`<a href="${esc(x.url)}" target="_blank" rel="noopener noreferrer">${esc(x.label)} ↗</a>`).join('')}</div>`;
+  }
+}
+async function loadRouteCameras(){
+  const points=getRoutePointsForWaterReport();
+  if(points.length<2){setStatus('ライブカメラを見るには、座標付きの通過地点を2地点以上設定してください。',true);return;}
+  const mountain=currentMountainLabel();openRouteCameraModal();renderRouteCameraLoading();
+  const btn=$('routeCameraBtn'),old=btn?.innerHTML;if(btn){btn.disabled=true;btn.innerHTML='<span aria-hidden="true">📹</span><span>確認中…</span>';}
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),24000);
+  try{
+    const res=await fetch('/api/route-cameras',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mountain,points:points.map(p=>({name:p.name,lat:p.lat,lon:p.lon}))}),signal:controller.signal});
+    const data=await res.json().catch(()=>({}));if(!res.ok)throw new Error(data?.error||`HTTP ${res.status}`);
+    renderRouteCameraResults(data);logEvent('route_camera',{success:true,mountain,metadata:{route_points:points.length,cameras:data?.cameras?.length||0,partial:!!data?.partial}});
+  }catch(e){
+    const msg=e?.name==='AbortError'?'取得に時間がかかっています。時間をおいて再度お試しください。':(e?.message||String(e));
+    const b=$('routeCameraBody');if(b)b.innerHTML=`<div class="route-camera-error"><strong>ライブカメラ情報を取得できませんでした</strong><p>${esc(msg)}</p><small>ルート設定や天気分析には影響ありません。</small></div>`;
+    logEvent('route_camera',{success:false,mountain,error_message:msg});
+  }finally{clearTimeout(timer);if(btn){btn.disabled=false;btn.innerHTML=old||'<span aria-hidden="true">📹</span><span>ライブカメラ</span>';}}
+}
+
+// V1.4.219: route water-source report panel.
+// The backend discovers mapped water sources around the selected route and returns only
+// public search-result metadata/snippets for recent reports; source article bodies are not copied.
+function waterReportDateLabel(date){
+  if(!date)return '日付不明';
+  const m=String(date).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m?`${Number(m[1])}/${Number(m[2])}/${Number(m[3])}`:String(date);
+}
+function waterPotabilityLabel(value){
+  if(value==='confirmed')return '<span class="water-potability confirmed">飲用可登録</span>';
+  if(value==='not_drinking')return '<span class="water-potability danger">飲用不可登録</span>';
+  return '<span class="water-potability unknown">飲用可否未確認</span>';
+}
+function waterSignalBadge(signal,label){
+  const tone={good:'good',caution:'caution',bad:'bad',unknown:'unknown'}[signal]||'unknown';
+  return `<span class="water-signal ${tone}">${esc(label||'状態不明')}</span>`;
+}
+function openWaterReportModal(){
+  const modal=$('waterReportModal');if(!modal)return;
+  modal.classList.remove('hidden');modal.setAttribute('aria-hidden','false');document.body.classList.add('water-report-open');
+}
+function closeWaterReportModal(){
+  const modal=$('waterReportModal');if(!modal)return;
+  modal.classList.add('hidden');modal.setAttribute('aria-hidden','true');document.body.classList.remove('water-report-open');
+}
+function renderWaterReportLoading(mountain,pointCount){
+  const body=$('waterReportBody'),sub=$('waterReportSubtitle');
+  if(sub)sub.textContent=`${mountain} / ${pointCount}地点の概略ルート周辺を確認中`;
+  if(body)body.innerHTML='<div class="water-report-loading"><span class="water-drop-loader" aria-hidden="true">💧</span><strong>水場と最近のレポートを探しています</strong><small>水場位置 → 最近の公開レポートの順に確認します。</small></div>';
+}
+function waterReportCard(w){
+  const reports=Array.isArray(w.reports)?w.reports:[];
+  const summary=w.summary||{level:'gray',label:'最近の公開レポートを確認できず'};
+  const latest=summary.latest_date?`最新 ${waterReportDateLabel(summary.latest_date)}${Number.isFinite(summary.age_days)?`（${summary.age_days}日前）`:''}`:'日付付きレポートなし';
+  const meta=[w.kind,`${w.near_point||'通過地点'}から約${Math.max(0,Math.round((Number(w.distance_m)||0)/10)*10)}m`].filter(Boolean).join(' / ');
+  const reportHtml=reports.length?reports.map(r=>`<a class="water-report-item" href="${esc(r.url)}" target="_blank" rel="noopener noreferrer"><div class="water-report-item-top"><time>${esc(waterReportDateLabel(r.date))}</time>${waterSignalBadge(r.signal,r.signal_label)}<span>${esc(r.host||'出典')}</span></div><strong>${esc(r.title||'公開レポート')}</strong>${r.snippet?`<p>${esc(r.snippet)}</p>`:''}<em>元ページを開く ↗</em></a>`).join(''):`<div class="water-report-nohit"><b>最近の公開レポートを確認できませんでした</b><small>情報がない＝水がない、ではありません。現地情報を確認してください。</small></div>`;
+  const details=w.tags?.description?`<p class="water-osm-description">${esc(w.tags.description)}</p>`:'';
+  return `<article class="water-source-card tone-${esc(summary.level||'gray')}"><div class="water-source-head"><div><span class="water-source-kind">${esc(w.kind||'水場')}</span><h4>${esc(w.name||'水場')}</h4><small>${esc(meta)}</small></div><div class="water-source-status"><b>${esc(summary.label||'状態不明')}</b><small>${esc(latest)}</small></div></div><div class="water-source-tags">${waterPotabilityLabel(w.potability)}<span>OSM位置情報</span></div>${details}<div class="water-report-list">${reportHtml}</div><div class="water-source-actions"><a href="https://www.openstreetmap.org/?mlat=${encodeURIComponent(w.lat)}&mlon=${encodeURIComponent(w.lon)}#map=17/${encodeURIComponent(w.lat)}/${encodeURIComponent(w.lon)}" target="_blank" rel="noopener noreferrer">地図で確認 ↗</a><a href="${esc(w.search_url||'#')}" target="_blank" rel="noopener noreferrer">追加検索 ↗</a></div></article>`;
+}
+function renderWaterReportResult(data){
+  const body=$('waterReportBody'),sub=$('waterReportSubtitle');if(!body)return;
+  const waters=Array.isArray(data?.water_sources)?data.water_sources:[];
+  if(sub)sub.textContent=`${data?.mountain||currentMountainLabel()} / 水場候補 ${waters.length}件`;
+  const notes=(data?.notes||[]).map(n=>`<li>${esc(n)}</li>`).join('');
+  let content='';
+  if(waters.length){
+    content=`<div class="water-report-summary"><div><strong>${waters.length}</strong><span>水場候補</span></div><p>ルートの通過地点を結ぶ概略線の周辺から検出。カード上部ほどルート地点に近い候補です。</p></div><div class="water-source-grid">${waters.map(waterReportCard).join('')}</div>`;
+  }else{
+    const generic=Array.isArray(data?.generic_reports)?data.generic_reports:[];
+    const genericHtml=generic.length?generic.map(r=>`<a class="water-report-item" href="${esc(r.url)}" target="_blank" rel="noopener noreferrer"><div class="water-report-item-top"><time>${esc(waterReportDateLabel(r.date))}</time>${waterSignalBadge(r.signal,r.signal_label)}<span>${esc(r.host||'出典')}</span></div><strong>${esc(r.title||'公開情報')}</strong>${r.snippet?`<p>${esc(r.snippet)}</p>`:''}<em>元ページを開く ↗</em></a>`).join(''):'<div class="water-report-nohit"><b>ルート周辺にOSM登録済み水場を見つけられませんでした</b><small>未登録の水場はあり得ます。「追加検索」も併用してください。</small></div>';
+    content=`<div class="water-report-empty-state"><div class="water-empty-icon">💧</div><h4>固定位置として拾える水場がありません</h4><p>公開検索で見つかった関連情報だけを表示します。</p></div><div class="water-report-list generic">${genericHtml}</div><div class="water-generic-action"><a href="${esc(data?.generic_search_url||'#')}" target="_blank" rel="noopener noreferrer">${esc(data?.mountain||'この山')}の水場を追加検索 ↗</a></div>`;
+  }
+  body.innerHTML=`${content}<details class="water-report-notes"><summary>この情報の見方・注意点</summary><ul>${notes}</ul>${data?.partial?'<p>一部の外部取得に失敗したため、表示できた範囲だけを掲載しています。</p>':''}</details>`;
+}
+async function loadWaterReports(){
+  const mountain=currentMountainLabel();
+  const points=collectRouteMapPointsFromForm();
+  if(!mountain){setStatus('先に山を選択してください。',true);return;}
+  if(points.length<2){setStatus('水場情報を見るには、座標付きの通過地点を2地点以上設定してください。',true);return;}
+  openWaterReportModal();renderWaterReportLoading(mountain,points.length);
+  const btn=$('waterReportBtn');const old=btn?.innerHTML;if(btn){btn.disabled=true;btn.innerHTML='<span aria-hidden="true">💧</span><span>確認中…</span>';}
+  const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),45000);
+  try{
+    const res=await fetch('/api/water-reports',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mountain,points:points.map(p=>({name:p.name,lat:p.lat,lon:p.lon}))}),signal:controller.signal});
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok)throw new Error(data.error||`HTTP ${res.status}`);
+    renderWaterReportResult(data);
+    logEvent('water_report',{success:true,mountain,metadata:{route_points:points.length,water_sources:data?.water_sources?.length||0,partial:!!data?.partial}});
+  }catch(e){
+    const msg=e?.name==='AbortError'?'取得に時間がかかりすぎたため中断しました。':(e.message||String(e));
+    const body=$('waterReportBody');if(body)body.innerHTML=`<div class="water-report-error"><strong>水場情報を取得できませんでした</strong><p>${esc(msg)}</p><small>ルート設定は変更されていません。時間をおいてもう一度お試しください。</small></div>`;
+    logEvent('water_report',{success:false,mountain,error_message:msg});
+  }finally{
+    clearTimeout(timer);if(btn){btn.disabled=false;btn.innerHTML=old||'<span aria-hidden="true">💧</span><span>水場情報</span>';}
+  }
+}
+
 function init(){
   // V1.4.163: app.js is also loaded by the admin data-audit page.
   // Skip the main planner boot when its root controls do not exist.
@@ -5819,11 +5986,17 @@ function init(){
     catch(e){setStatus(`前回ルートを復元できませんでした：${e.message||e}`,true);}
   });
   $('saveRouteBtn')?.addEventListener('click',()=>openSavedRoutesModal(true));
+  $('waterReportBtn')?.addEventListener('click',loadWaterReports);
+  $('routeCameraBtn')?.addEventListener('click',loadRouteCameras);
+  $('routeCameraClose')?.addEventListener('click',closeRouteCameraModal);
+  document.querySelectorAll('[data-route-camera-close]').forEach(el=>el.addEventListener('click',closeRouteCameraModal));
+  $('waterReportClose')?.addEventListener('click',closeWaterReportModal);
+  document.querySelectorAll('[data-water-report-close]').forEach(el=>el.addEventListener('click',closeWaterReportModal));
   $('savedRoutesBtn')?.addEventListener('click',()=>openSavedRoutesModal(false));
   $('savedRouteCreateBtn')?.addEventListener('click',createFavoriteRoute);
   $('savedRoutesClose')?.addEventListener('click',closeSavedRoutesModal);
   document.querySelectorAll('[data-saved-routes-close]').forEach(el=>el.addEventListener('click',closeSavedRoutesModal));
-  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('savedRoutesModal')?.classList.contains('hidden'))closeSavedRoutesModal();});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('savedRoutesModal')?.classList.contains('hidden'))closeSavedRoutesModal();if(e.key==='Escape'&&!$('waterReportModal')?.classList.contains('hidden'))closeWaterReportModal();if(e.key==='Escape'&&!$('routeCameraModal')?.classList.contains('hidden'))closeRouteCameraModal();});
   refreshSavedRoutesCount();
 
   search.addEventListener('input',()=>{
