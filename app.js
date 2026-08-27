@@ -8112,6 +8112,24 @@ async function analyzePointsBatch(points,providerList=providers,statusLabel='気
     return {point,providerRows:rows,errors,...avg,grade:assessGrade(avg),confidence:(rows.length===1&&rows[0].provider?.kind==='fallback'?'FALLBACK':assessConfidence(rows.map(x=>x.row))),thunder:thunderLevel(avg),hazards:assessHazards(avg)};
   });
 }
+
+async function analyzePointsFirstAvailable(points,providerList,statusLabel='先行モデル'){
+  if(!providerList.length)throw new Error('利用可能な先行モデルがありません。');
+  setStatus(`${statusLabel}：${providerList.map(p=>p.name).join(' / ')} の先着データを取得中…`);
+  const wrapped=providerList.map(provider=>
+    analyzePointsBatch(points,[provider],provider.name)
+      .then(results=>({provider,results}))
+      .catch(error=>Promise.reject({provider,error}))
+  );
+  try{
+    return await Promise.any(wrapped);
+  }catch(aggregate){
+    const errs=Array.isArray(aggregate?.errors)?aggregate.errors:[];
+    const msg=errs.map(x=>`${x?.provider?.name||'モデル'}: ${x?.error?.message||'取得失敗'}`).join(' / ');
+    throw new Error(msg||'先行モデルの取得に失敗しました。');
+  }
+}
+
 function mergeAnalysisResults(baseResults,extraResults){
   return baseResults.map((base,index)=>{
     const extra=extraResults[index];
@@ -8147,15 +8165,18 @@ async function analyze(){
     await ensureElevations(points);
     const stayPoints=points.filter(p=>p.stay);
     const maxAhead=Math.max(...points.map(p=>daysAhead(p.date)));
-    // Fast first paint: JMA + ECMWF are fetched at the same time.
-    // For GFS-only horizons use the full eligible set so we still get a result.
-    const primaryProviders=maxAhead>15?providers:providers.filter(p=>p.id==='jma'||p.id==='ecmwf');
-    const secondaryProviders=providers.filter(p=>!primaryProviders.some(x=>x.id===p.id));
+    // V1.4.229: do not block the first result on both JMA and ECMWF.
+    // Start the preferred models together and paint as soon as the first
+    // complete provider returns. The remaining models continue afterward.
+    const preferredProviders=maxAhead>15?providers:providers.filter(p=>p.id==='jma'||p.id==='ecmwf');
     const overnightPromise=stayPoints.length
       ? analyzeOvernightsBatch(stayPoints).then(v=>({items:v,warning:''})).catch(e=>({items:[],warning:` / 宿泊詳細は取得できませんでした（${e?.message||'取得失敗'}）`}))
       : Promise.resolve({items:[],warning:''});
 
-    let latestResults=await analyzePointsBatch(points,primaryProviders,'先行モデル');
+    const firstState=await analyzePointsFirstAvailable(points,preferredProviders,'先行モデル');
+    let latestResults=firstState.results;
+    const primaryProviders=[firstState.provider];
+    const secondaryProviders=providers.filter(p=>p.id!==firstState.provider.id);
     if(runId!==activeAnalysisRun)return;
     let latestOvernight=[];
     const mountain=currentMountainLabel();
@@ -8170,7 +8191,7 @@ async function analyze(){
     requestAnimationFrame(()=>{if(runId===activeAnalysisRun)renderAll(latestResults,latestOvernight);});
     saveLastRouteSnapshot(mountain,points);
     points.forEach(p=>logEvent('route_point_used',{success:true,mountain,metadata:{point_name:p.name||'',point_type:p.type||'other',point_role:p.role||'',source:p.source||''}}));
-    logEvent('weather_analysis',{success:true,duration_ms:initialMs,mountain,route_points:points.length,stay_count:stayPoints.length,metadata:{provider_count:primaryProviders.length,provider_count_final:providers.length,manual_datetime:true,batch_weather:true,parallel_models:true,point_cache:true,progressive:true}});
+    logEvent('weather_analysis',{success:true,duration_ms:initialMs,mountain,route_points:points.length,stay_count:stayPoints.length,metadata:{provider_count:primaryProviders.length,provider_count_final:providers.length,manual_datetime:true,batch_weather:true,parallel_models:true,point_cache:true,progressive:true,first_provider:firstState.provider.id}});
 
     // Secondary models and overnight detail run independently after the first
     // decision is visible. Neither blocks the other.
