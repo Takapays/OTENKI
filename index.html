@@ -71,19 +71,19 @@
     ]
   }
   </script>
-    <link rel="stylesheet" href="styles.css?v=1.4.220">
-  <link rel="stylesheet" href="access.css?v=1.4.220">
+    <link rel="stylesheet" href="styles.css?v=1.4.228">
+  <link rel="stylesheet" href="access.css?v=1.4.228">
 </head>
 <body>
 <header class="app-topbar">
   <div class="topbar-inner">
     <div class="brand-lockup">
-      <picture><source srcset="traten-logo.webp?v=1.4.220" type="image/webp"><img src="traten-logo.png?v=1.4.60" alt="トラテン｜トラバース天気" decoding="async"></picture>
+      <picture><source srcset="traten-logo.webp?v=1.4.228" type="image/webp"><img src="traten-logo.png?v=1.4.60" alt="トラテン｜トラバース天気" decoding="async"></picture>
     </div>
     <div class="topbar-center">
       <h1>その時、その場所の空を読む。</h1>
       <div class="topbar-badges">
-        <span>V1.4.220</span>
+        <span>V1.4.228</span>
         <span>日本三百名山 網羅</span>
         <span>5系統アラート</span>
         <span>全国一括簡易判定</span>
@@ -91,11 +91,12 @@
       </div>
     </div>
     <div class="mobile-topbar-copy">その時、その場所の空を読む。</div>
-    <span class="mobile-topbar-version">V1.4.220</span>
+    <span class="mobile-topbar-version">V1.4.228</span>
     <div class="mobile-topbar-badges" aria-label="トラテン機能"><span>日本三百名山 網羅</span><span>5系統アラート</span><span>全国一括簡易判定</span><span>登山口アクセス情報</span></div>
     <nav class="topbar-nav" aria-label="トラテン主要メニュー">
       <a class="topbar-nav-link portal" href="#nationalOutlook" aria-label="登山ポータルへ移動"><span>登山ポータル</span></a>
       <a class="topbar-nav-link custom" href="#routePlanner" aria-label="天気の自由設計へ移動"><span>天気の自由設計</span></a>
+      <a class="topbar-nav-link camera" href="live-cameras.html" aria-label="ライブカメラ専用ページを開く"><span>ライブカメラ</span></a>
       <a class="topbar-guide-link" href="guide.html" aria-label="トラテンの使い方を見る">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 5.5h6.5a3 3 0 0 1 3 3v10a3.6 3.6 0 0 0-3-2H4.5z"/><path d="M19.5 5.5H13a3 3 0 0 0-3 3"/><path d="M13.5 5.5h6v11H13a3.6 3.6 0 0 0-3 2"/></svg>
         <span>使い方</span>
@@ -203,8 +204,8 @@
       <div class="actions route-actions">
         <button id="addPointBtn" class="secondary route-add-below-analysis" type="button">＋ 地点を追加</button>
         <button id="saveRouteBtn" class="secondary saved-route-save route-save-primary-position" type="button">このルートを保存</button>
-        <button id="waterReportBtn" class="secondary water-report-btn" type="button"><span aria-hidden="true">💧</span><span>水場情報</span></button>
-        <button id="routeCameraBtn" class="secondary route-camera-btn" type="button"><span aria-hidden="true">📹</span><span>ライブカメラ</span></button>
+        <button id="waterReportBtn" class="secondary water-report-btn hidden" type="button"><span aria-hidden="true">💧</span><span>水場情報</span></button>
+        <button id="routeCameraBtn" class="secondary route-camera-btn hidden" type="button"><span aria-hidden="true">📹</span><span>ライブカメラ</span></button>
         <button id="analyzeBtn" class="primary" type="button"><span>この計画を分析開始</span><b>→</b></button>
         <div id="resultScreenshotToolbarDesktop" class="result-screenshot-toolbar result-screenshot-toolbar-desktop hidden" aria-label="分析結果の保存">
           <button id="resultScreenshotBtnDesktop" class="secondary result-screenshot-btn" type="button">
@@ -418,8 +419,9 @@
     </a>
   </div>
 </footer>
-<script src="app.js?v=1.4.220" defer></script>
-  <script src="access-data.js?v=1.4.220" defer></script>
-  <script src="access.js?v=1.4.220" defer></script>
+<script src="camera-data.js?v=1.4.228" defer></script>
+<script src="app.js?v=1.4.228" defer></script>
+  <script src="access-data.js?v=1.4.228" defer></script>
+  <script src="access.js?v=1.4.228" defer></script>
 </body>
 </html>

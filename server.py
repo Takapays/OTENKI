@@ -32,7 +32,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.4.220"
+APP_VERSION = "1.4.227"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -59,6 +59,7 @@ INDEXNOW_HOST = "otenki.onrender.com"
 INDEXNOW_PUBLIC_URLS = [
     "https://otenki.onrender.com/",
     "https://otenki.onrender.com/guide.html",
+    "https://otenki.onrender.com/live-cameras.html",
 ]
 
 ALLOWED_EVENT_NAMES = {
@@ -159,7 +160,7 @@ _national_refresh_runtime: dict[str, Any] = {
 _national_refresh_worker_thread: threading.Thread | None = None
 _national_refresh_worker_lock_handle = None
 NATIONAL_OUTLOOK_CHUNK_SIZE = int(os.environ.get("NATIONAL_OUTLOOK_CHUNK_SIZE", "50"))
-NATIONAL_OUTLOOK_ENGINE = "metno-gfs-v1"
+NATIONAL_OUTLOOK_ENGINE = "metno-gfs-v2-stricter"
 NATIONAL_GFS_MIN_INTERVAL = float(os.environ.get("NATIONAL_GFS_MIN_INTERVAL", "0.35"))
 _national_gfs_lock = threading.Lock()
 _national_gfs_last_request = 0.0
@@ -874,12 +875,12 @@ def _bytes_response(status: int, ctype: str, body: bytes, *, cache_control: str 
 
 
 def _national_grade(max_wind: float, max_gust: float, max_rain: float, max_cape: float, min_temp: float, min_visibility: float | None, *, caution_hours: int = 0, severe_hours: int = 0, extreme_hours: int = 0):
-    # V1.4.79: 全国簡易判定は「てんくらの感覚」に近づけ、風・雨を主判定にする。
+    # V1.4.227: 全国簡易判定を少し安全側へ調整。風・雨を主判定にし、Aをやや取りにくくする。
     # 雷(CAPE)・視界・低温は詳細注意情報として残すが、それだけでABCをCへ落とさない。
     # 6〜15時の10時間のうち、強い風雨の継続時間を重視する。
     if extreme_hours >= 1 or severe_hours >= 4:
         return "C", "6〜15時に強い風または雨が見込まれ、登山には厳しめの条件です。時間帯別の詳細を確認してください。"
-    if severe_hours >= 1 or caution_hours >= 3:
+    if severe_hours >= 1 or caution_hours >= 2:
         return "B", "6〜15時の一部で風または雨の影響が見込まれます。比較的よい時間帯を確認してください。"
     return "A", "6〜15時は風雨の大きな影響が比較的少なく、登山候補にしやすい条件です。詳細分析で最終確認してください。"
 
@@ -1285,7 +1286,7 @@ def _national_result_from_forecast(p: dict[str, Any], forecast: dict[str, Any]) 
         w=hv("wind_speed_10m",0); r=hv("precipitation",0)
         extreme = w>=18 or r>=8
         severe = w>=13 or r>=3
-        caution = w>=8 or r>=0.8
+        caution = w>=7 or r>=0.8
         if extreme: extreme_hours+=1
         if severe: severe_hours+=1
         if caution: caution_hours+=1
@@ -1364,7 +1365,7 @@ def _national_result_from_metno(p: dict[str, Any], date_text: str, payload: dict
     for w,_,r,_ in rows:
         if w>=18 or r>=8: extreme_hours+=1
         if w>=13 or r>=3: severe_hours+=1
-        if w>=8 or r>=0.8: caution_hours+=1
+        if w>=7 or r>=0.8: caution_hours+=1
     max_w=max(winds); max_g=max(gusts); max_r=max(rains); min_t=min(temps)
     grade,summary=_national_grade(max_w,max_g,max_r,0,min_t,None,caution_hours=caution_hours,severe_hours=severe_hours,extreme_hours=extreme_hours)
     return {"name":p["name"],"grade":grade,"summary":summary,"maxWind":round(max_w,1),"maxGust":round(max_g,1),"maxRain":round(max_r,1),"maxCape":0,"minTemp":round(min_t,1),"minVisibility":None,"thunder":"–","cautionHours":caution_hours,"severeHours":severe_hours,"source":"metno"}
@@ -1505,7 +1506,7 @@ def _national_gfs_results(date_text: str, points: list[dict[str, Any]]) -> dict[
         rr=rows.get(p["name"]) or []
         if len(rr)<4: continue
         winds=[x["wind"] for x in rr]; gusts=[x["gust"] for x in rr]; rains=[x["rain"] for x in rr]; temps=[x["temp"] for x in rr]
-        caution=sum(1 for x in rr if x["wind"]>=8 or x["rain"]>=0.8)
+        caution=sum(1 for x in rr if x["wind"]>=7 or x["rain"]>=0.8)
         severe=sum(1 for x in rr if x["wind"]>=13 or x["rain"]>=3)
         extreme=sum(1 for x in rr if x["wind"]>=18 or x["rain"]>=8)
         grade,summary=_national_grade(max(winds),max(gusts),max(rains),0,min(temps),None,caution_hours=caution,severe_hours=severe,extreme_hours=extreme)
@@ -2364,8 +2365,8 @@ def water_reports():
         if not (-90 <= lat <= 90 and -180 <= lon <= 180):
             continue
         points.append({"name": str(row.get("name") or "通過地点")[:100], "lat": lat, "lon": lon})
-    if not mountain or len(points) < 2:
-        return jsonify(error="山と座標付き通過地点を2地点以上設定してください。"), 400
+    if not mountain or len(points) < 1:
+        return jsonify(error="山と座標付き地点を1地点以上設定してください。"), 400
     waters, osm_errors = _discover_water_sources(points)
     search_errors: list[str] = []
     if waters:
@@ -2469,6 +2470,105 @@ def _search_cameras_for_point(mountain: str, point: dict[str, Any]) -> tuple[lis
         out.append(item)
     return out, None
 
+# V1.4.221: lightweight route-extra availability probe.
+# The client uses this only after a route settles, so water/camera buttons stay hidden
+# unless at least one candidate is confirmed. Results are cached to avoid repeated
+# network work while the user edits times on the same route.
+ROUTE_EXTRA_AVAILABILITY_TTL = int(os.environ.get("ROUTE_EXTRA_AVAILABILITY_TTL", "1800"))
+_route_extra_availability_cache: dict[str, tuple[float, dict[str, Any]]] = {}
+_route_extra_availability_lock = threading.Lock()
+
+def _route_extra_availability_key(mountain: str, points: list[dict[str, Any]]) -> str:
+    compact = [
+        [str(p.get("name") or "")[:80], round(float(p["lat"]), 4), round(float(p["lon"]), 4)]
+        for p in points
+    ]
+    raw = json.dumps([mountain, compact], ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+def _route_extra_availability_get(key: str) -> dict[str, Any] | None:
+    now = time.time()
+    with _route_extra_availability_lock:
+        item = _route_extra_availability_cache.get(key)
+        if not item:
+            return None
+        expires, value = item
+        if expires <= now:
+            _route_extra_availability_cache.pop(key, None)
+            return None
+        return dict(value)
+
+def _route_extra_availability_put(key: str, value: dict[str, Any]) -> None:
+    with _route_extra_availability_lock:
+        _route_extra_availability_cache[key] = (time.time() + max(300, ROUTE_EXTRA_AVAILABILITY_TTL), dict(value))
+        if len(_route_extra_availability_cache) > 300:
+            oldest = sorted(_route_extra_availability_cache.items(), key=lambda kv: kv[1][0])[:60]
+            for k, _ in oldest:
+                _route_extra_availability_cache.pop(k, None)
+
+def _availability_camera_points(points: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    # Availability should be materially cheaper than opening the full camera panel.
+    # Probe at most start / middle / end; the full endpoint still searches up to 7 points.
+    if len(points) <= 3:
+        return points
+    idxs = sorted({0, len(points)//2, len(points)-1})
+    return [points[i] for i in idxs]
+
+@app.post("/api/route-extras-availability")
+def route_extras_availability():
+    payload = request.get_json(silent=True) or {}
+    mountain = str(payload.get("mountain") or "").strip()[:80]
+    raw_points = payload.get("points") or []
+    points: list[dict[str, Any]] = []
+    for row in raw_points[:24]:
+        try:
+            lat, lon = float(row.get("lat")), float(row.get("lon"))
+        except (TypeError, ValueError, AttributeError):
+            continue
+        if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+            continue
+        points.append({"name": str(row.get("name") or "通過地点").strip()[:100], "lat": lat, "lon": lon})
+    if not mountain or len(points) < 1:
+        return jsonify(ok=True, water=False, camera=False, ready=False)
+
+    key = _route_extra_availability_key(mountain, points)
+    cached = _route_extra_availability_get(key)
+    if cached is not None:
+        cached["cached"] = True
+        return jsonify(cached)
+
+    water = False
+    camera = False
+    diagnostics: list[str] = []
+
+    # Run the two independent checks concurrently. Water discovery already uses the
+    # existing Overpass cache; camera searches reuse the existing Bing RSS cache.
+    def check_water() -> bool:
+        try:
+            waters, errs = _discover_water_sources(points)
+            if errs:
+                diagnostics.extend([f"water: {x}" for x in errs[-1:]])
+            return bool(waters)
+        except Exception as exc:
+            diagnostics.append(f"water: {exc}")
+            return False
+
+    # V1.4.224: live-camera visibility is decided from the verified fixed catalog
+    # in camera-data.js. Do not run a web search during availability probes.
+    try:
+        water = bool(check_water())
+    except Exception as exc:
+        diagnostics.append(f"water: {exc}")
+    camera = False
+
+    result = {
+        "ok": True, "ready": True, "water": water, "camera": camera,
+        "checked_points": len(points), "cached": False,
+        "partial": bool(diagnostics), "diagnostics": diagnostics[-3:],
+    }
+    _route_extra_availability_put(key, result)
+    return jsonify(result)
+
 @app.post("/api/route-cameras")
 def route_cameras():
     payload = request.get_json(silent=True) or {}
@@ -2484,8 +2584,8 @@ def route_cameras():
             continue
         name = str(row.get("name") or "通過地点").strip()[:100]
         points.append({"name": name, "lat": lat, "lon": lon})
-    if not mountain or len(points) < 2:
-        return jsonify(error="山と座標付き通過地点を2地点以上設定してください。"), 400
+    if not mountain or len(points) < 1:
+        return jsonify(error="山と座標付き地点を1地点以上設定してください。"), 400
 
     selected = _route_camera_points(points)
     found: list[dict[str, Any]] = []

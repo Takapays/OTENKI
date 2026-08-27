@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.220';
+const APP_VERSION = '1.4.228';
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
@@ -5382,13 +5382,16 @@ function showNationalOutlookDetail(p,result){
       ${result?`<div class="national-rich-metrics">${metrics}</div>`:''}
       ${guideHtml}
       ${courseHtml}
-      <div class="national-rich-actions"><button type="button" class="primary national-detail-open national-rich-cta">この山を山行設定に入力</button><a class="national-wikipedia-link" href="${wikipediaArticleUrl(p.name)}" target="_blank" rel="noopener noreferrer">Wikipedia ↗</a></div>
+      <div class="national-rich-actions"><button type="button" class="primary national-detail-open national-rich-cta">この山を山行設定に入力</button><button type="button" class="national-extra-action mountain-water-action hidden" data-mountain-water="1">💧 水場情報</button><button type="button" class="national-extra-action mountain-camera-action hidden" data-mountain-camera="1">📹 ライブカメラ</button><a class="national-wikipedia-link" href="${wikipediaArticleUrl(p.name)}" target="_blank" rel="noopener noreferrer">Wikipedia ↗</a></div>
       ${nearbyHtml}
       <p class="national-rich-footnote">主要山のみ実写真を表示しています。写真は Wikimedia Commons の公開画像を利用しています。全国一括簡易判定は候補地選び用です。山行設定では通過時刻・地点・複数モデルを使って詳しく確認できます。</p>
     </div>`;
   box.classList.add('is-open');
   box.querySelector('.national-detail-open')?.addEventListener('click',()=>openMountainFromNationalMap(p.name));
   box.querySelector('.national-detail-close')?.addEventListener('click',()=>box.classList.remove('is-open'));
+  box.querySelector('[data-mountain-water]')?.addEventListener('click',()=>loadMountainWaterReports(p.name,p));
+  box.querySelector('[data-mountain-camera]')?.addEventListener('click',()=>loadMountainCameras(p.name));
+  refreshMountainExtraActions(box,p);
   box.querySelectorAll('[data-national-nearby]').forEach(btn=>btn.addEventListener('click',()=>nationalSelectNearby(btn.dataset.nationalNearby)));
   // V1.4.187: 山情報のアクセスボタンは access.js の委譲クリックで処理。
   if(!photo){
@@ -5418,7 +5421,7 @@ async function openMountainFromNationalMap(name){
   }
   $('mountainPreset')?.scrollIntoView({behavior:'smooth',block:'center'});
 }
-const NATIONAL_OUTLOOK_BROWSER_CACHE_KEY='traten:national-outlook:v4';
+const NATIONAL_OUTLOOK_BROWSER_CACHE_KEY='traten:national-outlook:v5';
 const NATIONAL_OUTLOOK_BROWSER_CACHE_TTL=4*60*60*1000;
 function readNationalOutlookBrowserCache(date){
   try{
@@ -5767,6 +5770,16 @@ async function captureAnalysisResultsScreenshot(sourceBtn=null,sourceStatus=null
 
 
 
+// V1.4.222: verified fixed-camera catalog helpers.
+function fixedCamerasForMountain(name){
+  try{return typeof window.tratenCamerasForMountain==='function'?window.tratenCamerasForMountain(name):[];}catch(_){return [];}
+}
+function fixedCameraRows(name){
+  return fixedCamerasForMountain(name).map(row=>({
+    title:row.title,type:row.type||'other',official:row.official!==false,near_point:name,
+    snippet:row.note||'',host:row.provider||'公式サイト',date:row.verified||'',url:row.url,search_url:'',seasonal:!!row.seasonal
+  }));
+}
 // V1.4.220: route live / road camera discovery panel.
 function cameraTypeLabel(type){
   return ({road:'道路・林道',hut:'山小屋',tourism:'観光・施設',weather:'気象・山岳',other:'公開カメラ'})[type]||'公開カメラ';
@@ -5792,20 +5805,60 @@ function renderRouteCameraResults(data){
   }
 }
 async function loadRouteCameras(){
-  const points=getRoutePointsForWaterReport();
-  if(points.length<2){setStatus('ライブカメラを見るには、座標付きの通過地点を2地点以上設定してください。',true);return;}
-  const mountain=currentMountainLabel();openRouteCameraModal();renderRouteCameraLoading();
-  const btn=$('routeCameraBtn'),old=btn?.innerHTML;if(btn){btn.disabled=true;btn.innerHTML='<span aria-hidden="true">📹</span><span>確認中…</span>';}
+  const mountain=currentMountainLabel();
+  const rows=fixedCameraRows(mountain);
+  if(!rows.length){setStatus(`${mountain||'この山'}の確認済みライブカメラは現在未登録です。`,true);return;}
+  openRouteCameraModal();
+  renderRouteCameraResults({mountain,cameras:rows,notes:[
+    '確認済みの公式・公的カメラだけを固定登録しています。',
+    '映像の公開状況、更新頻度、季節停止は提供元ページで確認してください。',
+    'カメラ画像はトラテンへ転載せず、提供元ページへのリンクのみ表示します。'
+  ]});
+  logEvent('route_camera',{success:true,mountain,metadata:{fixed_catalog:true,cameras:rows.length}});
+}
+
+function loadMountainCameras(name){
+  const rows=fixedCameraRows(name);
+  if(!rows.length)return;
+  openRouteCameraModal();
+  renderRouteCameraResults({mountain:name,cameras:rows,notes:[
+    '山に関連づけた確認済みカメラです。撮影地点が山頂そのものとは限りません。',
+    '季節停止・メンテナンス等は提供元の最新案内を優先してください。'
+  ]});
+}
+
+async function loadMountainWaterReports(name,p){
+  if(!name||!p||!Number.isFinite(Number(p.lat))||!Number.isFinite(Number(p.lon)))return;
+  openWaterReportModal();renderWaterReportLoading(name,1);
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),24000);
   try{
-    const res=await fetch('/api/route-cameras',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mountain,points:points.map(p=>({name:p.name,lat:p.lat,lon:p.lon}))}),signal:controller.signal});
+    const points=[{name,lat:Number(p.lat),lon:Number(p.lon)}];
+    const res=await fetch('/api/water-reports',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mountain:name,points}),signal:controller.signal});
     const data=await res.json().catch(()=>({}));if(!res.ok)throw new Error(data?.error||`HTTP ${res.status}`);
-    renderRouteCameraResults(data);logEvent('route_camera',{success:true,mountain,metadata:{route_points:points.length,cameras:data?.cameras?.length||0,partial:!!data?.partial}});
+    renderWaterReportResult(data);logEvent('water_report',{success:true,mountain:name,metadata:{mountain_info:true,water_sources:data?.water_sources?.length||0}});
   }catch(e){
     const msg=e?.name==='AbortError'?'取得に時間がかかっています。時間をおいて再度お試しください。':(e?.message||String(e));
-    const b=$('routeCameraBody');if(b)b.innerHTML=`<div class="route-camera-error"><strong>ライブカメラ情報を取得できませんでした</strong><p>${esc(msg)}</p><small>ルート設定や天気分析には影響ありません。</small></div>`;
-    logEvent('route_camera',{success:false,mountain,error_message:msg});
-  }finally{clearTimeout(timer);if(btn){btn.disabled=false;btn.innerHTML=old||'<span aria-hidden="true">📹</span><span>ライブカメラ</span>';}}
+    const body=$('waterReportBody');if(body)body.innerHTML=`<div class="water-report-error"><strong>水場情報を取得できませんでした</strong><p>${esc(msg)}</p></div>`;
+  }finally{clearTimeout(timer);}
+}
+
+const mountainWaterAvailabilityMemory=new Map();
+async function refreshMountainExtraActions(box,p){
+  const camBtn=box?.querySelector('[data-mountain-camera]');
+  const waterBtn=box?.querySelector('[data-mountain-water]');
+  const cameras=fixedCamerasForMountain(p?.name);
+  if(camBtn){camBtn.classList.toggle('hidden',!cameras.length);camBtn.textContent=`📹 ライブカメラ${cameras.length?` ${cameras.length}`:''}`;}
+  if(!waterBtn||!p)return;
+  const cached=mountainWaterAvailabilityMemory.get(p.name);
+  if(cached!==undefined){waterBtn.classList.toggle('hidden',!cached);return;}
+  waterBtn.classList.add('hidden');
+  try{
+    const res=await fetch('/api/route-extras-availability',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mountain:p.name,points:[{name:p.name,lat:p.lat,lon:p.lon}]})});
+    const data=await res.json().catch(()=>({}));
+    const yes=!!(res.ok&&data?.water);mountainWaterAvailabilityMemory.set(p.name,yes);
+    const current=box.querySelector('.national-rich-hero h3')?.textContent?.trim();
+    if(current===p.name)waterBtn.classList.toggle('hidden',!yes);
+  }catch(_){mountainWaterAvailabilityMemory.set(p.name,false);}
 }
 
 // V1.4.219: route water-source report panel.
@@ -5885,6 +5938,76 @@ async function loadWaterReports(){
   }
 }
 
+// V1.4.221: show route-extra buttons only after a lightweight availability check.
+let routeExtraAvailabilityTimer=null;
+let routeExtraAvailabilityAbort=null;
+let routeExtraAvailabilitySeq=0;
+const routeExtraAvailabilityMemory=new Map();
+
+function routeExtraAvailabilityPoints(){
+  try{
+    return collectRouteMapPointsFromForm().filter(p=>Number.isFinite(Number(p.lat))&&Number.isFinite(Number(p.lon))).map(p=>({
+      name:String(p.name||'通過地点'),lat:Number(p.lat),lon:Number(p.lon)
+    }));
+  }catch(_){return [];}
+}
+function routeExtraAvailabilitySignature(mountain,points){
+  return `${mountain}|${points.map(p=>`${p.name}:${p.lat.toFixed(4)},${p.lon.toFixed(4)}`).join('|')}`;
+}
+function setRouteExtraButtonVisibility({water=false,camera=false}={}){
+  $('waterReportBtn')?.classList.toggle('hidden',!water);
+  $('routeCameraBtn')?.classList.toggle('hidden',!camera);
+}
+function resetRouteExtraAvailability(){
+  if(routeExtraAvailabilityTimer){clearTimeout(routeExtraAvailabilityTimer);routeExtraAvailabilityTimer=null;}
+  routeExtraAvailabilityAbort?.abort();routeExtraAvailabilityAbort=null;
+  routeExtraAvailabilitySeq++;
+  setRouteExtraButtonVisibility({water:false,camera:false});
+}
+async function checkRouteExtraAvailabilityNow(){
+  const mountain=currentMountainLabel();
+  const points=routeExtraAvailabilityPoints();
+  if(!mountain||points.length<2){setRouteExtraButtonVisibility();return;}
+  const fixedCamera= fixedCamerasForMountain(mountain).length>0;
+  setRouteExtraButtonVisibility({water:false,camera:fixedCamera});
+  const signature=routeExtraAvailabilitySignature(mountain,points);
+  const memo=routeExtraAvailabilityMemory.get(signature);
+  if(memo){setRouteExtraButtonVisibility(memo);return;}
+  const seq=++routeExtraAvailabilitySeq;
+  routeExtraAvailabilityAbort?.abort();
+  const controller=new AbortController();routeExtraAvailabilityAbort=controller;
+  const timer=setTimeout(()=>controller.abort(),16000);
+  try{
+    const res=await fetch('/api/route-extras-availability',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mountain,points}),signal:controller.signal});
+    if(!res.ok)throw new Error(`HTTP ${res.status}`);
+    const data=await res.json();
+    if(seq!==routeExtraAvailabilitySeq)return;
+    const state={water:!!data?.water,camera:fixedCamera};
+    routeExtraAvailabilityMemory.set(signature,state);
+    if(routeExtraAvailabilityMemory.size>40)routeExtraAvailabilityMemory.delete(routeExtraAvailabilityMemory.keys().next().value);
+    setRouteExtraButtonVisibility(state);
+  }catch(_){
+    // A failed preflight must never affect route planning. Leave optional buttons hidden.
+    if(seq===routeExtraAvailabilitySeq)setRouteExtraButtonVisibility({water:false,camera:fixedCamera});
+  }finally{clearTimeout(timer);if(routeExtraAvailabilityAbort===controller)routeExtraAvailabilityAbort=null;}
+}
+function scheduleRouteExtraAvailability(delay=1800){
+  if(routeExtraAvailabilityTimer)clearTimeout(routeExtraAvailabilityTimer);
+  setRouteExtraButtonVisibility({water:false,camera:fixedCamerasForMountain(currentMountainLabel()).length>0});
+  routeExtraAvailabilityTimer=setTimeout(()=>{routeExtraAvailabilityTimer=null;checkRouteExtraAvailabilityNow();},delay);
+}
+function setupRouteExtraAvailability(){
+  setRouteExtraButtonVisibility();
+  const points=$('points');
+  points?.addEventListener('change',()=>scheduleRouteExtraAvailability());
+  points?.addEventListener('input',()=>scheduleRouteExtraAvailability(2200));
+  if(points&&window.MutationObserver){
+    new MutationObserver(()=>scheduleRouteExtraAvailability()).observe(points,{childList:true,subtree:true});
+  }
+  $('mountainPreset')?.addEventListener('change',()=>scheduleRouteExtraAvailability());
+  $('representativeCourseSelect')?.addEventListener('change',()=>scheduleRouteExtraAvailability());
+}
+
 function init(){
   // V1.4.163: app.js is also loaded by the admin data-audit page.
   // Skip the main planner boot when its root controls do not exist.
@@ -5892,6 +6015,7 @@ function init(){
   setupInstallApp();
   setupNationalOutlook();
   setupWalkingPaceControl();
+  setupRouteExtraAvailability();
   const area=$('mountainArea');
   const select=$('mountainPreset');
   const search=$('mountainSearch');
@@ -5928,6 +6052,7 @@ function init(){
 
   const resetForMountainChange=()=>{
     candidates=[];
+    resetRouteExtraAvailability();
     $('points').innerHTML=''; pointSeq=0;
     const selected=!!select.value.trim();
     $('candidateState').textContent='';
@@ -7983,7 +8108,7 @@ async function analyzePointsBatch(points,providerList=providers,statusLabel='気
   return points.map((point,index)=>{
     const rows=buckets[index].rows, errors=buckets[index].errors;
     if(!rows.length)throw new Error(`${point.name}: 予報データを取得できませんでした。 ${errors.join(' / ')||'対応モデルがありません'}`);
-    const avg=averageRows(rows.map(x=>x.row));
+    const avg=blendProviderRows(rows);
     return {point,providerRows:rows,errors,...avg,grade:assessGrade(avg),confidence:(rows.length===1&&rows[0].provider?.kind==='fallback'?'FALLBACK':assessConfidence(rows.map(x=>x.row))),thunder:thunderLevel(avg),hazards:assessHazards(avg)};
   });
 }
@@ -7994,7 +8119,7 @@ function mergeAnalysisResults(baseResults,extraResults){
     const byId=new Map();
     [...(base.providerRows||[]),...(extra.providerRows||[])].forEach(x=>byId.set(x.provider?.id||x.provider?.name,x));
     const providerRows=[...byId.values()];
-    const avg=averageRows(providerRows.map(x=>x.row));
+    const avg=blendProviderRows(providerRows);
     const errors=[...(base.errors||[]),...(extra.errors||[])].filter((v,i,a)=>a.indexOf(v)===i);
     return {point:base.point,providerRows,errors,...avg,grade:assessGrade(avg),confidence:(providerRows.length===1&&providerRows[0].provider?.kind==='fallback'?'FALLBACK':assessConfidence(providerRows.map(x=>x.row))),thunder:thunderLevel(avg),hazards:assessHazards(avg)};
   });
@@ -8843,7 +8968,28 @@ function nearestTimeIndex(times,target){const t=new Date(target).getTime();let b
 function numberOrNaN(v){const n=Number(v);return Number.isFinite(n)?n:NaN;}
 function mean(v){const x=v.filter(Number.isFinite);return x.length?x.reduce((a,b)=>a+b,0)/x.length:NaN;} function max(v){const x=v.filter(Number.isFinite);return x.length?Math.max(...x):NaN;}
 function averageRows(rows){return {temp:mean(rows.map(x=>x.temp)),rain:mean(rows.map(x=>x.rain)),cloud:mean(rows.map(x=>x.cloud)),wind:mean(rows.map(x=>x.wind)),gust:max(rows.map(x=>x.gust)),cape:max(rows.map(x=>x.cape)),visibility:mean(rows.map(x=>x.visibility)),freezing:mean(rows.map(x=>x.freezing))};}
-function assessGrade(x){let s=0;if(x.wind>=20||x.gust>=25)s+=4;else if(x.wind>=15||x.gust>=20)s+=3;else if(x.wind>=10||x.gust>=15)s+=2;else if(x.wind>=7)s+=1;if(x.rain>=8)s+=4;else if(x.rain>=4)s+=3;else if(x.rain>=1.5)s+=2;else if(x.rain>=.3)s+=1;if(x.cape>=1000)s+=3;else if(x.cape>=500)s+=2;else if(x.cape>=200)s+=1;if(x.cloud>=95)s+=1;if(Number.isFinite(x.visibility)&&x.visibility<500)s+=2;if(x.temp<=-5)s+=2;else if(x.temp<=0)s+=1;return s>=8?'E':s>=6?'D':s>=4?'C':s>=2?'B':'A';}
+function rowForProvider(providerRows,id){return (providerRows||[]).find(x=>x?.provider?.id===id)?.row||null;}
+function blendProviderRows(providerRows){
+  const rows=(providerRows||[]).map(x=>x.row).filter(Boolean);
+  const out=averageRows(rows);
+  const jma=rowForProvider(providerRows,'jma');
+  const ecmwf=rowForProvider(providerRows,'ecmwf');
+  const icon=rowForProvider(providerRows,'icon');
+  const gfs=rowForProvider(providerRows,'gfs')||rowForProvider(providerRows,'noaa-gfs');
+  if(Number.isFinite(jma?.rain))out.rain=jma.rain;
+  if(Number.isFinite(ecmwf?.wind))out.wind=ecmwf.wind;
+  if(Number.isFinite(ecmwf?.gust))out.gust=ecmwf.gust;
+  if(Number.isFinite(icon?.visibility))out.visibility=icon.visibility;
+  out.cape=max(rows.map(x=>x.cape));
+  out.gfsAdverse=!!gfs && (
+    (Number.isFinite(gfs.wind)&&Number.isFinite(out.wind)&&gfs.wind>=10&&gfs.wind>=out.wind+4) ||
+    (Number.isFinite(gfs.rain)&&Number.isFinite(out.rain)&&gfs.rain>=2&&gfs.rain>=out.rain+1.5) ||
+    (Number.isFinite(gfs.visibility)&&Number.isFinite(out.visibility)&&gfs.visibility<1000&&out.visibility>=3000)
+  );
+  out.modelBasis={wind:Number.isFinite(ecmwf?.wind)?'ecmwf':'multi',rain:Number.isFinite(jma?.rain)?'jma':'multi',visibility:Number.isFinite(icon?.visibility)?'icon':'multi',gfsGuard:!!out.gfsAdverse};
+  return out;
+}
+function assessGrade(x){let s=0;if(x.wind>=20||x.gust>=25)s+=4;else if(x.wind>=15||x.gust>=20)s+=3;else if(x.wind>=10||x.gust>=15)s+=2;else if(x.wind>=7)s+=1;if(x.rain>=8)s+=4;else if(x.rain>=4)s+=3;else if(x.rain>=1.5)s+=2;else if(x.rain>=.3)s+=1;if(x.cape>=1000)s+=3;else if(x.cape>=500)s+=2;else if(x.cape>=200)s+=1;if(x.cloud>=95)s+=1;if(Number.isFinite(x.visibility)&&x.visibility<500)s+=2;if(x.temp<=-5)s+=2;else if(x.temp<=0)s+=1;if(x.gfsAdverse)s+=1;return s>=8?'E':s>=6?'D':s>=4?'C':s>=2?'B':'A';}
 function thunderLevel(x){if(x.cape>=1000&&x.rain>=1)return'EXTREME';if(x.cape>=500||(x.cape>=200&&x.rain>=1))return'HIGH';if(x.cape>=100||x.rain>=2)return'MEDIUM';return'LOW';}
 const HAZARD_RANK={NONE:0,CAUTION:1,WARNING:2,DANGER:3};
 const HAZARD_LABEL={NONE:'平常',CAUTION:'注意',WARNING:'警戒',DANGER:'危険'};
@@ -8863,13 +9009,15 @@ function assessHazards(x){
     else if(x.temp>=30){tempLv='CAUTION';tempDetail='暑熱';}
   }
   const visLv=!Number.isFinite(x.visibility)?'NONE':x.visibility<500?'DANGER':x.visibility<1000?'WARNING':x.visibility<3000?'CAUTION':'NONE';
-  return [
+  const items=[
     hazardItem('thunder','⚡','雷',thunderLv,thunder,thunderLv==='NONE'?'顕著な雷リスクなし':`雷リスク ${thunder}`),
     hazardItem('wind','💨','風',windLv,`${num(x.wind)}m/s`,Number.isFinite(x.gust)?`平均 ${num(x.wind)}m/s・突風 ${num(x.gust)}m/s`:`平均 ${num(x.wind)}m/s`),
     hazardItem('rain','🌧️','雨',rainLv,`${num(x.rain)}mm/h`,`時間降水量 ${num(x.rain)}mm/h`),
     hazardItem('temp',tempLv==='NONE'?'🌡️':x.temp<=0?'🥶':'🥵','気温',tempLv,`${num(x.temp)}℃`,tempDetail||`気温 ${num(x.temp)}℃`),
     hazardItem('visibility','🌫️','視界',visLv,Number.isFinite(x.visibility)?`${Math.round(x.visibility)}m`:'–',Number.isFinite(x.visibility)?`予報視程 ${Math.round(x.visibility)}m`:'視程データなし')
   ];
+  if(x.gfsAdverse)items.push(hazardItem('model','⚠️','モデル差','CAUTION','GFS悪化','GFSが他モデルより明確に悪天側を示しています'));
+  return items;
 }
 function maxHazard(hazards){return (hazards||[]).reduce((a,b)=>(b.rank||0)>(a.rank||0)?b:a,hazardItem('none','✓','顕著な注意要素なし','NONE','', ''));}
 function hazardBadge(h){if(!h||h.level==='NONE')return '';return `<span class="hazard-badge ${String(h.level).toLowerCase()}">${h.icon} ${h.label} ${HAZARD_LABEL[h.level]}</span>`;}

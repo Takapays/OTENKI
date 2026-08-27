@@ -55,6 +55,7 @@ PASS 妙高山 | 笹ヶ峰ルート | 290m
 PASS 火打山 | 笹ヶ峰ルート | 315m
 PASS 雨飾山 | 雨飾高原キャンプ場ルート | 240m
 PASS 白馬岳 | 猿倉・大雪渓ルート | 425m
+PASS 白馬岳 | 栂池自然園・白馬大池ルート | 460m
 PASS 唐松岳 | 八方尾根ルート | 270m
 PASS 五竜岳 | アルプス平ルート | 410m
 PASS 五竜岳 | 八方尾根・唐松岳経由ルート | 490m
@@ -114,4 +115,4 @@ PASS 八経ヶ岳 | 行者還トンネル西口ルート | 239m
 PASS 大和葛城山 | 水越峠ルート | 120m
 PASS 瓶ヶ森 | 瓶ヶ森駐車場ルート | 50m
 PASS 久住山 | 牧ノ戸峠ルート | 150m
-SUMMARY mountains=110 courses=116 multi=6 bad=0
+SUMMARY mountains=110 courses=117 multi=7 bad=0
