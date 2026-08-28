@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.252';
+const APP_VERSION = '1.4.253';
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
@@ -901,6 +901,11 @@ const CENTRAL_SOUTH_ALPS_COURSE_TIMES = Object.freeze({
   '北岳→北岳山荘': {minutes:50, source:'南アルプス市芦安山岳館・北岳-間ノ岳縦走コース'},
   '北岳山荘→北岳': {minutes:75, source:'南アルプス市芦安山岳館・北岳-間ノ岳縦走コース'},
   '北岳山荘→間ノ岳': {minutes:100, source:'南アルプス市芦安山岳館・北岳-間ノ岳縦走コース'},
+  // V1.4.255: 中白根山を通過点として選んだ場合もCTを直接参照できるようYAMAP標準モデル区間を固定。
+  '北岳山荘→中白根山': {minutes:36, source:'YAMAP標準モデル・北岳山荘→中白根山（36分）', sourceType:'yamap'},
+  '中白根山→間ノ岳': {minutes:55, source:'YAMAP標準モデル・中白根山→間ノ岳（55分）', sourceType:'yamap'},
+  '間ノ岳→中白根山': {minutes:30, source:'YAMAP標準モデル・間ノ岳→中白根山（30分）', sourceType:'yamap'},
+  '中白根山→北岳山荘': {minutes:25, source:'YAMAP標準モデル・中白根山→北岳山荘（25分）', sourceType:'yamap'},
   '間ノ岳→北岳山荘': {minutes:80, source:'南アルプス市芦安山岳館・北岳-間ノ岳縦走コース'},
   '間ノ岳→農鳥小屋': {minutes:60, source:'南アルプス市芦安山岳館・農鳥岳縦走コース'},
   '農鳥小屋→間ノ岳': {minutes:90, source:'南アルプス市芦安山岳館・農鳥岳縦走コース'},
@@ -1087,6 +1092,25 @@ const SUPPLEMENTAL_COURSE_TIMES = Object.freeze({
   '伊吹山→伊吹山 上野登山口（三之宮神社）': {minutes:111, source:'ヤマレコ・伊吹山 山頂〜上野登山口 p5372216（区間CT合算）', sourceType:'yamareco'},
   '三城いこいの広場→美ヶ原（王ヶ頭）': {minutes:169, source:'ヤマレコ・美ヶ原 三城〜王ヶ頭 p5370073/p5547620（区間CT一致）', sourceType:'yamareco'},
   '平標登山口・元橋駐車場→仙ノ倉山': {minutes:239, source:'ヤマレコ・仙ノ倉山 元橋駐車場〜仙ノ倉山 p5538950/p5557829（区間CT合算）', sourceType:'yamareco'},
+  // V1.4.253: 管理画面で指定された残存推定CT 16区間を確定。
+  // 値はV1.4.252時点で画面表示していた推定CTをそのまま採用し、
+  // 外部資料確認済みとは区別して「ユーザー確定」として固定する。
+  '笠新道登山口→笠ヶ岳': {minutes:320, source:'ユーザー確定・V1.4.252表示推定CTを採用（V1.4.253）', sourceType:'manual'},
+  '笠ヶ岳→笠新道登山口': {minutes:190, source:'ユーザー確定・V1.4.252表示推定CTを採用（V1.4.253）', sourceType:'manual'},
+  '大天井岳→中房登山口（燕岳・大天井岳 表銀座ルート）': {minutes:260, source:'ユーザー確定・V1.4.252表示推定CTを採用（V1.4.253）', sourceType:'manual'},
+  '霞沢岳→上高地': {minutes:150, source:'ユーザー確定・V1.4.252表示推定CTを採用（V1.4.253）', sourceType:'manual'},
+  '中宮温泉ビジターセンター（笈ヶ岳ルート起点）→笈ヶ岳': {minutes:310, source:'ユーザー確定・V1.4.252表示推定CTを採用（V1.4.253）', sourceType:'manual'},
+  '笈ヶ岳→中宮温泉ビジターセンター（笈ヶ岳ルート起点）': {minutes:250, source:'ユーザー確定・V1.4.252表示推定CTを採用（V1.4.253）', sourceType:'manual'},
+  '倶留尊山→曽爾高原 倶留尊山登山口': {minutes:80, source:'ユーザー確定・V1.4.252表示推定CTを採用（V1.4.253）', sourceType:'manual'},
+  '三峰山→みつえ青少年旅行村 三峰山登山口': {minutes:140, source:'ユーザー確定・V1.4.252表示推定CTを採用（V1.4.253）', sourceType:'manual'},
+  'たかすみ温泉 高見山登山口→高見山': {minutes:190, source:'ユーザー確定・V1.4.252表示推定CTを採用（V1.4.253）', sourceType:'manual'},
+  '高見山→たかすみ温泉 高見山登山口': {minutes:150, source:'ユーザー確定・V1.4.252表示推定CTを採用（V1.4.253）', sourceType:'manual'},
+  '護摩壇山森林公園ワイルドライフ→護摩壇山': {minutes:110, source:'ユーザー確定・V1.4.252表示推定CTを採用（V1.4.253）', sourceType:'manual'},
+  '護摩壇山→護摩壇山森林公園ワイルドライフ': {minutes:100, source:'ユーザー確定・V1.4.252表示推定CTを採用（V1.4.253）', sourceType:'manual'},
+  '蓬来山→蓬莱駅 登山口': {minutes:210, source:'ユーザー確定・V1.4.252表示推定CTを採用（V1.4.253）', sourceType:'manual'},
+  '比叡山（大比叡）→坂本ケーブル延暦寺駅': {minutes:40, source:'ユーザー確定・V1.4.252表示推定CTを採用（V1.4.253）', sourceType:'manual'},
+  '六甲山→芦屋川 高座の滝': {minutes:220, source:'ユーザー確定・V1.4.252表示推定CTを採用（V1.4.253）', sourceType:'manual'},
+  '三嶺→光石登山口': {minutes:220, source:'ユーザー確定・V1.4.252表示推定CTを採用（V1.4.253）', sourceType:'manual'},
   // V1.4.152: 推定CTから確認済みCTへ昇格（端点一致の標準/公開計画を優先）。
   '高峰高原・車坂峠→浅間山': {minutes:230, source:'浅間山登山コースデータ・車坂峠コース（表コース経由） 上り3時間50分＝230分'},
   '桂湖森林公園駐車場（大笠山ルート起点）→大笠山': {minutes:351, source:'YAMAP大笠山モデルコース（桂湖登り口→山頂341分）＋ヤマレコ公開計画（桂湖駐車場→大笠山登山口10分）＝351分', sourceType:'yamap'},

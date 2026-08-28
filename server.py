@@ -32,7 +32,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.4.252"
+APP_VERSION = "1.4.253"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -2139,7 +2139,7 @@ def _water_mountain_cache_remote_load() -> dict[str, Any] | None:
     try:
         req = urllib.request.Request(
             WATER_MOUNTAIN_CACHE_REMOTE_URL,
-            headers={"User-Agent": "Traten/1.4.252", "Cache-Control": "no-cache"},
+            headers={"User-Agent": "Traten/1.4.253", "Cache-Control": "no-cache"},
         )
         with urllib.request.urlopen(req, timeout=WATER_MOUNTAIN_CACHE_REMOTE_TIMEOUT) as resp:
             data = json.loads(resp.read().decode("utf-8"))
@@ -2196,7 +2196,7 @@ def water_mountain_index():
     last_audit_at = max(audit_stamps) if audit_stamps else None
     return jsonify(ok=True, generated_at=data.get("generated_at"), last_audit_at=last_audit_at, source=data.get("source"), radius_m=data.get("radius_m"), mountain_count=len(mountains), checked_count=checked, available_count=available, error_count=errors, mountains=mountains)
 
-# V1.4.252: recent water-report search/status judgement removed; fixed water list is served by /api/water-mountain-index.
+# V1.4.253: recent water-report search/status judgement removed; fixed water list is served by /api/water-mountain-index.
 
 # V1.4.220: route live / road camera discovery.
 CAMERA_MAX_RESULTS = int(os.environ.get("CAMERA_MAX_RESULTS", "12"))

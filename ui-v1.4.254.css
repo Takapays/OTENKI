@@ -1,0 +1,123 @@
+/* Traten V1.4.254 UI overrides
+   - Make the four resource shortcuts look more like solid buttons.
+   - Keep the layout light and responsive without JS changes. */
+
+.topbar-resource-nav{
+  gap:10px;
+  align-items:stretch;
+}
+.topbar-resource-nav .topbar-nav-link{
+  --resource-accent:#187b5b;
+  --resource-soft:#eef9f4;
+  --resource-border:#bfdccf;
+  position:relative;
+  min-width:124px;
+  min-height:60px;
+  padding:10px 12px;
+  border:2px solid var(--resource-border) !important;
+  border-radius:10px !important;
+  background:linear-gradient(180deg,#ffffff 0%,var(--resource-soft) 100%) !important;
+  color:#17382e !important;
+  box-shadow:0 8px 20px rgba(20,63,50,.10),0 3px 0 rgba(20,63,50,.14),inset 0 1px 0 rgba(255,255,255,.96);
+  display:grid !important;
+  grid-template-columns:34px minmax(0,1fr) 14px;
+  gap:10px;
+  align-items:center;
+  text-decoration:none !important;
+  overflow:hidden;
+  transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease,filter .16s ease;
+}
+.topbar-resource-nav .topbar-nav-link::after{
+  content:'›';
+  font-size:21px;
+  line-height:1;
+  font-weight:900;
+  color:var(--resource-accent);
+  opacity:.9;
+}
+.topbar-resource-nav .topbar-nav-link::before{
+  content:'';
+  position:absolute;
+  inset:0 0 auto 0;
+  height:4px;
+  background:linear-gradient(90deg,var(--resource-accent),rgba(255,255,255,.35));
+}
+.topbar-resource-nav .topbar-nav-link:hover,
+.topbar-resource-nav .topbar-nav-link:focus-visible{
+  transform:translateY(-2px);
+  border-color:var(--resource-accent) !important;
+  box-shadow:0 12px 24px rgba(20,63,50,.16),0 4px 0 rgba(20,63,50,.18),inset 0 1px 0 rgba(255,255,255,.98);
+  filter:saturate(1.03);
+  outline:none;
+}
+.topbar-resource-nav .topbar-nav-link:active{
+  transform:translateY(1px);
+  box-shadow:0 4px 10px rgba(20,63,50,.10),0 1px 0 rgba(20,63,50,.16),inset 0 1px 0 rgba(255,255,255,.92);
+}
+.topbar-resource-nav .resource-nav-icon{
+  width:34px;
+  height:34px;
+  border-radius:8px;
+  display:grid;
+  place-items:center;
+  font-size:18px;
+  background:linear-gradient(180deg,#fff,var(--resource-soft));
+  border:1px solid var(--resource-border);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 4px 10px rgba(28,66,54,.08);
+}
+.topbar-resource-nav .resource-nav-copy{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  line-height:1.08;
+}
+.topbar-resource-nav .resource-nav-copy b{
+  font-size:13px;
+  font-weight:900;
+  white-space:nowrap;
+  letter-spacing:.01em;
+}
+.topbar-resource-nav .resource-nav-copy small{
+  font-size:9px;
+  font-weight:800;
+  color:#62776d;
+  white-space:nowrap;
+}
+.topbar-resource-nav .trailhead{--resource-accent:#16835c;--resource-soft:#edf9f3;--resource-border:#b9dfcf}
+.topbar-resource-nav .hut{--resource-accent:#a66a2f;--resource-soft:#fff7ea;--resource-border:#e8cfab}
+.topbar-resource-nav .water{--resource-accent:#167eb4;--resource-soft:#edf8fe;--resource-border:#b8dced}
+.topbar-resource-nav .camera{--resource-accent:#6554b8;--resource-soft:#f4f1ff;--resource-border:#cfc5f0}
+
+@media (max-width:760px){
+  .topbar-resource-nav{
+    width:100%;
+    display:grid !important;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:8px;
+  }
+  .topbar-resource-nav .topbar-nav-link{
+    min-width:0;
+    min-height:58px;
+    padding:9px 10px;
+  }
+  .topbar-resource-nav .topbar-guide-link{grid-column:1/-1}
+  .dashboard-stage > .dashboard-welcome,
+  main .dashboard-welcome,
+  .dashboard-welcome{display:none !important}
+}
+
+@media (max-width:430px){
+  .topbar-resource-nav .topbar-nav-link{
+    grid-template-columns:32px minmax(0,1fr) 12px;
+    min-height:56px;
+    padding:8px 9px;
+  }
+  .topbar-resource-nav .resource-nav-icon{
+    width:32px;
+    height:32px;
+    font-size:17px;
+  }
+  .topbar-resource-nav .resource-nav-copy b{font-size:12px}
+  .topbar-resource-nav .resource-nav-copy small{font-size:8px}
+}
