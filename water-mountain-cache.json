@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.245",
-  "generated_at": "2026-08-28T02:38:15.610016Z",
+  "generated_at": "2026-08-28T02:38:29.444428Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 41,
+  "checked_count": 42,
   "available_count": 7,
-  "unresolved_count": 259,
+  "unresolved_count": 258,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -127,10 +127,12 @@
       "checked_at": "2026-08-28T02:38:15.607640Z"
     },
     "カムイエクウチカウシ山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T02:38:29.441963Z"
     },
     "ペテガリ岳": {
       "checked": true,
