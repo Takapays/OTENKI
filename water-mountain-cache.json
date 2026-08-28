@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T04:26:12.749147Z",
+  "generated_at": "2026-08-28T04:26:18.834225Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 129,
+  "checked_count": 130,
   "available_count": 17,
-  "unresolved_count": 171,
+  "unresolved_count": 170,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -1338,10 +1338,12 @@
       "checked_at": "2026-08-28T04:26:12.747162Z"
     },
     "唐松岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T04:26:18.831836Z"
     },
     "五竜岳": {
       "checked": false,
