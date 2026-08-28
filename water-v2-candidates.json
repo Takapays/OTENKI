@@ -573,12 +573,382 @@
       "candidate_count": 0,
       "new_candidate_count": 0,
       "candidates": []
+    },
+    "赤牛岳": {
+      "checked": true,
+      "checked_at": "2026-08-28T11:46:32.566784Z",
+      "error": null,
+      "route_mode": "fixed-point-buffer",
+      "route_blocks": 2,
+      "corridor_centers": 2,
+      "candidate_count": 0,
+      "new_candidate_count": 0,
+      "candidates": []
+    },
+    "笠ヶ岳（岐阜）": {
+      "checked": true,
+      "checked_at": "2026-08-28T11:46:50.425941Z",
+      "error": null,
+      "route_mode": "route-corridor",
+      "route_blocks": 1,
+      "corridor_centers": 13,
+      "candidate_count": 2,
+      "new_candidate_count": 0,
+      "candidates": [
+        {
+          "mountain": "笠ヶ岳（岐阜）",
+          "name": "わさび平小屋〜笠ヶ岳山荘付近の飲料水",
+          "lat": 36.306566,
+          "lon": 137.589007,
+          "kind": "飲料水",
+          "potability": "confirmed",
+          "near_point": "わさび平小屋〜笠ヶ岳山荘",
+          "route_distance_m": 167,
+          "source_type": "osm",
+          "source_name": "OpenStreetMap / Overpass API",
+          "source_url": "https://www.openstreetmap.org/node/4071888804",
+          "source_id": "node/4071888804",
+          "score": 9,
+          "review_priority": "high",
+          "suspicious": false,
+          "score_reasons": [
+            "route<=300m",
+            "amenity=drinking_water",
+            "water-name"
+          ],
+          "tags": {
+            "amenity": "drinking_water"
+          },
+          "supporting_sources": [
+            {
+              "source_name": "OpenStreetMap / Overpass API",
+              "source_url": "https://www.openstreetmap.org/node/4071888804",
+              "source_type": "osm"
+            }
+          ],
+          "already_fixed": true,
+          "fixed_name": "わさび平小屋付近の飲料水"
+        },
+        {
+          "mountain": "笠ヶ岳（岐阜）",
+          "name": "笠ヶ岳山荘〜笠ヶ岳付近の飲料水",
+          "lat": 36.317845,
+          "lon": 137.551346,
+          "kind": "飲料水",
+          "potability": "confirmed",
+          "near_point": "笠ヶ岳山荘〜笠ヶ岳",
+          "route_distance_m": 252,
+          "source_type": "osm",
+          "source_name": "OpenStreetMap / Overpass API",
+          "source_url": "https://www.openstreetmap.org/node/3787659015",
+          "source_id": "node/3787659015",
+          "score": 9,
+          "review_priority": "high",
+          "suspicious": false,
+          "score_reasons": [
+            "route<=300m",
+            "amenity=drinking_water",
+            "water-name"
+          ],
+          "tags": {
+            "amenity": "drinking_water"
+          },
+          "supporting_sources": [
+            {
+              "source_name": "OpenStreetMap / Overpass API",
+              "source_url": "https://www.openstreetmap.org/node/3787659015",
+              "source_type": "osm"
+            }
+          ],
+          "already_fixed": true,
+          "fixed_name": "笠ヶ岳付近の飲料水"
+        }
+      ]
+    },
+    "餓鬼岳": {
+      "checked": true,
+      "checked_at": "2026-08-28T11:47:02.034466Z",
+      "error": null,
+      "route_mode": "fixed-point-buffer",
+      "route_blocks": 2,
+      "corridor_centers": 2,
+      "candidate_count": 2,
+      "new_candidate_count": 0,
+      "candidates": [
+        {
+          "mountain": "餓鬼岳",
+          "name": "中房登山口付近の湧水",
+          "lat": 36.391613,
+          "lon": 137.742889,
+          "kind": "湧水",
+          "potability": "confirmed",
+          "near_point": "中房登山口",
+          "route_distance_m": 504,
+          "source_type": "osm",
+          "source_name": "OpenStreetMap / Overpass API",
+          "source_url": "https://www.openstreetmap.org/node/12139003813",
+          "source_id": "node/12139003813",
+          "score": 9,
+          "review_priority": "high",
+          "suspicious": false,
+          "score_reasons": [
+            "route<=800m",
+            "drinking_water=yes",
+            "spring",
+            "water-name"
+          ],
+          "tags": {
+            "natural": "spring",
+            "drinking_water": "yes"
+          },
+          "supporting_sources": [
+            {
+              "source_name": "OpenStreetMap / Overpass API",
+              "source_url": "https://www.openstreetmap.org/node/12139003813",
+              "source_type": "osm"
+            }
+          ],
+          "already_fixed": true,
+          "fixed_name": "中房登山口付近の湧水"
+        },
+        {
+          "mountain": "餓鬼岳",
+          "name": "中房登山口付近の飲料水",
+          "lat": 36.392932,
+          "lon": 137.747078,
+          "kind": "飲料水",
+          "potability": "confirmed",
+          "near_point": "中房登山口",
+          "route_distance_m": 398,
+          "source_type": "osm",
+          "source_name": "OpenStreetMap / Overpass API",
+          "source_url": "https://www.openstreetmap.org/node/1845028377",
+          "source_id": "node/1845028377",
+          "score": 8,
+          "review_priority": "high",
+          "suspicious": false,
+          "score_reasons": [
+            "route<=800m",
+            "amenity=drinking_water",
+            "water-name"
+          ],
+          "tags": {
+            "amenity": "drinking_water"
+          },
+          "supporting_sources": [
+            {
+              "source_name": "OpenStreetMap / Overpass API",
+              "source_url": "https://www.openstreetmap.org/node/1845028377",
+              "source_type": "osm"
+            }
+          ],
+          "already_fixed": true,
+          "fixed_name": "中房登山口付近の飲料水"
+        }
+      ]
+    },
+    "燕岳": {
+      "checked": false,
+      "checked_at": "2026-08-28T11:47:23.462126Z",
+      "error": "https://overpass-api.de/api/interpreter: HTTP 504",
+      "route_mode": "route-corridor",
+      "route_blocks": 1,
+      "corridor_centers": 7,
+      "candidate_count": 0,
+      "new_candidate_count": 0,
+      "candidates": []
+    },
+    "有明山": {
+      "checked": true,
+      "checked_at": "2026-08-28T11:47:41.821623Z",
+      "error": null,
+      "route_mode": "fixed-point-buffer",
+      "route_blocks": 2,
+      "corridor_centers": 2,
+      "candidate_count": 2,
+      "new_candidate_count": 0,
+      "candidates": [
+        {
+          "mountain": "有明山",
+          "name": "中房登山口付近の湧水",
+          "lat": 36.391613,
+          "lon": 137.742889,
+          "kind": "湧水",
+          "potability": "confirmed",
+          "near_point": "中房登山口",
+          "route_distance_m": 504,
+          "source_type": "osm",
+          "source_name": "OpenStreetMap / Overpass API",
+          "source_url": "https://www.openstreetmap.org/node/12139003813",
+          "source_id": "node/12139003813",
+          "score": 9,
+          "review_priority": "high",
+          "suspicious": false,
+          "score_reasons": [
+            "route<=800m",
+            "drinking_water=yes",
+            "spring",
+            "water-name"
+          ],
+          "tags": {
+            "natural": "spring",
+            "drinking_water": "yes"
+          },
+          "supporting_sources": [
+            {
+              "source_name": "OpenStreetMap / Overpass API",
+              "source_url": "https://www.openstreetmap.org/node/12139003813",
+              "source_type": "osm"
+            }
+          ],
+          "already_fixed": true,
+          "fixed_name": "中房登山口付近の湧水"
+        },
+        {
+          "mountain": "有明山",
+          "name": "中房登山口付近の飲料水",
+          "lat": 36.392932,
+          "lon": 137.747078,
+          "kind": "飲料水",
+          "potability": "confirmed",
+          "near_point": "中房登山口",
+          "route_distance_m": 398,
+          "source_type": "osm",
+          "source_name": "OpenStreetMap / Overpass API",
+          "source_url": "https://www.openstreetmap.org/node/1845028377",
+          "source_id": "node/1845028377",
+          "score": 8,
+          "review_priority": "high",
+          "suspicious": false,
+          "score_reasons": [
+            "route<=800m",
+            "amenity=drinking_water",
+            "water-name"
+          ],
+          "tags": {
+            "amenity": "drinking_water"
+          },
+          "supporting_sources": [
+            {
+              "source_name": "OpenStreetMap / Overpass API",
+              "source_url": "https://www.openstreetmap.org/node/1845028377",
+              "source_type": "osm"
+            }
+          ],
+          "already_fixed": true,
+          "fixed_name": "中房登山口付近の飲料水"
+        }
+      ]
+    },
+    "大天井岳": {
+      "checked": true,
+      "checked_at": "2026-08-28T11:48:07.772730Z",
+      "error": null,
+      "route_mode": "fixed-point-buffer",
+      "route_blocks": 2,
+      "corridor_centers": 2,
+      "candidate_count": 2,
+      "new_candidate_count": 0,
+      "candidates": [
+        {
+          "mountain": "大天井岳",
+          "name": "中房登山口（燕岳・大天井岳 表銀座ルート）付近の湧水",
+          "lat": 36.391613,
+          "lon": 137.742889,
+          "kind": "湧水",
+          "potability": "confirmed",
+          "near_point": "中房登山口（燕岳・大天井岳 表銀座ルート）",
+          "route_distance_m": 504,
+          "source_type": "osm",
+          "source_name": "OpenStreetMap / Overpass API",
+          "source_url": "https://www.openstreetmap.org/node/12139003813",
+          "source_id": "node/12139003813",
+          "score": 9,
+          "review_priority": "high",
+          "suspicious": false,
+          "score_reasons": [
+            "route<=800m",
+            "drinking_water=yes",
+            "spring",
+            "water-name"
+          ],
+          "tags": {
+            "natural": "spring",
+            "drinking_water": "yes"
+          },
+          "supporting_sources": [
+            {
+              "source_name": "OpenStreetMap / Overpass API",
+              "source_url": "https://www.openstreetmap.org/node/12139003813",
+              "source_type": "osm"
+            }
+          ],
+          "already_fixed": true,
+          "fixed_name": "中房登山口（燕岳・大天井岳 表銀座ルート）付近の湧水"
+        },
+        {
+          "mountain": "大天井岳",
+          "name": "中房登山口（燕岳・大天井岳 表銀座ルート）付近の飲料水",
+          "lat": 36.392932,
+          "lon": 137.747078,
+          "kind": "飲料水",
+          "potability": "confirmed",
+          "near_point": "中房登山口（燕岳・大天井岳 表銀座ルート）",
+          "route_distance_m": 398,
+          "source_type": "osm",
+          "source_name": "OpenStreetMap / Overpass API",
+          "source_url": "https://www.openstreetmap.org/node/1845028377",
+          "source_id": "node/1845028377",
+          "score": 8,
+          "review_priority": "high",
+          "suspicious": false,
+          "score_reasons": [
+            "route<=800m",
+            "amenity=drinking_water",
+            "water-name"
+          ],
+          "tags": {
+            "amenity": "drinking_water"
+          },
+          "supporting_sources": [
+            {
+              "source_name": "OpenStreetMap / Overpass API",
+              "source_url": "https://www.openstreetmap.org/node/1845028377",
+              "source_type": "osm"
+            }
+          ],
+          "already_fixed": true,
+          "fixed_name": "中房登山口（燕岳・大天井岳 表銀座ルート）付近の飲料水"
+        }
+      ]
+    },
+    "常念岳": {
+      "checked": true,
+      "checked_at": "2026-08-28T11:48:42.408905Z",
+      "error": null,
+      "route_mode": "route-corridor",
+      "route_blocks": 1,
+      "corridor_centers": 5,
+      "candidate_count": 0,
+      "new_candidate_count": 0,
+      "candidates": []
+    },
+    "槍ヶ岳": {
+      "checked": false,
+      "checked_at": "2026-08-28T11:49:15.853728Z",
+      "error": "https://overpass-api.de/api/interpreter: TimeoutError: The read operation timed out",
+      "route_mode": "route-corridor",
+      "route_blocks": 1,
+      "corridor_centers": 43,
+      "candidate_count": 0,
+      "new_candidate_count": 0,
+      "candidates": []
     }
   },
   "schema_version": 1,
   "app_version": "1.5.5",
   "scope": "Northern Alps + Central Alps + Southern Alps + Yatsugatake",
-  "generated_at": "2026-08-28T11:45:24.219372Z",
+  "generated_at": "2026-08-28T11:49:16.556687Z",
   "target_count": 65,
   "fixed_cache_comparison": "available",
   "rules": {
