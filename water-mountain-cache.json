@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T04:30:27.183254Z",
+  "generated_at": "2026-08-28T04:30:36.727717Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 152,
-  "available_count": 26,
-  "unresolved_count": 148,
+  "checked_count": 153,
+  "available_count": 27,
+  "unresolved_count": 147,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -1691,10 +1691,33 @@
       "checked_at": "2026-08-28T04:30:27.180555Z"
     },
     "大天井岳": {
-      "checked": false,
-      "available": false,
-      "count": 0,
-      "sources": []
+      "checked": true,
+      "available": true,
+      "count": 2,
+      "sources": [
+        {
+          "name": "中房登山口（燕岳・大天井岳 表銀座ルート）付近の飲料水",
+          "lat": 36.392932,
+          "lon": 137.747078,
+          "kind": "飲料水",
+          "potability": "confirmed",
+          "near_point": "中房登山口（燕岳・大天井岳 表銀座ルート）",
+          "distance_m": 398,
+          "osm_id": "node/1845028377"
+        },
+        {
+          "name": "中房登山口（燕岳・大天井岳 表銀座ルート）付近の湧水",
+          "lat": 36.391613,
+          "lon": 137.742889,
+          "kind": "湧水",
+          "potability": "confirmed",
+          "near_point": "中房登山口（燕岳・大天井岳 表銀座ルート）",
+          "distance_m": 504,
+          "osm_id": "node/12139003813"
+        }
+      ],
+      "attempts": 2,
+      "checked_at": "2026-08-28T04:30:36.725148Z"
     },
     "常念岳": {
       "checked": false,
