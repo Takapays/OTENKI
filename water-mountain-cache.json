@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T05:08:32.683872Z",
+  "generated_at": "2026-08-28T05:08:37.266482Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 248,
+  "checked_count": 249,
   "available_count": 48,
-  "unresolved_count": 52,
+  "unresolved_count": 51,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -2888,10 +2888,12 @@
       "checked_at": "2026-08-28T05:08:32.680949Z"
     },
     "護摩壇山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T05:08:37.263482Z"
     },
     "大和葛城山": {
       "checked": false,
