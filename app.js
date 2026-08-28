@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.3';
+const APP_VERSION = '1.5.4';
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
@@ -6059,9 +6059,7 @@ function renderWaterListLoading(mountain){
 function fixedWaterCard(w){
   const meta=[w.kind,`${w.near_point||'ルート付近'}から約${Math.max(0,Math.round(Number(w.distance_m)||0)).toLocaleString()}m`].filter(Boolean).join(' / ');
   const details=w.tags?.description?`<p class="water-osm-description">${esc(w.tags.description)}</p>`:'';
-  const lat=Number(w.lat),lon=Number(w.lon);
-  const gsi=Number.isFinite(lat)&&Number.isFinite(lon)?`https://maps.gsi.go.jp/#18/${lat}/${lon}/&base=std&ls=std&disp=1`:'';
-  return `<article class="water-source-card"><div class="water-source-head"><div><span class="water-source-kind">${esc(w.kind||'水場')}</span><h4>${esc(w.name||'水場')}</h4><small>${esc(meta)}</small></div></div><div class="water-source-tags">${waterPotabilityLabel(w.potability)}<span>OSM固定情報</span></div>${details}${gsi?`<div class="water-source-actions"><a href="${gsi}" target="_blank" rel="noopener noreferrer">地理院地図で確認 ↗</a></div>`:''}</article>`;
+  return `<article class="water-source-card"><div class="water-source-head"><div><span class="water-source-kind">${esc(w.kind||'水場')}</span><h4>${esc(w.name||'水場')}</h4><small>${esc(meta)}</small></div></div><div class="water-source-tags">${waterPotabilityLabel(w.potability)}<span>${esc(w.source_name?`${w.source_name}固定情報`:'OSM固定情報')}</span></div>${details}</article>`;
 }
 function renderFixedWaterList(mountain,entry){
   const body=$('waterReportBody'),sub=$('waterReportSubtitle');if(!body)return;

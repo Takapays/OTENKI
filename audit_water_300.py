@@ -200,13 +200,42 @@ def load_previous() -> dict[str, Any]:
     except Exception: return {}
 
 
+
+def apply_manual_overrides(rows: dict[str, Any]) -> None:
+    """Apply curated corrections after Overpass results so future cache refreshes keep them."""
+    row = rows.get("白馬岳")
+    if not isinstance(row, dict):
+        return
+    sources = [x for x in (row.get("sources") or []) if not (isinstance(x, dict) and "栂池温泉" in str(x.get("name") or ""))]
+    ginrei = {
+        "name": "銀嶺水",
+        "lat": 36.779000,
+        "lon": 137.816056,
+        "kind": "湧水",
+        "potability": "unknown",
+        "near_point": "栂池登山道入口",
+        "distance_m": 585,
+        "source_name": "YAMAP",
+        "source_url": "https://yamap.com/landmarks/199865",
+        "source_note": "標高2073m・北緯36度46分44.4秒・東経137度48分57.8秒（公開情報）",
+        "manual_verified": True,
+    }
+    if not any(isinstance(x, dict) and str(x.get("name") or "") == "銀嶺水" for x in sources):
+        sources.append(ginrei)
+    row["sources"] = sources
+    row["count"] = len(sources)
+    row["available"] = bool(sources)
+    row["checked"] = True
+
+
 def write_cache(mountains: list[str], rows: dict[str,Any]) -> None:
+    apply_manual_overrides(rows)
     normalized={m:rows.get(m,{'checked':False,'available':False,'count':0,'sources':[]}) for m in mountains}
     checked=sum(v.get('checked') is True for v in normalized.values())
     available=sum(v.get('available') is True for v in normalized.values())
     payload={
         'schema_version':4,
-        'app_version':'1.4.248',
+        'app_version':'1.5.4',
         'generated_at':now_iso(),
         'source':'OpenStreetMap / Overpass API',
         'audit_mode':'incremental-rotating',

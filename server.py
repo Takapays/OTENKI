@@ -32,7 +32,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.5.3"
+APP_VERSION = "1.5.4"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -2148,7 +2148,7 @@ def _water_mountain_cache_remote_load() -> dict[str, Any] | None:
         try:
             req = urllib.request.Request(
                 url,
-                headers={"User-Agent": "Traten/1.5.3", "Cache-Control": "no-cache"},
+                headers={"User-Agent": "Traten/1.5.4", "Cache-Control": "no-cache"},
             )
             with urllib.request.urlopen(req, timeout=WATER_MOUNTAIN_CACHE_REMOTE_TIMEOUT) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
@@ -2192,9 +2192,42 @@ def _water_mountain_cache_entry(mountain: str) -> dict[str, Any] | None:
     row = (_water_mountain_cache_load().get("mountains") or {}).get(str(mountain or "").strip())
     return row if isinstance(row, dict) else None
 
+
+# V1.5.4: curated water corrections that must survive remote cache refreshes.
+# Coordinates are fixed only from public published coordinates; never guessed.
+def _apply_water_manual_overrides(data: dict[str, Any]) -> dict[str, Any]:
+    if not _valid_water_mountain_cache(data):
+        return data
+    import copy
+    out = copy.deepcopy(data)
+    mountains = out.get("mountains") or {}
+    row = mountains.get("白馬岳")
+    if isinstance(row, dict):
+        sources = [x for x in (row.get("sources") or []) if not (isinstance(x, dict) and "栂池温泉" in str(x.get("name") or ""))]
+        ginrei = {
+            "name": "銀嶺水",
+            "lat": 36.779000,
+            "lon": 137.816056,
+            "kind": "湧水",
+            "potability": "unknown",
+            "near_point": "栂池登山道入口",
+            "distance_m": 585,
+            "source_name": "YAMAP",
+            "source_url": "https://yamap.com/landmarks/199865",
+            "source_note": "標高2073m・北緯36度46分44.4秒・東経137度48分57.8秒（公開情報）",
+            "manual_verified": True,
+        }
+        if not any(isinstance(x, dict) and str(x.get("name") or "") == "銀嶺水" for x in sources):
+            sources.append(ginrei)
+        row["sources"] = sources
+        row["count"] = len(sources)
+        row["available"] = bool(sources)
+        row["checked"] = True
+    return out
+
 @app.get("/api/water-mountain-index")
 def water_mountain_index():
-    data = _water_mountain_cache_load()
+    data = _apply_water_manual_overrides(_water_mountain_cache_load())
     mountains = data.get("mountains") or {}
     if not mountains:
         # Never present a failed cache fetch as a legitimate "0 audited mountains" result.
