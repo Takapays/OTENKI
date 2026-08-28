@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T04:26:31.709809Z",
+  "generated_at": "2026-08-28T04:26:36.454530Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 131,
+  "checked_count": 132,
   "available_count": 17,
-  "unresolved_count": 169,
+  "unresolved_count": 168,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -1354,10 +1354,12 @@
       "checked_at": "2026-08-28T04:26:31.707781Z"
     },
     "鹿島槍ヶ岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T04:26:36.452555Z"
     },
     "爺ヶ岳": {
       "checked": false,
