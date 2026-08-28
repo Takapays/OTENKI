@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T04:24:54.911795Z",
+  "generated_at": "2026-08-28T04:25:25.148834Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 124,
+  "checked_count": 125,
   "available_count": 16,
-  "unresolved_count": 176,
+  "unresolved_count": 175,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -1287,10 +1287,12 @@
       "checked_at": "2026-08-28T04:24:54.909136Z"
     },
     "雨飾山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T04:25:25.146816Z"
     },
     "青海黒姫山": {
       "checked": false,
