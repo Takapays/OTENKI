@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T03:37:44.677668Z",
+  "generated_at": "2026-08-28T03:37:49.949653Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 46,
+  "checked_count": 47,
   "available_count": 8,
-  "unresolved_count": 254,
+  "unresolved_count": 253,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -243,10 +243,12 @@
       "checked_at": "2026-08-27T22:19:44Z"
     },
     "大千軒岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:37:49.947651Z"
     },
     "八甲田山": {
       "checked": true,
