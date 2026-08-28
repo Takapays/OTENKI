@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T05:03:44.062292Z",
+  "generated_at": "2026-08-28T05:03:49.005333Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 226,
-  "available_count": 45,
-  "unresolved_count": 74,
+  "checked_count": 227,
+  "available_count": 46,
+  "unresolved_count": 73,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -2639,10 +2639,63 @@
       "checked_at": "2026-08-28T05:03:44.059135Z"
     },
     "白山": {
-      "checked": false,
-      "available": false,
-      "count": 0,
-      "sources": []
+      "checked": true,
+      "available": true,
+      "count": 5,
+      "sources": [
+        {
+          "name": "別当出合付近の飲料水",
+          "lat": 36.12481,
+          "lon": 136.739855,
+          "kind": "飲料水",
+          "potability": "confirmed",
+          "near_point": "別当出合",
+          "distance_m": 29,
+          "osm_id": "node/3724829704"
+        },
+        {
+          "name": "白山室堂付近の飲料水",
+          "lat": 36.149152,
+          "lon": 136.7676,
+          "kind": "飲料水",
+          "potability": "confirmed",
+          "near_point": "白山室堂",
+          "distance_m": 31,
+          "osm_id": "node/2430650411"
+        },
+        {
+          "name": "延命水",
+          "lat": 36.143516,
+          "lon": 136.761473,
+          "kind": "飲料水",
+          "potability": "confirmed",
+          "near_point": "白山室堂",
+          "distance_m": 806,
+          "osm_id": "node/3724679346"
+        },
+        {
+          "name": "別当出合付近の飲料水",
+          "lat": 36.127793,
+          "lon": 136.75002,
+          "kind": "飲料水",
+          "potability": "confirmed",
+          "near_point": "別当出合",
+          "distance_m": 968,
+          "osm_id": "node/2430650408"
+        },
+        {
+          "name": "水場",
+          "lat": 36.141095,
+          "lon": 136.777884,
+          "kind": "湧水",
+          "potability": "unknown",
+          "near_point": "白山室堂",
+          "distance_m": 1273,
+          "osm_id": "node/10294987742"
+        }
+      ],
+      "attempts": 2,
+      "checked_at": "2026-08-28T05:03:49.002135Z"
     },
     "経ヶ岳（福井）": {
       "checked": false,
