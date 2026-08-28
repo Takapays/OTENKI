@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T05:21:27.933630Z",
+  "generated_at": "2026-08-28T05:21:34.940963Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 298,
+  "checked_count": 299,
   "available_count": 61,
-  "unresolved_count": 2,
+  "unresolved_count": 1,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -3455,13 +3455,12 @@
       "checked_at": "2026-08-28T05:15:29.658384Z"
     },
     "鶴見岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
       "sources": [],
-      "attempts": 3,
-      "checked_at": "2026-08-28T05:15:49.202577Z",
-      "error": "https://overpass-api.de/api/interpreter: TimeoutError: The read operation timed out"
+      "attempts": 2,
+      "checked_at": "2026-08-28T05:21:34.937301Z"
     },
     "由布岳": {
       "checked": true,
