@@ -5807,7 +5807,7 @@ async function captureAnalysisResultsScreenshot(sourceBtn=null,sourceStatus=null
 
 // V1.4.237: keep non-essential resource catalogs off the critical first-paint path.
 // Access and fixed-camera data are loaded only when needed, or during browser idle time.
-const TRATEN_OPTIONAL_ASSET_VERSION='1.4.238';
+const TRATEN_OPTIONAL_ASSET_VERSION='1.4.242';
 const tratenOptionalLoads=new Map();
 function loadOptionalScriptOnce(src,key){
   if(tratenOptionalLoads.has(key))return tratenOptionalLoads.get(key);
@@ -6232,6 +6232,30 @@ function init(){
   updateLoadButtonAppearance(false);
   updateForecastHorizon();
   logEvent('page_view',{success:true});
+  handleTrailheadAccessDeepLink();
+}
+
+// V1.4.242: the trailhead index reuses the exact same access UI as the Mountain Info card.
+// trailheads.html links back with ?access=<trailhead>; access.js is then lazy-loaded and the
+// normal TratenTrailheadAccess modal is opened. No second access screen is maintained.
+function handleTrailheadAccessDeepLink(){
+  let params;
+  try{params=new URLSearchParams(window.location.search||'');}catch(_){return;}
+  const accessName=String(params.get('access')||'').trim();
+  if(!accessName)return;
+  ensureAccessResources().then(ok=>{
+    if(ok&&window.TratenTrailheadAccess?.has?.(accessName)){
+      window.TratenTrailheadAccess.open(accessName);
+    }else{
+      setStatus(`${accessName}のアクセス情報は現在未登録です。`,true);
+    }
+  }).catch(()=>setStatus(`${accessName}のアクセス情報を読み込めませんでした。`,true));
+  try{
+    const clean=new URL(window.location.href);
+    clean.searchParams.delete('access');
+    clean.searchParams.delete('mountain');
+    history.replaceState(null,'',clean.pathname+clean.search+clean.hash);
+  }catch(_){ }
 }
 
 function updateLoadButtonAppearance(loaded){
