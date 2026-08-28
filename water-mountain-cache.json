@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T03:54:40.474299Z",
+  "generated_at": "2026-08-28T03:55:25.239443Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 93,
+  "checked_count": 94,
   "available_count": 14,
-  "unresolved_count": 207,
+  "unresolved_count": 206,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -1017,10 +1017,12 @@
       "checked_at": "2026-08-28T03:54:40.471926Z"
     },
     "浅間隠山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:55:25.237005Z"
     },
     "榛名山（榛名富士）": {
       "checked": false,
