@@ -2398,6 +2398,52 @@ def _water_source_summary(water: dict[str, Any]) -> dict[str, Any]:
         level, label = "gray", "最近の公開レポートを確認できず"
     return {"level": level, "label": label, "latest_date": (latest or {}).get("date"), "age_days": (latest or {}).get("age_days")}
 
+@app.post("/api/water-source-report")
+def water_source_report():
+    """Search recent public report snippets for one fixed water source only.
+
+    V1.4.240: this endpoint is intentionally user-triggered from the water index.
+    It never runs during page load and never performs a fresh Overpass lookup.
+    """
+    payload = request.get_json(silent=True) or {}
+    mountain = str(payload.get("mountain") or "").strip()[:80]
+    osm_id = str(payload.get("osm_id") or "").strip()[:80]
+    name = str(payload.get("name") or "").strip()[:120]
+    if not mountain or not (osm_id or name):
+        return jsonify(error="山と水場を指定してください。"), 400
+
+    cached_mountain = _water_mountain_cache_entry(mountain)
+    if not cached_mountain or cached_mountain.get("checked") is not True:
+        return jsonify(error="この山は固定水場監査が未完了です。"), 404
+
+    source = None
+    for row in (cached_mountain.get("sources") or []):
+        if not isinstance(row, dict):
+            continue
+        if osm_id and str(row.get("osm_id") or "") == osm_id:
+            source = dict(row); break
+        if not osm_id and name and str(row.get("name") or "") == name:
+            source = dict(row); break
+    if source is None:
+        return jsonify(error="固定水場一覧に該当する水場がありません。"), 404
+
+    reports, search_error = _search_reports_for_water(mountain, source)
+    source["reports"] = reports
+    source["summary"] = _water_source_summary(source)
+    source["search_url"] = "https://www.bing.com/search?" + urllib.parse.urlencode({
+        "q": _water_search_query(mountain, source), "setlang": "ja-JP"
+    })
+    return jsonify({
+        "ok": True,
+        "mountain": mountain,
+        "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "water_source": source,
+        "partial": bool(search_error),
+        "diagnostics": {"search_error": search_error},
+        "note": "検索はユーザー操作時のみ実行し、公開検索結果のタイトル・抜粋・日付と元ページリンクだけを整理します。",
+    })
+
+
 @app.post("/api/water-reports")
 def water_reports():
     payload = request.get_json(silent=True) or {}

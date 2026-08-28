@@ -3,8 +3,8 @@ name: Refresh water source cache
 on:
   workflow_dispatch:
   schedule:
-    # Small incremental run every 6 hours. Confirmed mountains are skipped forever.
-    - cron: '23 0,6,12,18 * * *'
+    # Small single-mountain queries every 3 hours. Confirmed mountains are skipped forever.
+    - cron: '23 */3 * * *'
   push:
     branches: [ main, master ]
     paths:
@@ -32,7 +32,7 @@ jobs:
         run: python audit_water_300.py --dry-run
 
       - name: Audit only the next unresolved mountains
-        run: python audit_water_300.py --resume --batch-size 4 --max-mountains 16 --sleep 0.8 --timeout 7 --attempts 3
+        run: python audit_water_300.py --resume --batch-size 1 --max-mountains 10 --sleep 0.8 --timeout 7 --attempts 3
 
       - name: Summarize result
         run: |

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Audit mapped water sources for Japan 300 mountains using existing fixed route points.
 
-V1.4.236: incremental rotating audit for GitHub Actions.
+V1.4.240: incremental rotating audit; one mountain per request in Actions to reduce Overpass query size.
 - never guesses coordinates
 - groups several mountains into one Overpass request
 - bounded request time and endpoint fallback
@@ -182,7 +182,7 @@ def fetch_batch(batch: list[str], points_map: dict[str,list[dict[str,Any]]], tim
         endpoint=ENDPOINTS[attempt % len(ENDPOINTS)]
         try:
             data=urllib.parse.urlencode({'data':q}).encode('utf-8')
-            req=urllib.request.Request(endpoint,data=data,method='POST',headers={'User-Agent':'TratenWaterAudit/1.4.236 (+https://otenki.onrender.com/)','Content-Type':'application/x-www-form-urlencoded'})
+            req=urllib.request.Request(endpoint,data=data,method='POST',headers={'User-Agent':'TratenWaterAudit/1.4.240 (+https://otenki.onrender.com/)','Content-Type':'application/x-www-form-urlencoded'})
             with urllib.request.urlopen(req,timeout=timeout) as r:
                 payload=json.loads(r.read().decode('utf-8','replace'))
             return {m:parse_sources(payload,points_map.get(m) or []) for m in batch},None,attempt+1
@@ -206,7 +206,7 @@ def write_cache(mountains: list[str], rows: dict[str,Any]) -> None:
     available=sum(v.get('available') is True for v in normalized.values())
     payload={
         'schema_version':4,
-        'app_version':'1.4.236',
+        'app_version':'1.4.240',
         'generated_at':now_iso(),
         'source':'OpenStreetMap / Overpass API',
         'audit_mode':'incremental-rotating',
