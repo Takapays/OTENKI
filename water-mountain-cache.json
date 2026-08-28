@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.245",
-  "generated_at": "2026-08-28T02:37:20.732692Z",
+  "generated_at": "2026-08-28T02:37:27.298084Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 35,
+  "checked_count": 36,
   "available_count": 7,
-  "unresolved_count": 265,
+  "unresolved_count": 264,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -55,10 +55,12 @@
       "checked_at": "2026-08-27T22:19:44Z"
     },
     "天塩岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T02:37:27.295344Z"
     },
     "ニセイカウシュッペ山": {
       "checked": false,
