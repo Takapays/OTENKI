@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T05:12:22.432682Z",
+  "generated_at": "2026-08-28T05:12:29.009091Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 264,
-  "available_count": 54,
-  "unresolved_count": 36,
+  "checked_count": 265,
+  "available_count": 55,
+  "unresolved_count": 35,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -3262,10 +3262,53 @@
       "checked_at": "2026-08-28T05:12:22.428975Z"
     },
     "剣山": {
-      "checked": false,
-      "available": false,
-      "count": 0,
-      "sources": []
+      "checked": true,
+      "available": true,
+      "count": 4,
+      "sources": [
+        {
+          "name": "白髪避難小屋付近の湧水",
+          "lat": 33.820726,
+          "lon": 134.000736,
+          "kind": "湧水",
+          "potability": "unknown",
+          "near_point": "白髪避難小屋",
+          "distance_m": 143,
+          "osm_id": "node/12693323364"
+        },
+        {
+          "name": "剣山御神水",
+          "lat": 33.855342,
+          "lon": 134.091982,
+          "kind": "湧水",
+          "potability": "unknown",
+          "near_point": "見ノ越 剣山登山口",
+          "distance_m": 287,
+          "osm_id": "node/6451304551"
+        },
+        {
+          "name": "次郎笈付近の湧水",
+          "lat": 33.844946,
+          "lon": 134.083696,
+          "kind": "湧水",
+          "potability": "confirmed",
+          "near_point": "次郎笈",
+          "distance_m": 306,
+          "osm_id": "node/6447104586"
+        },
+        {
+          "name": "三嶺付近の湧水",
+          "lat": 33.839984,
+          "lon": 133.992734,
+          "kind": "湧水",
+          "potability": "unknown",
+          "near_point": "三嶺",
+          "distance_m": 462,
+          "osm_id": "node/10901609505"
+        }
+      ],
+      "attempts": 2,
+      "checked_at": "2026-08-28T05:12:29.005164Z"
     },
     "三嶺": {
       "checked": false,
