@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
-  "app_version": "1.4.247",
-  "generated_at": "2026-08-28T03:24:17.167712Z",
+  "app_version": "1.4.248",
+  "generated_at": "2026-08-28T03:37:44.677668Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 45,
+  "checked_count": 46,
   "available_count": 8,
-  "unresolved_count": 255,
+  "unresolved_count": 254,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -227,10 +227,12 @@
       "checked_at": "2026-08-27T22:19:44Z"
     },
     "狩場山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T03:37:44.675732Z"
     },
     "渡島駒ヶ岳": {
       "checked": true,
