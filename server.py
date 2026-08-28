@@ -32,7 +32,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.4.232"
+APP_VERSION = "1.4.238"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -145,6 +145,7 @@ _national_metno_last_request = 0.0
 NATIONAL_OUTLOOK_STALE_TTL = int(os.environ.get("NATIONAL_OUTLOOK_STALE_TTL", "86400"))
 NATIONAL_OUTLOOK_REFRESH_INTERVAL = int(os.environ.get("NATIONAL_OUTLOOK_REFRESH_INTERVAL", "900"))
 NATIONAL_OUTLOOK_AUTO_REFRESH = os.environ.get("NATIONAL_OUTLOOK_AUTO_REFRESH", "1").lower() not in {"0", "false", "no"}
+NATIONAL_OUTLOOK_BOOT_GRACE = int(os.environ.get("NATIONAL_OUTLOOK_BOOT_GRACE", "45"))
 NATIONAL_CACHE_REFRESH_TOKEN = os.environ.get("NATIONAL_CACHE_REFRESH_TOKEN", "")
 NATIONAL_NEXTDAY_100_AUTO_CACHE = os.environ.get("NATIONAL_NEXTDAY_100_AUTO_CACHE", "1").lower() not in {"0", "false", "no"}
 NATIONAL_100_POINTS_FILE = os.path.join(BASE, "national-100-points.json")
@@ -1732,9 +1733,13 @@ def _ensure_national_refresh_worker() -> None:
         _save_national_refresh_runtime()
 
         def worker():
-            _national_refresh_runtime["state"] = "boot-check"
+            # V1.4.237: do not compete with Render cold-start / first-page delivery.
+            # The persistent cache can wait briefly; user-facing HTML/JS gets priority.
+            _national_refresh_runtime["state"] = "boot-grace"
             _national_refresh_runtime["workerPid"] = os.getpid()
             _save_national_refresh_runtime()
+            if NATIONAL_OUTLOOK_BOOT_GRACE > 0:
+                time.sleep(NATIONAL_OUTLOOK_BOOT_GRACE)
             _run_national_refresh_cycle("boot")
             while True:
                 time.sleep(max(300, NATIONAL_OUTLOOK_REFRESH_INTERVAL))
@@ -2788,7 +2793,7 @@ def bing_site_auth():
     return response
 
 
-PUBLIC_FILES = {"app.js", "styles.css", "access.js", "access-data.js", "access.css", "camera-data.js", "live-cameras.js", "live-cameras.css", "live-cameras.html", "water-sources.html", "water-sources.js", "water-sources.css", "water-mountain-cache.json", "trailheads.html", "trailheads.js", "huts.html", "huts.js", "hut-data.js", "resource-index.css", "favicon.ico", "robots.txt", "sitemap.xml", "guide.html", "manifest.json", "google5a7b3dfd79ff97f0.html", "BingSiteAuth.xml", INDEXNOW_KEY_FILENAME}
+PUBLIC_FILES = {"app.js", "styles.css", "access.js", "access-data.js", "access.css", "camera-data.js", "live-cameras.js", "live-cameras.css", "live-cameras.html", "water-sources.html", "water-sources.js", "water-sources.css", "water-mountain-cache.json", "trailheads.html", "trailheads.js", "huts.html", "huts.js", "hut-data.js", "resource-index.css", "resource-mountain-data.js", "trailhead-access.html", "trailhead-access.js", "favicon.ico", "robots.txt", "sitemap.xml", "guide.html", "manifest.json", "google5a7b3dfd79ff97f0.html", "BingSiteAuth.xml", INDEXNOW_KEY_FILENAME}
 PUBLIC_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif", ".ico"}
 
 

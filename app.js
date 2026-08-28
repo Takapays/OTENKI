@@ -5019,11 +5019,12 @@ function refreshMountainInfoButton(){
   btn.disabled=!(selectValue||searchValue);
 }
 
-function openMountainInfoFromPlanner(){
+async function openMountainInfoFromPlanner(){
   const name=currentMountainLabel();
   if(!name)return;
   const p=nationalMountainPoint(name);
   if(!p){setStatus(`${name} の全国分析用山頂情報が見つかりません。`,true);return;}
+  await Promise.allSettled([ensureAccessResources(),ensureCameraResources()]);
   const result=nationalOutlookResults.get(name)||null;
   showNationalOutlookDetail(p,result);
   if(nationalOutlookMap){
@@ -5392,6 +5393,18 @@ function showNationalOutlookDetail(p,result){
   box.querySelector('[data-mountain-water]')?.addEventListener('click',()=>loadMountainWaterReports(p.name,p));
   box.querySelector('[data-mountain-camera]')?.addEventListener('click',()=>loadMountainCameras(p.name));
   refreshMountainExtraActions(box,p);
+  // Access data may still be deferred when a user scrolls straight to the national map.
+  // Hydrate the access button after the optional catalog arrives without blocking the detail card.
+  ensureAccessResources().then(()=>{
+    const info=nationalMountainGuideInfo(p.name);
+    const accessBtn=box.querySelector('[data-national-trailhead-access]');
+    const has=!!info.trailhead&&info.trailhead!=='情報なし'&&Boolean(window.TratenTrailheadAccess?.has?.(info.trailhead));
+    if(accessBtn&&has){
+      accessBtn.classList.remove('is-unavailable');
+      accessBtn.disabled=false;accessBtn.removeAttribute('aria-disabled');accessBtn.removeAttribute('title');
+      accessBtn.textContent='アクセス';
+    }
+  }).catch(()=>{});
   box.querySelectorAll('[data-national-nearby]').forEach(btn=>btn.addEventListener('click',()=>nationalSelectNearby(btn.dataset.nationalNearby)));
   // V1.4.187: 山情報のアクセスボタンは access.js の委譲クリックで処理。
   if(!photo){
@@ -5593,6 +5606,28 @@ function ensureLeafletLoaded(){
   return tratenLeafletLoadPromise;
 }
 
+let tratenNationalSetupStarted=false;
+function scheduleNationalOutlookSetup(){
+  const section=$('nationalOutlook');
+  const start=()=>{
+    if(tratenNationalSetupStarted)return;
+    tratenNationalSetupStarted=true;
+    setupNationalOutlook().catch(err=>{console.warn('national outlook deferred setup failed',err);});
+  };
+  if(section&&'IntersectionObserver' in window){
+    const observer=new IntersectionObserver(entries=>{
+      if(entries.some(x=>x.isIntersecting)){observer.disconnect();start();}
+    },{rootMargin:'900px 0px'});
+    observer.observe(section);
+  }
+  // Warm the map only after the critical page has painted and the browser is idle.
+  const idleStart=()=>{
+    if('requestIdleCallback' in window)window.requestIdleCallback(start,{timeout:8000});
+    else setTimeout(start,5000);
+  };
+  if(document.readyState==='complete')idleStart();else window.addEventListener('load',idleStart,{once:true});
+}
+
 async function setupNationalOutlook(){
   const el=$('nationalOutlookMap'),date=$('nationalOutlookDate'),btn=$('nationalOutlookRun'),status=$('nationalOutlookStatus');
   const filters=[$('nationalFilter100'),$('nationalFilter200'),$('nationalFilter300')].filter(Boolean);
@@ -5770,6 +5805,54 @@ async function captureAnalysisResultsScreenshot(sourceBtn=null,sourceStatus=null
 
 
 
+// V1.4.237: keep non-essential resource catalogs off the critical first-paint path.
+// Access and fixed-camera data are loaded only when needed, or during browser idle time.
+const TRATEN_OPTIONAL_ASSET_VERSION='1.4.238';
+const tratenOptionalLoads=new Map();
+function loadOptionalScriptOnce(src,key){
+  if(tratenOptionalLoads.has(key))return tratenOptionalLoads.get(key);
+  const promise=new Promise((resolve,reject)=>{
+    const existing=document.querySelector(`script[data-traten-optional="${key}"]`);
+    if(existing){
+      if(existing.dataset.loaded==='1'){resolve(true);return;}
+      existing.addEventListener('load',()=>resolve(true),{once:true});
+      existing.addEventListener('error',()=>reject(new Error(`${key} load failed`)),{once:true});
+      return;
+    }
+    const script=document.createElement('script');
+    script.src=src;script.async=true;script.dataset.tratenOptional=key;
+    script.addEventListener('load',()=>{script.dataset.loaded='1';resolve(true);},{once:true});
+    script.addEventListener('error',()=>reject(new Error(`${key} load failed`)),{once:true});
+    document.head.appendChild(script);
+  }).catch(err=>{tratenOptionalLoads.delete(key);throw err;});
+  tratenOptionalLoads.set(key,promise);return promise;
+}
+function ensureOptionalStylesheet(href,key){
+  if(document.querySelector(`link[data-traten-optional="${key}"]`))return;
+  const link=document.createElement('link');link.rel='stylesheet';link.href=href;link.dataset.tratenOptional=key;document.head.appendChild(link);
+}
+async function ensureCameraResources(){
+  if(typeof window.tratenCamerasForMountain==='function')return true;
+  await loadOptionalScriptOnce(`camera-data.js?v=${TRATEN_OPTIONAL_ASSET_VERSION}`,'camera-data');
+  return typeof window.tratenCamerasForMountain==='function';
+}
+async function ensureAccessResources(){
+  if(window.TratenTrailheadAccess)return true;
+  ensureOptionalStylesheet(`access.css?v=${TRATEN_OPTIONAL_ASSET_VERSION}`,'access-css');
+  if(!window.TRATEN_TRAILHEAD_ACCESS_DB)await loadOptionalScriptOnce(`access-data.js?v=${TRATEN_OPTIONAL_ASSET_VERSION}`,'access-data');
+  if(!window.TratenTrailheadAccess)await loadOptionalScriptOnce(`access.js?v=${TRATEN_OPTIONAL_ASSET_VERSION}`,'access-ui');
+  try{window.TratenTrailheadAccess?.refresh?.();}catch(_){}
+  return !!window.TratenTrailheadAccess;
+}
+function scheduleOptionalResourceWarmup(){
+  const warm=()=>{ensureCameraResources().catch(()=>{});ensureAccessResources().catch(()=>{});};
+  const afterLoad=()=>{
+    if('requestIdleCallback' in window)window.requestIdleCallback(warm,{timeout:6000});
+    else setTimeout(warm,2500);
+  };
+  if(document.readyState==='complete')afterLoad();else window.addEventListener('load',afterLoad,{once:true});
+}
+
 // V1.4.222: verified fixed-camera catalog helpers.
 function fixedCamerasForMountain(name){
   try{return typeof window.tratenCamerasForMountain==='function'?window.tratenCamerasForMountain(name):[];}catch(_){return [];}
@@ -5846,6 +5929,7 @@ const mountainWaterAvailabilityMemory=new Map();
 async function refreshMountainExtraActions(box,p){
   const camBtn=box?.querySelector('[data-mountain-camera]');
   const waterBtn=box?.querySelector('[data-mountain-water]');
+  try{await ensureCameraResources();}catch(_){}
   const cameras=fixedCamerasForMountain(p?.name);
   if(camBtn){camBtn.classList.toggle('hidden',!cameras.length);camBtn.textContent=`📹 ライブカメラ${cameras.length?` ${cameras.length}`:''}`;}
   if(!waterBtn||!p)return;
@@ -5980,6 +6064,7 @@ async function checkRouteExtraAvailabilityNow(){
   const mountain=currentMountainLabel();
   const points=routeExtraAvailabilityPoints();
   if(!mountain||points.length<2){setRouteExtraButtonVisibility();return;}
+  try{await ensureCameraResources();}catch(_){}
   const fixedCamera= fixedCamerasForMountain(mountain).length>0;
   setRouteExtraButtonVisibility({water:false,camera:fixedCamera});
   const signature=routeExtraAvailabilitySignature(mountain,points);
@@ -6025,7 +6110,8 @@ function init(){
   // Skip the main planner boot when its root controls do not exist.
   if(!$('mountainArea'))return;
   setupInstallApp();
-  setupNationalOutlook();
+  scheduleNationalOutlookSetup();
+  scheduleOptionalResourceWarmup();
   setupWalkingPaceControl();
   setupRouteExtraAvailability();
   const area=$('mountainArea');
@@ -7584,7 +7670,8 @@ function addPointRow(type='peak',selected='',roleLabel='',initialDateTime=null){
     <button class="move up" type="button" title="上へ">↑</button><button class="move down" type="button" title="下へ">↓</button><button class="remove" type="button" title="削除">×</button>
     <div class="point-meta">地点を選択してください</div>`;
   $('points').appendChild(row); renumber();
-  window.TratenTrailheadAccess?.attachRow?.(row);
+  if(window.TratenTrailheadAccess)window.TratenTrailheadAccess.attachRow?.(row);
+  else ensureAccessResources().then(()=>window.TratenTrailheadAccess?.attachRow?.(row)).catch(()=>{});
   const typeSel=row.querySelector('.point-type'), pointSel=row.querySelector('.point-select'), stay=row.querySelector('.stay-option'), stayDeparture=row.querySelector('.stay-departure'), stayDepartureTime=row.querySelector('.stay-departure-time'), hutHomeLink=row.querySelector('.hut-home-link');
   const selectedOvernightCandidate=()=>{
     const p=selectedCandidate(pointSel.value);
