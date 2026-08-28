@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T04:43:11.202160Z",
+  "generated_at": "2026-08-28T04:43:30.647063Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 161,
+  "checked_count": 162,
   "available_count": 30,
-  "unresolved_count": 139,
+  "unresolved_count": 138,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -1867,10 +1867,12 @@
       "checked_at": "2026-08-28T04:43:11.199385Z"
     },
     "小秀山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T04:43:30.644205Z"
     },
     "奥三界岳": {
       "checked": false,
