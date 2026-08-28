@@ -5,7 +5,7 @@ const meta=window.TRATEN_RESOURCE_MOUNTAINS||{},areaMap=meta.mountainArea||{},or
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const northSouthRank=meta.northSouthRank||{};
 const sortNorthSouth=names=>[...names].sort((a,b)=>(northSouthRank[a]??1e9)-(northSouthRank[b]??1e9));
-const osmUrl=id=>{const m=String(id||'').match(/^(node|way|relation)\/(\d+)$/);return m?`https://www.openstreetmap.org/${m[1]}/${m[2]}`:''};
+const gsiUrl=(lat,lon)=>{const a=Number(lat),o=Number(lon);return Number.isFinite(a)&&Number.isFinite(o)?`https://maps.gsi.go.jp/#18/${a}/${o}/&base=std&ls=std&disp=1`:''};
 const areaSel=$('waterAreaFilter'),mountainSel=$('waterMountainFilter');
 function availableMountains(){return order.filter(m=>state.mountains?.[m]?.checked===true&&state.mountains?.[m]?.available===true)}
 function setupAreas(){const avail=availableMountains();areaSel.innerHTML='<option value="">山域を選択してください</option>';(meta.areas||[]).filter(([k])=>avail.some(m=>areaMap[m]===k)).forEach(([k,n])=>areaSel.insertAdjacentHTML('beforeend',`<option value="${k}">${esc(n)}</option>`));populateMountains();}
@@ -23,9 +23,9 @@ function render(){
   const v=state.mountains[m];
   if(!v?.available){$('waterIndexList').innerHTML='<div class="water-empty-index">この山の確認済み水場候補はありません。</div>';return;}
   const src=(v.sources||[]).slice(0,20).map(x=>{
-    const url=osmUrl(x.osm_id);
+    const url=gsiUrl(x.lat,x.lon);
     const desc=x.tags?.description?`<p class="water-osm-description">${esc(x.tags.description)}</p>`:'';
-    return `<div class="water-source-mini"><b>💧 ${esc(x.name||x.kind||'水場')}</b><small>${esc(x.kind||'水場')}・${esc(x.near_point||'ルート付近')}から約${Number(x.distance_m||0).toLocaleString()}m・${esc(potabilityText(x.potability))}</small>${desc}${url?`<div class="water-source-mini-actions"><a href="${url}" target="_blank" rel="noopener noreferrer">OpenStreetMapで確認 ↗</a></div>`:''}</div>`;
+    return `<div class="water-source-mini"><b>💧 ${esc(x.name||x.kind||'水場')}</b><small>${esc(x.kind||'水場')}・${esc(x.near_point||'ルート付近')}から約${Number(x.distance_m||0).toLocaleString()}m・${esc(potabilityText(x.potability))}</small>${desc}${url?`<div class="water-source-mini-actions"><a href="${url}" target="_blank" rel="noopener noreferrer">地理院地図で確認 ↗</a></div>`:''}</div>`;
   }).join('');
   $('waterIndexList').innerHTML=`<article class="water-mountain-card"><h3>${esc(m)}</h3><div class="water-mountain-meta"><span class="water-chip ok">水場候補 ${v.count||0}件</span>${v.sources?.some(x=>x.potability==='confirmed')?'<span class="water-chip">OSM飲用可登録あり</span>':''}</div><p class="water-search-note">固定監査で確認できた水場候補のみを表示しています。現在の出水・水量・飲用安全は保証しません。</p>${src||'<div class="water-source-mini">候補詳細なし</div>'}</article>`;
 }

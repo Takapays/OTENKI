@@ -1,3 +1,9 @@
+## V1.5.1 rebuild - 水場確認地図を地理院地図へ変更
+- 水場一覧ページとTOP水場モーダルの「OpenStreetMapで確認」リンクを「地理院地図で確認」へ変更。
+- 水場固定データの緯度・経度を使い、地理院地図の標準地図をズーム18で開く。
+- 水場データ自体の出典・OSM属性・300座監査キャッシュは変更なし。
+- `water-mountain-cache.json` は従来どおり通常リリースZIPへ含めない。
+
 # CHANGELOG
 
 ## V1.5.1 water-cache recovery rebuild

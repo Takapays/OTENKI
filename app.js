@@ -6059,9 +6059,9 @@ function renderWaterListLoading(mountain){
 function fixedWaterCard(w){
   const meta=[w.kind,`${w.near_point||'ルート付近'}から約${Math.max(0,Math.round(Number(w.distance_m)||0)).toLocaleString()}m`].filter(Boolean).join(' / ');
   const details=w.tags?.description?`<p class="water-osm-description">${esc(w.tags.description)}</p>`:'';
-  const m=String(w.osm_id||'').match(/^(node|way|relation)\/(\d+)$/);
-  const osm=m?`https://www.openstreetmap.org/${m[1]}/${m[2]}`:'';
-  return `<article class="water-source-card"><div class="water-source-head"><div><span class="water-source-kind">${esc(w.kind||'水場')}</span><h4>${esc(w.name||'水場')}</h4><small>${esc(meta)}</small></div></div><div class="water-source-tags">${waterPotabilityLabel(w.potability)}<span>OSM固定情報</span></div>${details}${osm?`<div class="water-source-actions"><a href="${osm}" target="_blank" rel="noopener noreferrer">OpenStreetMapで確認 ↗</a></div>`:''}</article>`;
+  const lat=Number(w.lat),lon=Number(w.lon);
+  const gsi=Number.isFinite(lat)&&Number.isFinite(lon)?`https://maps.gsi.go.jp/#18/${lat}/${lon}/&base=std&ls=std&disp=1`:'';
+  return `<article class="water-source-card"><div class="water-source-head"><div><span class="water-source-kind">${esc(w.kind||'水場')}</span><h4>${esc(w.name||'水場')}</h4><small>${esc(meta)}</small></div></div><div class="water-source-tags">${waterPotabilityLabel(w.potability)}<span>OSM固定情報</span></div>${details}${gsi?`<div class="water-source-actions"><a href="${gsi}" target="_blank" rel="noopener noreferrer">地理院地図で確認 ↗</a></div>`:''}</article>`;
 }
 function renderFixedWaterList(mountain,entry){
   const body=$('waterReportBody'),sub=$('waterReportSubtitle');if(!body)return;
