@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T03:50:58.308552Z",
+  "generated_at": "2026-08-28T03:51:10.923883Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 81,
-  "available_count": 12,
-  "unresolved_count": 219,
+  "checked_count": 82,
+  "available_count": 13,
+  "unresolved_count": 218,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -722,10 +722,23 @@
       "error": "https://overpass-api.de/api/interpreter: TimeoutError: The read operation timed out"
     },
     "苗場山": {
-      "checked": false,
-      "available": false,
-      "count": 0,
-      "sources": []
+      "checked": true,
+      "available": true,
+      "count": 1,
+      "sources": [
+        {
+          "name": "苗場山付近の湧水",
+          "lat": 36.849589,
+          "lon": 138.701667,
+          "kind": "湧水",
+          "potability": "confirmed",
+          "near_point": "苗場山",
+          "distance_m": 1096,
+          "osm_id": "node/13077508204"
+        }
+      ],
+      "attempts": 3,
+      "checked_at": "2026-08-28T03:51:10.922151Z"
     },
     "佐武流山": {
       "checked": false,
