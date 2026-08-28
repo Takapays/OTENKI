@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T04:21:47.514766Z",
+  "generated_at": "2026-08-28T04:21:56.832055Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 106,
+  "checked_count": 107,
   "available_count": 14,
-  "unresolved_count": 194,
+  "unresolved_count": 193,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -1121,10 +1121,12 @@
       "checked_at": "2026-08-28T04:21:47.512206Z"
     },
     "四阿山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T04:21:56.829321Z"
     },
     "浅間山": {
       "checked": false,
