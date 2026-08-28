@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T04:29:50.521607Z",
+  "generated_at": "2026-08-28T04:29:55.478551Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 146,
+  "checked_count": 147,
   "available_count": 22,
-  "unresolved_count": 154,
+  "unresolved_count": 153,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -1559,10 +1559,12 @@
       "checked_at": "2026-08-28T04:29:50.519026Z"
     },
     "三俣蓮華岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T04:29:55.475821Z"
     },
     "赤牛岳": {
       "checked": false,
