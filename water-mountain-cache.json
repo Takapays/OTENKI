@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T05:08:10.839094Z",
+  "generated_at": "2026-08-28T05:08:23.667017Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 246,
+  "checked_count": 247,
   "available_count": 48,
-  "unresolved_count": 54,
+  "unresolved_count": 53,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -2872,10 +2872,12 @@
       "checked_at": "2026-08-28T05:08:10.836212Z"
     },
     "釈迦ヶ岳（奈良）": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T05:08:23.664124Z"
     },
     "伯母子岳": {
       "checked": false,
