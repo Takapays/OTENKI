@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T05:06:00.786143Z",
+  "generated_at": "2026-08-28T05:06:07.694362Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 236,
-  "available_count": 46,
-  "unresolved_count": 64,
+  "checked_count": 237,
+  "available_count": 47,
+  "unresolved_count": 63,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -2770,10 +2770,23 @@
       "checked_at": "2026-08-28T05:06:00.781844Z"
     },
     "伊吹山": {
-      "checked": false,
-      "available": false,
-      "count": 0,
-      "sources": []
+      "checked": true,
+      "available": true,
+      "count": 1,
+      "sources": [
+        {
+          "name": "小碓の泉",
+          "lat": 35.3885,
+          "lon": 136.371765,
+          "kind": "湧水",
+          "potability": "unknown",
+          "near_point": "伊吹山 上野登山口（三之宮神社）",
+          "distance_m": 1179,
+          "osm_id": "node/420052624"
+        }
+      ],
+      "attempts": 2,
+      "checked_at": "2026-08-28T05:06:07.691057Z"
     },
     "藤原岳": {
       "checked": false,
