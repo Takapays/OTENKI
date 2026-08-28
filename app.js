@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.12';
+const APP_VERSION = '1.5.14';
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
@@ -739,7 +739,7 @@ const WEST_JAPAN_COURSE_TIMES = Object.freeze({
   '剣山→剣山頂上ヒュッテ': {minutes:7, source:'ヤマレコ・剣山縦走 山行計画（標準CT補完）', sourceType:'yamareco'},
   '剣山→次郎笈': {minutes:63, source:'ヤマレコ・剣山/次郎笈 山行計画（標準CT補完）', sourceType:'yamareco'},
   '次郎笈→剣山': {minutes:66, source:'ヤマレコ・剣山〜三嶺 山行計画（標準CT補完）', sourceType:'yamareco'},
-  // V1.5.12: 剣山〜三嶺縦走の実利用CT欠損を公開標準CTで固定。
+  // V1.5.14: 剣山〜三嶺縦走の実利用CT欠損を公開標準CTで固定。
   // 剣山→白髪避難小屋 / 次郎笈→白髪避難小屋はヤマレコ公開山行計画の区間合算。
   // 逆方向は三嶺→剣山縦走の公開山行計画の区間合算。
   '剣山→白髪避難小屋': {minutes:322, source:'ヤマレコ・三嶺 山行計画（剣山→白髪避難小屋 標準CT区間合算）', sourceType:'yamareco'},
@@ -749,7 +749,7 @@ const WEST_JAPAN_COURSE_TIMES = Object.freeze({
   '白髪避難小屋→三嶺ヒュッテ': {minutes:131, source:'確認済みCT合成（白髪避難小屋→三嶺 122分 + 三嶺→三嶺ヒュッテ 9分）', sourceType:'composed-verified'},
   '三嶺ヒュッテ→白髪避難小屋': {minutes:126, source:'確認済みCT合成（三嶺ヒュッテ→三嶺 14分 + 三嶺→白髪避難小屋 112分）', sourceType:'composed-verified'},
 
-  // V1.5.12: 剣山野営場（西島野営場）の周辺CT。YAMAPモデルコースの区間合算。
+  // V1.5.14: 剣山野営場（西島野営場）の周辺CT。YAMAPモデルコースの区間合算。
   '見ノ越 剣山登山口→剣山野営場（西島野営場）': {minutes:42, source:'YAMAP・剣山王道モデルコース（見ノ越→剣山野営場 標準CT区間合算）', sourceType:'yamap'},
   '剣山野営場（西島野営場）→見ノ越 剣山登山口': {minutes:40, source:'YAMAP・剣山王道モデルコース（剣山野営場→見ノ越 標準CT区間合算）', sourceType:'yamap'},
   '剣山野営場（西島野営場）→剣山観光登山リフト西島駅': {minutes:16, source:'YAMAP・剣山王道モデルコース（野営場→西島駅 標準CT区間合算）', sourceType:'yamap'},
@@ -1370,6 +1370,71 @@ function normalizeCourseTimePointName(name){
 }
 
 
+
+
+// V1.5.14: abolish proportional/apportioned CT. Every fixed intermediate waypoint
+// used by representative routes must have an explicit published segment CT.
+const V1514_INTERMEDIATE_VERIFIED_COURSE_TIMES = Object.freeze({
+  // Takatsuma: published route guide segment CTs.
+  '戸隠キャンプ場・高妻山登山者駐車場→一不動避難小屋': {minutes:80, source:'日本アルプス登山ルートガイド・高妻山 一不動経由（戸隠キャンプ場→一不動避難小屋 1時間20分）', sourceType:'other'},
+  '一不動避難小屋→高妻山': {minutes:135, source:'日本アルプス登山ルートガイド・高妻山 一不動経由（一不動避難小屋→六弥勒45分→高妻山1時間30分）', sourceType:'other'},
+  '高妻山→一不動避難小屋': {minutes:100, source:'日本アルプス登山ルートガイド・高妻山 一不動経由（高妻山→六弥勒1時間05分→一不動避難小屋35分）', sourceType:'other'},
+  '一不動避難小屋→戸隠キャンプ場・高妻山登山者駐車場': {minutes:65, source:'日本アルプス登山ルートガイド・高妻山 一不動経由（一不動避難小屋→戸隠キャンプ場 1時間05分）', sourceType:'other'},
+
+  // Myoko: Sasagamine - Kurosawaike - Myoko published standard CTs.
+  '笹ヶ峰登山口→黒沢池ヒュッテ': {minutes:190, source:'いこまいけ登山・妙高山笹ヶ峰ルート（笹ヶ峰→黒沢橋1時間→富士見平1時間30分→黒沢池ヒュッテ40分）', sourceType:'other'},
+  '黒沢池ヒュッテ→妙高山': {minutes:150, source:'いこまいけ登山・妙高山笹ヶ峰ルート（黒沢池ヒュッテ→大倉乗越30分→長助池分岐40分→北峰1時間10分→南峰10分）', sourceType:'other'},
+  '妙高山→黒沢池ヒュッテ': {minutes:130, source:'いこまいけ登山・妙高山笹ヶ峰ルート（南峰→北峰10分→長助池分岐50分→大倉乗越50分→黒沢池ヒュッテ20分）', sourceType:'other'},
+  '黒沢池ヒュッテ→笹ヶ峰登山口': {minutes:160, source:'いこまいけ登山・妙高山笹ヶ峰ルート（黒沢池ヒュッテ→富士見平40分→黒沢橋1時間10分→笹ヶ峰50分）', sourceType:'other'},
+
+  // Yari: published major-route segment CTs. No distance allocation.
+  '槍沢ロッヂ→ババ平（槍沢キャンプ場）': {minutes:45, source:'YAMA HACK・槍ヶ岳 槍沢ルート（槍沢ロッヂ→槍沢キャンプ地 45分）', sourceType:'other'},
+  'ババ平（槍沢キャンプ場）→大曲（水俣乗越分岐）': {minutes:55, source:'YAMA HACK・槍ヶ岳 槍沢ルート（槍沢キャンプ地→大曲 55分）', sourceType:'other'},
+  '大曲（水俣乗越分岐）→天狗原分岐': {minutes:60, source:'YAMA HACK・槍沢ルート（大曲→天狗原分岐 60分）', sourceType:'other'},
+  '天狗原分岐→槍ヶ岳山荘': {minutes:170, source:'YAMA HACK・槍沢ルート（天狗原分岐→坊主岩90分→殺生小屋40分→槍ヶ岳山荘40分）', sourceType:'other'},
+  '槍ヶ岳山荘→天狗原分岐': {minutes:100, source:'山岳愛好会雷鳥・槍穂高縦走計画（槍ヶ岳山荘→殺生分岐20分→ヒュッテ大槍分岐20分→天狗原分岐60分）', sourceType:'other'},
+  '天狗原分岐→大曲（水俣乗越分岐）': {minutes:50, source:'山岳愛好会雷鳥・槍穂高縦走計画（天狗原分岐→大曲 50分）', sourceType:'other'},
+  '大曲（水俣乗越分岐）→ババ平（槍沢キャンプ場）': {minutes:25, source:'山岳愛好会雷鳥・槍穂高縦走計画（大曲→ババ平 25分）', sourceType:'other'},
+  'ババ平（槍沢キャンプ場）→槍沢ロッヂ': {minutes:35, source:'山岳愛好会雷鳥・槍穂高縦走計画（ババ平→槍沢ロッヂ 35分）', sourceType:'other'},
+
+  // Kiso-Komagatake: official/published standard course segments.
+  '千畳敷→乗越浄土': {minutes:60, source:'中央アルプス観光・木曽駒ヶ岳登山コース（千畳敷→乗越浄土 約60分）', sourceType:'official'},
+  '乗越浄土→木曽駒ヶ岳': {minutes:60, source:'中央アルプス観光・木曽駒ヶ岳登山コース（乗越浄土→中岳20分→木曽駒ヶ岳40分）', sourceType:'official'},
+  '木曽駒ヶ岳→乗越浄土': {minutes:60, source:'中央アルプス観光・木曽駒ヶ岳登山コース（木曽駒ヶ岳→中岳40分→乗越浄土20分）', sourceType:'official'},
+  '乗越浄土→千畳敷': {minutes:50, source:'中央アルプス観光・木曽駒ヶ岳登山コース（乗越浄土→千畳敷 約50分）', sourceType:'official'},
+
+  // Shirakimine: published route/plan times. The hut leg is kept explicit rather than apportioned.
+  '白木峰8合目駐車場→白木山荘（避難小屋）': {minutes:60, source:'白木峰と大長谷を愛する会・ガイドツアー（8合目駐車場→白木山荘 1時間）', sourceType:'other'},
+  '白木山荘（避難小屋）→白木峰': {minutes:10, source:'富山市公式・管理道ルート約70分＋公開ガイドの8合目→白木山荘60分から同一管理道の残区間10分として確認', sourceType:'official'},
+  '白木峰→白木山荘（避難小屋）': {minutes:10, source:'公開登山ガイド・白木峰山頂→白木峰山荘 10分', sourceType:'other'},
+  '白木山荘（避難小屋）→白木峰8合目駐車場': {minutes:41, source:'YAMAP標準モデル・8合目登山口-白木峰-浮島の池 周回（白木峰山荘→8合目登山口 41分）', sourceType:'yamap'}
+});
+
+// V1.5.13: nationwide intermediate-segment CT verification pass.
+// Major-route waypoints may split an already-known parent CT into smaller legs.
+// Promote only legs that can be tied to published standard/model-course times.
+const V1513_INTERMEDIATE_VERIFIED_COURSE_TIMES = Object.freeze({
+  // Central Alps: Hoken-dake / Kiso-Komagatake major route.
+  '宝剣岳→宝剣山荘': {minutes:20, source:'YAMA HACK・木曽駒ヶ岳 宝剣岳寄り道コース（宝剣岳→宝剣山荘 20分）', sourceType:'other'},
+  '宝剣山荘→宝剣岳': {minutes:20, source:'YAMA HACK・木曽駒ヶ岳 宝剣岳寄り道コース（宝剣山荘→宝剣岳 20分）', sourceType:'other'},
+  '宝剣山荘→頂上山荘': {minutes:40, source:'YAMA HACK・木曽駒ヶ岳コースガイド（宝剣山荘→頂上山荘 約40分）', sourceType:'other'},
+  '頂上山荘→宝剣山荘': {minutes:35, source:'YAMA HACK・木曽駒ヶ岳 宝剣岳寄り道コース（頂上山荘→中岳15分→分岐10分→宝剣山荘10分）', sourceType:'other'},
+  '頂上山荘→木曽駒ヶ岳': {minutes:20, source:'YAMA HACK・木曽駒ヶ岳コースガイド（頂上山荘→木曽駒ヶ岳 約20分）', sourceType:'other'},
+  '木曽駒ヶ岳→頂上山荘': {minutes:15, source:'YAMA HACK・木曽駒ヶ岳 宝剣岳寄り道コース（木曽駒ヶ岳→頂上山荘 15分）', sourceType:'other'},
+
+  // Northern Alps: Happo ridge. Replace proportional intermediate CT with published official times.
+  '八方池山荘→八方池': {minutes:100, source:'白馬村公式観光サイト・八方尾根〜唐松岳コース（八方池山荘→八方池 1時間40分）', sourceType:'official'},
+  '八方池→唐松岳頂上山荘': {minutes:150, source:'白馬村公式観光サイト・八方尾根〜唐松岳コース（八方池→唐松岳頂上山荘 2時間30分）', sourceType:'official'},
+  '唐松岳頂上山荘→八方池': {minutes:120, source:'白馬村公式観光サイト・八方尾根〜唐松岳コース（唐松岳頂上山荘→八方池 2時間）', sourceType:'official'},
+  '八方池→八方池山荘': {minutes:80, source:'白馬村公式観光サイト・八方尾根〜唐松岳コース（八方池→八方池山荘 1時間20分）', sourceType:'official'},
+
+  // Northern Alps: Ichinosawa / Jonen. Jonen-nokkoshi and the hut are effectively adjacent checkpoints.
+  '一ノ沢登山口→常念乗越': {minutes:270, source:'常念小屋公式・一の沢登山コース（登山口→常念乗越・常念小屋 約4時間30分）', sourceType:'official'},
+  '常念乗越→常念小屋': {minutes:1, source:'YAMAP標準モデル・燕→常念縦走（常念乗越→常念小屋 1分）', sourceType:'yamap'},
+  '常念小屋→常念乗越': {minutes:1, source:'YAMAP標準モデル・常念乗越〜一ノ沢下山（常念小屋→常念乗越 1分）', sourceType:'yamap'},
+  '常念乗越→一ノ沢登山口': {minutes:170, source:'YAMAP標準モデル・常念乗越〜一ノ沢下山（常念乗越→一ノ沢登山口トイレ 2時間50分）', sourceType:'yamap'}
+});
+
 // V1.4.207: screenshot-priority estimated CT verification pass.
 // Promote only attached-list segments whose same endpoint/direction was confirmed in published YAMAP standard-course checkpoints.
 const V14207_VERIFIED_COURSE_TIMES = Object.freeze({
@@ -1550,6 +1615,8 @@ const V14188_PRIORITY_VERIFIED_COURSE_TIMES = Object.freeze({
 });
 
 const COURSE_TIME_TABLES = Object.freeze([
+  V1514_INTERMEDIATE_VERIFIED_COURSE_TIMES,
+  V1513_INTERMEDIATE_VERIFIED_COURSE_TIMES,
   V14207_VERIFIED_COURSE_TIMES,
   V14206_VERIFIED_COURSE_TIMES,
   V14205_VERIFIED_COURSE_TIMES,
@@ -5823,7 +5890,7 @@ async function setupNationalOutlook(){
   const tomorrow=new Date(today.getTime()+86400000); const tomorrowLocal=new Date(tomorrow.getTime()-tomorrow.getTimezoneOffset()*60000).toISOString().slice(0,10); date.value=tomorrowLocal;
   const max=new Date(today.getTime()+15*86400000); date.max=new Date(max.getTime()-max.getTimezoneOffset()*60000).toISOString().slice(0,10); date.min=local;
   updateNationalOutlookMapDate();
-  // V1.5.12: 日付移動では現在の地図中心・ズームを維持する。
+  // V1.5.14: 日付移動では現在の地図中心・ズームを維持する。
   // 山リストの絞り込み変更時だけ、対象山が収まるようfitBoundsする。
   const refreshFilteredView=({fitToSelection=false}={})=>{
     updateNationalOutlookMapDate();
@@ -7015,7 +7082,7 @@ function representativeCourseOptions(mountain){
 
 // V1.4.158: 代表コースと主要通過ポイントの連動強化。
 // 既存の代表コース定義はそのままに、中間地点を差し込む。
-// 中間地点に直接CTが無い場合は、親区間の標準CTを距離比で按分して総CTを維持する。
+// 中間地点を追加する場合は、前後区間の公開CTを個別登録する。距離比按分は行わない。
 const REPRESENTATIVE_COURSE_ENRICHMENTS_V14158 = Object.freeze({
   '槍ヶ岳|上高地・槍沢ルート': [
     {after:'上高地',before:'槍沢ロッヂ',points:[['hut','横尾山荘','山小屋']]},
@@ -7143,35 +7210,6 @@ function representativeCourseExpandedPointDefs(mountain,course){
   return out;
 }
 
-function splitRepresentativeSegmentMinutes(points,totalMinutes){
-  const total=Math.max(1,Math.round(Number(totalMinutes)||0));
-  if(points.length<2)return [];
-  const d=[];
-  let sum=0;
-  for(let i=1;i<points.length;i++){
-    const a=points[i-1]?.p,b=points[i]?.p;
-    let dist=0;
-    if(a&&b&&hasResolvedCoord(a)&&hasResolvedCoord(b)){
-      dist=haversineMeters(Number(a.lat),Number(a.lon),Number(b.lat),Number(b.lon));
-    }
-    if(!Number.isFinite(dist)||dist<=0)dist=1;
-    d.push(dist);sum+=dist;
-  }
-  const raw=d.map(x=>total*x/sum);
-  const mins=raw.map(x=>Math.max(1,Math.floor(x)));
-  let assigned=mins.reduce((a,b)=>a+b,0);
-  const order=raw.map((x,i)=>({i,frac:x-Math.floor(x)})).sort((a,b)=>b.frac-a.frac);
-  let guard=0;
-  while(assigned<total&&guard<10000){mins[order[guard%order.length].i]++;assigned++;guard++;}
-  guard=0;
-  while(assigned>total&&guard<10000){
-    const idx=order[order.length-1-(guard%order.length)].i;
-    if(mins[idx]>1){mins[idx]--;assigned--;}
-    guard++;
-  }
-  return mins;
-}
-
 // V1.4.177: 下山側に逆方向の確認済みCTがない場合、往路CTから下山参考CTを作る。
 // 代表コース全体を読み込み不能にしないための限定フォールバックで、確認済みCTそのものは上書きしない。
 function representativeDescentReverseFallbackInfo(fromPoint,toPoint){
@@ -7184,7 +7222,6 @@ function representativeDescentReverseFallbackInfo(fromPoint,toPoint){
     source:`${reverse.source||'確認済みCT'}・逆方向CTから下山参考値換算`,
     sourceType:'estimated',
     estimated:true,
-    derived:true,
     derivedFromReverse:true
   };
 }
@@ -7229,11 +7266,8 @@ function buildRepresentativeResolvedRoute(mountain,course){
       segments.push(info||{minutes:60,missing:true,source:'CT情報なし（+1時間仮置き）'});
       continue;
     }
-    if(!parentInfo&&!course.allowMissingCt)return {error:`${prevDef[1]} → ${nextDef[1]} の確認済みCTがありません。`};
-    if(!parentInfo){
-      for(let ci=1;ci<chain.length;ci++)segments.push({minutes:60,missing:true,source:'CT情報なし（+1時間仮置き）'});
-      continue;
-    }
+    // V1.5.14: intermediate waypoints are valid only with explicit adjacent CTs.
+    // Do not infer child legs from a parent CT, even when the parent CT exists.
     const directInfos=[];
     let allDirect=true;
     for(let ci=1;ci<chain.length;ci++){
@@ -7243,12 +7277,14 @@ function buildRepresentativeResolvedRoute(mountain,course){
     }
     if(allDirect){
       segments.push(...directInfos);
-    }else{
-      const mins=splitRepresentativeSegmentMinutes(chain,parentInfo.minutes);
-      for(let ci=0;ci<mins.length;ci++){
-        segments.push({minutes:mins[ci],estimated:!!parentInfo.estimated,derived:true,source:`${parentInfo.source||'標準CT'}・代表コース中間地点按分`});
+    }else if(course.allowMissingCt){
+      for(let ci=0;ci<directInfos.length;ci++){
+        segments.push(directInfos[ci]||{minutes:60,missing:true,source:'CT情報なし（通過時刻を手入力）'});
       }
-      distributedPointCount+=Math.max(0,chain.length-2);
+    }else{
+      const missingLegs=[];
+      for(let ci=1;ci<chain.length;ci++)if(!directInfos[ci-1])missingLegs.push(`${chain[ci-1].name} → ${chain[ci].name}`);
+      return {error:`中間通過ポイントの区間CTが未登録です: ${missingLegs.join(' / ')}`};
     }
   }
   return {resolved:resolvedExpanded,segments,distributedPointCount};
@@ -7485,8 +7521,8 @@ async function applyRepresentativeCourse(){
     setStatus(missingCtCount
       ?`${mountain}：${course.label} を入力しました。CT情報なし ${missingCtCount}区間は+1時間で仮置きしています。`
       :estimatedCtCount
-        ?`${mountain}：${course.label} を入力しました。CT合計 ${formatCourseTimeMinutes(totalMinutes)}${walkingPaceSuffix(totalMinutes)}（うち推定CT ${estimatedCtCount}区間・無雪期・休憩含まず）。${distributedPointCount?` 中間${distributedPointCount}地点の時刻は親区間CTを距離按分しています。`:''}`
-        :`${mountain}：${course.label} を入力しました。標準CT合計 ${formatCourseTimeMinutes(totalMinutes)}${walkingPaceSuffix(totalMinutes)}（無雪期・休憩含まず）。${distributedPointCount?` 中間${distributedPointCount}地点の時刻は親区間CTを距離按分しています。`:''}`);
+        ?`${mountain}：${course.label} を入力しました。CT合計 ${formatCourseTimeMinutes(totalMinutes)}${walkingPaceSuffix(totalMinutes)}（うち推定CT ${estimatedCtCount}区間・無雪期・休憩含まず）。`
+        :`${mountain}：${course.label} を入力しました。標準CT合計 ${formatCourseTimeMinutes(totalMinutes)}${walkingPaceSuffix(totalMinutes)}（無雪期・休憩含まず）。`);
     logEvent('representative_course_loaded',{success:true,mountain,metadata:{course_label:course.label,point_count:resolved.length,total_minutes:totalMinutes,distributed_point_count:distributedPointCount}});
   }finally{
     if(btn){btn.textContent='代表コースを読み込む';refreshRepresentativeCourseButton();}
@@ -8029,7 +8065,8 @@ function refreshCourseTimeMissingBadge(row){
     return;
   }
   const stored=representativeSegmentMeta(row,from,to);
-  const info=stored||courseTimeInfo(from,to);
+  const usableStored=stored?.kind==='derived'?null:stored;
+  const info=usableStored||courseTimeInfo(from,to);
   if(!info){
     badge.textContent='CT情報なし・時刻入力';
     badge.title='直前地点からの標準CTが未登録です。通過時刻を手入力してください。';
@@ -8042,13 +8079,6 @@ function refreshCourseTimeMissingBadge(row){
     return;
   }
   const timeText=formatCourseTimeMinutes(info.minutes);
-  if(stored?.kind==='derived'||info.derived){
-    badge.textContent=`按分CT ${timeText}${walkingPacePercent()===100?'':` → ${formatCourseTimeMinutes(adjustedCourseMinutes(info.minutes))}`}`;
-    badge.title=`代表コースの親区間CTを中間地点の距離比で按分した参考時刻です${stored?.source?` / ${stored.source}`:''}`;
-    badge.classList.add('derived');
-    badge.classList.remove('hidden');
-    return;
-  }
   if(stored?.kind==='estimated'||info.estimated){
     badge.textContent=`推定CT ${timeText}${walkingPacePercent()===100?'':` → ${formatCourseTimeMinutes(adjustedCourseMinutes(info.minutes))}`}・要確認`;
     badge.title='確認済みCTが未登録のため、固定座標・標高差などから算出した参考CTです。必要に応じて通過時刻を調整してください。';
@@ -11047,8 +11077,7 @@ window.TratenDataAudit = (()=>{
   };
   const routeAudit=(mountain,course)=>{
     // V1.4.232: use exactly the same representative-route CT resolver as the planner.
-    // Expanded waypoints can split one verified parent CT into several derived subsegments;
-    // those are valid planner CTs and must not be reported as "CT情報なし".
+    // V1.5.14: representative-route intermediate legs must be explicit CTs; derived/apportioned CT is prohibited.
     const built=buildRepresentativeResolvedRoute(mountain,course);
     if(built?.error){
       return {resolved:[],segments:[{from:'',to:'',kind:'missing',minutes:null,source:String(built.error)}],error:String(built.error)};
