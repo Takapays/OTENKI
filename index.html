@@ -72,6 +72,7 @@
   }
   </script>
     <link rel="stylesheet" href="styles.css?v=1.4.242">
+    <link rel="stylesheet" href="ui-v1.4.244.css?v=1.4.244">
   
 </head>
 <body>
@@ -83,7 +84,7 @@
     <div class="topbar-center">
       <h1>その時、その場所の空を読む。</h1>
       <div class="topbar-badges">
-        <span>V1.4.242</span>
+        <span>V1.4.244</span>
         <span>日本三百名山 網羅</span>
         <span>5系統アラート</span>
         <span>全国一括簡易判定</span>
@@ -91,13 +92,13 @@
       </div>
     </div>
     <div class="mobile-topbar-copy">その時、その場所の空を読む。</div>
-    <span class="mobile-topbar-version">V1.4.242</span>
+    <span class="mobile-topbar-version">V1.4.244</span>
     <div class="mobile-topbar-badges" aria-label="トラテン機能"><span>日本三百名山 網羅</span><span>5系統アラート</span><span>全国一括簡易判定</span><span>登山口アクセス情報</span></div>
     <nav class="topbar-nav topbar-resource-nav" aria-label="トラテン主要メニュー">
-      <a class="topbar-nav-link trailhead" href="trailheads.html" aria-label="登山口一覧を開く"><span>登山口</span></a>
-      <a class="topbar-nav-link hut" href="huts.html" aria-label="山小屋一覧を開く"><span>山小屋</span></a>
-      <a class="topbar-nav-link water" href="water-sources.html" aria-label="水場情報を開く"><span>水場</span></a>
-      <a class="topbar-nav-link camera" href="live-cameras.html" aria-label="ライブカメラ専用ページを開く"><span>ライブカメラ</span></a>
+      <a class="topbar-nav-link trailhead" href="trailheads.html" aria-label="登山口一覧を開く"><span class="resource-nav-icon" aria-hidden="true">⛰</span><span class="resource-nav-copy"><b>登山口</b><small>アクセス情報</small></span></a>
+      <a class="topbar-nav-link hut" href="huts.html" aria-label="山小屋一覧を開く"><span class="resource-nav-icon" aria-hidden="true">⌂</span><span class="resource-nav-copy"><b>山小屋</b><small>公式HP</small></span></a>
+      <a class="topbar-nav-link water" href="water-sources.html" aria-label="水場情報を開く"><span class="resource-nav-icon" aria-hidden="true">💧</span><span class="resource-nav-copy"><b>水場</b><small>固定監査</small></span></a>
+      <a class="topbar-nav-link camera" href="live-cameras.html" aria-label="ライブカメラ専用ページを開く"><span class="resource-nav-icon" aria-hidden="true">◉</span><span class="resource-nav-copy"><b>ライブカメラ</b><small>現地を確認</small></span></a>
       <a class="topbar-guide-link" href="guide.html" aria-label="トラテンの使い方を見る">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 5.5h6.5a3 3 0 0 1 3 3v10a3.6 3.6 0 0 0-3-2H4.5z"/><path d="M19.5 5.5H13a3 3 0 0 0-3 3"/><path d="M13.5 5.5h6v11H13a3.6 3.6 0 0 0-3 2"/></svg>
         <span>使い方</span>
@@ -207,7 +208,7 @@
         <button id="saveRouteBtn" class="secondary saved-route-save route-save-primary-position" type="button">このルートを保存</button>
         <button id="waterReportBtn" class="secondary water-report-btn hidden" type="button"><span aria-hidden="true">💧</span><span>水場情報</span></button>
         <button id="routeCameraBtn" class="secondary route-camera-btn hidden" type="button"><span aria-hidden="true">📹</span><span>ライブカメラ</span></button>
-        <button id="analyzeBtn" class="primary" type="button"><span>この計画を分析開始</span><b>→</b></button>
+        <button id="analyzeBtn" class="primary" type="button" disabled aria-disabled="true" title="通過ポイントを1地点以上設定してください"><span>この計画を分析開始</span><b>→</b></button>
         <div id="resultScreenshotToolbarDesktop" class="result-screenshot-toolbar result-screenshot-toolbar-desktop hidden" aria-label="分析結果の保存">
           <button id="resultScreenshotBtnDesktop" class="secondary result-screenshot-btn" type="button">
             <span aria-hidden="true">📷</span><b>結果をスクショ</b>
@@ -411,7 +412,6 @@
   <div class="footer-note">Weather via Open-Meteo。予報は登山の安全を保証しません。</div>
   <div class="footer-guide-row">
     <a class="footer-guide-link" href="guide.html"><span>使い方</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5h11v11"/><path d="M19 5L8 16"/><path d="M16 19H5V8"/></svg></a>
-    <a class="footer-guide-link footer-water-index" href="water-sources.html"><span>水場</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c3 4 5 6.5 5 9a5 5 0 0 1-10 0c0-2.5 2-5 5-9z"/></svg></a>
     <a class="footer-guide-link footer-admin-link" href="/usage-dashboard"><span>管理画面</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg></a>
   </div>
   <div class="footer-rights">
@@ -421,6 +421,6 @@
     </a>
   </div>
 </footer>
-<script src="app.js?v=1.4.242" defer></script>
+<script src="app.js?v=1.4.244" defer></script>
 </body>
 </html>

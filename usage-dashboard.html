@@ -46,13 +46,13 @@
   </section>
 
   <section class="panel">
-    <div class="panel-head"><div><h2>選択された全地点</h2><small>山頂・山小屋・登山口・通過地点をすべて表示</small></div><div class="filter-row"><select id="placeSort" aria-label="地点の並び順"><option value="usage">利用回数順</option><option value="recent">更新順（新しい順）</option></select><select id="placeType"><option value="all">すべての種別</option><option value="peak">山頂</option><option value="hut">山小屋</option><option value="trailhead">登山口</option><option value="passage">通過地点</option><option value="other">その他</option></select><input id="placeSearch" class="search" type="search" placeholder="山名・地点名で検索"></div></div>
+    <div class="panel-head"><div><h2>選択された全地点</h2><small>山頂・山小屋・登山口・通過地点をすべて表示</small></div><div class="filter-row"><select id="placeSort" aria-label="地点の並び順"><option value="recent" selected>更新順（新しい順）</option><option value="usage">利用回数順</option></select><select id="placeType"><option value="all">すべての種別</option><option value="peak">山頂</option><option value="hut">山小屋</option><option value="trailhead">登山口</option><option value="passage">通過地点</option><option value="other">その他</option></select><input id="placeSearch" class="search" type="search" placeholder="山名・地点名で検索"></div></div>
     <div class="table-wrap"><table><thead><tr><th>山</th><th>地点</th><th>種別</th><th>役割</th><th class="num">選択</th><th class="num">分析使用</th><th class="num">セッション</th><th>最終利用</th></tr></thead><tbody id="places"></tbody></table></div>
     <div class="empty" id="placesEmpty" hidden>まだ地点選択ログがありません。</div>
   </section>
 
   <section class="panel">
-    <div class="panel-head"><div><h2>選択された全ての山</h2><small>実際に選択または分析された山を全件表示</small></div><div class="filter-row"><select id="mountainSort" aria-label="山の並び順"><option value="usage">利用回数順</option><option value="recent">更新順（新しい順）</option></select><input id="mountainSearch" class="search" type="search" placeholder="山名で検索"></div></div>
+    <div class="panel-head"><div><h2>選択された全ての山</h2><small>実際に選択または分析された山を全件表示</small></div><div class="filter-row"><select id="mountainSort" aria-label="山の並び順"><option value="recent" selected>更新順（新しい順）</option><option value="usage">利用回数順</option></select><input id="mountainSearch" class="search" type="search" placeholder="山名で検索"></div></div>
     <div class="table-wrap"><table><thead><tr><th>山</th><th class="num">選択</th><th class="num">分析</th><th class="num">セッション</th><th>最終利用</th></tr></thead><tbody id="mountains"></tbody></table></div>
     <div class="empty" id="mountainsEmpty" hidden>まだ山選択ログがありません。</div>
   </section>

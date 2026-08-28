@@ -4128,3 +4128,30 @@ body.install-guide-open{overflow:hidden}
 
 /* V1.4.231: water-source index shortcut. */
 .topbar-nav-link.water{border-color:#bfe2d3;background:#f1fbf6;color:#21634b}.topbar-nav-link.water:hover{background:#e5f7ee}
+
+/* V1.4.241: TOP resource navigation — stronger visual hierarchy without affecting subpages */
+.topbar-resource-nav .topbar-nav-link{
+  min-height:38px;padding:9px 14px;border-width:2px;border-radius:12px;
+  box-shadow:0 4px 12px rgba(31,76,92,.10);font-size:12px;letter-spacing:.02em;
+  position:relative;overflow:hidden;
+}
+.topbar-resource-nav .topbar-nav-link::before{margin-right:6px;font-size:15px;line-height:1}
+.topbar-resource-nav .topbar-nav-link.trailhead::before{content:"🥾"}
+.topbar-resource-nav .topbar-nav-link.hut::before{content:"🏠"}
+.topbar-resource-nav .topbar-nav-link.water::before{content:"💧"}
+.topbar-resource-nav .topbar-nav-link.camera::before{content:"📹"}
+.topbar-resource-nav .topbar-nav-link.trailhead{background:#f2f7fb;border-color:#abc8d9;color:#214e68}
+.topbar-resource-nav .topbar-nav-link.hut{background:#fff8ed;border-color:#e5c58e;color:#705018}
+.topbar-resource-nav .topbar-nav-link.water{background:#edf9f4;border-color:#8fcdb4;color:#155b42}
+.topbar-resource-nav .topbar-nav-link.camera{background:#f2f4fb;border-color:#aebce1;color:#304f88}
+.topbar-resource-nav .topbar-nav-link:hover,.topbar-resource-nav .topbar-nav-link:focus-visible{
+  transform:translateY(-2px);box-shadow:0 7px 16px rgba(31,76,92,.16);filter:saturate(1.05);
+}
+@media(max-width:900px){
+  .topbar-resource-nav{gap:7px}
+  .topbar-resource-nav .topbar-nav-link{min-height:42px;padding:10px 12px;font-size:11px;flex:1 1 calc(50% - 7px)}
+}
+@media(max-width:430px){
+  .topbar-resource-nav .topbar-nav-link{font-size:10px;padding:10px 9px}
+  .topbar-resource-nav .topbar-nav-link::before{margin-right:4px;font-size:14px}
+}

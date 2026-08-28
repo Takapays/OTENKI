@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.233';
+const APP_VERSION = '1.4.244';
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
@@ -6105,6 +6105,29 @@ function setupRouteExtraAvailability(){
   $('representativeCourseSelect')?.addEventListener('change',()=>scheduleRouteExtraAvailability());
 }
 
+function routeHasSelectedPoint(){
+  const root=$('points');
+  if(!root)return false;
+  return [...root.querySelectorAll('.point-select')].some(select=>!!selectedCandidate(select.value));
+}
+function refreshAnalyzeButtonState(){
+  const btn=$('analyzeBtn');
+  if(!btn||btn.dataset.busy==='1')return;
+  const enabled=routeHasSelectedPoint();
+  btn.disabled=!enabled;
+  btn.setAttribute('aria-disabled',enabled?'false':'true');
+  btn.title=enabled?'':'通過ポイントを1地点以上設定してください';
+}
+function setupAnalyzeButtonState(){
+  const root=$('points');
+  refreshAnalyzeButtonState();
+  root?.addEventListener('change',refreshAnalyzeButtonState);
+  root?.addEventListener('input',refreshAnalyzeButtonState);
+  if(root&&window.MutationObserver){
+    new MutationObserver(refreshAnalyzeButtonState).observe(root,{childList:true,subtree:true});
+  }
+}
+
 function init(){
   // V1.4.163: app.js is also loaded by the admin data-audit page.
   // Skip the main planner boot when its root controls do not exist.
@@ -6114,6 +6137,7 @@ function init(){
   scheduleOptionalResourceWarmup();
   setupWalkingPaceControl();
   setupRouteExtraAvailability();
+  setupAnalyzeButtonState();
   const area=$('mountainArea');
   const select=$('mountainPreset');
   const search=$('mountainSearch');
@@ -8296,7 +8320,7 @@ async function analyze(){
   try{
     points=collectPoints(); if(points.length<1)throw new Error('分析する地点を1つ以上選択してください。');
     validateChronology(points);
-    $('analyzeBtn').disabled=true; setStatus(`分析開始：${points.length}地点を高速取得する準備をしています…`);
+    $('analyzeBtn').dataset.busy='1'; $('analyzeBtn').disabled=true; $('analyzeBtn').setAttribute('aria-disabled','true'); setStatus(`分析開始：${points.length}地点を高速取得する準備をしています…`);
     await ensureElevations(points);
     const stayPoints=points.filter(p=>p.stay);
     const maxAhead=Math.max(...points.map(p=>daysAhead(p.date)));
@@ -8322,7 +8346,7 @@ async function analyze(){
     const initialMs=Math.round(performance.now()-started);
     setStatus(`総合判断を先行表示：${points.length}地点（詳細・追加モデルを更新中…）`,false);
     scrollToSummaryResult();
-    $('analyzeBtn').disabled=false;
+    delete $('analyzeBtn').dataset.busy; refreshAnalyzeButtonState();
     requestAnimationFrame(()=>{if(runId===activeAnalysisRun)renderAll(latestResults,latestOvernight);});
     saveLastRouteSnapshot(mountain,points);
     points.forEach(p=>logEvent('route_point_used',{success:true,mountain,metadata:{point_name:p.name||'',point_type:p.type||'other',point_role:p.role||'',source:p.source||''}}));
@@ -8353,7 +8377,7 @@ async function analyze(){
     if(runId===activeAnalysisRun)setStatus(e.message||String(e),true);
     logEvent('weather_analysis',{success:false,duration_ms:performance.now()-started,mountain:currentMountainLabel(),route_points:points.length,error_message:e.message||String(e)});
   }finally{
-    if(runId===activeAnalysisRun)$('analyzeBtn').disabled=false;
+    if(runId===activeAnalysisRun){delete $('analyzeBtn').dataset.busy;refreshAnalyzeButtonState();}
   }
 }
 
