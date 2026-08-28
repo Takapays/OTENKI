@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T03:38:09.219481Z",
+  "generated_at": "2026-08-28T03:38:19.538768Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 49,
-  "available_count": 8,
-  "unresolved_count": 251,
+  "checked_count": 50,
+  "available_count": 9,
+  "unresolved_count": 250,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -275,10 +275,23 @@
       "checked_at": "2026-08-28T03:38:09.217495Z"
     },
     "八幡平": {
-      "checked": false,
-      "available": false,
-      "count": 0,
-      "sources": []
+      "checked": true,
+      "available": true,
+      "count": 1,
+      "sources": [
+        {
+          "name": "源太清水",
+          "lat": 39.952339,
+          "lon": 140.868997,
+          "kind": "飲料水",
+          "potability": "confirmed",
+          "near_point": "八幡平見返峠・山頂レストハウス",
+          "distance_m": 1109,
+          "osm_id": "node/4406655688"
+        }
+      ],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:38:19.536888Z"
     },
     "乳頭山（烏帽子岳）": {
       "checked": false,
