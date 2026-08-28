@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.247';
+const APP_VERSION = '1.4.248';
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
@@ -8327,18 +8327,42 @@ async function analyze(){
     await ensureElevations(points);
     const stayPoints=points.filter(p=>p.stay);
     const maxAhead=Math.max(...points.map(p=>daysAhead(p.date)));
-    // V1.4.229: do not block the first result on both JMA and ECMWF.
-    // Start the preferred models together and paint as soon as the first
-    // complete provider returns. The remaining models continue afterward.
-    const preferredProviders=maxAhead>15?providers:providers.filter(p=>p.id==='jma'||p.id==='ecmwf');
+    // V1.4.248: keep the fast first paint from JMA/ECMWF, but start ICON at
+    // the same time so visibility can be merged as soon as ICON returns.
+    // GFS remains the later deterioration-scenario guard.
     const overnightPromise=stayPoints.length
       ? analyzeOvernightsBatch(stayPoints).then(v=>({items:v,warning:''})).catch(e=>({items:[],warning:` / 宿泊詳細は取得できませんでした（${e?.message||'取得失敗'}）`}))
       : Promise.resolve({items:[],warning:''});
 
-    const firstState=await analyzePointsFirstAvailable(points,preferredProviders,'先行モデル');
+    let firstState;
+    let earlyProviderPromises=new Map();
+    if(maxAhead<=15){
+      const earlyProviders=providers.filter(p=>p.id==='jma'||p.id==='ecmwf'||p.id==='icon');
+      earlyProviders.forEach(provider=>{
+        earlyProviderPromises.set(provider.id,
+          analyzePointsBatch(points,[provider],`${provider.name}先行取得`)
+            .then(results=>({ok:true,provider,results}))
+            .catch(error=>({ok:false,provider,error}))
+        );
+      });
+      const decisionIds=['jma','ecmwf'];
+      const decisionPromises=decisionIds.map(id=>earlyProviderPromises.get(id).then(state=>{
+        if(state.ok)return {provider:state.provider,results:state.results};
+        return Promise.reject({provider:state.provider,error:state.error});
+      }));
+      try{
+        firstState=await Promise.any(decisionPromises);
+      }catch(aggregate){
+        const errs=Array.isArray(aggregate?.errors)?aggregate.errors:[];
+        const msg=errs.map(x=>`${x?.provider?.name||'モデル'}: ${x?.error?.message||'取得失敗'}`).join(' / ');
+        throw new Error(msg||'JMA/ECMWF先行モデルの取得に失敗しました。');
+      }
+    }else{
+      // Preserve the existing long-range fallback behavior.
+      firstState=await analyzePointsFirstAvailable(points,providers,'先行モデル');
+    }
     let latestResults=firstState.results;
     const primaryProviders=[firstState.provider];
-    const secondaryProviders=providers.filter(p=>p.id!==firstState.provider.id);
     if(runId!==activeAnalysisRun)return;
     let latestOvernight=[];
     const mountain=currentMountainLabel();
@@ -8355,25 +8379,55 @@ async function analyze(){
     points.forEach(p=>logEvent('route_point_used',{success:true,mountain,metadata:{point_name:p.name||'',point_type:p.type||'other',point_role:p.role||'',source:p.source||''}}));
     logEvent('weather_analysis',{success:true,duration_ms:initialMs,mountain,route_points:points.length,stay_count:stayPoints.length,metadata:{provider_count:primaryProviders.length,provider_count_final:providers.length,manual_datetime:true,batch_weather:true,parallel_models:true,point_cache:true,progressive:true,first_provider:firstState.provider.id}});
 
-    // Secondary models and overnight detail run independently after the first
-    // decision is visible. Neither blocks the other.
-    const secondaryPromise=secondaryProviders.length
-      ? analyzePointsBatch(points,secondaryProviders,'追加モデル').then(extra=>({ok:true,extra})).catch(error=>({ok:false,error}))
-      : Promise.resolve({ok:true,extra:[]});
-    const secondaryVisiblePromise=secondaryPromise.then(state=>{
-      if(runId!==activeAnalysisRun)return state;
-      if(state.ok&&state.extra.length){latestResults=mergeAnalysisResults(latestResults,state.extra);renderAll(latestResults,latestOvernight);}
-      return state;
-    });
+    // V1.4.248: every early model is merged independently when it arrives.
+    // This guarantees that ICON visibility repaints the analysis screen without
+    // waiting for GFS or the other early model.
+    const progressiveStates=[];
+    if(earlyProviderPromises.size){
+      for(const [id,promise] of earlyProviderPromises.entries()){
+        if(id===firstState.provider.id)continue;
+        progressiveStates.push(promise.then(state=>{
+          if(runId!==activeAnalysisRun)return state;
+          if(state.ok&&state.results?.length){
+            latestResults=mergeAnalysisResults(latestResults,state.results);
+            renderAll(latestResults,latestOvernight);
+            if(id==='icon')setStatus(`ICON視界を反映：${points.length}地点（残りモデルを更新中…）`,false);
+          }
+          return state;
+        }));
+      }
+    }
+
+    const gfsProvider=providers.find(p=>p.id==='gfs');
+    const gfsVisiblePromise=(maxAhead<=15&&gfsProvider)
+      ? analyzePointsBatch(points,[gfsProvider],'GFS悪化監視').then(results=>({ok:true,provider:gfsProvider,results})).catch(error=>({ok:false,provider:gfsProvider,error})).then(state=>{
+          if(runId!==activeAnalysisRun)return state;
+          if(state.ok&&state.results?.length){latestResults=mergeAnalysisResults(latestResults,state.results);renderAll(latestResults,latestOvernight);}
+          return state;
+        })
+      : Promise.resolve({ok:true,provider:gfsProvider,results:[]});
+
+    // For >15 days the legacy first-available path is retained; fetch the
+    // providers not used for the first result as one background batch.
+    const longRangeSecondaryPromise=maxAhead>15
+      ? analyzePointsBatch(points,providers.filter(p=>p.id!==firstState.provider.id),'追加モデル').then(results=>({ok:true,results})).catch(error=>({ok:false,error})).then(state=>{
+          if(runId!==activeAnalysisRun)return state;
+          if(state.ok&&state.results?.length){latestResults=mergeAnalysisResults(latestResults,state.results);renderAll(latestResults,latestOvernight);}
+          return state;
+        })
+      : Promise.resolve({ok:true,results:[]});
+
     const overnightVisiblePromise=overnightPromise.then(state=>{
       if(runId!==activeAnalysisRun)return state;
       latestOvernight=state.items||[]; renderAll(latestResults,latestOvernight);
       return state;
     });
-    const [secondaryState,overnightState]=await Promise.all([secondaryVisiblePromise,overnightVisiblePromise]);
+    const [progressiveDone,gfsState,longRangeState,overnightState]=await Promise.all([Promise.all(progressiveStates),gfsVisiblePromise,longRangeSecondaryPromise,overnightVisiblePromise]);
     if(runId!==activeAnalysisRun)return;
     const notes=[];
-    if(!secondaryState.ok)notes.push(`追加モデル取得失敗: ${secondaryState.error?.message||'取得失敗'}`);
+    progressiveDone.filter(x=>x&&!x.ok).forEach(x=>notes.push(`${x.provider?.name||'追加モデル'}取得失敗: ${x.error?.message||'取得失敗'}`));
+    if(!gfsState.ok)notes.push(`GFS取得失敗: ${gfsState.error?.message||'取得失敗'}`);
+    if(!longRangeState.ok)notes.push(`追加モデル取得失敗: ${longRangeState.error?.message||'取得失敗'}`);
     if(overnightState.warning)notes.push(overnightState.warning.replace(/^ \/ /,''));
     setStatus(notes.length?`先行分析は完了。${notes.join(' / ')}`:`分析完了：${points.length}地点${stayPoints.length?` / 宿泊 ${stayPoints.length}泊`:''}（モデル並列・キャッシュ利用）`,false);
   }catch(e){
