@@ -1,7 +1,7 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T05:20:37.696178Z",
+  "generated_at": "2026-08-28T05:20:57.076860Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
@@ -718,7 +718,7 @@
       "count": 0,
       "sources": [],
       "attempts": 3,
-      "checked_at": "2026-08-28T03:50:58.306913Z",
+      "checked_at": "2026-08-28T05:20:57.073194Z",
       "error": "https://overpass-api.de/api/interpreter: TimeoutError: The read operation timed out"
     },
     "苗場山": {
