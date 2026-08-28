@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T05:12:12.992320Z",
+  "generated_at": "2026-08-28T05:12:17.869175Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 262,
-  "available_count": 53,
-  "unresolved_count": 38,
+  "checked_count": 263,
+  "available_count": 54,
+  "unresolved_count": 37,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -3235,10 +3235,23 @@
       "checked_at": "2026-08-28T05:12:12.988697Z"
     },
     "吾妻山": {
-      "checked": false,
-      "available": false,
-      "count": 0,
-      "sources": []
+      "checked": true,
+      "available": true,
+      "count": 1,
+      "sources": [
+        {
+          "name": "大膳原野営場避難小屋付近の飲料水",
+          "lat": 35.068648,
+          "lon": 133.041038,
+          "kind": "飲料水",
+          "potability": "confirmed",
+          "near_point": "大膳原野営場避難小屋",
+          "distance_m": 18,
+          "osm_id": "node/13931085954"
+        }
+      ],
+      "attempts": 2,
+      "checked_at": "2026-08-28T05:12:17.865519Z"
     },
     "三瓶山": {
       "checked": false,
