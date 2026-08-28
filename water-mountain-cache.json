@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T05:10:44.826285Z",
+  "generated_at": "2026-08-28T05:10:53.483188Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 259,
+  "checked_count": 260,
   "available_count": 53,
-  "unresolved_count": 41,
+  "unresolved_count": 40,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -3211,10 +3211,12 @@
       "checked_at": "2026-08-28T05:10:44.823543Z"
     },
     "大山（鳥取）": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T05:10:53.480466Z"
     },
     "上蒜山": {
       "checked": false,
