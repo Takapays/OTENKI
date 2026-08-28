@@ -1,10 +1,14 @@
 {
   "schema_version": 4,
-  "app_version": "1.4.236",
-  "generated_at": "2026-08-28T00:00:00Z",
+  "app_version": "1.4.247",
+  "generated_at": "2026-08-28T03:24:17.167712Z",
   "source": "OpenStreetMap / Overpass API",
+  "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
+  "checked_count": 45,
+  "available_count": 8,
+  "unresolved_count": 255,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -26,10 +30,12 @@
       "checked_at": "2026-08-27T22:19:44Z"
     },
     "羅臼岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T03:21:48.065987Z"
     },
     "斜里岳": {
       "checked": true,
@@ -48,28 +54,36 @@
       "checked_at": "2026-08-27T22:19:44Z"
     },
     "天塩岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T03:22:09.228274Z"
     },
     "ニセイカウシュッペ山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:22:21.001262Z"
     },
     "大雪山（旭岳）": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T03:22:41.229840Z"
     },
     "石狩岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:22:52.696549Z"
     },
     "トムラウシ山": {
       "checked": true,
@@ -96,22 +110,28 @@
       "checked_at": "2026-08-27T22:19:44Z"
     },
     "ニペソツ山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:23:08.302684Z"
     },
     "幌尻岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:23:22.041643Z"
     },
     "カムイエクウチカウシ山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T03:23:42.154237Z"
     },
     "ペテガリ岳": {
       "checked": true,
@@ -130,10 +150,12 @@
       "checked_at": "2026-08-27T22:19:44Z"
     },
     "芦別岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:23:59.724875Z"
     },
     "夕張岳": {
       "checked": true,
@@ -168,10 +190,33 @@
       "checked_at": "2026-08-27T22:19:44Z"
     },
     "後方羊蹄山": {
-      "checked": false,
-      "available": false,
-      "count": 0,
-      "sources": []
+      "checked": true,
+      "available": true,
+      "count": 2,
+      "sources": [
+        {
+          "name": "比羅夫登山口・半月湖畔自然公園付近の給水地点",
+          "lat": 42.846172,
+          "lon": 140.758917,
+          "kind": "給水地点",
+          "potability": "confirmed",
+          "near_point": "比羅夫登山口・半月湖畔自然公園",
+          "distance_m": 553,
+          "osm_id": "way/342421426"
+        },
+        {
+          "name": "羊蹄の湧き水",
+          "lat": 42.783303,
+          "lon": 140.778595,
+          "kind": "湧水",
+          "potability": "unknown",
+          "near_point": "真狩登山口・真狩キャンプ場",
+          "distance_m": 1384,
+          "osm_id": "node/4283498022"
+        }
+      ],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:24:17.165386Z"
     },
     "ニセコアンヌプリ": {
       "checked": true,
@@ -2023,7 +2068,5 @@
       "count": 0,
       "sources": []
     }
-  },
-  "audit_mode": "incremental-rotating",
-  "confirmed_preserved": 35
+  }
 }
