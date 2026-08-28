@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.1';
+const APP_VERSION = '1.5.2';
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
@@ -4985,7 +4985,7 @@ Object.assign(BUILTIN_ROUTE_CATALOG, {
 BUILTIN_ROUTE_CATALOG['鳳凰山']=BUILTIN_ROUTE_CATALOG['薬師岳(鳳凰)'];
 BUILTIN_ROUTE_CATALOG['地蔵ヶ岳']=BUILTIN_ROUTE_CATALOG['地蔵岳(鳳凰)'];
 
-// V1.5.1: 日本百名山の代表峰を実峰へ整理。
+// V1.5.1: 日本百名山の代表峰を実峰へ整理.
 // 座標は国土地理院「日本の主な山岳」に基づく固定値。旧代表峰は追加ピークとして残す。
 Object.assign(MOUNTAIN_PRESETS, {
   '茶臼岳（那須岳）': {latitude:37.124722, longitude:139.963056},
