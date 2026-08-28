@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T05:16:15.041683Z",
+  "generated_at": "2026-08-28T05:17:34.744276Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 280,
-  "available_count": 56,
-  "unresolved_count": 20,
+  "checked_count": 281,
+  "available_count": 57,
+  "unresolved_count": 19,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -3481,10 +3481,33 @@
       "checked_at": "2026-08-28T05:16:15.038094Z"
     },
     "湧蓋山": {
-      "checked": false,
-      "available": false,
-      "count": 0,
-      "sources": []
+      "checked": true,
+      "available": true,
+      "count": 2,
+      "sources": [
+        {
+          "name": "九重の名水",
+          "lat": 33.1143,
+          "lon": 131.186335,
+          "kind": "飲料水",
+          "potability": "confirmed",
+          "near_point": "八丁原登山口",
+          "distance_m": 1237,
+          "osm_id": "node/7080414622"
+        },
+        {
+          "name": "九重の名水",
+          "lat": 33.115782,
+          "lon": 131.186044,
+          "kind": "飲料水",
+          "potability": "confirmed",
+          "near_point": "八丁原登山口",
+          "distance_m": 1370,
+          "osm_id": "node/7080362479"
+        }
+      ],
+      "attempts": 2,
+      "checked_at": "2026-08-28T05:17:34.740780Z"
     },
     "阿蘇山（高岳）": {
       "checked": false,
