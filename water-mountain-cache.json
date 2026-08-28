@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T04:47:06.208655Z",
+  "generated_at": "2026-08-28T04:47:52.073152Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 174,
+  "checked_count": 175,
   "available_count": 33,
-  "unresolved_count": 126,
+  "unresolved_count": 125,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -2004,10 +2004,12 @@
       "checked_at": "2026-08-28T04:47:06.205743Z"
     },
     "和名倉山（白石山）": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T04:47:52.071180Z"
     },
     "甲武信ヶ岳": {
       "checked": false,
