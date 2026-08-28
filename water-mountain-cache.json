@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T04:30:02.914630Z",
+  "generated_at": "2026-08-28T04:30:08.953387Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 148,
-  "available_count": 22,
-  "unresolved_count": 152,
+  "checked_count": 149,
+  "available_count": 23,
+  "unresolved_count": 151,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -1575,10 +1575,33 @@
       "checked_at": "2026-08-28T04:30:02.911992Z"
     },
     "笠ヶ岳（岐阜）": {
-      "checked": false,
-      "available": false,
-      "count": 0,
-      "sources": []
+      "checked": true,
+      "available": true,
+      "count": 2,
+      "sources": [
+        {
+          "name": "笠ヶ岳付近の飲料水",
+          "lat": 36.317845,
+          "lon": 137.551346,
+          "kind": "飲料水",
+          "potability": "confirmed",
+          "near_point": "笠ヶ岳",
+          "distance_m": 253,
+          "osm_id": "node/3787659015"
+        },
+        {
+          "name": "わさび平小屋付近の飲料水",
+          "lat": 36.306566,
+          "lon": 137.589007,
+          "kind": "飲料水",
+          "potability": "confirmed",
+          "near_point": "わさび平小屋",
+          "distance_m": 330,
+          "osm_id": "node/4071888804"
+        }
+      ],
+      "attempts": 2,
+      "checked_at": "2026-08-28T04:30:08.948934Z"
     },
     "餓鬼岳": {
       "checked": false,
