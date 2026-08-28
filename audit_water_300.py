@@ -206,7 +206,7 @@ def write_cache(mountains: list[str], rows: dict[str,Any]) -> None:
     available=sum(v.get('available') is True for v in normalized.values())
     payload={
         'schema_version':4,
-        'app_version':'1.4.240',
+        'app_version':'1.4.245',
         'generated_at':now_iso(),
         'source':'OpenStreetMap / Overpass API',
         'audit_mode':'incremental-rotating',

@@ -21,7 +21,7 @@ concurrency:
 jobs:
   audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v7
@@ -31,8 +31,22 @@ jobs:
       - name: Validate all 300 mountains have fixed audit points
         run: python audit_water_300.py --dry-run
 
-      - name: Audit only the next unresolved mountains
-        run: python audit_water_300.py --resume --batch-size 1 --max-mountains 10 --sleep 0.8 --timeout 7 --attempts 3
+      - name: Audit next unresolved mountains with checkpoint commits
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for i in $(seq 1 10); do
+            echo "=== water audit checkpoint $i/10 ==="
+            python audit_water_300.py --resume --batch-size 1 --max-mountains 1 --sleep 0 --timeout 7 --attempts 3
+            if git diff --quiet -- water-mountain-cache.json; then
+              echo "No cache change at checkpoint $i."
+              continue
+            fi
+            git add water-mountain-cache.json
+            git commit -m "chore: refresh water source cache ($i/10) [skip ci]"
+            git push
+          done
 
       - name: Summarize result
         run: |
@@ -49,14 +63,3 @@ jobs:
           print('Incremental mode: confirmed rows are preserved; failed rows rotate to the back of the retry queue.')
           PY
 
-      - name: Commit refreshed cache
-        run: |
-          if git diff --quiet -- water-mountain-cache.json; then
-            echo "No cache changes."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add water-mountain-cache.json
-          git commit -m "chore: refresh water source cache [skip ci]"
-          git push

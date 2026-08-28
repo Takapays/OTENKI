@@ -1,0 +1,35 @@
+Traten V1.4.245 release audit
+
+Changes
+1. Water audit GitHub Actions
+   - timeout-minutes: 5 -> 25
+   - unresolved mountains are audited one at a time
+   - each mountain cache mutation is committed/pushed immediately
+   - a later timeout/failure cannot discard completed checkpoints
+2. Water status timestamp
+   - API exposes last_audit_at = max(mountains[*].checked_at)
+   - water page shows "最終監査" from last_audit_at
+   - generated_at is only shown as "キャッシュ更新" when no audit timestamp exists
+3. Mobile TOP explainer
+   - dashboard-welcome is hidden at <=760px in V1.4.245 CSS
+   - index.html also contains an inline fallback media rule
+   - explanation remains in guide.html
+   - desktop remains unchanged
+4. water-mountain-cache.json
+   - not modified in this release
+   - excluded from changed-files ZIP
+
+Verification
+- node --check: app.js, water-sources.js, trailheads.js, live-cameras.js, huts.js OK
+- python compile: server.py, audit_water_300.py OK
+- audit_water_300.py --dry-run: 300/300 fixed audit points OK, no network sent
+- workflow YAML parse OK
+- HTML parser: index/guide/water/trailheads/huts/live-cameras/trailhead-access OK
+- water cache SHA-256 unchanged from V1.4.244
+- current bundled cache: checked 35/300, available 7, 265 unattempted
+- bundled cache generated_at: 2026-08-28T00:00:00Z
+- actual latest checked_at in bundled rows: 2026-08-27T22:19:44Z
+
+Important
+- No live GitHub Actions execution was performed from this environment.
+- Therefore the post-deploy increase from 35/300 must be verified after GitHub runs the updated workflow.

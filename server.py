@@ -32,7 +32,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.4.244"
+APP_VERSION = "1.4.245"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -2148,7 +2148,9 @@ def water_mountain_index():
     checked = sum(1 for v in mountains.values() if isinstance(v, dict) and v.get("checked") is True)
     available = sum(1 for v in mountains.values() if isinstance(v, dict) and v.get("checked") is True and v.get("available") is True)
     errors = sum(1 for v in mountains.values() if isinstance(v, dict) and v.get("error"))
-    return jsonify(ok=True, generated_at=data.get("generated_at"), source=data.get("source"), radius_m=data.get("radius_m"), mountain_count=len(mountains), checked_count=checked, available_count=available, error_count=errors, mountains=mountains)
+    audit_stamps = [str(v.get("checked_at") or "") for v in mountains.values() if isinstance(v, dict) and v.get("checked_at")]
+    last_audit_at = max(audit_stamps) if audit_stamps else None
+    return jsonify(ok=True, generated_at=data.get("generated_at"), last_audit_at=last_audit_at, source=data.get("source"), radius_m=data.get("radius_m"), mountain_count=len(mountains), checked_count=checked, available_count=available, error_count=errors, mountains=mountains)
 
 # V1.4.219: route water-source discovery + recent public search-result excerpts.
 # Water locations come from OpenStreetMap/Overpass. We do not fetch or reproduce
