@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T05:20:26.475845Z",
+  "generated_at": "2026-08-28T05:20:30.792194Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 292,
-  "available_count": 58,
-  "unresolved_count": 8,
+  "checked_count": 293,
+  "available_count": 59,
+  "unresolved_count": 7,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -3609,10 +3609,23 @@
       "checked_at": "2026-08-28T05:20:26.472254Z"
     },
     "開聞岳": {
-      "checked": false,
-      "available": false,
-      "count": 0,
-      "sources": []
+      "checked": true,
+      "available": true,
+      "count": 1,
+      "sources": [
+        {
+          "name": "かいもん山麓ふれあい公園登山口付近の水栓",
+          "lat": 31.207985,
+          "lon": 130.539564,
+          "kind": "水栓",
+          "potability": "unknown",
+          "near_point": "かいもん山麓ふれあい公園登山口",
+          "distance_m": 1385,
+          "osm_id": "node/13841804030"
+        }
+      ],
+      "attempts": 2,
+      "checked_at": "2026-08-28T05:20:30.788503Z"
     },
     "宮ノ浦岳": {
       "checked": false,
