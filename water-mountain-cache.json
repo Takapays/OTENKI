@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T05:20:30.792194Z",
+  "generated_at": "2026-08-28T05:20:37.696178Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 293,
-  "available_count": 59,
-  "unresolved_count": 7,
+  "checked_count": 294,
+  "available_count": 60,
+  "unresolved_count": 6,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -3628,10 +3628,23 @@
       "checked_at": "2026-08-28T05:20:30.788503Z"
     },
     "宮ノ浦岳": {
-      "checked": false,
-      "available": false,
-      "count": 0,
-      "sources": []
+      "checked": true,
+      "available": true,
+      "count": 1,
+      "sources": [
+        {
+          "name": "宮之浦岳付近の飲料水",
+          "lat": 30.330908,
+          "lon": 130.509798,
+          "kind": "飲料水",
+          "potability": "confirmed",
+          "near_point": "宮之浦岳",
+          "distance_m": 797,
+          "osm_id": "node/5772178356"
+        }
+      ],
+      "attempts": 2,
+      "checked_at": "2026-08-28T05:20:37.692527Z"
     }
   }
 }
