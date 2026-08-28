@@ -2,9 +2,9 @@
 ========================================
 mountains: 300
 courses: 380
-expanded directional segments: 899
-verified/composed CT: 748
-estimated CT: 135
+expanded directional segments: 901
+verified/composed CT: 751
+estimated CT: 134
 derived intermediate-point CT: 16
 CT missing: 0
 route build errors: 0
