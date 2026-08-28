@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.11';
+const APP_VERSION = '1.5.12';
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
@@ -739,7 +739,7 @@ const WEST_JAPAN_COURSE_TIMES = Object.freeze({
   '剣山→剣山頂上ヒュッテ': {minutes:7, source:'ヤマレコ・剣山縦走 山行計画（標準CT補完）', sourceType:'yamareco'},
   '剣山→次郎笈': {minutes:63, source:'ヤマレコ・剣山/次郎笈 山行計画（標準CT補完）', sourceType:'yamareco'},
   '次郎笈→剣山': {minutes:66, source:'ヤマレコ・剣山〜三嶺 山行計画（標準CT補完）', sourceType:'yamareco'},
-  // V1.5.11: 剣山〜三嶺縦走の実利用CT欠損を公開標準CTで固定。
+  // V1.5.12: 剣山〜三嶺縦走の実利用CT欠損を公開標準CTで固定。
   // 剣山→白髪避難小屋 / 次郎笈→白髪避難小屋はヤマレコ公開山行計画の区間合算。
   // 逆方向は三嶺→剣山縦走の公開山行計画の区間合算。
   '剣山→白髪避難小屋': {minutes:322, source:'ヤマレコ・三嶺 山行計画（剣山→白髪避難小屋 標準CT区間合算）', sourceType:'yamareco'},
@@ -749,7 +749,7 @@ const WEST_JAPAN_COURSE_TIMES = Object.freeze({
   '白髪避難小屋→三嶺ヒュッテ': {minutes:131, source:'確認済みCT合成（白髪避難小屋→三嶺 122分 + 三嶺→三嶺ヒュッテ 9分）', sourceType:'composed-verified'},
   '三嶺ヒュッテ→白髪避難小屋': {minutes:126, source:'確認済みCT合成（三嶺ヒュッテ→三嶺 14分 + 三嶺→白髪避難小屋 112分）', sourceType:'composed-verified'},
 
-  // V1.5.11: 剣山野営場（西島野営場）の周辺CT。YAMAPモデルコースの区間合算。
+  // V1.5.12: 剣山野営場（西島野営場）の周辺CT。YAMAPモデルコースの区間合算。
   '見ノ越 剣山登山口→剣山野営場（西島野営場）': {minutes:42, source:'YAMAP・剣山王道モデルコース（見ノ越→剣山野営場 標準CT区間合算）', sourceType:'yamap'},
   '剣山野営場（西島野営場）→見ノ越 剣山登山口': {minutes:40, source:'YAMAP・剣山王道モデルコース（剣山野営場→見ノ越 標準CT区間合算）', sourceType:'yamap'},
   '剣山野営場（西島野営場）→剣山観光登山リフト西島駅': {minutes:16, source:'YAMAP・剣山王道モデルコース（野営場→西島駅 標準CT区間合算）', sourceType:'yamap'},
@@ -5823,16 +5823,20 @@ async function setupNationalOutlook(){
   const tomorrow=new Date(today.getTime()+86400000); const tomorrowLocal=new Date(tomorrow.getTime()-tomorrow.getTimezoneOffset()*60000).toISOString().slice(0,10); date.value=tomorrowLocal;
   const max=new Date(today.getTime()+15*86400000); date.max=new Date(max.getTime()-max.getTimezoneOffset()*60000).toISOString().slice(0,10); date.min=local;
   updateNationalOutlookMapDate();
-  const refreshFilteredView=()=>{
+  // V1.5.12: 日付移動では現在の地図中心・ズームを維持する。
+  // 山リストの絞り込み変更時だけ、対象山が収まるようfitBoundsする。
+  const refreshFilteredView=({fitToSelection=false}={})=>{
     updateNationalOutlookMapDate();
     nationalOutlookResults=new Map();
     renderNationalOutlookMarkers();
-    const coords=nationalOutlookVisiblePoints().map(p=>[p.lat,p.lon]);
-    if(nationalOutlookMap&&coords.length)nationalOutlookMap.fitBounds(coords,{padding:[18,18],maxZoom:5});
+    if(fitToSelection){
+      const coords=nationalOutlookVisiblePoints().map(p=>[p.lat,p.lon]);
+      if(nationalOutlookMap&&coords.length)nationalOutlookMap.fitBounds(coords,{padding:[18,18],maxZoom:5});
+    }
     loadNationalOutlookSharedCacheOnly();
   };
-  filters.forEach(cb=>cb.addEventListener('change',refreshFilteredView));
-  date.addEventListener('change',refreshFilteredView);
+  filters.forEach(cb=>cb.addEventListener('change',()=>refreshFilteredView({fitToSelection:true})));
+  date.addEventListener('change',()=>refreshFilteredView({fitToSelection:false}));
   // Shared weather cache is first-party and can start immediately; marker drawing is
   // harmless until the map exists, and the latest results are rendered after Leaflet arrives.
   loadNationalOutlookSharedCacheOnly({silentMiss:true});
