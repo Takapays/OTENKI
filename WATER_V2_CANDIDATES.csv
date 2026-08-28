@@ -1,0 +1,4 @@
+﻿mountain,name,lat,lon,kind,potability,near_point,route_distance_m,source_type,source_name,source_url,score,review_priority,suspicious,already_fixed,fixed_name,status,score_reasons
+蓼科山,蓼科山七合目登山口〜女乃神茶屋・蓼科山登山口付近の給水情報あり,36.0848,138.280649,給水情報あり,not_drinking,蓼科山七合目登山口〜女乃神茶屋・蓼科山登山口,569,osm,OpenStreetMap / Overpass API,https://www.openstreetmap.org/node/4172904675,0,low,False,False,,review,route<=800m;water-name;not_drinking
+八ヶ岳（赤岳）,行者小屋〜赤岳天望荘付近の飲料水,35.978948,138.364317,飲料水,confirmed,行者小屋〜赤岳天望荘,221,osm,OpenStreetMap / Overpass API,https://www.openstreetmap.org/node/5851991301,9,high,False,True,行者小屋付近の飲料水,existing,route<=300m;amenity=drinking_water;water-name
+白馬岳,銀嶺水,36.779,137.816056,湧水,unknown,栂池登山道入口,474,public_seed,YAMAP,https://yamap.com/landmarks/199865,9,high,False,False,,review,published-coordinate;curated-public-source

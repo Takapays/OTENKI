@@ -1,0 +1,207 @@
+{
+  "mountains": {
+    "蓼科山": {
+      "checked": true,
+      "checked_at": "2026-08-28T11:32:46.300571Z",
+      "error": null,
+      "route_mode": "route-corridor",
+      "route_blocks": 2,
+      "corridor_centers": 10,
+      "candidate_count": 1,
+      "new_candidate_count": 1,
+      "candidates": [
+        {
+          "mountain": "蓼科山",
+          "name": "蓼科山七合目登山口〜女乃神茶屋・蓼科山登山口付近の給水情報あり",
+          "lat": 36.0848,
+          "lon": 138.280649,
+          "kind": "給水情報あり",
+          "potability": "not_drinking",
+          "near_point": "蓼科山七合目登山口〜女乃神茶屋・蓼科山登山口",
+          "route_distance_m": 569,
+          "source_type": "osm",
+          "source_name": "OpenStreetMap / Overpass API",
+          "source_url": "https://www.openstreetmap.org/node/4172904675",
+          "source_id": "node/4172904675",
+          "score": 0,
+          "review_priority": "low",
+          "suspicious": false,
+          "score_reasons": [
+            "route<=800m",
+            "water-name",
+            "not_drinking"
+          ],
+          "tags": {
+            "amenity": "toilets",
+            "drinking_water": "no",
+            "operator": "茅野市"
+          },
+          "supporting_sources": [
+            {
+              "source_name": "OpenStreetMap / Overpass API",
+              "source_url": "https://www.openstreetmap.org/node/4172904675",
+              "source_type": "osm"
+            }
+          ],
+          "already_fixed": false
+        }
+      ]
+    },
+    "天狗岳": {
+      "checked": true,
+      "checked_at": "2026-08-28T11:33:04.834372Z",
+      "error": null,
+      "route_mode": "route-corridor",
+      "route_blocks": 2,
+      "corridor_centers": 14,
+      "candidate_count": 0,
+      "new_candidate_count": 0,
+      "candidates": []
+    },
+    "八ヶ岳（赤岳）": {
+      "checked": true,
+      "checked_at": "2026-08-28T11:33:31.609985Z",
+      "error": null,
+      "route_mode": "route-corridor",
+      "route_blocks": 3,
+      "corridor_centers": 18,
+      "candidate_count": 1,
+      "new_candidate_count": 0,
+      "candidates": [
+        {
+          "mountain": "八ヶ岳（赤岳）",
+          "name": "行者小屋〜赤岳天望荘付近の飲料水",
+          "lat": 35.978948,
+          "lon": 138.364317,
+          "kind": "飲料水",
+          "potability": "confirmed",
+          "near_point": "行者小屋〜赤岳天望荘",
+          "route_distance_m": 221,
+          "source_type": "osm",
+          "source_name": "OpenStreetMap / Overpass API",
+          "source_url": "https://www.openstreetmap.org/node/5851991301",
+          "source_id": "node/5851991301",
+          "score": 9,
+          "review_priority": "high",
+          "suspicious": false,
+          "score_reasons": [
+            "route<=300m",
+            "amenity=drinking_water",
+            "water-name"
+          ],
+          "tags": {
+            "amenity": "drinking_water"
+          },
+          "supporting_sources": [
+            {
+              "source_name": "OpenStreetMap / Overpass API",
+              "source_url": "https://www.openstreetmap.org/node/5851991301",
+              "source_type": "osm"
+            }
+          ],
+          "already_fixed": true,
+          "fixed_name": "行者小屋付近の飲料水"
+        }
+      ]
+    },
+    "朝日岳（新潟・富山）": {
+      "checked": true,
+      "checked_at": "2026-08-28T11:34:06.597169Z",
+      "error": null,
+      "route_mode": "fixed-point-buffer",
+      "route_blocks": 2,
+      "corridor_centers": 2,
+      "candidate_count": 0,
+      "new_candidate_count": 0,
+      "candidates": []
+    },
+    "雪倉岳": {
+      "checked": true,
+      "checked_at": "2026-08-28T11:34:23.389995Z",
+      "error": null,
+      "route_mode": "fixed-point-buffer",
+      "route_blocks": 2,
+      "corridor_centers": 2,
+      "candidate_count": 0,
+      "new_candidate_count": 0,
+      "candidates": []
+    },
+    "白馬岳": {
+      "checked": false,
+      "checked_at": "2026-08-28T11:34:59.161681Z",
+      "error": "https://overpass-api.de/api/interpreter: TimeoutError: The read operation timed out",
+      "route_mode": "route-corridor",
+      "route_blocks": 2,
+      "corridor_centers": 44,
+      "candidate_count": 1,
+      "new_candidate_count": 1,
+      "candidates": [
+        {
+          "mountain": "白馬岳",
+          "name": "銀嶺水",
+          "lat": 36.779,
+          "lon": 137.816056,
+          "kind": "湧水",
+          "potability": "unknown",
+          "near_point": "栂池登山道入口",
+          "route_distance_m": 474,
+          "source_type": "public_seed",
+          "source_name": "YAMAP",
+          "source_url": "https://yamap.com/landmarks/199865",
+          "source_id": "YAMAP-landmark-199865",
+          "source_note": "標高2073m・北緯36度46分44.4秒・東経137度48分57.8秒（公開情報）",
+          "score": 9,
+          "review_priority": "high",
+          "suspicious": false,
+          "score_reasons": [
+            "published-coordinate",
+            "curated-public-source"
+          ],
+          "supporting_sources": [
+            {
+              "source_name": "YAMAP",
+              "source_url": "https://yamap.com/landmarks/199865",
+              "source_type": "public_seed"
+            }
+          ],
+          "already_fixed": false
+        }
+      ]
+    },
+    "唐松岳": {
+      "checked": true,
+      "checked_at": "2026-08-28T11:35:14.424140Z",
+      "error": null,
+      "route_mode": "route-corridor",
+      "route_blocks": 1,
+      "corridor_centers": 7,
+      "candidate_count": 0,
+      "new_candidate_count": 0,
+      "candidates": []
+    },
+    "五竜岳": {
+      "checked": false,
+      "checked_at": "2026-08-28T11:35:54.072294Z",
+      "error": "https://overpass-api.de/api/interpreter: TimeoutError: The read operation timed out",
+      "route_mode": "fixed-point-buffer",
+      "route_blocks": 2,
+      "corridor_centers": 2,
+      "candidate_count": 0,
+      "new_candidate_count": 0,
+      "candidates": []
+    }
+  },
+  "schema_version": 1,
+  "app_version": "1.5.5",
+  "scope": "Northern Alps + Central Alps + Southern Alps + Yatsugatake",
+  "generated_at": "2026-08-28T11:35:54.773359Z",
+  "target_count": 65,
+  "fixed_cache_comparison": "available",
+  "rules": {
+    "corridor_step_m": 650,
+    "query_radius_m": 750,
+    "max_route_distance_m": 1600,
+    "promotion": "manual review only; never auto-write fixed water cache",
+    "coordinates": "published coordinates only; never guessed"
+  }
+}
