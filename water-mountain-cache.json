@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T05:08:23.667017Z",
+  "generated_at": "2026-08-28T05:08:32.683872Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 247,
+  "checked_count": 248,
   "available_count": 48,
-  "unresolved_count": 53,
+  "unresolved_count": 52,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -2880,10 +2880,12 @@
       "checked_at": "2026-08-28T05:08:23.664124Z"
     },
     "伯母子岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T05:08:32.680949Z"
     },
     "護摩壇山": {
       "checked": false,
