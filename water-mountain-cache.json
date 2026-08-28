@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T05:01:56.381092Z",
+  "generated_at": "2026-08-28T05:02:06.083397Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 217,
+  "checked_count": 218,
   "available_count": 45,
-  "unresolved_count": 83,
+  "unresolved_count": 82,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -2567,10 +2567,12 @@
       "checked_at": "2026-08-28T05:01:56.378097Z"
     },
     "白木峰": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T05:02:06.080245Z"
     },
     "金剛堂山": {
       "checked": false,
