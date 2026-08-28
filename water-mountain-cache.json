@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T04:28:33.940940Z",
+  "generated_at": "2026-08-28T04:28:40.877746Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 141,
-  "available_count": 20,
-  "unresolved_count": 159,
+  "checked_count": 142,
+  "available_count": 21,
+  "unresolved_count": 158,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -1487,10 +1487,23 @@
       "checked_at": "2026-08-28T04:28:33.938354Z"
     },
     "黒部五郎岳": {
-      "checked": false,
-      "available": false,
-      "count": 0,
-      "sources": []
+      "checked": true,
+      "available": true,
+      "count": 1,
+      "sources": [
+        {
+          "name": "黒部五郎岳付近の湧水",
+          "lat": 36.394572,
+          "lon": 137.543581,
+          "kind": "湧水",
+          "potability": "unknown",
+          "near_point": "黒部五郎岳",
+          "distance_m": 339,
+          "osm_id": "node/5828145985"
+        }
+      ],
+      "attempts": 2,
+      "checked_at": "2026-08-28T04:28:40.875097Z"
     },
     "烏帽子岳": {
       "checked": false,
