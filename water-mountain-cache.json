@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T04:59:46.760492Z",
+  "generated_at": "2026-08-28T05:00:43.634219Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 213,
+  "checked_count": 214,
   "available_count": 45,
-  "unresolved_count": 87,
+  "unresolved_count": 86,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -2517,10 +2517,12 @@
       "checked_at": "2026-08-28T04:59:46.757380Z"
     },
     "奥茶臼山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T05:00:43.631106Z"
     },
     "大無間山": {
       "checked": false,
