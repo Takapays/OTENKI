@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T04:57:07.367359Z",
+  "generated_at": "2026-08-28T04:57:20.504548Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 199,
-  "available_count": 40,
-  "unresolved_count": 101,
+  "checked_count": 200,
+  "available_count": 41,
+  "unresolved_count": 100,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -2340,10 +2340,23 @@
       "checked_at": "2026-08-28T04:57:07.364447Z"
     },
     "仙丈ヶ岳": {
-      "checked": false,
-      "available": false,
-      "count": 0,
-      "sources": []
+      "checked": true,
+      "available": true,
+      "count": 1,
+      "sources": [
+        {
+          "name": "長衛小屋付近の飲料水",
+          "lat": 35.743301,
+          "lon": 138.225109,
+          "kind": "飲料水",
+          "potability": "confirmed",
+          "near_point": "長衛小屋",
+          "distance_m": 921,
+          "osm_id": "node/3050597000"
+        }
+      ],
+      "attempts": 3,
+      "checked_at": "2026-08-28T04:57:20.501742Z"
     },
     "アサヨ峰": {
       "checked": false,
