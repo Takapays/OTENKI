@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T05:08:44.307181Z",
+  "generated_at": "2026-08-28T05:08:48.940591Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 250,
-  "available_count": 48,
-  "unresolved_count": 50,
+  "checked_count": 251,
+  "available_count": 49,
+  "unresolved_count": 49,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -2904,10 +2904,63 @@
       "checked_at": "2026-08-28T05:08:44.304287Z"
     },
     "金剛山": {
-      "checked": false,
-      "available": false,
-      "count": 0,
-      "sources": []
+      "checked": true,
+      "available": true,
+      "count": 5,
+      "sources": [
+        {
+          "name": "千早本道登山口付近の水栓",
+          "lat": 34.41875,
+          "lon": 135.651033,
+          "kind": "水栓",
+          "potability": "unknown",
+          "near_point": "千早本道登山口",
+          "distance_m": 35,
+          "osm_id": "node/12257400445"
+        },
+        {
+          "name": "金剛山付近の水栓",
+          "lat": 34.418925,
+          "lon": 135.672817,
+          "kind": "水栓",
+          "potability": "unknown",
+          "near_point": "金剛山",
+          "distance_m": 62,
+          "osm_id": "node/12383637463"
+        },
+        {
+          "name": "金剛山付近の水栓",
+          "lat": 34.420797,
+          "lon": 135.670631,
+          "kind": "水栓",
+          "potability": "unknown",
+          "near_point": "金剛山",
+          "distance_m": 269,
+          "osm_id": "node/12404693425"
+        },
+        {
+          "name": "千早本道登山口付近の水栓",
+          "lat": 34.416132,
+          "lon": 135.652989,
+          "kind": "水栓",
+          "potability": "unknown",
+          "near_point": "千早本道登山口",
+          "distance_m": 353,
+          "osm_id": "node/5909897947"
+        },
+        {
+          "name": "金剛山付近の湧水",
+          "lat": 34.409821,
+          "lon": 135.666571,
+          "kind": "湧水",
+          "potability": "confirmed",
+          "near_point": "金剛山",
+          "distance_m": 1224,
+          "osm_id": "node/4003611988"
+        }
+      ],
+      "attempts": 2,
+      "checked_at": "2026-08-28T05:08:48.937800Z"
     },
     "武奈ヶ岳": {
       "checked": false,
