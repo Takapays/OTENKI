@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T05:09:49.622992Z",
+  "generated_at": "2026-08-28T05:09:54.885225Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 253,
-  "available_count": 50,
-  "unresolved_count": 47,
+  "checked_count": 254,
+  "available_count": 51,
+  "unresolved_count": 46,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -2990,10 +2990,133 @@
       "checked_at": "2026-08-28T05:09:49.620394Z"
     },
     "比叡山": {
-      "checked": false,
-      "available": false,
-      "count": 0,
-      "sources": []
+      "checked": true,
+      "available": true,
+      "count": 12,
+      "sources": [
+        {
+          "name": "比叡山（大比叡）付近の水栓",
+          "lat": 35.06761,
+          "lon": 135.837425,
+          "kind": "水栓",
+          "potability": "unknown",
+          "near_point": "比叡山（大比叡）",
+          "distance_m": 336,
+          "osm_id": "node/4058212529"
+        },
+        {
+          "name": "弁慶水",
+          "lat": 35.068458,
+          "lon": 135.836397,
+          "kind": "湧水",
+          "potability": "unknown",
+          "near_point": "比叡山（大比叡）",
+          "distance_m": 342,
+          "osm_id": "node/4058309442"
+        },
+        {
+          "name": "雲母坂登山口（修学院）付近の水栓",
+          "lat": 35.048884,
+          "lon": 135.803305,
+          "kind": "水栓",
+          "potability": "unknown",
+          "near_point": "雲母坂登山口（修学院）",
+          "distance_m": 369,
+          "osm_id": "node/11294849872"
+        },
+        {
+          "name": "ケーブル延暦寺駅付近の水栓",
+          "lat": 35.069685,
+          "lon": 135.841364,
+          "kind": "水栓",
+          "potability": "unknown",
+          "near_point": "ケーブル延暦寺駅",
+          "distance_m": 423,
+          "osm_id": "node/4073383857"
+        },
+        {
+          "name": "ケーブル延暦寺駅付近の水栓",
+          "lat": 35.070253,
+          "lon": 135.842234,
+          "kind": "水栓",
+          "potability": "unknown",
+          "near_point": "ケーブル延暦寺駅",
+          "distance_m": 443,
+          "osm_id": "node/4075422095"
+        },
+        {
+          "name": "手水",
+          "lat": 35.055776,
+          "lon": 135.801657,
+          "kind": "水栓",
+          "potability": "unknown",
+          "near_point": "雲母坂登山口（修学院）",
+          "distance_m": 488,
+          "osm_id": "node/12037260471"
+        },
+        {
+          "name": "比叡山（大比叡）付近の水栓",
+          "lat": 35.068733,
+          "lon": 135.838561,
+          "kind": "水栓",
+          "potability": "unknown",
+          "near_point": "比叡山（大比叡）",
+          "distance_m": 494,
+          "osm_id": "node/4068420187"
+        },
+        {
+          "name": "ケーブル延暦寺駅付近の水栓",
+          "lat": 35.070549,
+          "lon": 135.8414,
+          "kind": "水栓",
+          "potability": "unknown",
+          "near_point": "ケーブル延暦寺駅",
+          "distance_m": 504,
+          "osm_id": "node/4069797703"
+        },
+        {
+          "name": "ケーブル延暦寺駅付近の水栓",
+          "lat": 35.070275,
+          "lon": 135.840366,
+          "kind": "水栓",
+          "potability": "unknown",
+          "near_point": "ケーブル延暦寺駅",
+          "distance_m": 529,
+          "osm_id": "node/4071358487"
+        },
+        {
+          "name": "ケーブル延暦寺駅付近の水栓",
+          "lat": 35.069536,
+          "lon": 135.83934,
+          "kind": "水栓",
+          "potability": "unknown",
+          "near_point": "ケーブル延暦寺駅",
+          "distance_m": 536,
+          "osm_id": "node/4063598550"
+        },
+        {
+          "name": "ケーブル延暦寺駅付近の水栓",
+          "lat": 35.071705,
+          "lon": 135.844604,
+          "kind": "水栓",
+          "potability": "unknown",
+          "near_point": "ケーブル延暦寺駅",
+          "distance_m": 580,
+          "osm_id": "node/4058335366"
+        },
+        {
+          "name": "ケーブル延暦寺駅付近の水栓",
+          "lat": 35.070316,
+          "lon": 135.839164,
+          "kind": "水栓",
+          "potability": "unknown",
+          "near_point": "ケーブル延暦寺駅",
+          "distance_m": 606,
+          "osm_id": "node/4065129645"
+        }
+      ],
+      "attempts": 2,
+      "checked_at": "2026-08-28T05:09:54.882522Z"
     },
     "愛宕山": {
       "checked": false,
