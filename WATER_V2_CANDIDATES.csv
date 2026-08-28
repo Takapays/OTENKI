@@ -7,3 +7,4 @@
 剱岳,早月小屋〜剱澤小屋付近の湧水,36.599913,137.612268,湧水,unknown,早月小屋〜剱澤小屋,718,osm,OpenStreetMap / Overpass API,https://www.openstreetmap.org/node/5855396029,6,medium,False,True,剱澤小屋付近の湧水,existing,route<=800m;spring;water-name
 立山,立山玉殿の湧水,36.577632,137.595948,飲料水,confirmed,室堂〜一の越山荘,13,osm,OpenStreetMap / Overpass API,https://www.openstreetmap.org/node/3762227714,9,high,False,True,立山玉殿の湧水,existing,route<=300m;amenity=drinking_water;water-name
 奥大日岳,立山玉殿の湧水,36.577632,137.595948,飲料水,confirmed,室堂,90,osm,OpenStreetMap / Overpass API,https://www.openstreetmap.org/node/3762227714,9,high,False,True,立山玉殿の湧水,existing,route<=300m;amenity=drinking_water;water-name
+黒部五郎岳,黒部五郎岳付近の湧水,36.394572,137.543581,湧水,unknown,黒部五郎岳,339,osm,OpenStreetMap / Overpass API,https://www.openstreetmap.org/node/5828145985,6,medium,False,True,黒部五郎岳付近の湧水,existing,route<=800m;spring;water-name

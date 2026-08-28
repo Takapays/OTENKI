@@ -450,12 +450,135 @@
           "fixed_name": "立山玉殿の湧水"
         }
       ]
+    },
+    "鍬崎山": {
+      "checked": true,
+      "checked_at": "2026-08-28T11:42:13.020341Z",
+      "error": null,
+      "route_mode": "fixed-point-buffer",
+      "route_blocks": 2,
+      "corridor_centers": 2,
+      "candidate_count": 0,
+      "new_candidate_count": 0,
+      "candidates": []
+    },
+    "薬師岳": {
+      "checked": true,
+      "checked_at": "2026-08-28T11:42:31.014010Z",
+      "error": null,
+      "route_mode": "fixed-point-buffer",
+      "route_blocks": 2,
+      "corridor_centers": 2,
+      "candidate_count": 0,
+      "new_candidate_count": 0,
+      "candidates": []
+    },
+    "黒部五郎岳": {
+      "checked": true,
+      "checked_at": "2026-08-28T11:42:55.454921Z",
+      "error": null,
+      "route_mode": "fixed-point-buffer",
+      "route_blocks": 2,
+      "corridor_centers": 2,
+      "candidate_count": 1,
+      "new_candidate_count": 0,
+      "candidates": [
+        {
+          "mountain": "黒部五郎岳",
+          "name": "黒部五郎岳付近の湧水",
+          "lat": 36.394572,
+          "lon": 137.543581,
+          "kind": "湧水",
+          "potability": "unknown",
+          "near_point": "黒部五郎岳",
+          "route_distance_m": 339,
+          "source_type": "osm",
+          "source_name": "OpenStreetMap / Overpass API",
+          "source_url": "https://www.openstreetmap.org/node/5828145985",
+          "source_id": "node/5828145985",
+          "score": 6,
+          "review_priority": "medium",
+          "suspicious": false,
+          "score_reasons": [
+            "route<=800m",
+            "spring",
+            "water-name"
+          ],
+          "tags": {
+            "natural": "spring"
+          },
+          "supporting_sources": [
+            {
+              "source_name": "OpenStreetMap / Overpass API",
+              "source_url": "https://www.openstreetmap.org/node/5828145985",
+              "source_type": "osm"
+            }
+          ],
+          "already_fixed": true,
+          "fixed_name": "黒部五郎岳付近の湧水"
+        }
+      ]
+    },
+    "烏帽子岳": {
+      "checked": true,
+      "checked_at": "2026-08-28T11:43:12.103543Z",
+      "error": null,
+      "route_mode": "fixed-point-buffer",
+      "route_blocks": 2,
+      "corridor_centers": 2,
+      "candidate_count": 0,
+      "new_candidate_count": 0,
+      "candidates": []
+    },
+    "野口五郎岳": {
+      "checked": false,
+      "checked_at": "2026-08-28T11:43:59.154841Z",
+      "error": "https://overpass-api.de/api/interpreter: TimeoutError: The read operation timed out",
+      "route_mode": "fixed-point-buffer",
+      "route_blocks": 2,
+      "corridor_centers": 2,
+      "candidate_count": 0,
+      "new_candidate_count": 0,
+      "candidates": []
+    },
+    "水晶岳（黒岳）": {
+      "checked": true,
+      "checked_at": "2026-08-28T11:44:25.104904Z",
+      "error": null,
+      "route_mode": "fixed-point-buffer",
+      "route_blocks": 2,
+      "corridor_centers": 2,
+      "candidate_count": 0,
+      "new_candidate_count": 0,
+      "candidates": []
+    },
+    "鷲羽岳": {
+      "checked": true,
+      "checked_at": "2026-08-28T11:44:54.441349Z",
+      "error": null,
+      "route_mode": "fixed-point-buffer",
+      "route_blocks": 2,
+      "corridor_centers": 2,
+      "candidate_count": 0,
+      "new_candidate_count": 0,
+      "candidates": []
+    },
+    "三俣蓮華岳": {
+      "checked": true,
+      "checked_at": "2026-08-28T11:45:23.518015Z",
+      "error": null,
+      "route_mode": "fixed-point-buffer",
+      "route_blocks": 2,
+      "corridor_centers": 2,
+      "candidate_count": 0,
+      "new_candidate_count": 0,
+      "candidates": []
     }
   },
   "schema_version": 1,
   "app_version": "1.5.5",
   "scope": "Northern Alps + Central Alps + Southern Alps + Yatsugatake",
-  "generated_at": "2026-08-28T11:40:45.363468Z",
+  "generated_at": "2026-08-28T11:45:24.219372Z",
   "target_count": 65,
   "fixed_cache_comparison": "available",
   "rules": {
