@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T05:06:14.045223Z",
+  "generated_at": "2026-08-28T05:06:19.475607Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 238,
-  "available_count": 47,
-  "unresolved_count": 62,
+  "checked_count": 239,
+  "available_count": 48,
+  "unresolved_count": 61,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -2797,10 +2797,23 @@
       "checked_at": "2026-08-28T05:06:14.042034Z"
     },
     "御在所岳": {
-      "checked": false,
-      "available": false,
-      "count": 0,
-      "sources": []
+      "checked": true,
+      "available": true,
+      "count": 1,
+      "sources": [
+        {
+          "name": "中道登山口付近の飲料水",
+          "lat": 35.01522,
+          "lon": 136.44734,
+          "kind": "飲料水",
+          "potability": "confirmed",
+          "near_point": "中道登山口",
+          "distance_m": 976,
+          "osm_id": "node/3625269662"
+        }
+      ],
+      "attempts": 2,
+      "checked_at": "2026-08-28T05:06:19.471675Z"
     },
     "倶留尊山": {
       "checked": false,
