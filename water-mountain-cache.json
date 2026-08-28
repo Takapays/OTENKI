@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T04:49:22.949777Z",
+  "generated_at": "2026-08-28T04:49:37.968012Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 181,
+  "checked_count": 182,
   "available_count": 35,
-  "unresolved_count": 119,
+  "unresolved_count": 118,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -2082,10 +2082,12 @@
       "checked_at": "2026-08-28T04:49:22.948005Z"
     },
     "大菩薩嶺": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T04:49:37.966245Z"
     },
     "大岳山": {
       "checked": false,
