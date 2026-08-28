@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.245",
-  "generated_at": "2026-08-28T02:38:39.846561Z",
+  "generated_at": "2026-08-28T02:38:49.126540Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 43,
-  "available_count": 7,
-  "unresolved_count": 257,
+  "checked_count": 44,
+  "available_count": 8,
+  "unresolved_count": 256,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -191,10 +191,33 @@
       "checked_at": "2026-08-27T22:19:44Z"
     },
     "後方羊蹄山": {
-      "checked": false,
-      "available": false,
-      "count": 0,
-      "sources": []
+      "checked": true,
+      "available": true,
+      "count": 2,
+      "sources": [
+        {
+          "name": "比羅夫登山口・半月湖畔自然公園付近の給水地点",
+          "lat": 42.846172,
+          "lon": 140.758917,
+          "kind": "給水地点",
+          "potability": "confirmed",
+          "near_point": "比羅夫登山口・半月湖畔自然公園",
+          "distance_m": 553,
+          "osm_id": "way/342421426"
+        },
+        {
+          "name": "羊蹄の湧き水",
+          "lat": 42.783303,
+          "lon": 140.778595,
+          "kind": "湧水",
+          "potability": "unknown",
+          "near_point": "真狩登山口・真狩キャンプ場",
+          "distance_m": 1384,
+          "osm_id": "node/4283498022"
+        }
+      ],
+      "attempts": 2,
+      "checked_at": "2026-08-28T02:38:49.124194Z"
     },
     "ニセコアンヌプリ": {
       "checked": true,
