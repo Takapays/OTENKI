@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T03:48:23.075530Z",
+  "generated_at": "2026-08-28T03:48:31.112135Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 70,
-  "available_count": 11,
-  "unresolved_count": 230,
+  "checked_count": 71,
+  "available_count": 12,
+  "unresolved_count": 229,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -604,10 +604,33 @@
       "checked_at": "2026-08-28T03:48:23.073279Z"
     },
     "燧ヶ岳": {
-      "checked": false,
-      "available": false,
-      "count": 0,
-      "sources": []
+      "checked": true,
+      "available": true,
+      "count": 2,
+      "sources": [
+        {
+          "name": "弥四郎清水",
+          "lat": 36.940413,
+          "lon": 139.251945,
+          "kind": "湧水",
+          "potability": "confirmed",
+          "near_point": "見晴（尾瀬小屋・見晴地区）",
+          "distance_m": 16,
+          "osm_id": "node/6547942949"
+        },
+        {
+          "name": "山ノ鼻（至仏山東面登山道入口・登り専用）付近の飲料水",
+          "lat": 36.915472,
+          "lon": 139.197163,
+          "kind": "飲料水",
+          "potability": "confirmed",
+          "near_point": "山ノ鼻（至仏山東面登山道入口・登り専用）",
+          "distance_m": 89,
+          "osm_id": "node/4920708718"
+        }
+      ],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:48:31.109839Z"
     },
     "大滝根山": {
       "checked": false,
