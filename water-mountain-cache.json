@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T03:54:27.001065Z",
+  "generated_at": "2026-08-28T03:54:40.474299Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 92,
+  "checked_count": 93,
   "available_count": 14,
-  "unresolved_count": 208,
+  "unresolved_count": 207,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -1009,10 +1009,12 @@
       "checked_at": "2026-08-28T03:54:26.996922Z"
     },
     "草津白根山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T03:54:40.471926Z"
     },
     "浅間隠山": {
       "checked": false,
