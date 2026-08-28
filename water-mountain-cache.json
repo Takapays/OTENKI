@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T04:48:12.108211Z",
+  "generated_at": "2026-08-28T04:48:32.299271Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 176,
+  "checked_count": 177,
   "available_count": 33,
-  "unresolved_count": 124,
+  "unresolved_count": 123,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -2020,10 +2020,12 @@
       "checked_at": "2026-08-28T04:48:12.105692Z"
     },
     "国師ヶ岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T04:48:32.293055Z"
     },
     "金峰山": {
       "checked": false,
