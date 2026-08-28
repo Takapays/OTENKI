@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.247",
-  "generated_at": "2026-08-28T03:23:08.304954Z",
+  "generated_at": "2026-08-28T03:23:22.043900Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 41,
+  "checked_count": 42,
   "available_count": 7,
-  "unresolved_count": 259,
+  "unresolved_count": 258,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -118,10 +118,12 @@
       "checked_at": "2026-08-28T03:23:08.302684Z"
     },
     "幌尻岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:23:22.041643Z"
     },
     "カムイエクウチカウシ山": {
       "checked": false,
