@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T05:21:01.978480Z",
+  "generated_at": "2026-08-28T05:21:18.103582Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 295,
-  "available_count": 60,
-  "unresolved_count": 5,
+  "checked_count": 296,
+  "available_count": 61,
+  "unresolved_count": 4,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -2303,13 +2303,23 @@
       "checked_at": "2026-08-28T04:56:22.846729Z"
     },
     "富士山": {
-      "checked": false,
-      "available": false,
-      "count": 0,
-      "sources": [],
+      "checked": true,
+      "available": true,
+      "count": 1,
+      "sources": [
+        {
+          "name": "富士スバルライン五合目（吉田口）付近の水栓",
+          "lat": 35.394639,
+          "lon": 138.733418,
+          "kind": "水栓",
+          "potability": "unknown",
+          "near_point": "富士スバルライン五合目（吉田口）",
+          "distance_m": 140,
+          "osm_id": "node/9983082396"
+        }
+      ],
       "attempts": 3,
-      "checked_at": "2026-08-28T04:56:41.990591Z",
-      "error": "https://overpass-api.de/api/interpreter: TimeoutError: The read operation timed out"
+      "checked_at": "2026-08-28T05:21:18.099955Z"
     },
     "甲斐駒ヶ岳": {
       "checked": true,
