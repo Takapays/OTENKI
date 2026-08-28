@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.247",
-  "generated_at": "2026-08-28T03:22:41.232025Z",
+  "generated_at": "2026-08-28T03:22:52.698674Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 39,
+  "checked_count": 40,
   "available_count": 7,
-  "unresolved_count": 261,
+  "unresolved_count": 260,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -78,10 +78,12 @@
       "checked_at": "2026-08-28T03:22:41.229840Z"
     },
     "石狩岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:22:52.696549Z"
     },
     "トムラウシ山": {
       "checked": true,
