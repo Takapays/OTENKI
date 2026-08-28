@@ -1,5 +1,5 @@
-# トラテン｜トラバース天気 V1.4.256
-V1.4.256では、画面表示をRenderのPython Web Serviceから分離できる静的フロント構成を追加しました。静的TOPを即表示し、端末保存キャッシュを先に復元しながら、Render APIはバックグラウンドで起動します。
+# トラテン｜トラバース天気 V1.5.0
+V1.5.0では、V1.4.256で試験導入した静的フロント分離を撤回し、従来どおりRenderのPython Web Service単体構成へ整理しました。V1.4.255までのCT・水場・TOP4ボタン等の機能は維持しています。
 
 
 V1.4.251では、水場固定監査のGitHub Actionsを手動実行専用へ変更しました。定期cronとpushトリガーを削除し、必要な間だけActionsの「Run workflow」から監査します。300/300完了後は実行しなければ監査は一切走りません。水場キャッシュは引き続き専用 `water-cache` ブランチへ保存し、通常リリースZIPには含めません。
@@ -2222,14 +2222,3 @@ Start Command:
 - 管理画面の「選択された全地点」「選択された全ての山」は、更新順（新しい順）を初期値に変更。利用回数順への切替は維持。
 - TOP下部フッター帯の「水場」リンクを削除。ヘッダーの水場カードと水場一覧機能は維持。
 - 気象モデルの先着表示→後追いマージ、CT、固定座標、代表コース、全国判定、水場キャッシュは変更なし。
-
-## V1.4.256 静的フロント構成
-- `traten-static`（Render Static Site）がHTML/CSS/JSを配信し、スリープしません。
-- 気象取得・Overpass・GFS・共有キャッシュ更新などのAPI処理は従来の `https://otenki.onrender.com` を利用します。
-- `api-config.js` が静的サイト上の `/api/*` をRender APIへ透過転送します。
-- 起動直後はlocalStorageの全国判定キャッシュを先に表示し、APIの最新共有キャッシュ確認はバックグラウンドで行います。
-- 初回表示後に `/api/health` を軽く呼び、ユーザーが山を選んでいる間にRenderを起こします。
-- `scripts/build_static_frontend.sh` は公開対象ファイルだけを `dist/` へコピーし、server.py・環境設定・監査ファイルは静的公開しません。
-
-### 初回のRender設定
-`render.yaml`をBlueprintとして同期すると `traten-static` Static Siteが追加されます。既存Web Serviceを手動管理している場合は、RenderでStatic Siteを1つ作成し、Build Commandを `bash scripts/build_static_frontend.sh`、Publish Directoryを `dist` に設定してください。公開後は `https://traten-static.onrender.com` 側を通常利用URLにします。

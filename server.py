@@ -32,7 +32,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.4.256"
+APP_VERSION = "1.5.0"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -40,30 +40,6 @@ CACHE_TTL = int(os.environ.get("CACHE_TTL", "900"))
 OVERPASS_CACHE_TTL = int(os.environ.get("OVERPASS_CACHE_TTL", "86400"))
 CACHE_MAX_ITEMS = int(os.environ.get("CACHE_MAX_ITEMS", "256"))
 MAX_OVERPASS_BYTES = int(os.environ.get("MAX_OVERPASS_BYTES", str(512 * 1024)))
-
-# V1.4.256: allow the non-sleeping static frontend to call public API routes.
-# Extra origins can be appended as a comma-separated Render environment variable.
-STATIC_FRONTEND_ORIGINS = {
-    "https://traten-static.onrender.com",
-    "https://takapays.github.io",
-}
-STATIC_FRONTEND_ORIGINS.update(
-    x.strip().rstrip("/")
-    for x in os.environ.get("STATIC_FRONTEND_ORIGINS", "").split(",")
-    if x.strip()
-)
-
-def _static_frontend_origin_allowed(origin: str) -> bool:
-    if origin in STATIC_FRONTEND_ORIGINS:
-        return True
-    try:
-        parsed = urllib.parse.urlparse(origin)
-        host = (parsed.hostname or "").lower()
-        return parsed.scheme == "https" and host.endswith(".onrender.com") and (host == "traten-static.onrender.com" or host.startswith("traten-static-"))
-    except Exception:
-        return False
-
-
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
@@ -2552,7 +2528,7 @@ def bing_site_auth():
     return response
 
 
-PUBLIC_FILES = {"app.js", "api-config.js", "styles.css", "ui-v1.4.254.css", "access.js", "access-data.js", "access.css", "camera-data.js", "live-cameras.js", "live-cameras.css", "live-cameras.html", "water-sources.html", "water-sources.js", "water-sources.css", "water-mountain-cache.json", "trailheads.html", "trailheads.js", "huts.html", "huts.js", "hut-data.js", "resource-index.css", "resource-mountain-data.js", "trailhead-access.html", "trailhead-access.js", "favicon.ico", "robots.txt", "sitemap.xml", "guide.html", "manifest.json", "google5a7b3dfd79ff97f0.html", "BingSiteAuth.xml", INDEXNOW_KEY_FILENAME}
+PUBLIC_FILES = {"app.js", "styles.css", "ui-v1.4.254.css", "access.js", "access-data.js", "access.css", "camera-data.js", "live-cameras.js", "live-cameras.css", "live-cameras.html", "water-sources.html", "water-sources.js", "water-sources.css", "water-mountain-cache.json", "trailheads.html", "trailheads.js", "huts.html", "huts.js", "hut-data.js", "resource-index.css", "resource-mountain-data.js", "trailhead-access.html", "trailhead-access.js", "favicon.ico", "robots.txt", "sitemap.xml", "guide.html", "manifest.json", "google5a7b3dfd79ff97f0.html", "BingSiteAuth.xml", INDEXNOW_KEY_FILENAME}
 PUBLIC_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif", ".ico"}
 
 
@@ -2577,14 +2553,6 @@ def static_files(path: str):
 
 @app.after_request
 def security_headers(response: Response):
-    # V1.4.256 hybrid static frontend: API endpoints remain on Render.
-    origin = (request.headers.get("Origin") or "").rstrip("/")
-    if request.path.startswith("/api/") and _static_frontend_origin_allowed(origin):
-        response.headers["Access-Control-Allow-Origin"] = origin
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Accept, X-Traten-Warmup"
-        response.headers["Access-Control-Max-Age"] = "86400"
-        response.headers["Vary"] = "Origin"
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
     response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
     response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")

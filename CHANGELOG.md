@@ -1,3 +1,10 @@
+## V1.5.0
+- V1.4.256で試験導入したRender Static Site分離を撤回し、Python Web Service単体構成へ整理。
+- `api-config.js`、Static Site用CORS、`traten-static` Blueprint定義、静的ビルドスクリプト、`dist/` を削除。
+- 各画面のAPI通信を従来どおり同一オリジン `/api/*` へ戻し、管理画面リンクも `/usage-dashboard` に復元。
+- TOP4ボタンのV1.4.254デザイン、V1.4.255の中白根山区間CT、水場固定一覧、既存の気象分析・全国判定を維持。
+- `ui-v1.4.254.css` をFlaskの公開対象へ明示追加し、単体Web Service構成でも確実に配信。
+
 ## V1.4.256
 - Render Free Web Serviceのコールドスタート待ちをTOP表示から切り離すため、Render Static Site用の静的フロント構成を追加。
 - `api-config.js` を追加し、静的フロントからの `/api/*` を既存 `https://otenki.onrender.com` APIへ透過的に接続。

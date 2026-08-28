@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.256';
+const APP_VERSION = '1.5.0';
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
@@ -5512,8 +5512,6 @@ async function loadNationalOutlookSharedCacheOnly({silentMiss=false}={}){
     if(picked.length){
       nationalOutlookResults=new Map(picked.map(x=>[x.name,x]));
       renderNationalOutlookMarkers();
-      const counts={A:0,B:0,C:0};for(const r of nationalOutlookResults.values())if(counts[r.grade]!=null)counts[r.grade]++;
-      if(status)status.innerHTML=`端末保存キャッシュから${picked.length}座を先に表示：<b>A ${counts.A}座</b> / <b>B ${counts.B}座</b> / <b>C ${counts.C}座</b><br><small>最新共有キャッシュはバックグラウンドで確認します。</small>`;
     }
   }
   try{
