@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T05:21:34.940963Z",
+  "generated_at": "2026-08-28T05:22:06.372300Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 299,
+  "checked_count": 300,
   "available_count": 61,
-  "unresolved_count": 1,
+  "unresolved_count": 0,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -713,13 +713,12 @@
       "checked_at": "2026-08-28T03:50:39.336055Z"
     },
     "八海山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
       "sources": [],
-      "attempts": 3,
-      "checked_at": "2026-08-28T05:20:57.073194Z",
-      "error": "https://overpass-api.de/api/interpreter: TimeoutError: The read operation timed out"
+      "attempts": 2,
+      "checked_at": "2026-08-28T05:22:06.368553Z"
     },
     "苗場山": {
       "checked": true,
