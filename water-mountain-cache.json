@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T04:29:08.975355Z",
+  "generated_at": "2026-08-28T04:29:45.201267Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 144,
+  "checked_count": 145,
   "available_count": 21,
-  "unresolved_count": 156,
+  "unresolved_count": 155,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -1522,10 +1522,12 @@
       "checked_at": "2026-08-28T04:29:08.972616Z"
     },
     "水晶岳（黒岳）": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T04:29:45.198326Z"
     },
     "鷲羽岳": {
       "checked": false,
