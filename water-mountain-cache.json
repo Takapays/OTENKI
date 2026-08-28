@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T03:38:19.538768Z",
+  "generated_at": "2026-08-28T03:38:24.924484Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 50,
+  "checked_count": 51,
   "available_count": 9,
-  "unresolved_count": 250,
+  "unresolved_count": 249,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -294,10 +294,12 @@
       "checked_at": "2026-08-28T03:38:19.536888Z"
     },
     "乳頭山（烏帽子岳）": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:38:24.922492Z"
     },
     "秋田駒ヶ岳": {
       "checked": true,
