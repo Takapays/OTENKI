@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T05:15:24.500700Z",
+  "generated_at": "2026-08-28T05:15:29.661773Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 276,
+  "checked_count": 277,
   "available_count": 56,
-  "unresolved_count": 24,
+  "unresolved_count": 23,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -3440,10 +3440,12 @@
       "checked_at": "2026-08-28T05:15:24.495845Z"
     },
     "雲仙岳（普賢岳）": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T05:15:29.658384Z"
     },
     "鶴見岳": {
       "checked": false,
