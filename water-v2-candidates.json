@@ -189,12 +189,273 @@
       "candidate_count": 0,
       "new_candidate_count": 0,
       "candidates": []
+    },
+    "鹿島槍ヶ岳": {
+      "checked": false,
+      "checked_at": "2026-08-28T11:38:04.114485Z",
+      "error": "https://overpass-api.de/api/interpreter: TimeoutError: The read operation timed out",
+      "route_mode": "route-corridor",
+      "route_blocks": 1,
+      "corridor_centers": 36,
+      "candidate_count": 0,
+      "new_candidate_count": 0,
+      "candidates": []
+    },
+    "爺ヶ岳": {
+      "checked": true,
+      "checked_at": "2026-08-28T11:38:33.441453Z",
+      "error": null,
+      "route_mode": "fixed-point-buffer",
+      "route_blocks": 2,
+      "corridor_centers": 2,
+      "candidate_count": 0,
+      "new_candidate_count": 0,
+      "candidates": []
+    },
+    "針ノ木岳": {
+      "checked": true,
+      "checked_at": "2026-08-28T11:39:04.451944Z",
+      "error": null,
+      "route_mode": "fixed-point-buffer",
+      "route_blocks": 2,
+      "corridor_centers": 2,
+      "candidate_count": 0,
+      "new_candidate_count": 0,
+      "candidates": []
+    },
+    "蓮華岳": {
+      "checked": true,
+      "checked_at": "2026-08-28T11:39:19.589850Z",
+      "error": null,
+      "route_mode": "fixed-point-buffer",
+      "route_blocks": 2,
+      "corridor_centers": 2,
+      "candidate_count": 0,
+      "new_candidate_count": 0,
+      "candidates": []
+    },
+    "毛勝山": {
+      "checked": true,
+      "checked_at": "2026-08-28T11:39:46.967451Z",
+      "error": null,
+      "route_mode": "fixed-point-buffer",
+      "route_blocks": 2,
+      "corridor_centers": 2,
+      "candidate_count": 0,
+      "new_candidate_count": 0,
+      "candidates": []
+    },
+    "剱岳": {
+      "checked": true,
+      "checked_at": "2026-08-28T11:40:09.168282Z",
+      "error": null,
+      "route_mode": "route-corridor",
+      "route_blocks": 1,
+      "corridor_centers": 31,
+      "candidate_count": 3,
+      "new_candidate_count": 0,
+      "candidates": [
+        {
+          "mountain": "剱岳",
+          "name": "早月小屋〜剱澤小屋付近の飲料水",
+          "lat": 36.604696,
+          "lon": 137.616062,
+          "kind": "飲料水",
+          "potability": "confirmed",
+          "near_point": "早月小屋〜剱澤小屋",
+          "route_distance_m": 125,
+          "source_type": "osm",
+          "source_name": "OpenStreetMap / Overpass API",
+          "source_url": "https://www.openstreetmap.org/node/8737281672",
+          "source_id": "node/8737281672",
+          "score": 9,
+          "review_priority": "high",
+          "suspicious": false,
+          "score_reasons": [
+            "route<=300m",
+            "amenity=drinking_water",
+            "water-name"
+          ],
+          "tags": {
+            "amenity": "drinking_water"
+          },
+          "supporting_sources": [
+            {
+              "source_name": "OpenStreetMap / Overpass API",
+              "source_url": "https://www.openstreetmap.org/node/8737281672",
+              "source_type": "osm"
+            }
+          ],
+          "already_fixed": true,
+          "fixed_name": "剱澤小屋付近の飲料水"
+        },
+        {
+          "mountain": "剱岳",
+          "name": "立山玉殿の湧水",
+          "lat": 36.577632,
+          "lon": 137.595948,
+          "kind": "飲料水",
+          "potability": "confirmed",
+          "near_point": "室堂",
+          "route_distance_m": 90,
+          "source_type": "osm",
+          "source_name": "OpenStreetMap / Overpass API",
+          "source_url": "https://www.openstreetmap.org/node/3762227714",
+          "source_id": "node/3762227714",
+          "score": 9,
+          "review_priority": "high",
+          "suspicious": false,
+          "score_reasons": [
+            "route<=300m",
+            "amenity=drinking_water",
+            "water-name"
+          ],
+          "tags": {
+            "amenity": "drinking_water"
+          },
+          "supporting_sources": [
+            {
+              "source_name": "OpenStreetMap / Overpass API",
+              "source_url": "https://www.openstreetmap.org/node/3762227714",
+              "source_type": "osm"
+            }
+          ],
+          "already_fixed": true,
+          "fixed_name": "立山玉殿の湧水"
+        },
+        {
+          "mountain": "剱岳",
+          "name": "早月小屋〜剱澤小屋付近の湧水",
+          "lat": 36.599913,
+          "lon": 137.612268,
+          "kind": "湧水",
+          "potability": "unknown",
+          "near_point": "早月小屋〜剱澤小屋",
+          "route_distance_m": 718,
+          "source_type": "osm",
+          "source_name": "OpenStreetMap / Overpass API",
+          "source_url": "https://www.openstreetmap.org/node/5855396029",
+          "source_id": "node/5855396029",
+          "score": 6,
+          "review_priority": "medium",
+          "suspicious": false,
+          "score_reasons": [
+            "route<=800m",
+            "spring",
+            "water-name"
+          ],
+          "tags": {
+            "natural": "spring"
+          },
+          "supporting_sources": [
+            {
+              "source_name": "OpenStreetMap / Overpass API",
+              "source_url": "https://www.openstreetmap.org/node/5855396029",
+              "source_type": "osm"
+            }
+          ],
+          "already_fixed": true,
+          "fixed_name": "剱澤小屋付近の湧水"
+        }
+      ]
+    },
+    "立山": {
+      "checked": true,
+      "checked_at": "2026-08-28T11:40:16.930116Z",
+      "error": null,
+      "route_mode": "route-corridor",
+      "route_blocks": 1,
+      "corridor_centers": 6,
+      "candidate_count": 1,
+      "new_candidate_count": 0,
+      "candidates": [
+        {
+          "mountain": "立山",
+          "name": "立山玉殿の湧水",
+          "lat": 36.577632,
+          "lon": 137.595948,
+          "kind": "飲料水",
+          "potability": "confirmed",
+          "near_point": "室堂〜一の越山荘",
+          "route_distance_m": 13,
+          "source_type": "osm",
+          "source_name": "OpenStreetMap / Overpass API",
+          "source_url": "https://www.openstreetmap.org/node/3762227714",
+          "source_id": "node/3762227714",
+          "score": 9,
+          "review_priority": "high",
+          "suspicious": false,
+          "score_reasons": [
+            "route<=300m",
+            "amenity=drinking_water",
+            "water-name"
+          ],
+          "tags": {
+            "amenity": "drinking_water"
+          },
+          "supporting_sources": [
+            {
+              "source_name": "OpenStreetMap / Overpass API",
+              "source_url": "https://www.openstreetmap.org/node/3762227714",
+              "source_type": "osm"
+            }
+          ],
+          "already_fixed": true,
+          "fixed_name": "立山玉殿の湧水"
+        }
+      ]
+    },
+    "奥大日岳": {
+      "checked": true,
+      "checked_at": "2026-08-28T11:40:44.662283Z",
+      "error": null,
+      "route_mode": "fixed-point-buffer",
+      "route_blocks": 2,
+      "corridor_centers": 2,
+      "candidate_count": 1,
+      "new_candidate_count": 0,
+      "candidates": [
+        {
+          "mountain": "奥大日岳",
+          "name": "立山玉殿の湧水",
+          "lat": 36.577632,
+          "lon": 137.595948,
+          "kind": "飲料水",
+          "potability": "confirmed",
+          "near_point": "室堂",
+          "route_distance_m": 90,
+          "source_type": "osm",
+          "source_name": "OpenStreetMap / Overpass API",
+          "source_url": "https://www.openstreetmap.org/node/3762227714",
+          "source_id": "node/3762227714",
+          "score": 9,
+          "review_priority": "high",
+          "suspicious": false,
+          "score_reasons": [
+            "route<=300m",
+            "amenity=drinking_water",
+            "water-name"
+          ],
+          "tags": {
+            "amenity": "drinking_water"
+          },
+          "supporting_sources": [
+            {
+              "source_name": "OpenStreetMap / Overpass API",
+              "source_url": "https://www.openstreetmap.org/node/3762227714",
+              "source_type": "osm"
+            }
+          ],
+          "already_fixed": true,
+          "fixed_name": "立山玉殿の湧水"
+        }
+      ]
     }
   },
   "schema_version": 1,
   "app_version": "1.5.5",
   "scope": "Northern Alps + Central Alps + Southern Alps + Yatsugatake",
-  "generated_at": "2026-08-28T11:35:54.773359Z",
+  "generated_at": "2026-08-28T11:40:45.363468Z",
   "target_count": 65,
   "fixed_cache_comparison": "available",
   "rules": {
