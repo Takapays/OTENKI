@@ -2117,6 +2117,14 @@ WATER_MOUNTAIN_CACHE_REMOTE_URL = os.environ.get(
     "WATER_MOUNTAIN_CACHE_REMOTE_URL",
     "https://raw.githubusercontent.com/Takapays/OTENKI/water-cache/water-mountain-cache.json",
 ).strip()
+# V1.5.1 recovery fallback. `ea3633c` is the immutable completed 300/300 audit
+# (61 mountains with candidates) that pre-dates creation of the dedicated branch.
+# It is used only until/when `water-cache` becomes available; release ZIPs still
+# intentionally exclude water-mountain-cache.json.
+WATER_MOUNTAIN_CACHE_BOOTSTRAP_URL = os.environ.get(
+    "WATER_MOUNTAIN_CACHE_BOOTSTRAP_URL",
+    "https://raw.githubusercontent.com/Takapays/OTENKI/ea3633c/water-mountain-cache.json",
+).strip()
 WATER_MOUNTAIN_CACHE_REMOTE_TTL = max(60, int(os.environ.get("WATER_MOUNTAIN_CACHE_REMOTE_TTL", "300")))
 WATER_MOUNTAIN_CACHE_REMOTE_TIMEOUT = max(1, int(os.environ.get("WATER_MOUNTAIN_CACHE_REMOTE_TIMEOUT", "5")))
 _water_mountain_cache_state: dict[str, Any] = {
@@ -2127,29 +2135,34 @@ def _valid_water_mountain_cache(data: Any) -> bool:
     return isinstance(data, dict) and isinstance(data.get("mountains"), dict)
 
 def _water_mountain_cache_remote_load() -> dict[str, Any] | None:
-    if not WATER_MOUNTAIN_CACHE_REMOTE_URL:
-        return None
     now = time.time()
     cached = _water_mountain_cache_state.get("remote_data")
     checked_at = float(_water_mountain_cache_state.get("remote_checked_at") or 0.0)
     if _valid_water_mountain_cache(cached) and now - checked_at < WATER_MOUNTAIN_CACHE_REMOTE_TTL:
         return cached
-    try:
-        req = urllib.request.Request(
-            WATER_MOUNTAIN_CACHE_REMOTE_URL,
-            headers={"User-Agent": "Traten/1.4.253", "Cache-Control": "no-cache"},
-        )
-        with urllib.request.urlopen(req, timeout=WATER_MOUNTAIN_CACHE_REMOTE_TIMEOUT) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-        if _valid_water_mountain_cache(data):
-            _water_mountain_cache_state["remote_data"] = data
-            _water_mountain_cache_state["remote_checked_at"] = now
-            return data
-    except Exception:
-        # Keep serving the last known-good remote result if GitHub is temporarily unavailable.
-        if _valid_water_mountain_cache(cached):
-            _water_mountain_cache_state["remote_checked_at"] = now
-            return cached
+
+    # Dedicated water-cache is authoritative. If it does not exist yet, recover
+    # from the immutable completed audit commit instead of silently returning 0.
+    urls = [u for u in (WATER_MOUNTAIN_CACHE_REMOTE_URL, WATER_MOUNTAIN_CACHE_BOOTSTRAP_URL) if u]
+    for url in dict.fromkeys(urls):
+        try:
+            req = urllib.request.Request(
+                url,
+                headers={"User-Agent": "Traten/1.5.1", "Cache-Control": "no-cache"},
+            )
+            with urllib.request.urlopen(req, timeout=WATER_MOUNTAIN_CACHE_REMOTE_TIMEOUT) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            if _valid_water_mountain_cache(data):
+                _water_mountain_cache_state["remote_data"] = data
+                _water_mountain_cache_state["remote_checked_at"] = now
+                return data
+        except Exception:
+            continue
+
+    # Keep serving the last known-good remote result if GitHub is temporarily unavailable.
+    if _valid_water_mountain_cache(cached):
+        _water_mountain_cache_state["remote_checked_at"] = now
+        return cached
     return None
 
 def _water_mountain_cache_local_load() -> dict[str, Any]:
@@ -2183,6 +2196,9 @@ def _water_mountain_cache_entry(mountain: str) -> dict[str, Any] | None:
 def water_mountain_index():
     data = _water_mountain_cache_load()
     mountains = data.get("mountains") or {}
+    if not mountains:
+        # Never present a failed cache fetch as a legitimate "0 audited mountains" result.
+        return jsonify(ok=False, error="水場監査済みキャッシュを取得できませんでした"), 503
     name = str(request.args.get("mountain") or "").strip()
     if name:
         row = mountains.get(name)
