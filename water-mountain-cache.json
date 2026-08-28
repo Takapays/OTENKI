@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T03:53:44.612849Z",
+  "generated_at": "2026-08-28T03:53:55.224530Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 86,
-  "available_count": 13,
-  "unresolved_count": 214,
+  "checked_count": 87,
+  "available_count": 14,
+  "unresolved_count": 213,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -782,10 +782,23 @@
       "checked_at": "2026-08-28T03:53:44.610450Z"
     },
     "筑波山": {
-      "checked": false,
-      "available": false,
-      "count": 0,
-      "sources": []
+      "checked": true,
+      "available": true,
+      "count": 1,
+      "sources": [
+        {
+          "name": "筑波山神社入口付近の飲料水",
+          "lat": 36.212977,
+          "lon": 140.097845,
+          "kind": "飲料水",
+          "potability": "confirmed",
+          "near_point": "筑波山神社入口",
+          "distance_m": 346,
+          "osm_id": "node/11405084370"
+        }
+      ],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:53:55.221830Z"
     },
     "三本槍岳": {
       "checked": false,
