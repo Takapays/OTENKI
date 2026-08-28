@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.0';
+const APP_VERSION = '1.5.1';
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
@@ -950,6 +950,13 @@ const CENTRAL_SOUTH_ALPS_COURSE_TIMES = Object.freeze({
 // V1.4.127: ヤマレコの公開計画はユーザー設定ペースで時間が変わる場合があるため、計画1件だけを標準CTとはみなさない。
 // 複数計画の同一区間値が一致するものを優先し、山行記録で歩くペース倍率が表示される場合は1.0基準へ逆算した候補値を照合に使う。
 const SUPPLEMENTAL_COURSE_TIMES = Object.freeze({
+  // V1.5.1: 日本百名山の代表峰整理。公開標準モデルの端点が一致する区間のみ追加。
+  '峠の茶屋・那須岳登山口→茶臼岳（那須岳）': {minutes:101, source:'YAMAP標準モデル・峠の茶屋登山口→茶臼岳（那須岳）（チェックポイント合算1時間41分）', sourceType:'yamap'},
+  '茶臼岳（那須岳）→峠の茶屋・那須岳登山口': {minutes:62, source:'YAMAP標準モデル・茶臼岳（那須岳）→峠の茶屋登山口（チェックポイント合算1時間02分）', sourceType:'yamap'},
+  '那須ロープウェイ・峠の茶屋側→茶臼岳（那須岳）': {minutes:101, source:'峠の茶屋・那須岳登山口と同一固定座標。YAMAP標準モデルの同一区間CTを適用', sourceType:'yamap'},
+  '茶臼岳（那須岳）→那須ロープウェイ・峠の茶屋側': {minutes:62, source:'峠の茶屋・那須岳登山口と同一固定座標。YAMAP標準モデルの同一区間CTを適用', sourceType:'yamap'},
+  '塔ノ岳→丹沢山': {minutes:81, source:'YAMAP標準モデル・菩提峠-表尾根-塔ノ岳-丹沢山往復コース（塔ノ岳→丹沢山 1時間21分）', sourceType:'yamap'},
+  '丹沢山→塔ノ岳': {minutes:81, source:'YAMAP標準モデル・菩提峠-表尾根-塔ノ岳-丹沢山往復コース（丹沢山→塔ノ岳 1時間21分）', sourceType:'yamap'},
   // V1.4.145: 残存推定CTの確認済み化 batch19。端点一致する公的資料・標準公開計画を優先。
   '神威山荘・神威岳登山口→神威岳': {minutes:440, source:'YAMAP標準モデル・神威山荘→神威岳（7時間20分）。別公開コースデータの参考タイム7時間10分とも近似', sourceType:'yamap'},
   '越沢口→摩耶山': {minutes:165, source:'山形県山岳情報ポータル・摩耶山 越沢コース 片道2時間30分〜3時間（標準中間値2時間45分）', sourceType:'official'},
@@ -2119,7 +2126,7 @@ const JAPAN_300_MOUNTAINS = [
   "米山",
   "八溝山",
   "筑波山",
-  "三本槍岳",
+  "茶臼岳（那須岳）",
   "男鹿岳",
   "景鶴山",
   "至仏山",
@@ -2225,7 +2232,7 @@ const JAPAN_300_MOUNTAINS = [
   "大岳山",
   "三頭山",
   "大山（神奈川）",
-  "塔ノ岳",
+  "丹沢山",
   "金時山",
   "箱根山",
   "天城山（万三郎岳）",
@@ -2242,7 +2249,7 @@ const JAPAN_300_MOUNTAINS = [
   "鋸岳",
   "仙丈ヶ岳",
   "アサヨ峰",
-  "地蔵岳(鳳凰)",
+  "観音岳(鳳凰)",
   "北岳",
   "間ノ岳",
   "農鳥岳",
@@ -2375,6 +2382,10 @@ const JAPAN_300_MOUNTAIN_READINGS = [
   'おおくえやま','くにみだけ','いちふさやま','おすずやま','きりしまやま（からくにだけ）','たかちほのみね','さくらじま（おんたけ）','たかくまやま','かいもんだけ','みやのうらだけ'
 ];
 const EXTRA_MOUNTAIN_READINGS = Object.freeze({
+  '茶臼岳（那須岳）':'ちゃうすだけ（なすだけ）',
+  '三本槍岳':'さんぼんやりだけ',
+  '丹沢山':'たんざわさん',
+  '塔ノ岳':'とうのだけ',
   '蝶ヶ岳':'ちょうがたけ','西穂高岳':'にしほたかだけ','南岳':'みなみだけ','北穂高岳':'きたほたかだけ','前穂高岳':'まえほたかだけ',
   '赤岳':'あかだけ','横岳（八ヶ岳）':'よこだけ（やつがたけ）','硫黄岳（八ヶ岳）':'いおうだけ（やつがたけ）','阿弥陀岳':'あみだだけ','権現岳':'ごんげんだけ','編笠山':'あみがさやま','北横岳':'きたよこだけ',
   '薬師岳(鳳凰)':'やくしだけ（ほうおう）','観音岳(鳳凰)':'かんのんだけ（ほうおう）','地蔵岳(鳳凰)':'じぞうだけ（ほうおう）','御嶽山':'おんたけさん',
@@ -2391,10 +2402,10 @@ function nationalMountainReading(name){
 const JAPAN_100_MOUNTAINS = new Set([
   '利尻山','羅臼岳','斜里岳','雄阿寒岳','大雪山（旭岳）','トムラウシ山','十勝岳','幌尻岳','後方羊蹄山',
   '岩木山','八甲田山','八幡平','岩手山','早池峰山','鳥海山','月山','大朝日岳','蔵王山（熊野岳）','飯豊山','西吾妻山','安達太良山','磐梯山','会津駒ヶ岳','越後駒ヶ岳','平ヶ岳','巻機山','燧ヶ岳','至仏山','谷川岳','苗場山','妙高山','火打山','雨飾山','高妻山',
-  '男体山','奥白根山','三本槍岳','皇海山','武尊山','赤城山（黒檜山）','草津白根山','四阿山','浅間山','筑波山','塔ノ岳','両神山','雲取山','甲武信ヶ岳','金峰山','瑞牆山','大菩薩嶺',
+  '男体山','奥白根山','茶臼岳（那須岳）','皇海山','武尊山','赤城山（黒檜山）','草津白根山','四阿山','浅間山','筑波山','丹沢山','両神山','雲取山','甲武信ヶ岳','金峰山','瑞牆山','大菩薩嶺',
   '白馬岳','五竜岳','鹿島槍ヶ岳','剱岳','立山','薬師岳','黒部五郎岳','水晶岳（黒岳）','鷲羽岳','槍ヶ岳','奥穂高岳','常念岳','笠ヶ岳（岐阜）','焼岳','乗鞍岳',
   '木曽駒ヶ岳','空木岳','恵那山',
-  '甲斐駒ヶ岳','仙丈ヶ岳','地蔵岳(鳳凰)','北岳','間ノ岳','塩見岳','荒川岳','赤石岳','聖岳','光岳',
+  '甲斐駒ヶ岳','仙丈ヶ岳','観音岳(鳳凰)','北岳','間ノ岳','塩見岳','荒川岳','赤石岳','聖岳','光岳',
   '御嶽','美ヶ原','霧ヶ峰（車山）','蓼科山','八ヶ岳（赤岳）','白山','荒島岳','富士山','天城山（万三郎岳）',
   '伊吹山','日出ヶ岳','八経ヶ岳','大山（鳥取）','剣山','石鎚山','久住山','祖母山','阿蘇山（高岳）','霧島山（韓国岳）','開聞岳','宮ノ浦岳'
 ]);
@@ -2408,10 +2419,12 @@ const JAPAN_200_ADDITIONAL_MOUNTAINS = new Set([
 function nationalMountainHonor(name){
   if(JAPAN_100_MOUNTAINS.has(name))return {label:'百名山',tone:'100'};
   if(JAPAN_200_ADDITIONAL_MOUNTAINS.has(name))return {label:'二百名山',tone:'200'};
-  return {label:'三百名山',tone:'300'};
+  if(JAPAN_300_MOUNTAINS.includes(name))return {label:'三百名山',tone:'300'};
+  return null;
 }
 function nationalMountainHonorHtml(name){
   const h=nationalMountainHonor(name);
+  if(!h)return '';
   return `<span class="national-honor-badge tone-${h.tone}" title="日本${h.label}" aria-label="日本${h.label}"><small>${h.label}</small></span>`;
 }
 const MOUNTAIN_NAME_ALIAS = {
@@ -2419,8 +2432,10 @@ const MOUNTAIN_NAME_ALIAS = {
   '宮ノ浦岳':'宮之浦岳',
   '御嶽':'御嶽山',
   '八ヶ岳（赤岳）':'赤岳',
-  '鳳凰山':'薬師岳(鳳凰)',
+  '鳳凰山':'観音岳(鳳凰)',
   '地蔵ヶ岳':'地蔵岳(鳳凰)',
+  '那須岳':'茶臼岳（那須岳）',
+  '茶臼岳(那須岳)':'茶臼岳（那須岳）',
   '大山（神奈川）':'大山（神奈川）',
   '朝日岳（群馬）':'朝日岳（群馬）',
   '朝日岳（新潟・富山）':'朝日岳（新潟・富山）',
@@ -4970,6 +4985,30 @@ Object.assign(BUILTIN_ROUTE_CATALOG, {
 BUILTIN_ROUTE_CATALOG['鳳凰山']=BUILTIN_ROUTE_CATALOG['薬師岳(鳳凰)'];
 BUILTIN_ROUTE_CATALOG['地蔵ヶ岳']=BUILTIN_ROUTE_CATALOG['地蔵岳(鳳凰)'];
 
+// V1.5.1: 日本百名山の代表峰を実峰へ整理。
+// 座標は国土地理院「日本の主な山岳」に基づく固定値。旧代表峰は追加ピークとして残す。
+Object.assign(MOUNTAIN_PRESETS, {
+  '茶臼岳（那須岳）': {latitude:37.124722, longitude:139.963056},
+  '丹沢山': {latitude:35.474167, longitude:139.162778}
+});
+Object.assign(CURATED_ACCESS_HINTS, {
+  '茶臼岳（那須岳）': {trailheads:['峠の茶屋・那須岳登山口']},
+  '丹沢山': {trailheads:['大倉登山口','戸沢出合']}
+});
+Object.assign(BUILTIN_ROUTE_CATALOG, {
+  '茶臼岳（那須岳）': [
+    {id:'v151-nasu-chause-toge',type:'trailhead',name:'峠の茶屋・那須岳登山口',lat:37.125389,lon:139.979722,elevation:1462,source:'固定候補'},
+    {id:'v151-nasu-chause-rwside',type:'trailhead',name:'那須ロープウェイ・峠の茶屋側',lat:37.125389,lon:139.979722,elevation:1386,source:'既存固定候補と同一座標'},
+    {id:'v151-nasu-chause-peak',type:'peak',name:'茶臼岳（那須岳）',lat:37.124722,lon:139.963056,elevation:1915,source:'国土地理院「日本の主な山岳」'}
+  ],
+  '丹沢山': [
+    {id:'v151-tanzawa-okura',type:'trailhead',name:'大倉登山口',lat:35.404065,lon:139.168805,elevation:290,source:'固定候補'},
+    {id:'v151-tanzawa-tosawa',type:'trailhead',name:'戸沢出合',lat:35.435478,lon:139.173273,elevation:570,source:'固定候補'},
+    {id:'v151-tanzawa-tonodake',type:'peak',name:'塔ノ岳',lat:35.454167,lon:139.163333,elevation:1491,source:'固定候補'},
+    {id:'v151-tanzawa-peak',type:'peak',name:'丹沢山',lat:35.474167,lon:139.162778,elevation:1567,source:'国土地理院「日本の主な山岳」'}
+  ]
+});
+
 const sessionId=(crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2));
 
 document.addEventListener('DOMContentLoaded',init);
@@ -4984,7 +5023,7 @@ const MOUNTAIN_UI_AREAS = [
 const EXTRA_MOUNTAIN_UI_AREA = {
   '蝶ヶ岳':'northern_alps','西穂高岳':'northern_alps','南岳':'northern_alps','北穂高岳':'northern_alps','前穂高岳':'northern_alps',
   '赤岳':'yatsugatake_chushin','横岳（八ヶ岳）':'yatsugatake_chushin','硫黄岳（八ヶ岳）':'yatsugatake_chushin','阿弥陀岳':'yatsugatake_chushin','権現岳':'yatsugatake_chushin','編笠山':'yatsugatake_chushin','北横岳':'yatsugatake_chushin',
-  '薬師岳(鳳凰)':'southern_alps','観音岳(鳳凰)':'southern_alps','御嶽山':'central_alps_ontake','宮之浦岳':'kyushu','大山':'chugoku',
+  '薬師岳(鳳凰)':'southern_alps','観音岳(鳳凰)':'southern_alps','地蔵岳(鳳凰)':'southern_alps','茶臼岳（那須岳）':'kanto_joshinetsu','三本槍岳':'kanto_joshinetsu','丹沢山':'okuchichibu_fuji','塔ノ岳':'okuchichibu_fuji','御嶽山':'central_alps_ontake','宮之浦岳':'kyushu','大山':'chugoku',
   '中岳(くじゅう)':'kyushu','三俣山':'kyushu','星生山':'kyushu'
 };
 function mountainUiArea(name){
@@ -5002,7 +5041,9 @@ function mountainUiArea(name){
 // Only already-fixed coordinates are used; no coordinate is inferred for sorting.
 function mountainNorthSouthLatitude(name){
   const catalog=BUILTIN_ROUTE_CATALOG[name]||[];
-  const peak=catalog.find(x=>x.type==='peak'&&hasResolvedCoord(x));
+  const targetKey=canonicalCourseTimeEndpointName(normalizeCourseTimePointName(name));
+  const peak=catalog.find(x=>x.type==='peak'&&hasResolvedCoord(x)&&canonicalCourseTimeEndpointName(normalizeCourseTimePointName(x.name))===targetKey)
+    ||catalog.find(x=>x.type==='peak'&&hasResolvedCoord(x));
   const override=NATIONAL_MOUNTAIN_COORD_OVERRIDES[name];
   const presetName=NATIONAL_MOUNTAIN_PRESET_ALIASES[name]||name;
   const preset=MOUNTAIN_PRESETS[presetName];
@@ -5205,7 +5246,9 @@ function nationalMountainPoint(name){
   // V1.4.77: 全国マップは MOUNTAIN_PRESETS だけに依存しない。
   // 日本三百名山で固定済みの山頂座標を優先し、北海道・東北などの取りこぼしを防ぐ。
   const catalog=BUILTIN_ROUTE_CATALOG[name]||[];
-  const peak=catalog.find(x=>x.type==='peak'&&hasResolvedCoord(x));
+  const targetKey=canonicalCourseTimeEndpointName(normalizeCourseTimePointName(name));
+  const peak=catalog.find(x=>x.type==='peak'&&hasResolvedCoord(x)&&canonicalCourseTimeEndpointName(normalizeCourseTimePointName(x.name))===targetKey)
+    ||catalog.find(x=>x.type==='peak'&&hasResolvedCoord(x));
   const override=NATIONAL_MOUNTAIN_COORD_OVERRIDES[name];
   const presetName=NATIONAL_MOUNTAIN_PRESET_ALIASES[name]||name;
   const preset=MOUNTAIN_PRESETS[presetName];
@@ -6472,7 +6515,15 @@ const REPRESENTATIVE_COURSES = Object.freeze({
   ]},
   '蓼科山': {label:'七合目登山口ルート', points:[
     ['trailhead','蓼科山七合目登山口','登山口'],['hut','蓼科山頂ヒュッテ','山小屋'],['peak','蓼科山','山頂']
-  ]}
+  ]},
+  '茶臼岳（那須岳）': [
+    {label:'峠の茶屋・茶臼岳ルート', points:[['trailhead','峠の茶屋・那須岳登山口','登山口'],['peak','茶臼岳（那須岳）','山頂']]},
+    {label:'那須ロープウェイ・峠の茶屋側ルート', points:[['trailhead','那須ロープウェイ・峠の茶屋側','登山口'],['peak','茶臼岳（那須岳）','山頂']]}
+  ],
+  '丹沢山': [
+    {label:'大倉・塔ノ岳・丹沢山ルート', points:[['trailhead','大倉登山口','登山口'],['peak','塔ノ岳','山頂'],['peak','丹沢山','山頂']]},
+    {label:'戸沢出合・塔ノ岳・丹沢山ルート', points:[['trailhead','戸沢出合','登山口'],['peak','塔ノ岳','山頂'],['peak','丹沢山','山頂']]}
+  ]
 });
 
 // V1.4.66: 三百名山一括監査で確認済みCTが連続する代表コースを追加。

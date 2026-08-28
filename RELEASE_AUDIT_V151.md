@@ -1,0 +1,23 @@
+# V1.5.1 Release Audit
+
+- JavaScript syntax: app.js / access.js / access-data.js / camera-data.js / live-cameras.js / trailheads.js / huts.js / hut-data.js / resource-mountain-data.js / water-sources.js = OK
+- Python syntax: server.py / audit_water_300.py / audit_access_coverage.py / audit_fixed_access.py = OK
+- render.yaml: YAML parse OK / services=1 / runtime=python
+- APP_VERSION: app.js=1.5.1 / server.py=1.5.1 / TOP表示=V1.5.1
+- Core Japanese 300 list: 300 mountains
+- Japanese 100 honor set: 100
+- Japanese 200 additional set: 99 (existing design retained)
+- Corrected 100 badges: 観音岳(鳳凰) / 茶臼岳（那須岳） / 丹沢山
+- Unbadged retained peaks: 地蔵岳(鳳凰) / 三本槍岳 / 塔ノ岳
+- national-100-points.json: 100 points; corrected three representatives present; old three absent
+- Representative courses: 380
+- Expanded directional CT segments: 901
+- Expanded CT: verified/composed 751 / estimated 134 / intermediate apportioned 16 / missing 0
+- Route build errors: 0
+- Point/segment alignment errors: 0
+- Coordinate issues: 0
+- Progressive analyze() function: byte-identical to V1.5.0
+- Render Python Web Service single-service structure retained
+- Static frontend experiment files: api-config.js / dist/ / scripts/ / STATIC_FRONTEND_V14256.md = absent
+- water-mountain-cache.json: absent; must remain excluded from release ZIPs
+- HTML static asset check: no missing local static assets (absolute Flask routes excluded)

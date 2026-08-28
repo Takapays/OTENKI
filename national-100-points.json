@@ -216,10 +216,10 @@
     "elevation": null
   },
   {
-    "name": "三本槍岳",
-    "lat": 37.150142,
-    "lon": 139.961414,
-    "elevation": null
+    "name": "茶臼岳（那須岳）",
+    "lat": 37.124722,
+    "lon": 139.963056,
+    "elevation": 1915
   },
   {
     "name": "皇海山",
@@ -264,10 +264,10 @@
     "elevation": null
   },
   {
-    "name": "塔ノ岳",
-    "lat": 35.454167,
-    "lon": 139.163333,
-    "elevation": null
+    "name": "丹沢山",
+    "lat": 35.474167,
+    "lon": 139.162778,
+    "elevation": 1567
   },
   {
     "name": "両神山",
@@ -426,10 +426,10 @@
     "elevation": null
   },
   {
-    "name": "地蔵岳(鳳凰)",
-    "lat": 35.712222,
-    "lon": 138.298611,
-    "elevation": null
+    "name": "観音岳(鳳凰)",
+    "lat": 35.701667,
+    "lon": 138.304722,
+    "elevation": 2841
   },
   {
     "name": "北岳",
