@@ -1,3 +1,12 @@
+## V1.4.256
+- Render Free Web Serviceのコールドスタート待ちをTOP表示から切り離すため、Render Static Site用の静的フロント構成を追加。
+- `api-config.js` を追加し、静的フロントからの `/api/*` を既存 `https://otenki.onrender.com` APIへ透過的に接続。
+- 初期表示では端末保存の全国判定キャッシュを先に描画し、共有キャッシュ更新確認はバックグラウンド化。
+- 静的画面表示後に `/api/health` をアイドル時ウォームアップし、分析操作前にRender APIを起床。
+- API側にStatic Site origin向けCORSを追加。
+- `scripts/build_static_frontend.sh` と `render.yaml` の `traten-static` サービスを追加し、公開対象ファイルだけをdistへ生成。
+- 既存のFlask配信も残し、旧 `otenki.onrender.com` からの利用を後方互換として維持。
+
 ## V1.4.255
 - 北岳山荘→中白根山 36分、中白根山→間ノ岳 55分をYAMAP標準モデルCTとして直接登録。
 - 逆方向も間ノ岳→中白根山 30分、中白根山→北岳山荘 25分を登録し、往復ルートでもCT欠落しないよう補強。

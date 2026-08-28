@@ -36,6 +36,8 @@ services:
 
       - key: USAGE_LOG_STDOUT
         value: "1"
+      - key: STATIC_FRONTEND_ORIGINS
+        value: "https://traten-static.onrender.com"
 
       - key: SUPABASE_URL
         sync: false
@@ -45,3 +47,23 @@ services:
         value: "admin"
       - key: USAGE_DASHBOARD_PASSWORD
         sync: false
+
+  - type: web
+    name: traten-static
+    runtime: static
+    buildCommand: bash scripts/build_static_frontend.sh
+    staticPublishPath: ./dist
+    autoDeployTrigger: commit
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: SAMEORIGIN
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /*.js
+        name: Cache-Control
+        value: public, max-age=3600
+      - path: /*.css
+        name: Cache-Control
+        value: public, max-age=3600
