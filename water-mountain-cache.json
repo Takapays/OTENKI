@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T04:44:33.826980Z",
+  "generated_at": "2026-08-28T04:44:51.928662Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 165,
-  "available_count": 31,
-  "unresolved_count": 135,
+  "checked_count": 166,
+  "available_count": 32,
+  "unresolved_count": 134,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -1910,10 +1910,23 @@
       "checked_at": "2026-08-28T04:44:33.823954Z"
     },
     "空木岳": {
-      "checked": false,
-      "available": false,
-      "count": 0,
-      "sources": []
+      "checked": true,
+      "available": true,
+      "count": 1,
+      "sources": [
+        {
+          "name": "木曽義仲の力水",
+          "lat": 35.722462,
+          "lon": 137.804371,
+          "kind": "飲料水",
+          "potability": "confirmed",
+          "near_point": "空木岳",
+          "distance_m": 1226,
+          "osm_id": "node/2427549629"
+        }
+      ],
+      "attempts": 2,
+      "checked_at": "2026-08-28T04:44:51.925740Z"
     },
     "南駒ヶ岳": {
       "checked": false,
