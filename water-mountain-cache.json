@@ -1,13 +1,7 @@
 {
-<<<<<<< HEAD
-  "schema_version": 4,
-  "app_version": "1.4.236",
-  "generated_at": "2026-08-28T00:00:00Z",
-=======
   "schema_version": 3,
   "app_version": "1.4.235",
   "generated_at": "2026-08-27T22:27:33.148047Z",
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
   "source": "OpenStreetMap / Overpass API",
   "radius_m": 1400,
   "mountain_count": 300,
@@ -29,20 +23,16 @@
         }
       ],
       "attempts": 1,
-      "checked_at": "2026-08-27T22:19:44Z"
+      "checked_at": "2026-08-27T15:51:54.049884Z"
     },
     "羅臼岳": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:18:15.564720Z",
       "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "斜里岳": {
       "checked": true,
@@ -50,7 +40,7 @@
       "count": 0,
       "sources": [],
       "attempts": 1,
-      "checked_at": "2026-08-27T22:19:44Z"
+      "checked_at": "2026-08-27T15:52:18.153431Z"
     },
     "雄阿寒岳": {
       "checked": true,
@@ -58,59 +48,43 @@
       "count": 0,
       "sources": [],
       "attempts": 1,
-      "checked_at": "2026-08-27T22:19:44Z"
+      "checked_at": "2026-08-27T15:52:27.497635Z"
     },
     "天塩岳": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:18:15.564753Z",
       "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "ニセイカウシュッペ山": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:18:15.564760Z",
       "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "大雪山（旭岳）": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:18:15.564764Z",
       "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "石狩岳": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:18:15.564767Z",
       "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "トムラウシ山": {
       "checked": true,
@@ -118,7 +92,7 @@
       "count": 0,
       "sources": [],
       "attempts": 1,
-      "checked_at": "2026-08-27T22:19:44Z"
+      "checked_at": "2026-08-27T15:53:46.271787Z"
     },
     "オプタテシケ山": {
       "checked": true,
@@ -126,7 +100,7 @@
       "count": 0,
       "sources": [],
       "attempts": 1,
-      "checked_at": "2026-08-27T22:19:44Z"
+      "checked_at": "2026-08-27T15:53:49.692905Z"
     },
     "十勝岳": {
       "checked": true,
@@ -134,46 +108,34 @@
       "count": 0,
       "sources": [],
       "attempts": 1,
-      "checked_at": "2026-08-27T22:19:44Z"
+      "checked_at": "2026-08-27T15:53:57.336001Z"
     },
     "ニペソツ山": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:18:15.564770Z",
       "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "幌尻岳": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:18:15.564773Z",
       "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "カムイエクウチカウシ山": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:18:15.564776Z",
       "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "ペテガリ岳": {
       "checked": true,
@@ -181,7 +143,7 @@
       "count": 0,
       "sources": [],
       "attempts": 1,
-      "checked_at": "2026-08-27T22:19:44Z"
+      "checked_at": "2026-08-27T15:55:08.946124Z"
     },
     "神威岳": {
       "checked": true,
@@ -189,20 +151,16 @@
       "count": 0,
       "sources": [],
       "attempts": 1,
-      "checked_at": "2026-08-27T22:19:44Z"
+      "checked_at": "2026-08-27T15:55:13.934056Z"
     },
     "芦別岳": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:18:29.429323Z",
       "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "夕張岳": {
       "checked": true,
@@ -210,7 +168,7 @@
       "count": 0,
       "sources": [],
       "attempts": 1,
-      "checked_at": "2026-08-27T22:19:44Z"
+      "checked_at": "2026-08-27T15:55:37.567864Z"
     },
     "暑寒別岳": {
       "checked": true,
@@ -218,7 +176,7 @@
       "count": 0,
       "sources": [],
       "attempts": 1,
-      "checked_at": "2026-08-27T22:19:44Z"
+      "checked_at": "2026-08-27T15:55:40.814794Z"
     },
     "余市岳": {
       "checked": true,
@@ -226,7 +184,7 @@
       "count": 0,
       "sources": [],
       "attempts": 1,
-      "checked_at": "2026-08-27T22:19:44Z"
+      "checked_at": "2026-08-27T15:55:43.329343Z"
     },
     "樽前山": {
       "checked": true,
@@ -234,20 +192,16 @@
       "count": 0,
       "sources": [],
       "attempts": 1,
-      "checked_at": "2026-08-27T22:19:44Z"
+      "checked_at": "2026-08-27T15:55:54.548913Z"
     },
     "後方羊蹄山": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:18:29.429397Z",
       "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "ニセコアンヌプリ": {
       "checked": true,
@@ -255,20 +209,16 @@
       "count": 0,
       "sources": [],
       "attempts": 1,
-      "checked_at": "2026-08-27T22:19:44Z"
+      "checked_at": "2026-08-27T15:56:25.238708Z"
     },
     "狩場山": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:18:29.429403Z",
       "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "渡島駒ヶ岳": {
       "checked": true,
@@ -276,20 +226,16 @@
       "count": 0,
       "sources": [],
       "attempts": 1,
-      "checked_at": "2026-08-27T22:19:44Z"
+      "checked_at": "2026-08-27T15:56:55.969788Z"
     },
     "大千軒岳": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:18:29.429408Z",
       "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "八甲田山": {
       "checked": true,
@@ -297,59 +243,43 @@
       "count": 0,
       "sources": [],
       "attempts": 1,
-      "checked_at": "2026-08-27T22:19:44Z"
+      "checked_at": "2026-08-27T15:57:23.711430Z"
     },
     "岩木山": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:18:29.429411Z",
       "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "白神岳": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:18:29.429413Z",
       "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "八幡平": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:18:29.429416Z",
       "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "乳頭山（烏帽子岳）": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:18:29.429418Z",
       "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "秋田駒ヶ岳": {
       "checked": true,
@@ -357,7 +287,7 @@
       "count": 0,
       "sources": [],
       "attempts": 1,
-      "checked_at": "2026-08-27T22:19:44Z"
+      "checked_at": "2026-08-27T15:59:01.517249Z"
     },
     "岩手山": {
       "checked": true,
@@ -386,46 +316,34 @@
         }
       ],
       "attempts": 1,
-      "checked_at": "2026-08-27T22:19:44Z"
+      "checked_at": "2026-08-27T15:59:06.964773Z"
     },
     "姫神山": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:18:45.321328Z",
       "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "早池峰山": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:18:45.321392Z",
       "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "五葉山": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:18:45.321397Z",
       "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "和賀岳": {
       "checked": true,
@@ -433,7 +351,7 @@
       "count": 0,
       "sources": [],
       "attempts": 1,
-      "checked_at": "2026-08-27T22:19:44Z"
+      "checked_at": "2026-08-27T16:00:43.907243Z"
     },
     "焼石岳": {
       "checked": true,
@@ -441,72 +359,52 @@
       "count": 0,
       "sources": [],
       "attempts": 1,
-      "checked_at": "2026-08-27T22:19:44Z"
+      "checked_at": "2026-08-27T16:01:00.034265Z"
     },
     "栗駒山": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:18:45.321401Z",
       "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "神室山": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:18:45.321404Z",
       "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "森吉山": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:18:45.321406Z",
       "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "太平山": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:18:45.321409Z",
       "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "鳥海山": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:18:45.321412Z",
       "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "月山": {
       "checked": true,
@@ -514,11 +412,7 @@
       "count": 0,
       "sources": [],
       "attempts": 1,
-<<<<<<< HEAD
-      "checked_at": "2026-08-27T22:19:44Z"
-=======
       "checked_at": "2026-08-27T22:18:51.339522Z"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "摩耶山": {
       "checked": true,
@@ -526,11 +420,7 @@
       "count": 0,
       "sources": [],
       "attempts": 1,
-<<<<<<< HEAD
-      "checked_at": "2026-08-27T22:19:44Z"
-=======
       "checked_at": "2026-08-27T22:18:51.339553Z"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "以東岳": {
       "checked": true,
@@ -538,11 +428,7 @@
       "count": 0,
       "sources": [],
       "attempts": 1,
-<<<<<<< HEAD
-      "checked_at": "2026-08-27T22:19:44Z"
-=======
       "checked_at": "2026-08-27T22:18:51.339558Z"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "大朝日岳": {
       "checked": true,
@@ -561,11 +447,7 @@
         }
       ],
       "attempts": 1,
-<<<<<<< HEAD
-      "checked_at": "2026-08-27T22:19:44Z"
-=======
       "checked_at": "2026-08-27T22:18:51.339561Z"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "祝瓶山": {
       "checked": true,
@@ -573,11 +455,7 @@
       "count": 0,
       "sources": [],
       "attempts": 1,
-<<<<<<< HEAD
-      "checked_at": "2026-08-27T22:19:44Z"
-=======
       "checked_at": "2026-08-27T22:18:51.339564Z"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "船形山": {
       "checked": true,
@@ -585,11 +463,7 @@
       "count": 0,
       "sources": [],
       "attempts": 1,
-<<<<<<< HEAD
-      "checked_at": "2026-08-27T22:19:44Z"
-=======
       "checked_at": "2026-08-27T22:18:51.339567Z"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "泉ヶ岳": {
       "checked": true,
@@ -597,11 +471,7 @@
       "count": 0,
       "sources": [],
       "attempts": 1,
-<<<<<<< HEAD
-      "checked_at": "2026-08-27T22:19:44Z"
-=======
       "checked_at": "2026-08-27T22:18:51.339569Z"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "蔵王山（熊野岳）": {
       "checked": true,
@@ -609,427 +479,295 @@
       "count": 0,
       "sources": [],
       "attempts": 1,
-<<<<<<< HEAD
-      "checked_at": "2026-08-27T22:19:44Z"
-=======
       "checked_at": "2026-08-27T22:18:51.339572Z"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "飯豊山": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:19:00.355239Z",
       "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "西吾妻山": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:19:00.355261Z",
       "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "一切経山": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:19:00.355266Z",
       "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "安達太良山": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:19:00.355269Z",
       "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "磐梯山": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:19:00.355271Z",
       "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "二岐山": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:19:00.355274Z",
       "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "七ヶ岳": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:19:00.355276Z",
       "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "荒海山": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:19:00.355279Z",
       "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "帝釈山": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:19:15.548038Z",
       "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "会津駒ヶ岳": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:19:15.548060Z",
       "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "会津朝日岳": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:19:15.548065Z",
       "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "燧ヶ岳": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:19:15.548068Z",
       "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "大滝根山": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:19:15.548071Z",
       "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "杁差岳": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:19:15.548073Z",
       "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "二王子岳": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:19:15.548076Z",
       "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "粟ヶ岳": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:19:15.548079Z",
       "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "御神楽岳": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:19:30.833982Z",
       "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "守門岳": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:19:30.834008Z",
       "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "浅草岳": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:19:30.834013Z",
       "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "平ヶ岳": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:19:30.834017Z",
       "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "越後駒ヶ岳": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:19:30.834020Z",
       "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "中ノ岳": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:19:30.834022Z",
       "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "八海山": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:19:30.834025Z",
       "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "苗場山": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:19:30.834027Z",
       "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "佐武流山": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:19:39.260294Z",
       "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "鳥甲山": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:19:39.260315Z",
       "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "金北山": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:19:39.260320Z",
       "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "米山": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:19:39.260323Z",
       "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "八溝山": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:19:39.260326Z",
       "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "筑波山": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:19:39.260329Z",
       "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "三本槍岳": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:19:39.260331Z",
       "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "男鹿岳": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:19:39.260334Z",
       "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "景鶴山": {
       "checked": true,
@@ -1048,11 +786,7 @@
         }
       ],
       "attempts": 1,
-<<<<<<< HEAD
-      "checked_at": "2026-08-27T22:19:44Z"
-=======
       "checked_at": "2026-08-27T22:19:44.253581Z"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "至仏山": {
       "checked": true,
@@ -1091,11 +825,7 @@
         }
       ],
       "attempts": 1,
-<<<<<<< HEAD
-      "checked_at": "2026-08-27T22:19:44Z"
-=======
       "checked_at": "2026-08-27T22:19:44.253599Z"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "釈迦ヶ岳（栃木）": {
       "checked": true,
@@ -1103,11 +833,7 @@
       "count": 0,
       "sources": [],
       "attempts": 1,
-<<<<<<< HEAD
-      "checked_at": "2026-08-27T22:19:44Z"
-=======
       "checked_at": "2026-08-27T22:19:44.253603Z"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "女峰山": {
       "checked": true,
@@ -1156,11 +882,7 @@
         }
       ],
       "attempts": 1,
-<<<<<<< HEAD
-      "checked_at": "2026-08-27T22:19:44Z"
-=======
       "checked_at": "2026-08-27T22:19:44.253606Z"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "男体山": {
       "checked": true,
@@ -1168,11 +890,7 @@
       "count": 0,
       "sources": [],
       "attempts": 1,
-<<<<<<< HEAD
-      "checked_at": "2026-08-27T22:19:44Z"
-=======
       "checked_at": "2026-08-27T22:19:44.253609Z"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "太郎山": {
       "checked": true,
@@ -1180,11 +898,7 @@
       "count": 0,
       "sources": [],
       "attempts": 1,
-<<<<<<< HEAD
-      "checked_at": "2026-08-27T22:19:44Z"
-=======
       "checked_at": "2026-08-27T22:19:44.253611Z"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "奥白根山": {
       "checked": true,
@@ -1192,11 +906,7 @@
       "count": 0,
       "sources": [],
       "attempts": 1,
-<<<<<<< HEAD
-      "checked_at": "2026-08-27T22:19:44Z"
-=======
       "checked_at": "2026-08-27T22:19:44.253614Z"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "皇海山": {
       "checked": true,
@@ -1225,128 +935,88 @@
         }
       ],
       "attempts": 1,
-<<<<<<< HEAD
-      "checked_at": "2026-08-27T22:19:44Z"
-=======
       "checked_at": "2026-08-27T22:19:44.253616Z"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "袈裟丸山": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:19:53.413847Z",
       "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "武尊山": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:19:53.413870Z",
       "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "赤城山（黒檜山）": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:19:53.413875Z",
       "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "草津白根山": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:19:53.413878Z",
       "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "浅間隠山": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:19:53.413881Z",
       "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "榛名山（榛名富士）": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:19:53.413884Z",
       "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "妙義山（相馬岳）": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:19:53.413887Z",
       "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "荒船山": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:19:53.413889Z",
       "error": "https://overpass.kumi.systems/api/interpreter: HTTP 502"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "諏訪山": {
       "checked": false,
       "available": false,
       "count": 0,
-<<<<<<< HEAD
-      "sources": []
-=======
       "sources": [],
       "attempts": 2,
       "checked_at": "2026-08-27T22:20:07.737147Z",
       "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
->>>>>>> 3876d8f80954a937476dc743fd7e8ee52b67d7de
     },
     "巻機山": {
       "checked": false,
@@ -3148,7 +2818,5 @@
       "checked_at": "2026-08-27T22:27:32.745440Z",
       "error": "https://overpass.kumi.systems/api/interpreter: TimeoutError: The read operation timed out"
     }
-  },
-  "audit_mode": "incremental-rotating",
-  "confirmed_preserved": 35
+  }
 }
