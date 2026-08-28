@@ -1,7 +1,7 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T03:51:10.923883Z",
+  "generated_at": "2026-08-28T03:51:29.814622Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
@@ -744,7 +744,10 @@
       "checked": false,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T03:51:29.813045Z",
+      "error": "https://overpass-api.de/api/interpreter: TimeoutError: The read operation timed out"
     },
     "鳥甲山": {
       "checked": false,
