@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T05:21:18.103582Z",
+  "generated_at": "2026-08-28T05:21:22.932938Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 296,
+  "checked_count": 297,
   "available_count": 61,
-  "unresolved_count": 4,
+  "unresolved_count": 3,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -2534,13 +2534,12 @@
       "checked_at": "2026-08-28T05:00:43.631106Z"
     },
     "大無間山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
       "sources": [],
-      "attempts": 3,
-      "checked_at": "2026-08-28T05:01:03.273432Z",
-      "error": "https://overpass-api.de/api/interpreter: TimeoutError: The read operation timed out"
+      "attempts": 2,
+      "checked_at": "2026-08-28T05:21:22.929148Z"
     },
     "黒法師岳": {
       "checked": true,
