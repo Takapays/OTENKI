@@ -1,10 +1,14 @@
 {
   "schema_version": 4,
-  "app_version": "1.4.236",
-  "generated_at": "2026-08-28T00:00:00Z",
+  "app_version": "1.4.248",
+  "generated_at": "2026-08-28T03:58:49.435585Z",
   "source": "OpenStreetMap / Overpass API",
+  "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
+  "checked_count": 104,
+  "available_count": 14,
+  "unresolved_count": 196,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -26,10 +30,12 @@
       "checked_at": "2026-08-27T22:19:44Z"
     },
     "羅臼岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T03:21:48.065987Z"
     },
     "斜里岳": {
       "checked": true,
@@ -48,28 +54,36 @@
       "checked_at": "2026-08-27T22:19:44Z"
     },
     "天塩岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T03:22:09.228274Z"
     },
     "ニセイカウシュッペ山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:22:21.001262Z"
     },
     "大雪山（旭岳）": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T03:22:41.229840Z"
     },
     "石狩岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:22:52.696549Z"
     },
     "トムラウシ山": {
       "checked": true,
@@ -96,22 +110,28 @@
       "checked_at": "2026-08-27T22:19:44Z"
     },
     "ニペソツ山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:23:08.302684Z"
     },
     "幌尻岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:23:22.041643Z"
     },
     "カムイエクウチカウシ山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T03:23:42.154237Z"
     },
     "ペテガリ岳": {
       "checked": true,
@@ -130,10 +150,12 @@
       "checked_at": "2026-08-27T22:19:44Z"
     },
     "芦別岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:23:59.724875Z"
     },
     "夕張岳": {
       "checked": true,
@@ -168,10 +190,33 @@
       "checked_at": "2026-08-27T22:19:44Z"
     },
     "後方羊蹄山": {
-      "checked": false,
-      "available": false,
-      "count": 0,
-      "sources": []
+      "checked": true,
+      "available": true,
+      "count": 2,
+      "sources": [
+        {
+          "name": "比羅夫登山口・半月湖畔自然公園付近の給水地点",
+          "lat": 42.846172,
+          "lon": 140.758917,
+          "kind": "給水地点",
+          "potability": "confirmed",
+          "near_point": "比羅夫登山口・半月湖畔自然公園",
+          "distance_m": 553,
+          "osm_id": "way/342421426"
+        },
+        {
+          "name": "羊蹄の湧き水",
+          "lat": 42.783303,
+          "lon": 140.778595,
+          "kind": "湧水",
+          "potability": "unknown",
+          "near_point": "真狩登山口・真狩キャンプ場",
+          "distance_m": 1384,
+          "osm_id": "node/4283498022"
+        }
+      ],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:24:17.165386Z"
     },
     "ニセコアンヌプリ": {
       "checked": true,
@@ -182,10 +227,12 @@
       "checked_at": "2026-08-27T22:19:44Z"
     },
     "狩場山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T03:37:44.675732Z"
     },
     "渡島駒ヶ岳": {
       "checked": true,
@@ -196,10 +243,12 @@
       "checked_at": "2026-08-27T22:19:44Z"
     },
     "大千軒岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:37:49.947651Z"
     },
     "八甲田山": {
       "checked": true,
@@ -210,28 +259,47 @@
       "checked_at": "2026-08-27T22:19:44Z"
     },
     "岩木山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T03:38:03.587612Z"
     },
     "白神岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:38:09.217495Z"
     },
     "八幡平": {
-      "checked": false,
-      "available": false,
-      "count": 0,
-      "sources": []
+      "checked": true,
+      "available": true,
+      "count": 1,
+      "sources": [
+        {
+          "name": "源太清水",
+          "lat": 39.952339,
+          "lon": 140.868997,
+          "kind": "飲料水",
+          "potability": "confirmed",
+          "near_point": "八幡平見返峠・山頂レストハウス",
+          "distance_m": 1109,
+          "osm_id": "node/4406655688"
+        }
+      ],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:38:19.536888Z"
     },
     "乳頭山（烏帽子岳）": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:38:24.922492Z"
     },
     "秋田駒ヶ岳": {
       "checked": true,
@@ -271,22 +339,28 @@
       "checked_at": "2026-08-27T22:19:44Z"
     },
     "姫神山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T03:38:37.915182Z"
     },
     "早池峰山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:38:43.440292Z"
     },
     "五葉山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:38:50.265409Z"
     },
     "和賀岳": {
       "checked": true,
@@ -305,34 +379,44 @@
       "checked_at": "2026-08-27T22:19:44Z"
     },
     "栗駒山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:38:55.161041Z"
     },
     "神室山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:44:58.719068Z"
     },
     "森吉山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:45:07.158723Z"
     },
     "太平山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:45:15.355695Z"
     },
     "鳥海山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:45:24.814326Z"
     },
     "月山": {
       "checked": true,
@@ -410,196 +494,327 @@
       "checked_at": "2026-08-27T22:19:44Z"
     },
     "飯豊山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:45:33.269730Z"
     },
     "西吾妻山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:45:40.693998Z"
     },
     "一切経山": {
-      "checked": false,
-      "available": false,
-      "count": 0,
-      "sources": []
+      "checked": true,
+      "available": true,
+      "count": 1,
+      "sources": [
+        {
+          "name": "兎平キャンプ場",
+          "lat": 37.716619,
+          "lon": 140.254724,
+          "kind": "給水地点",
+          "potability": "confirmed",
+          "near_point": "浄土平",
+          "distance_m": 742,
+          "osm_id": "way/388345352"
+        }
+      ],
+      "attempts": 3,
+      "checked_at": "2026-08-28T03:45:53.812676Z"
     },
     "安達太良山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T03:46:06.888431Z"
     },
     "磐梯山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T03:46:20.085651Z"
     },
     "二岐山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:46:30.465299Z"
     },
     "七ヶ岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T03:47:34.358411Z"
     },
     "荒海山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:47:44.544397Z"
     },
     "帝釈山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T03:47:56.819440Z"
     },
     "会津駒ヶ岳": {
-      "checked": false,
-      "available": false,
-      "count": 0,
-      "sources": []
+      "checked": true,
+      "available": true,
+      "count": 1,
+      "sources": [
+        {
+          "name": "水場",
+          "lat": 37.036312,
+          "lon": 139.371,
+          "kind": "湧水",
+          "potability": "confirmed",
+          "near_point": "滝沢登山口",
+          "distance_m": 1278,
+          "osm_id": "node/4946961756"
+        }
+      ],
+      "attempts": 3,
+      "checked_at": "2026-08-28T03:48:10.348664Z"
     },
     "会津朝日岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T03:48:23.073279Z"
     },
     "燧ヶ岳": {
-      "checked": false,
-      "available": false,
-      "count": 0,
-      "sources": []
+      "checked": true,
+      "available": true,
+      "count": 2,
+      "sources": [
+        {
+          "name": "弥四郎清水",
+          "lat": 36.940413,
+          "lon": 139.251945,
+          "kind": "湧水",
+          "potability": "confirmed",
+          "near_point": "見晴（尾瀬小屋・見晴地区）",
+          "distance_m": 16,
+          "osm_id": "node/6547942949"
+        },
+        {
+          "name": "山ノ鼻（至仏山東面登山道入口・登り専用）付近の飲料水",
+          "lat": 36.915472,
+          "lon": 139.197163,
+          "kind": "飲料水",
+          "potability": "confirmed",
+          "near_point": "山ノ鼻（至仏山東面登山道入口・登り専用）",
+          "distance_m": 89,
+          "osm_id": "node/4920708718"
+        }
+      ],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:48:31.109839Z"
     },
     "大滝根山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:48:37.852282Z"
     },
     "杁差岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:48:43.121465Z"
     },
     "二王子岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:48:48.445497Z"
     },
     "粟ヶ岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:48:53.559075Z"
     },
     "御神楽岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:49:41.339030Z"
     },
     "守門岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T03:49:54.232012Z"
     },
     "浅草岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:49:59.227236Z"
     },
     "平ヶ岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T03:50:12.102292Z"
     },
     "越後駒ヶ岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T03:50:26.582331Z"
     },
     "中ノ岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T03:50:39.336055Z"
     },
     "八海山": {
       "checked": false,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T03:50:58.306913Z",
+      "error": "https://overpass-api.de/api/interpreter: TimeoutError: The read operation timed out"
     },
     "苗場山": {
-      "checked": false,
-      "available": false,
-      "count": 0,
-      "sources": []
+      "checked": true,
+      "available": true,
+      "count": 1,
+      "sources": [
+        {
+          "name": "苗場山付近の湧水",
+          "lat": 36.849589,
+          "lon": 138.701667,
+          "kind": "湧水",
+          "potability": "confirmed",
+          "near_point": "苗場山",
+          "distance_m": 1096,
+          "osm_id": "node/13077508204"
+        }
+      ],
+      "attempts": 3,
+      "checked_at": "2026-08-28T03:51:10.922151Z"
     },
     "佐武流山": {
       "checked": false,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T03:51:29.813045Z",
+      "error": "https://overpass-api.de/api/interpreter: TimeoutError: The read operation timed out"
     },
     "鳥甲山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:51:35.777702Z"
     },
     "金北山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T03:53:33.375499Z"
     },
     "米山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:53:39.373766Z"
     },
     "八溝山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:53:44.610450Z"
     },
     "筑波山": {
-      "checked": false,
-      "available": false,
-      "count": 0,
-      "sources": []
+      "checked": true,
+      "available": true,
+      "count": 1,
+      "sources": [
+        {
+          "name": "筑波山神社入口付近の飲料水",
+          "lat": 36.212977,
+          "lon": 140.097845,
+          "kind": "飲料水",
+          "potability": "confirmed",
+          "near_point": "筑波山神社入口",
+          "distance_m": 346,
+          "osm_id": "node/11405084370"
+        }
+      ],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:53:55.221830Z"
     },
     "三本槍岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:54:00.980683Z"
     },
     "男鹿岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:54:07.321464Z"
     },
     "景鶴山": {
       "checked": true,
@@ -770,94 +985,124 @@
       "checked_at": "2026-08-27T22:19:44Z"
     },
     "袈裟丸山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:54:12.821642Z"
     },
     "武尊山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:54:20.284994Z"
     },
     "赤城山（黒檜山）": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:54:26.996922Z"
     },
     "草津白根山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T03:54:40.471926Z"
     },
     "浅間隠山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:55:25.237005Z"
     },
     "榛名山（榛名富士）": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T03:55:45.664238Z"
     },
     "妙義山（相馬岳）": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T03:56:05.369507Z"
     },
     "荒船山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T03:56:25.546543Z"
     },
     "諏訪山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T03:56:38.757895Z"
     },
     "巻機山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T03:56:52.031772Z"
     },
     "朝日岳（群馬）": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T03:57:09.559409Z"
     },
     "谷川岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T03:57:31.008766Z"
     },
     "仙ノ倉山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T03:57:49.333731Z"
     },
     "白砂山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:58:04.128924Z"
     },
     "横手山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:58:49.432819Z"
     },
     "岩菅山": {
       "checked": false,
@@ -2023,7 +2268,5 @@
       "count": 0,
       "sources": []
     }
-  },
-  "audit_mode": "incremental-rotating",
-  "confirmed_preserved": 35
+  }
 }
