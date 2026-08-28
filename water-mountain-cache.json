@@ -1,7 +1,7 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T05:00:43.634219Z",
+  "generated_at": "2026-08-28T05:01:03.276791Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
@@ -2528,7 +2528,10 @@
       "checked": false,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T05:01:03.273432Z",
+      "error": "https://overpass-api.de/api/interpreter: TimeoutError: The read operation timed out"
     },
     "黒法師岳": {
       "checked": false,
