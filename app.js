@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.248';
+const APP_VERSION = '1.4.249';
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
@@ -4974,6 +4974,26 @@ function mountainUiArea(name){
   if(i<=268)return 'chugoku'; if(i<=277)return 'shikoku'; return 'kyushu';
 }
 
+// V1.4.249: mountain list boxes are ordered geographically north -> south within each existing UI area.
+// Only already-fixed coordinates are used; no coordinate is inferred for sorting.
+function mountainNorthSouthLatitude(name){
+  const catalog=BUILTIN_ROUTE_CATALOG[name]||[];
+  const peak=catalog.find(x=>x.type==='peak'&&hasResolvedCoord(x));
+  const override=NATIONAL_MOUNTAIN_COORD_OVERRIDES[name];
+  const presetName=NATIONAL_MOUNTAIN_PRESET_ALIASES[name]||name;
+  const preset=MOUNTAIN_PRESETS[presetName];
+  const lat=Number(peak?.lat??peak?.latitude??override?.lat??preset?.latitude??preset?.lat);
+  return Number.isFinite(lat)?lat:null;
+}
+function sortMountainsNorthToSouth(names){
+  return [...names].map((name,index)=>({name,index,lat:mountainNorthSouthLatitude(name)})).sort((a,b)=>{
+    if(a.lat!==null&&b.lat!==null&&a.lat!==b.lat)return b.lat-a.lat;
+    if(a.lat!==null&&b.lat===null)return -1;
+    if(a.lat===null&&b.lat!==null)return 1;
+    return a.index-b.index;
+  }).map(x=>x.name);
+}
+
 let deferredInstallPrompt=null;
 function isStandaloneApp(){
   return window.matchMedia?.('(display-mode: standalone)')?.matches || window.navigator.standalone===true;
@@ -6153,7 +6173,7 @@ function init(){
   list.innerHTML=all.map(n=>`<option value="${esc(n)}"></option>`).join('');
 
   const populateMountainSelect=(areaKey,preserve='')=>{
-    const names=areaKey?all.filter(n=>mountainUiArea(n)===areaKey):[];
+    const names=areaKey?sortMountainsNorthToSouth(all.filter(n=>mountainUiArea(n)===areaKey)):[];
     select.innerHTML=`<option value="">${areaKey?'':'先に山域を選択してください'}</option>${names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('')}`;
     select.disabled=!areaKey;
     if(preserve&&names.includes(preserve))select.value=preserve;
