@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T05:09:36.263119Z",
+  "generated_at": "2026-08-28T05:09:49.622992Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 252,
-  "available_count": 49,
-  "unresolved_count": 48,
+  "checked_count": 253,
+  "available_count": 50,
+  "unresolved_count": 47,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -2971,10 +2971,23 @@
       "checked_at": "2026-08-28T05:09:36.259405Z"
     },
     "蓬来山": {
-      "checked": false,
-      "available": false,
-      "count": 0,
-      "sources": []
+      "checked": true,
+      "available": true,
+      "count": 1,
+      "sources": [
+        {
+          "name": "蓬莱駅 登山口付近の湧水",
+          "lat": 35.172322,
+          "lon": 135.912077,
+          "kind": "湧水",
+          "potability": "unknown",
+          "near_point": "蓬莱駅 登山口",
+          "distance_m": 1107,
+          "osm_id": "node/8843639408"
+        }
+      ],
+      "attempts": 3,
+      "checked_at": "2026-08-28T05:09:49.620394Z"
     },
     "比叡山": {
       "checked": false,
