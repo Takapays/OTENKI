@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T04:22:26.003014Z",
+  "generated_at": "2026-08-28T04:22:39.138735Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 110,
+  "checked_count": 111,
   "available_count": 14,
-  "unresolved_count": 190,
+  "unresolved_count": 189,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -1153,10 +1153,12 @@
       "checked_at": "2026-08-28T04:22:26.000521Z"
     },
     "天狗岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 3,
+      "checked_at": "2026-08-28T04:22:39.136346Z"
     },
     "八ヶ岳（赤岳）": {
       "checked": false,
