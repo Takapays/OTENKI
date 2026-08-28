@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T04:43:30.647063Z",
+  "generated_at": "2026-08-28T04:43:41.784483Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 162,
+  "checked_count": 163,
   "available_count": 30,
-  "unresolved_count": 138,
+  "unresolved_count": 137,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -1875,10 +1875,12 @@
       "checked_at": "2026-08-28T04:43:30.644205Z"
     },
     "奥三界岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T04:43:41.781703Z"
     },
     "経ヶ岳（長野）": {
       "checked": false,
