@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T05:18:46.547679Z",
+  "generated_at": "2026-08-28T05:20:22.247873Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 290,
+  "checked_count": 291,
   "available_count": 58,
-  "unresolved_count": 10,
+  "unresolved_count": 9,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -3593,10 +3593,12 @@
       "checked_at": "2026-08-28T05:18:46.544055Z"
     },
     "桜島（御岳）": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T05:20:22.243802Z"
     },
     "高隈山": {
       "checked": false,
