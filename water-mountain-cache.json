@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T03:45:40.696530Z",
+  "generated_at": "2026-08-28T03:45:53.814510Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 61,
-  "available_count": 9,
-  "unresolved_count": 239,
+  "checked_count": 62,
+  "available_count": 10,
+  "unresolved_count": 238,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -510,10 +510,23 @@
       "checked_at": "2026-08-28T03:45:40.693998Z"
     },
     "一切経山": {
-      "checked": false,
-      "available": false,
-      "count": 0,
-      "sources": []
+      "checked": true,
+      "available": true,
+      "count": 1,
+      "sources": [
+        {
+          "name": "兎平キャンプ場",
+          "lat": 37.716619,
+          "lon": 140.254724,
+          "kind": "給水地点",
+          "potability": "confirmed",
+          "near_point": "浄土平",
+          "distance_m": 742,
+          "osm_id": "way/388345352"
+        }
+      ],
+      "attempts": 3,
+      "checked_at": "2026-08-28T03:45:53.812676Z"
     },
     "安達太良山": {
       "checked": false,
