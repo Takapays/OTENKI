@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T03:48:53.561317Z",
+  "generated_at": "2026-08-28T03:49:41.340543Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 75,
+  "checked_count": 76,
   "available_count": 12,
-  "unresolved_count": 225,
+  "unresolved_count": 224,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -665,10 +665,12 @@
       "checked_at": "2026-08-28T03:48:53.559075Z"
     },
     "御神楽岳": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T03:49:41.339030Z"
     },
     "守門岳": {
       "checked": false,
