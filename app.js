@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.245';
+const APP_VERSION = '1.4.247';
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
@@ -224,6 +224,9 @@ const NORTH_ALPS_COURSE_TIMES = Object.freeze({
   // V1.4.33: 槍・穂高主要区間（北アルプス山小屋友交会・夏山コースタイム）
   '上高地→横尾': {minutes:175, source:'北アルプス山小屋友交会・夏山コースタイム'},
   '横尾→上高地': {minutes:175, source:'北アルプス山小屋友交会・夏山コースタイム'},
+  // V1.4.246: 槍ヶ岳山荘グループ公式モデルルートで横尾→槍沢ロッヂ 1時間30分を確認。
+  // これが無いと composed CT が 横尾→上高地→槍沢ロッヂ と逆走結合し 7時間15分になるため、直接CTを優先登録する。
+  '横尾→槍沢ロッヂ': {minutes:90, source:'槍ヶ岳山荘グループ・殺生小屋モデルルート（横尾→槍沢ロッヂ 1時間30分）', sourceType:'official'},
   '横尾→涸沢ヒュッテ': {minutes:180, source:'北アルプス山小屋友交会・夏山コースタイム'},
   '涸沢ヒュッテ→横尾': {minutes:120, source:'北アルプス山小屋友交会・夏山コースタイム'},
   '新穂高温泉→槍平小屋': {minutes:270, source:'北アルプス山小屋友交会・夏山コースタイム'},
@@ -9145,7 +9148,7 @@ function renderOvernights(items){
 }
 
 function nearestTimeIndex(times,target){const t=new Date(target).getTime();let best=-1,d=Infinity;times.forEach((s,i)=>{const x=Math.abs(new Date(s).getTime()-t);if(x<d){d=x;best=i;}});return best;}
-function numberOrNaN(v){const n=Number(v);return Number.isFinite(n)?n:NaN;}
+function numberOrNaN(v){if(v===null||v===undefined||(typeof v==='string'&&v.trim()===''))return NaN;const n=Number(v);return Number.isFinite(n)?n:NaN;}
 function mean(v){const x=v.filter(Number.isFinite);return x.length?x.reduce((a,b)=>a+b,0)/x.length:NaN;} function max(v){const x=v.filter(Number.isFinite);return x.length?Math.max(...x):NaN;}
 function averageRows(rows){return {temp:mean(rows.map(x=>x.temp)),rain:mean(rows.map(x=>x.rain)),cloud:mean(rows.map(x=>x.cloud)),wind:mean(rows.map(x=>x.wind)),gust:max(rows.map(x=>x.gust)),cape:max(rows.map(x=>x.cape)),visibility:mean(rows.map(x=>x.visibility)),freezing:mean(rows.map(x=>x.freezing))};}
 function rowForProvider(providerRows,id){return (providerRows||[]).find(x=>x?.provider?.id===id)?.row||null;}
