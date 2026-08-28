@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T05:18:34.829525Z",
+  "generated_at": "2026-08-28T05:18:41.761419Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 288,
+  "checked_count": 289,
   "available_count": 57,
-  "unresolved_count": 12,
+  "unresolved_count": 11,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -3566,10 +3566,12 @@
       "checked_at": "2026-08-28T05:18:34.825965Z"
     },
     "霧島山（韓国岳）": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T05:18:41.757833Z"
     },
     "高千穂峰": {
       "checked": false,
