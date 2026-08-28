@@ -1,8 +1,0 @@
-V1.4.80 regression check
-- app.js syntax: PASS
-- server.py syntax: PASS
-- PC ROUTE PLAN compact overrides: added under min-width 901px only
-- mobile ROUTE PLAN: unchanged by V1.4.80 overrides
-- heading: 全国一括判定
-- detail action: この山を山行設定に入力
-- version: V1.4.80

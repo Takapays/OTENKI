@@ -1,7 +1,0 @@
-V1.4.120 regression check
-- node --check app.js: PASS
-- python3 -m py_compile server.py: PASS
-- representative course audit: mountains=110, courses=116, multi=6, bad=0
-- CT graph audit: direct edges=559, endpoint nodes=453, reachable pairs=1568, composable non-direct pairs=1009, multi-path pairs=423
-- access.js/app.js MutationObserver: none found
-- Browser interactive runtime test: not executed in this environment

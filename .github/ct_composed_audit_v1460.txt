@@ -1,4 +1,0 @@
-V1.4.60 composed CT audit
-base direct CT edges: 544
-composed_missing_direct 384
-sample:

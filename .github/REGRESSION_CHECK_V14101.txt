@@ -1,7 +1,0 @@
-V1.4.101 regression check
-- app.js syntax: PASS
-- server.py compile: PASS
-- hut official HP: inline right of point select
-- unregistered hut: official HP hidden
-- trailhead access MutationObserver: absent
-- existing stay/time cascade code preserved
