@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.4.249';
+const APP_VERSION = '1.4.252';
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
@@ -4974,7 +4974,7 @@ function mountainUiArea(name){
   if(i<=268)return 'chugoku'; if(i<=277)return 'shikoku'; return 'kyushu';
 }
 
-// V1.4.249: mountain list boxes are ordered geographically north -> south within each existing UI area.
+// V1.4.250: mountain list boxes are ordered geographically north -> south within each existing UI area.
 // Only already-fixed coordinates are used; no coordinate is inferred for sorting.
 function mountainNorthSouthLatitude(name){
   const catalog=BUILTIN_ROUTE_CATALOG[name]||[];
@@ -5934,18 +5934,8 @@ function loadMountainCameras(name){
 }
 
 async function loadMountainWaterReports(name,p){
-  if(!name||!p||!Number.isFinite(Number(p.lat))||!Number.isFinite(Number(p.lon)))return;
-  openWaterReportModal();renderWaterReportLoading(name,1);
-  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),24000);
-  try{
-    const points=[{name,lat:Number(p.lat),lon:Number(p.lon)}];
-    const res=await fetch('/api/water-reports',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mountain:name,points,use_mountain_cache:true}),signal:controller.signal});
-    const data=await res.json().catch(()=>({}));if(!res.ok)throw new Error(data?.error||`HTTP ${res.status}`);
-    renderWaterReportResult(data);logEvent('water_report',{success:true,mountain:name,metadata:{mountain_info:true,water_sources:data?.water_sources?.length||0}});
-  }catch(e){
-    const msg=e?.name==='AbortError'?'取得に時間がかかっています。時間をおいて再度お試しください。':(e?.message||String(e));
-    const body=$('waterReportBody');if(body)body.innerHTML=`<div class="water-report-error"><strong>水場情報を取得できませんでした</strong><p>${esc(msg)}</p></div>`;
-  }finally{clearTimeout(timer);}
+  if(!name)return;
+  return loadFixedWaterList(name);
 }
 
 const mountainWaterAvailabilityMemory=new Map();
@@ -5980,22 +5970,11 @@ async function refreshMountainExtraActions(box,p){
   }catch(_){mountainWaterAvailabilityMemory.set(p.name,false);}
 }
 
-// V1.4.219: route water-source report panel.
-// The backend discovers mapped water sources around the selected route and returns only
-// public search-result metadata/snippets for recent reports; source article bodies are not copied.
-function waterReportDateLabel(date){
-  if(!date)return '日付不明';
-  const m=String(date).match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  return m?`${Number(m[1])}/${Number(m[2])}/${Number(m[3])}`:String(date);
-}
+// V1.4.252: fixed water-source list only. Recent report search and status judgement were removed.
 function waterPotabilityLabel(value){
-  if(value==='confirmed')return '<span class="water-potability confirmed">飲用可登録</span>';
-  if(value==='not_drinking')return '<span class="water-potability danger">飲用不可登録</span>';
-  return '<span class="water-potability unknown">飲用可否未確認</span>';
-}
-function waterSignalBadge(signal,label){
-  const tone={good:'good',caution:'caution',bad:'bad',unknown:'unknown'}[signal]||'unknown';
-  return `<span class="water-signal ${tone}">${esc(label||'状態不明')}</span>`;
+  if(value==='confirmed')return '<span class="water-potability confirmed">OSM飲用可登録</span>';
+  if(value==='not_drinking')return '<span class="water-potability danger">OSM飲用不可登録</span>';
+  return '<span class="water-potability unknown">OSM飲用可否未確認</span>';
 }
 function openWaterReportModal(){
   const modal=$('waterReportModal');if(!modal)return;
@@ -6005,58 +5984,39 @@ function closeWaterReportModal(){
   const modal=$('waterReportModal');if(!modal)return;
   modal.classList.add('hidden');modal.setAttribute('aria-hidden','true');document.body.classList.remove('water-report-open');
 }
-function renderWaterReportLoading(mountain,pointCount){
+function renderWaterListLoading(mountain){
   const body=$('waterReportBody'),sub=$('waterReportSubtitle');
-  if(sub)sub.textContent=`${mountain} / ${pointCount}地点の概略ルート周辺を確認中`;
-  if(body)body.innerHTML='<div class="water-report-loading"><span class="water-drop-loader" aria-hidden="true">💧</span><strong>水場と最近のレポートを探しています</strong><small>水場位置 → 最近の公開レポートの順に確認します。</small></div>';
+  if(sub)sub.textContent=`${mountain} / 固定水場一覧を取得中`;
+  if(body)body.innerHTML='<div class="water-report-loading"><span class="water-drop-loader" aria-hidden="true">💧</span><strong>固定水場一覧を確認しています</strong><small>GitHub Actionsで監査済みの固定データだけを表示します。</small></div>';
 }
-function waterReportCard(w){
-  const reports=Array.isArray(w.reports)?w.reports:[];
-  const summary=w.summary||{level:'gray',label:'最近の公開レポートを確認できず'};
-  const latest=summary.latest_date?`最新 ${waterReportDateLabel(summary.latest_date)}${Number.isFinite(summary.age_days)?`（${summary.age_days}日前）`:''}`:'日付付きレポートなし';
-  const meta=[w.kind,`${w.near_point||'通過地点'}から約${Math.max(0,Math.round((Number(w.distance_m)||0)/10)*10)}m`].filter(Boolean).join(' / ');
-  const reportHtml=reports.length?reports.map(r=>`<a class="water-report-item" href="${esc(r.url)}" target="_blank" rel="noopener noreferrer"><div class="water-report-item-top"><time>${esc(waterReportDateLabel(r.date))}</time>${waterSignalBadge(r.signal,r.signal_label)}<span>${esc(r.host||'出典')}</span></div><strong>${esc(r.title||'公開レポート')}</strong>${r.snippet?`<p>${esc(r.snippet)}</p>`:''}<em>元ページを開く ↗</em></a>`).join(''):`<div class="water-report-nohit"><b>最近の公開レポートを確認できませんでした</b><small>情報がない＝水がない、ではありません。現地情報を確認してください。</small></div>`;
+function fixedWaterCard(w){
+  const meta=[w.kind,`${w.near_point||'ルート付近'}から約${Math.max(0,Math.round(Number(w.distance_m)||0)).toLocaleString()}m`].filter(Boolean).join(' / ');
   const details=w.tags?.description?`<p class="water-osm-description">${esc(w.tags.description)}</p>`:'';
-  return `<article class="water-source-card tone-${esc(summary.level||'gray')}"><div class="water-source-head"><div><span class="water-source-kind">${esc(w.kind||'水場')}</span><h4>${esc(w.name||'水場')}</h4><small>${esc(meta)}</small></div><div class="water-source-status"><b>${esc(summary.label||'状態不明')}</b><small>${esc(latest)}</small></div></div><div class="water-source-tags">${waterPotabilityLabel(w.potability)}<span>OSM位置情報</span></div>${details}<div class="water-report-list">${reportHtml}</div><div class="water-source-actions"><a href="https://www.openstreetmap.org/?mlat=${encodeURIComponent(w.lat)}&mlon=${encodeURIComponent(w.lon)}#map=17/${encodeURIComponent(w.lat)}/${encodeURIComponent(w.lon)}" target="_blank" rel="noopener noreferrer">地図で確認 ↗</a><a href="${esc(w.search_url||'#')}" target="_blank" rel="noopener noreferrer">追加検索 ↗</a></div></article>`;
+  const m=String(w.osm_id||'').match(/^(node|way|relation)\/(\d+)$/);
+  const osm=m?`https://www.openstreetmap.org/${m[1]}/${m[2]}`:'';
+  return `<article class="water-source-card"><div class="water-source-head"><div><span class="water-source-kind">${esc(w.kind||'水場')}</span><h4>${esc(w.name||'水場')}</h4><small>${esc(meta)}</small></div></div><div class="water-source-tags">${waterPotabilityLabel(w.potability)}<span>OSM固定情報</span></div>${details}${osm?`<div class="water-source-actions"><a href="${osm}" target="_blank" rel="noopener noreferrer">OpenStreetMapで確認 ↗</a></div>`:''}</article>`;
 }
-function renderWaterReportResult(data){
+function renderFixedWaterList(mountain,entry){
   const body=$('waterReportBody'),sub=$('waterReportSubtitle');if(!body)return;
-  const waters=Array.isArray(data?.water_sources)?data.water_sources:[];
-  if(sub)sub.textContent=`${data?.mountain||currentMountainLabel()} / 水場候補 ${waters.length}件`;
-  const notes=(data?.notes||[]).map(n=>`<li>${esc(n)}</li>`).join('');
-  let content='';
-  if(waters.length){
-    content=`<div class="water-report-summary"><div><strong>${waters.length}</strong><span>水場候補</span></div><p>ルートの通過地点を結ぶ概略線の周辺から検出。カード上部ほどルート地点に近い候補です。</p></div><div class="water-source-grid">${waters.map(waterReportCard).join('')}</div>`;
-  }else{
-    const generic=Array.isArray(data?.generic_reports)?data.generic_reports:[];
-    const genericHtml=generic.length?generic.map(r=>`<a class="water-report-item" href="${esc(r.url)}" target="_blank" rel="noopener noreferrer"><div class="water-report-item-top"><time>${esc(waterReportDateLabel(r.date))}</time>${waterSignalBadge(r.signal,r.signal_label)}<span>${esc(r.host||'出典')}</span></div><strong>${esc(r.title||'公開情報')}</strong>${r.snippet?`<p>${esc(r.snippet)}</p>`:''}<em>元ページを開く ↗</em></a>`).join(''):'<div class="water-report-nohit"><b>ルート周辺にOSM登録済み水場を見つけられませんでした</b><small>未登録の水場はあり得ます。「追加検索」も併用してください。</small></div>';
-    content=`<div class="water-report-empty-state"><div class="water-empty-icon">💧</div><h4>固定位置として拾える水場がありません</h4><p>公開検索で見つかった関連情報だけを表示します。</p></div><div class="water-report-list generic">${genericHtml}</div><div class="water-generic-action"><a href="${esc(data?.generic_search_url||'#')}" target="_blank" rel="noopener noreferrer">${esc(data?.mountain||'この山')}の水場を追加検索 ↗</a></div>`;
-  }
-  body.innerHTML=`${content}<details class="water-report-notes"><summary>この情報の見方・注意点</summary><ul>${notes}</ul>${data?.partial?'<p>一部の外部取得に失敗したため、表示できた範囲だけを掲載しています。</p>':''}</details>`;
+  const waters=Array.isArray(entry?.sources)?entry.sources:[];
+  if(sub)sub.textContent=`${mountain} / 水場候補 ${waters.length}件`;
+  if(entry?.checked!==true){body.innerHTML='<div class="water-report-empty-state"><div class="water-empty-icon">💧</div><h4>この山はまだ固定監査が完了していません</h4><p>未監査を「水場なし」とは扱いません。</p></div>';return;}
+  if(!waters.length){body.innerHTML='<div class="water-report-empty-state"><div class="water-empty-icon">💧</div><h4>固定監査で水場候補を確認できませんでした</h4><p>OSM未登録の水場が存在する可能性はあります。</p></div>';return;}
+  body.innerHTML=`<div class="water-report-summary"><div><strong>${waters.length}</strong><span>水場候補</span></div><p>固定監査で確認したOpenStreetMap由来の候補です。現在の出水・水量・飲用安全は保証しません。</p></div><div class="water-source-grid">${waters.map(fixedWaterCard).join('')}</div><details class="water-report-notes"><summary>この情報の見方・注意点</summary><ul><li>水場位置・名称・飲用可否はOSM登録属性を整理した固定情報です。</li><li>現在の出水、水量、衛生状態を判定する機能ではありません。</li><li>現地掲示・山小屋・自治体・管理者などの最新情報を優先してください。</li></ul></details>`;
 }
-async function loadWaterReports(){
-  const mountain=currentMountainLabel();
-  const points=collectRouteMapPointsFromForm();
+async function loadFixedWaterList(mountain){
   if(!mountain){setStatus('先に山を選択してください。',true);return;}
-  if(points.length<2){setStatus('水場情報を見るには、座標付きの通過地点を2地点以上設定してください。',true);return;}
-  openWaterReportModal();renderWaterReportLoading(mountain,points.length);
-  const btn=$('waterReportBtn');const old=btn?.innerHTML;if(btn){btn.disabled=true;btn.innerHTML='<span aria-hidden="true">💧</span><span>確認中…</span>';}
-  const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),45000);
+  openWaterReportModal();renderWaterListLoading(mountain);
   try{
-    const res=await fetch('/api/water-reports',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mountain,points:points.map(p=>({name:p.name,lat:p.lat,lon:p.lon}))}),signal:controller.signal});
-    const data=await res.json().catch(()=>({}));
-    if(!res.ok)throw new Error(data.error||`HTTP ${res.status}`);
-    renderWaterReportResult(data);
-    logEvent('water_report',{success:true,mountain,metadata:{route_points:points.length,water_sources:data?.water_sources?.length||0,partial:!!data?.partial}});
+    const res=await fetch(`/api/water-mountain-index?mountain=${encodeURIComponent(mountain)}`,{cache:'no-store'});
+    const data=await res.json().catch(()=>({}));if(!res.ok)throw new Error(data?.error||`HTTP ${res.status}`);
+    renderFixedWaterList(mountain,data?.entry||null);
+    logEvent('water_list',{success:true,mountain,metadata:{fixed_catalog:true,water_sources:data?.entry?.sources?.length||0}});
   }catch(e){
-    const msg=e?.name==='AbortError'?'取得に時間がかかりすぎたため中断しました。':(e.message||String(e));
-    const body=$('waterReportBody');if(body)body.innerHTML=`<div class="water-report-error"><strong>水場情報を取得できませんでした</strong><p>${esc(msg)}</p><small>ルート設定は変更されていません。時間をおいてもう一度お試しください。</small></div>`;
-    logEvent('water_report',{success:false,mountain,error_message:msg});
-  }finally{
-    clearTimeout(timer);if(btn){btn.disabled=false;btn.innerHTML=old||'<span aria-hidden="true">💧</span><span>水場情報</span>';}
+    const body=$('waterReportBody');if(body)body.innerHTML=`<div class="water-report-error"><strong>水場一覧を取得できませんでした</strong><p>${esc(e?.message||String(e))}</p></div>`;
   }
 }
-
+async function loadWaterReports(){return loadFixedWaterList(currentMountainLabel());}
 // V1.4.221: show route-extra buttons only after a lightweight availability check.
 let routeExtraAvailabilityTimer=null;
 let routeExtraAvailabilityAbort=null;

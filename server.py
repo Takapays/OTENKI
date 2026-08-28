@@ -32,7 +32,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.4.249"
+APP_VERSION = "1.4.252"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -2111,27 +2111,71 @@ def overpass():
     return jsonify(error="Overpass取得失敗", detail=" / ".join(errors)), 502
 
 
-# V1.4.231: repository-backed Japan 300 water-source cache.
+# V1.4.250: water audit results live on the dedicated GitHub `water-cache` branch.
+# This keeps scheduled cache commits away from main and prevents release ZIPs /
+# normal application merges from rolling the accumulated audit back.
 WATER_MOUNTAIN_CACHE_PATH = os.path.join(BASE, "water-mountain-cache.json")
-_water_mountain_cache_state: dict[str, Any] = {"mtime": None, "data": None}
+WATER_MOUNTAIN_CACHE_REMOTE_URL = os.environ.get(
+    "WATER_MOUNTAIN_CACHE_REMOTE_URL",
+    "https://raw.githubusercontent.com/Takapays/OTENKI/water-cache/water-mountain-cache.json",
+).strip()
+WATER_MOUNTAIN_CACHE_REMOTE_TTL = max(60, int(os.environ.get("WATER_MOUNTAIN_CACHE_REMOTE_TTL", "300")))
+WATER_MOUNTAIN_CACHE_REMOTE_TIMEOUT = max(1, int(os.environ.get("WATER_MOUNTAIN_CACHE_REMOTE_TIMEOUT", "5")))
+_water_mountain_cache_state: dict[str, Any] = {
+    "mtime": None, "data": None, "remote_data": None, "remote_checked_at": 0.0
+}
 
-def _water_mountain_cache_load() -> dict[str, Any]:
+def _valid_water_mountain_cache(data: Any) -> bool:
+    return isinstance(data, dict) and isinstance(data.get("mountains"), dict)
+
+def _water_mountain_cache_remote_load() -> dict[str, Any] | None:
+    if not WATER_MOUNTAIN_CACHE_REMOTE_URL:
+        return None
+    now = time.time()
+    cached = _water_mountain_cache_state.get("remote_data")
+    checked_at = float(_water_mountain_cache_state.get("remote_checked_at") or 0.0)
+    if _valid_water_mountain_cache(cached) and now - checked_at < WATER_MOUNTAIN_CACHE_REMOTE_TTL:
+        return cached
+    try:
+        req = urllib.request.Request(
+            WATER_MOUNTAIN_CACHE_REMOTE_URL,
+            headers={"User-Agent": "Traten/1.4.252", "Cache-Control": "no-cache"},
+        )
+        with urllib.request.urlopen(req, timeout=WATER_MOUNTAIN_CACHE_REMOTE_TIMEOUT) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        if _valid_water_mountain_cache(data):
+            _water_mountain_cache_state["remote_data"] = data
+            _water_mountain_cache_state["remote_checked_at"] = now
+            return data
+    except Exception:
+        # Keep serving the last known-good remote result if GitHub is temporarily unavailable.
+        if _valid_water_mountain_cache(cached):
+            _water_mountain_cache_state["remote_checked_at"] = now
+            return cached
+    return None
+
+def _water_mountain_cache_local_load() -> dict[str, Any]:
     try:
         mtime = os.path.getmtime(WATER_MOUNTAIN_CACHE_PATH)
     except OSError:
         return {"mountains": {}}
-    if _water_mountain_cache_state.get("mtime") == mtime and isinstance(_water_mountain_cache_state.get("data"), dict):
+    if _water_mountain_cache_state.get("mtime") == mtime and _valid_water_mountain_cache(_water_mountain_cache_state.get("data")):
         return _water_mountain_cache_state["data"]
     try:
         with open(WATER_MOUNTAIN_CACHE_PATH, "r", encoding="utf-8") as fh:
             data = json.load(fh)
-        if not isinstance(data, dict):
+        if not _valid_water_mountain_cache(data):
             data = {"mountains": {}}
     except Exception:
         data = {"mountains": {}}
     _water_mountain_cache_state["mtime"] = mtime
     _water_mountain_cache_state["data"] = data
     return data
+
+def _water_mountain_cache_load() -> dict[str, Any]:
+    # Remote dedicated branch is authoritative. Local file is only a deploy/startup fallback.
+    remote = _water_mountain_cache_remote_load()
+    return remote if _valid_water_mountain_cache(remote) else _water_mountain_cache_local_load()
 
 def _water_mountain_cache_entry(mountain: str) -> dict[str, Any] | None:
     row = (_water_mountain_cache_load().get("mountains") or {}).get(str(mountain or "").strip())
@@ -2152,362 +2196,7 @@ def water_mountain_index():
     last_audit_at = max(audit_stamps) if audit_stamps else None
     return jsonify(ok=True, generated_at=data.get("generated_at"), last_audit_at=last_audit_at, source=data.get("source"), radius_m=data.get("radius_m"), mountain_count=len(mountains), checked_count=checked, available_count=available, error_count=errors, mountains=mountains)
 
-# V1.4.219: route water-source discovery + recent public search-result excerpts.
-# Water locations come from OpenStreetMap/Overpass. We do not fetch or reproduce
-# source article bodies; report text is limited to public search-result metadata/snippets.
-WATER_REPORT_CACHE_TTL = int(os.environ.get("WATER_REPORT_CACHE_TTL", "21600"))
-WATER_REPORT_SEARCH_TIMEOUT = int(os.environ.get("WATER_REPORT_SEARCH_TIMEOUT", "12"))
-WATER_REPORT_MAX_SOURCES = max(1, min(12, int(os.environ.get("WATER_REPORT_MAX_SOURCES", "8"))))
-WATER_REPORT_MAX_RESULTS = max(1, min(5, int(os.environ.get("WATER_REPORT_MAX_RESULTS", "3"))))
-
-def _water_route_centers(points: list[dict[str, Any]]) -> list[tuple[float, float]]:
-    centers: list[tuple[float, float]] = []
-    for i, p in enumerate(points):
-        lat, lon = float(p["lat"]), float(p["lon"])
-        centers.append((lat, lon))
-        if i + 1 >= len(points):
-            continue
-        q = points[i + 1]
-        qlat, qlon = float(q["lat"]), float(q["lon"])
-        dist = _haversine(lat, lon, qlat, qlon)
-        steps = min(6, max(0, int(dist // 3500)))
-        for step in range(1, steps + 1):
-            t = step / (steps + 1)
-            centers.append((lat + (qlat - lat) * t, lon + (qlon - lon) * t))
-    out: list[tuple[float, float]] = []
-    for lat, lon in centers:
-        if not any(_haversine(lat, lon, a, b) < 700 for a, b in out):
-            out.append((lat, lon))
-    return out[:30]
-
-def _water_overpass_query(points: list[dict[str, Any]]) -> str:
-    arounds = _water_route_centers(points)
-    selectors = []
-    for lat, lon in arounds:
-        a = f"(around:1400,{lat:.5f},{lon:.5f})"
-        selectors.extend([
-            f'node["amenity"="drinking_water"]{a};',
-            f'node["natural"="spring"]{a};',
-            f'node["man_made"="water_tap"]{a};',
-            f'node["drinking_water"="yes"]{a};',
-            f'way["amenity"="drinking_water"]{a};',
-            f'way["natural"="spring"]{a};',
-            f'way["drinking_water"="yes"]{a};',
-        ])
-    return '[out:json][timeout:28];(' + ''.join(selectors) + ');out center tags;'
-
-def _water_kind(tags: dict[str, Any]) -> tuple[str, str]:
-    amenity = str(tags.get("amenity") or "")
-    natural = str(tags.get("natural") or "")
-    man_made = str(tags.get("man_made") or "")
-    drinking = str(tags.get("drinking_water") or "").lower()
-    if amenity == "drinking_water":
-        return "飲料水", "confirmed"
-    if man_made == "water_tap":
-        return "水栓", "confirmed" if drinking == "yes" else "unknown"
-    if natural == "spring":
-        return "湧水", "confirmed" if drinking == "yes" else ("not_drinking" if drinking == "no" else "unknown")
-    if drinking == "yes":
-        return "給水地点", "confirmed"
-    return "水場", "unknown"
-
-def _nearest_route_point(lat: float, lon: float, points: list[dict[str, Any]]) -> tuple[str, float]:
-    best_name, best_m = "", float("inf")
-    for p in points:
-        d = _haversine(lat, lon, float(p["lat"]), float(p["lon"]))
-        if d < best_m:
-            best_name, best_m = str(p.get("name") or "通過地点"), d
-    return best_name, best_m
-
-def _discover_water_sources(points: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[str]]:
-    query = _water_overpass_query(points)
-    cache_key = "water-overpass:" + hashlib.sha256(query.encode("utf-8")).hexdigest()
-    cached = _cache_get(cache_key)
-    errors: list[str] = []
-    body: bytes | None = None
-    if cached:
-        _, _, body = cached
-    else:
-        for endpoint in OVERPASS_ENDPOINTS:
-            try:
-                status, ctype, body0 = _request_overpass(endpoint, query, timeout=min(35, OVERPASS_TIMEOUT))
-                if status == 200:
-                    body = body0
-                    _cache_put(cache_key, status, ctype, body0, ttl=OVERPASS_CACHE_TTL)
-                    break
-                errors.append(f"{endpoint}: HTTP {status}")
-            except Exception as exc:
-                errors.append(f"{endpoint}: {exc}")
-    if not body:
-        return [], errors
-    try:
-        payload = json.loads(body.decode("utf-8", errors="replace"))
-    except Exception as exc:
-        return [], errors + [f"OSM JSON解析: {exc}"]
-    rows: list[dict[str, Any]] = []
-    for el in payload.get("elements", []):
-        tags = el.get("tags") or {}
-        lat = el.get("lat", (el.get("center") or {}).get("lat"))
-        lon = el.get("lon", (el.get("center") or {}).get("lon"))
-        try:
-            lat, lon = float(lat), float(lon)
-        except (TypeError, ValueError):
-            continue
-        near_name, near_m = _nearest_route_point(lat, lon, points)
-        if near_m > 1800:
-            continue
-        kind, potability = _water_kind(tags)
-        raw_name = str(tags.get("name:ja") or tags.get("name") or "").strip()
-        if raw_name:
-            name = raw_name
-        elif kind == "湧水":
-            name = f"{near_name}付近の湧水"
-        elif kind == "水栓":
-            name = f"{near_name}付近の水栓"
-        else:
-            name = f"{near_name}付近の水場"
-        rows.append({
-            "name": name, "lat": round(lat, 6), "lon": round(lon, 6),
-            "kind": kind, "potability": potability, "near_point": near_name,
-            "distance_m": int(round(near_m)),
-            "osm_id": f'{el.get("type", "node")}/{el.get("id", "")}',
-            "tags": {k: str(tags.get(k)) for k in ("description", "operator", "access", "drinking_water") if tags.get(k) is not None},
-        })
-    deduped: list[dict[str, Any]] = []
-    for row in sorted(rows, key=lambda x: (x["distance_m"], 0 if x["potability"] == "confirmed" else 1)):
-        if any(_haversine(row["lat"], row["lon"], x["lat"], x["lon"]) < 80 for x in deduped):
-            continue
-        deduped.append(row)
-    return deduped[:WATER_REPORT_MAX_SOURCES], errors
-
-def _clean_search_text(value: str) -> str:
-    value = html.unescape(re.sub(r"<[^>]+>", " ", value or ""))
-    value = re.sub(r"\s+", " ", value).strip()
-    return value[:360]
-
-def _extract_report_date(*values: str) -> str | None:
-    text = " ".join(v or "" for v in values)
-    now_jst = datetime.now(timezone.utc) + timedelta(hours=9)
-    patterns = [
-        r"(?P<y>20\d{2})[年/.-](?P<m>\d{1,2})[月/.-](?P<d>\d{1,2})日?",
-        r"(?P<m>\d{1,2})月(?P<d>\d{1,2})日",
-    ]
-    for pat in patterns:
-        m = re.search(pat, text)
-        if not m:
-            continue
-        try:
-            y = int(m.groupdict().get("y") or now_jst.year)
-            month, day = int(m.group("m")), int(m.group("d"))
-            dt = datetime(y, month, day)
-            if "y" not in m.groupdict() and dt.date() > now_jst.date() + timedelta(days=20):
-                dt = dt.replace(year=y - 1)
-            return dt.date().isoformat()
-        except Exception:
-            continue
-    return None
-
-def _report_signal(text: str) -> tuple[str, str]:
-    t = text.lower()
-    bad = ("枯れ", "涸れ", "水なし", "水無し", "出ていない", "出ません", "断水", "利用不可", "汲めない")
-    caution = ("水量少", "少なめ", "細い", "渇水", "要浄水", "煮沸", "濾過", "ろ過", "注意")
-    good = ("水量十分", "豊富", "出ている", "出ています", "汲めた", "給水可", "利用可", "問題なく", "水量あり")
-    if any(k in t for k in bad): return "bad", "利用できない可能性"
-    if any(k in t for k in caution): return "caution", "水量・飲用に注意"
-    if any(k in t for k in good): return "good", "利用できた報告"
-    return "unknown", "状態記述あり"
-
-def _bing_rss_search(query: str) -> list[dict[str, Any]]:
-    cache_key = "water-search:" + hashlib.sha256(query.encode("utf-8")).hexdigest()
-    cached = _cache_get(cache_key)
-    if cached:
-        _, _, body = cached
-    else:
-        url = "https://www.bing.com/search?format=rss&" + urllib.parse.urlencode({"q": query, "setlang": "ja-JP"})
-        req = urllib.request.Request(url, headers={
-            "User-Agent": UA,
-            "Accept": "application/rss+xml, application/xml;q=0.9, text/xml;q=0.8",
-        })
-        with urllib.request.urlopen(req, timeout=WATER_REPORT_SEARCH_TIMEOUT) as resp:
-            body = resp.read(512 * 1024)
-        _cache_put(cache_key, 200, "application/rss+xml", body, ttl=WATER_REPORT_CACHE_TTL)
-    root = ET.fromstring(body)
-    out: list[dict[str, Any]] = []
-    for item in root.findall(".//item")[:8]:
-        title = _clean_search_text(item.findtext("title") or "")
-        link = (item.findtext("link") or "").strip()
-        desc = _clean_search_text(item.findtext("description") or "")
-        pub = _clean_search_text(item.findtext("pubDate") or "")
-        if not link.startswith("https://"):
-            continue
-        host = urllib.parse.urlparse(link).hostname or ""
-        # Treat only a date visible in the result title/snippet/URL as the report date.
-        # RSS pubDate can represent feed/index timing and is not used as an article-date claim.
-        date = _extract_report_date(title, desc, link)
-        signal, signal_label = _report_signal(title + " " + desc)
-        out.append({"title": title[:180], "url": link, "snippet": desc[:220], "date": date, "signal": signal, "signal_label": signal_label, "host": host})
-    return out
-
-def _water_search_query(mountain: str, water: dict[str, Any]) -> str:
-    year = (datetime.now(timezone.utc) + timedelta(hours=9)).year
-    named = water["name"] if "付近の" not in water["name"] else water.get("near_point") or water["name"]
-    return f'"{mountain}" "{named}" 水場 水量 枯れ 汲めた {year}'
-
-def _search_reports_for_water(mountain: str, water: dict[str, Any]) -> tuple[list[dict[str, Any]], str | None]:
-    query = _water_search_query(mountain, water)
-    try:
-        rows = _bing_rss_search(query)
-    except Exception as exc:
-        return [], str(exc)
-    useful = []
-    for row in rows:
-        text = f'{row.get("title", "")} {row.get("snippet", "")}'
-        if not any(k in text for k in ("水", "湧", "枯", "涸", "給水", "汲")):
-            continue
-        useful.append(row)
-        if len(useful) >= WATER_REPORT_MAX_RESULTS:
-            break
-    return useful, None
-
-def _water_source_summary(water: dict[str, Any]) -> dict[str, Any]:
-    reports = water.get("reports") or []
-    today = (datetime.now(timezone.utc) + timedelta(hours=9)).date()
-    for r in reports:
-        age = None
-        if r.get("date"):
-            try: age = max(0, (today - datetime.fromisoformat(r["date"]).date()).days)
-            except Exception: pass
-        r["age_days"] = age
-    dated = [r for r in reports if r.get("date")]
-    dated.sort(key=lambda x: x["date"], reverse=True)
-    latest = dated[0] if dated else (reports[0] if reports else None)
-    recent30 = [r for r in reports if isinstance(r.get("age_days"), int) and r["age_days"] <= 30]
-    if any(r.get("signal") == "bad" for r in recent30):
-        level, label = "red", "30日以内に枯れ・利用不可の記述あり"
-    elif any(r.get("signal") == "caution" for r in recent30):
-        level, label = "orange", "30日以内に水量・飲用注意の記述あり"
-    elif any(r.get("signal") == "good" and isinstance(r.get("age_days"), int) and r["age_days"] <= 14 for r in reports):
-        level, label = "green", "14日以内に利用できた記述あり"
-    elif latest and latest.get("signal") == "bad":
-        level, label = "red", "枯れ・利用不可の記述あり（時期注意）"
-    elif latest and latest.get("signal") == "caution":
-        level, label = "orange", "水量・飲用注意の記述あり（時期注意）"
-    elif latest and latest.get("signal") == "good":
-        level, label = "yellow", "利用できた記述あり（時期注意）"
-    elif reports:
-        level, label = "yellow", "レポートはあるが状態判定できず"
-    else:
-        level, label = "gray", "最近の公開レポートを確認できず"
-    return {"level": level, "label": label, "latest_date": (latest or {}).get("date"), "age_days": (latest or {}).get("age_days")}
-
-@app.post("/api/water-source-report")
-def water_source_report():
-    """Search recent public report snippets for one fixed water source only.
-
-    V1.4.240: this endpoint is intentionally user-triggered from the water index.
-    It never runs during page load and never performs a fresh Overpass lookup.
-    """
-    payload = request.get_json(silent=True) or {}
-    mountain = str(payload.get("mountain") or "").strip()[:80]
-    osm_id = str(payload.get("osm_id") or "").strip()[:80]
-    name = str(payload.get("name") or "").strip()[:120]
-    if not mountain or not (osm_id or name):
-        return jsonify(error="山と水場を指定してください。"), 400
-
-    cached_mountain = _water_mountain_cache_entry(mountain)
-    if not cached_mountain or cached_mountain.get("checked") is not True:
-        return jsonify(error="この山は固定水場監査が未完了です。"), 404
-
-    source = None
-    for row in (cached_mountain.get("sources") or []):
-        if not isinstance(row, dict):
-            continue
-        if osm_id and str(row.get("osm_id") or "") == osm_id:
-            source = dict(row); break
-        if not osm_id and name and str(row.get("name") or "") == name:
-            source = dict(row); break
-    if source is None:
-        return jsonify(error="固定水場一覧に該当する水場がありません。"), 404
-
-    reports, search_error = _search_reports_for_water(mountain, source)
-    source["reports"] = reports
-    source["summary"] = _water_source_summary(source)
-    source["search_url"] = "https://www.bing.com/search?" + urllib.parse.urlencode({
-        "q": _water_search_query(mountain, source), "setlang": "ja-JP"
-    })
-    return jsonify({
-        "ok": True,
-        "mountain": mountain,
-        "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-        "water_source": source,
-        "partial": bool(search_error),
-        "diagnostics": {"search_error": search_error},
-        "note": "検索はユーザー操作時のみ実行し、公開検索結果のタイトル・抜粋・日付と元ページリンクだけを整理します。",
-    })
-
-
-@app.post("/api/water-reports")
-def water_reports():
-    payload = request.get_json(silent=True) or {}
-    mountain = str(payload.get("mountain") or "").strip()[:80]
-    raw_points = payload.get("points") or []
-    points: list[dict[str, Any]] = []
-    for row in raw_points[:24]:
-        try:
-            lat, lon = float(row.get("lat")), float(row.get("lon"))
-        except (TypeError, ValueError, AttributeError):
-            continue
-        if not (-90 <= lat <= 90 and -180 <= lon <= 180):
-            continue
-        points.append({"name": str(row.get("name") or "通過地点")[:100], "lat": lat, "lon": lon})
-    if not mountain or len(points) < 1:
-        return jsonify(error="山と座標付き地点を1地点以上設定してください。"), 400
-    use_mountain_cache = bool(payload.get("use_mountain_cache"))
-    cached_mountain = _water_mountain_cache_entry(mountain) if use_mountain_cache else None
-    if cached_mountain and cached_mountain.get("checked") is True and cached_mountain.get("available") is True:
-        waters = [dict(x) for x in (cached_mountain.get("sources") or []) if isinstance(x, dict)][:WATER_REPORT_MAX_SOURCES]
-        osm_errors: list[str] = []
-    else:
-        waters, osm_errors = _discover_water_sources(points)
-    search_errors: list[str] = []
-    if waters:
-        with ThreadPoolExecutor(max_workers=min(4, len(waters)), thread_name_prefix="traten-water") as ex:
-            futs = {ex.submit(_search_reports_for_water, mountain, w): w for w in waters}
-            for fut in as_completed(futs):
-                w = futs[fut]
-                try:
-                    reports, err = fut.result()
-                except Exception as exc:
-                    reports, err = [], str(exc)
-                w["reports"] = reports
-                if err: search_errors.append(f'{w["name"]}: {err}')
-                w["summary"] = _water_source_summary(w)
-                w["search_url"] = "https://www.bing.com/search?" + urllib.parse.urlencode({"q": _water_search_query(mountain, w), "setlang": "ja-JP"})
-    generic_query = f'"{mountain}" 水場 水量 枯れ 汲めた {(datetime.now(timezone.utc)+timedelta(hours=9)).year}'
-    generic_reports: list[dict[str, Any]] = []
-    generic_error = None
-    if not waters:
-        try:
-            generic_reports = _bing_rss_search(generic_query)[:WATER_REPORT_MAX_RESULTS]
-        except Exception as exc:
-            generic_error = str(exc)
-            search_errors.append(f"route: {exc}")
-    return jsonify({
-        "ok": True, "mountain": mountain,
-        "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-        "water_sources": waters, "generic_reports": generic_reports,
-        "generic_search_url": "https://www.bing.com/search?" + urllib.parse.urlencode({"q": generic_query, "setlang": "ja-JP"}),
-        "fixed_mountain_cache": bool(cached_mountain and cached_mountain.get("checked") is True),
-        "notes": [
-            "水場位置はOpenStreetMap/Overpassの公開データから、入力した通過地点を直線で結ぶ概略ルート周辺を検索しています。",
-            "最近の状況は検索結果に公開されているタイトル・抜粋・日付だけを整理し、元ページ本文は取得・転載していません。",
-            "湧水は飲用可否が未確認の場合があります。現地掲示・山小屋・自治体等の最新情報を優先してください。",
-        ],
-        "partial": bool(osm_errors or search_errors),
-        "diagnostics": {"osm_errors": osm_errors[-2:], "search_errors": search_errors[-4:], "generic_error": generic_error},
-    })
-
-
+# V1.4.252: recent water-report search/status judgement removed; fixed water list is served by /api/water-mountain-index.
 
 # V1.4.220: route live / road camera discovery.
 CAMERA_MAX_RESULTS = int(os.environ.get("CAMERA_MAX_RESULTS", "12"))

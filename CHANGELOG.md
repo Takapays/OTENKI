@@ -1,3 +1,21 @@
+## V1.4.252
+- 水場の「レポを探す」と公開Web検索による出水状況判定を廃止。
+- 水場機能は固定監査済みのOSM水場一覧だけを表示する構成へ簡素化。
+- `/api/water-source-report` と `/api/water-reports` を削除し、外部レポート検索を停止。
+- TOP/山情報カードの「水場一覧」も固定キャッシュのみ参照。
+- 現在の出水・水量・飲用安全は判定しないことを画面とガイドに明記。
+
+## V1.4.251
+- 水場固定監査のGitHub Actionsを手動実行専用へ変更。`schedule`（3時間ごと）と`push`トリガーを削除し、`workflow_dispatch`のみ残した。
+- 300/300完了後は、ユーザーがRun workflowを押さない限り水場監査は起動しない。
+- 監査結果の保存先は専用`water-cache`ブランチ、1座ごとのcheckpoint commit、リリースZIPからの`water-mountain-cache.json`除外は維持。
+
+## V1.4.250
+- 水場固定監査の生成キャッシュ保存先を `main` から専用 `water-cache` ブランチへ分離。
+- 1座ごとのcheckpoint commitは維持しつつ、通常のアプリ更新と水場監査commitが衝突しない構成へ変更。
+- `/api/water-mountain-index` は専用ブランチのRaw JSONを5分TTLで優先取得し、GitHub一時障害時は直近正常値、最終的にローカルJSONへフォールバック。
+- リリースZIPから `water-mountain-cache.json` を除外し、ZIP展開による監査進捗の巻き戻りを防止。
+
 ## V1.4.249
 - 山域の並び順は変更せず、山域内の山リストを既存固定座標の緯度が高い順（北→南）へ変更。
 - TOP、登山口、山小屋、水場、ライブカメラの山選択で共通の北→南順を適用。

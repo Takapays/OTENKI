@@ -1,15 +1,9 @@
 name: Refresh water source cache
 
 on:
+  # V1.4.251: water-source auditing is manual-only.
+  # Run from GitHub Actions -> Refresh water source cache -> Run workflow.
   workflow_dispatch:
-  schedule:
-    # Small single-mountain queries every 3 hours. Confirmed mountains are skipped forever.
-    - cron: '23 */3 * * *'
-  push:
-    branches: [ main, master ]
-    paths:
-      - 'audit_water_300.py'
-      - '.github/workflows/water-source-audit.yml'
 
 permissions:
   contents: write
@@ -24,6 +18,8 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
@@ -31,9 +27,26 @@ jobs:
       - name: Validate all 300 mountains have fixed audit points
         run: python audit_water_300.py --dry-run
 
+      - name: Prepare dedicated water-cache branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin water-cache || true
+          rm -rf /tmp/traten-water-cache
+          if git show-ref --verify --quiet refs/remotes/origin/water-cache; then
+            git worktree add -B water-cache /tmp/traten-water-cache origin/water-cache
+          else
+            git worktree add -b water-cache /tmp/traten-water-cache HEAD
+          fi
+          cp audit_water_300.py app.js /tmp/traten-water-cache/
+
       - name: Audit next unresolved mountains with checkpoint commits
         shell: bash
         run: |
+          set -euo pipefail
+          cd /tmp/traten-water-cache
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           for i in $(seq 1 10); do
@@ -45,11 +58,13 @@ jobs:
             fi
             git add water-mountain-cache.json
             git commit -m "chore: refresh water source cache ($i/10) [skip ci]"
-            git push
+            git push origin HEAD:water-cache
           done
 
       - name: Summarize result
+        shell: bash
         run: |
+          cd /tmp/traten-water-cache
           python - <<'PY'
           import json
           d=json.load(open('water-mountain-cache.json',encoding='utf-8'))
@@ -60,6 +75,6 @@ jobs:
           print('checked',checked,'/',len(rows))
           print('available',available)
           print('unresolved',unresolved)
+          print('Storage branch: water-cache (main is not modified by manual audits).')
           print('Incremental mode: confirmed rows are preserved; failed rows rotate to the back of the retry queue.')
           PY
-
