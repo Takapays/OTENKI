@@ -4155,3 +4155,39 @@ body.install-guide-open{overflow:hidden}
   .topbar-resource-nav .topbar-nav-link{font-size:10px;padding:10px 9px}
   .topbar-resource-nav .topbar-nav-link::before{margin-right:4px;font-size:14px}
 }
+
+/* V1.5.9: in-map previous/next day navigation for national outlook. */
+.national-map-date-nav{display:flex;align-items:center;gap:2px;padding:3px;border:1px solid rgba(29,76,58,.18);border-radius:999px;background:rgba(255,255,255,.95);box-shadow:0 2px 10px rgba(25,58,46,.14);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px)}
+.national-map-date-label{min-width:52px;padding:5px 4px;color:#183f31;font-size:15px;font-weight:950;line-height:1;text-align:center;letter-spacing:.02em}
+.national-map-date-arrow{width:32px;height:32px;border:0;border-radius:50%;background:transparent;color:#183f31;font:900 23px/1 system-ui,-apple-system,sans-serif;cursor:pointer;display:grid;place-items:center;padding:0}
+.national-map-date-arrow:hover:not(:disabled),.national-map-date-arrow:focus-visible:not(:disabled){background:#e8f2ed;outline:none}
+.national-map-date-arrow:disabled{opacity:.28;cursor:default}
+@media(max-width:520px){.national-map-date-label{min-width:46px;font-size:14px}.national-map-date-arrow{width:30px;height:30px;font-size:21px}}
+
+
+/* V1.5.10: passage-time input attention for uncertain CT segments. */
+.planner-rail .point-time.ct-time-missing,
+.point-time.ct-time-missing{
+  background:#fff0e8!important;
+  border-color:#e59a68!important;
+  box-shadow:0 0 0 2px rgba(201,92,32,.13)!important;
+  color:#7d3514!important;
+  font-weight:800;
+}
+.planner-rail .point-time.ct-time-estimated,
+.point-time.ct-time-estimated{
+  background:#fffaf0!important;
+  border-color:#e6c98d!important;
+  box-shadow:0 0 0 1px rgba(181,132,40,.08)!important;
+  color:#6d551d!important;
+}
+.planner-rail .point-time.ct-time-missing:focus,
+.point-time.ct-time-missing:focus{
+  outline:2px solid rgba(201,92,32,.24)!important;
+  outline-offset:1px;
+}
+.planner-rail .point-time.ct-time-estimated:focus,
+.point-time.ct-time-estimated:focus{
+  outline:2px solid rgba(181,132,40,.15)!important;
+  outline-offset:1px;
+}

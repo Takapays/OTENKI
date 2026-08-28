@@ -2,7 +2,7 @@
 """Traten Water Expansion Audit V2.
 
 Candidate discovery only. This script NEVER promotes a candidate into the fixed water cache.
-Target scope for V1.5.5: Northern Alps + Central Alps + Southern Alps + Yatsugatake.
+Target scope for V1.5.8: Northern Alps + Central Alps + Southern Alps + Yatsugatake.
 
 Sources:
 - OpenStreetMap / Overpass API: high-recall route-corridor discovery.
@@ -320,7 +320,7 @@ def fetch_osm(mountain: str, routes: list[list[dict[str, Any]]], timeout: int, a
         try:
             data = urllib.parse.urlencode({"data": query}).encode("utf-8")
             req = urllib.request.Request(endpoint, data=data, method="POST", headers={
-                "User-Agent": "TratenWaterAuditV2/1.5.5 (+https://otenki.onrender.com/)",
+                "User-Agent": "TratenWaterAuditV2/1.5.8 (+https://otenki.onrender.com/)",
                 "Content-Type": "application/x-www-form-urlencoded",
             })
             with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -380,7 +380,7 @@ def read_public_seeds() -> list[dict[str, Any]]:
 
 def fetch_json_url(url: str, timeout: int = 8) -> dict[str, Any] | None:
     try:
-        req = urllib.request.Request(url, headers={"User-Agent":"TratenWaterAuditV2/1.5.5"})
+        req = urllib.request.Request(url, headers={"User-Agent":"TratenWaterAuditV2/1.5.8"})
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             data = json.loads(resp.read().decode("utf-8"))
         return data if isinstance(data, dict) else None
@@ -449,7 +449,7 @@ def load_previous() -> dict[str, Any]:
 
 def write_outputs(targets: list[str], state: dict[str, Any], fixed_loaded: bool) -> None:
     state["schema_version"] = 1
-    state["app_version"] = "1.5.5"
+    state["app_version"] = "1.5.8"
     state["scope"] = "Northern Alps + Central Alps + Southern Alps + Yatsugatake"
     state["generated_at"] = now_iso()
     state["target_count"] = len(targets)

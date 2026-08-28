@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.5';
+const APP_VERSION = '1.5.11';
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
@@ -739,6 +739,21 @@ const WEST_JAPAN_COURSE_TIMES = Object.freeze({
   '剣山→剣山頂上ヒュッテ': {minutes:7, source:'ヤマレコ・剣山縦走 山行計画（標準CT補完）', sourceType:'yamareco'},
   '剣山→次郎笈': {minutes:63, source:'ヤマレコ・剣山/次郎笈 山行計画（標準CT補完）', sourceType:'yamareco'},
   '次郎笈→剣山': {minutes:66, source:'ヤマレコ・剣山〜三嶺 山行計画（標準CT補完）', sourceType:'yamareco'},
+  // V1.5.11: 剣山〜三嶺縦走の実利用CT欠損を公開標準CTで固定。
+  // 剣山→白髪避難小屋 / 次郎笈→白髪避難小屋はヤマレコ公開山行計画の区間合算。
+  // 逆方向は三嶺→剣山縦走の公開山行計画の区間合算。
+  '剣山→白髪避難小屋': {minutes:322, source:'ヤマレコ・三嶺 山行計画（剣山→白髪避難小屋 標準CT区間合算）', sourceType:'yamareco'},
+  '白髪避難小屋→剣山': {minutes:368, source:'ヤマレコ・三嶺→剣山縦走 山行計画（白髪避難小屋→剣山 標準CT区間合算）', sourceType:'yamareco'},
+  '次郎笈→白髪避難小屋': {minutes:259, source:'ヤマレコ・三嶺 山行計画（次郎笈→白髪避難小屋 標準CT区間合算）', sourceType:'yamareco'},
+  '白髪避難小屋→次郎笈': {minutes:302, source:'ヤマレコ・三嶺→剣山縦走 山行計画（白髪避難小屋→次郎笈 標準CT区間合算）', sourceType:'yamareco'},
+  '白髪避難小屋→三嶺ヒュッテ': {minutes:131, source:'確認済みCT合成（白髪避難小屋→三嶺 122分 + 三嶺→三嶺ヒュッテ 9分）', sourceType:'composed-verified'},
+  '三嶺ヒュッテ→白髪避難小屋': {minutes:126, source:'確認済みCT合成（三嶺ヒュッテ→三嶺 14分 + 三嶺→白髪避難小屋 112分）', sourceType:'composed-verified'},
+
+  // V1.5.11: 剣山野営場（西島野営場）の周辺CT。YAMAPモデルコースの区間合算。
+  '見ノ越 剣山登山口→剣山野営場（西島野営場）': {minutes:42, source:'YAMAP・剣山王道モデルコース（見ノ越→剣山野営場 標準CT区間合算）', sourceType:'yamap'},
+  '剣山野営場（西島野営場）→見ノ越 剣山登山口': {minutes:40, source:'YAMAP・剣山王道モデルコース（剣山野営場→見ノ越 標準CT区間合算）', sourceType:'yamap'},
+  '剣山野営場（西島野営場）→剣山観光登山リフト西島駅': {minutes:16, source:'YAMAP・剣山王道モデルコース（野営場→西島駅 標準CT区間合算）', sourceType:'yamap'},
+  '剣山観光登山リフト西島駅→剣山野営場（西島野営場）': {minutes:7, source:'YAMAP・剣山王道モデルコース（西島駅→野営場 標準CT区間合算）', sourceType:'yamap'},
   '白髪避難小屋→三嶺': {minutes:122, source:'ヤマレコ・剣山〜三嶺 山行計画（標準CT補完）', sourceType:'yamareco'},
   '三嶺→白髪避難小屋': {minutes:112, source:'ヤマレコ・三嶺〜剣山 山行計画（標準CT補完）', sourceType:'yamareco'},
   '三嶺ヒュッテ→三嶺': {minutes:14, source:'ヤマレコ・三嶺 山行計画（標準CT補完）', sourceType:'yamareco'},
@@ -828,6 +843,8 @@ const YATSUGATAKE_CHUSHIN_COURSE_TIMES = Object.freeze({
   '行者小屋→赤岳鉱泉': {minutes:29, source:'ヤマレコ・赤岳鉱泉/行者小屋 山行計画（標準CT補完）', sourceType:'yamareco'},
   '行者小屋→阿弥陀岳': {minutes:91, source:'ヤマレコ・赤岳/阿弥陀岳 山行計画（標準CT補完）', sourceType:'yamareco'},
   '阿弥陀岳→行者小屋': {minutes:48, source:'ヤマレコ・赤岳/阿弥陀岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '赤岳→阿弥陀岳': {minutes:95, source:'YAMAP標準モデル・美濃戸登山口-地蔵ノ頭 周回コース（赤岳→中岳→中岳のコル→阿弥陀岳、チェックポイント合算1時間35分）', sourceType:'yamap'},
+  '阿弥陀岳→美濃戸口': {minutes:201, source:'YAMAP標準モデル・美濃戸口登山口-御小屋山-阿弥陀岳 往復コース（阿弥陀岳→八ヶ岳山荘＝美濃戸口、チェックポイント合算3時間21分）', sourceType:'yamap'},
 
   // 南八ヶ岳南端：観音平〜編笠〜青年小屋〜権現
   '観音平→編笠山': {minutes:174, source:'ヤマレコ・編笠山/権現岳 山行計画（標準CT補完）', sourceType:'yamareco'},
@@ -2898,6 +2915,7 @@ Object.assign(REGIONAL_CATALOG, {
 Object.assign(REGIONAL_CATALOG, {
   shikoku_tsurugi_miune: [
     {id:'area-tm-minokoshi',type:'trailhead',name:'見ノ越 剣山登山口',lat:33.866558,lon:134.089036,elevation:1394,source:'固定候補'},
+    {id:'area-tm-nishijima-camp',type:'camp',name:'剣山野営場（西島野営場）',lat:33.8603605,lon:134.0884449585372,elevation:1710,source:'にし阿波公式・剣山野営場（西島駅野営場）埋め込み地図'},
     {id:'area-tm-tsurugi',type:'peak',name:'剣山',lat:33.853611,lon:134.094167,elevation:1955,source:'固定候補'},
     {id:'area-tm-jirogyu',type:'peak',name:'次郎笈',lat:33.843056,lon:134.086111,elevation:1930,source:'固定候補'},
     {id:'area-tm-shiraga-hut',type:'hut',name:'白髪避難小屋',lat:33.821944,lon:134.001222,elevation:1666,source:'固定候補'},
@@ -5100,6 +5118,60 @@ function setupInstallApp(){
 }
 
 function currentMountainLabel(){return $('mountainPreset')?.value?.trim()||$('mountainSearch')?.value?.trim()||'';}
+// V1.5.8: anonymous analysis history for the admin dashboard.
+// Store only route point names/types/roles and planned passage date/time; never coordinates or identity data.
+function analysisCtReviewSegments(points){
+  const rows=[];
+  const safePoints=(Array.isArray(points)?points:[]).slice(0,40);
+  for(let i=1;i<safePoints.length;i++){
+    const from=safePoints[i-1],to=safePoints[i];
+    const fromName=String(from?.name||'').trim(),toName=String(to?.name||'').trim();
+    if(!fromName||!toName)continue;
+    let info=null;
+    try{info=courseTimeInfo(from,to);}catch(_){info=null;}
+    const estimated=!!(info&&(info.estimated===true||info.sourceType==='estimated'));
+    if(info&&!estimated)continue;
+    rows.push({
+      from_name:fromName.slice(0,120),
+      to_name:toName.slice(0,120),
+      status:estimated?'estimated':'missing',
+      minutes:estimated&&Number.isFinite(Number(info?.minutes))?Math.round(Number(info.minutes)):null,
+      source:estimated?String(info?.source||'推定CT').slice(0,180):'CT情報なし'
+    });
+  }
+  return rows.slice(0,39);
+}
+function analysisRouteLogMetadata(points,mountain=''){
+  const safePoints=(Array.isArray(points)?points:[]).slice(0,40);
+  const itinerary=safePoints.map(p=>({
+    point_name:String(p?.name||'').slice(0,120),
+    point_type:String(p?.type||'other').slice(0,40),
+    point_role:String(p?.role||'').slice(0,40),
+    date:String(p?.date||'').slice(0,10),
+    time:String(p?.time||'').slice(0,5),
+    stay:!!p?.stay,
+  })).filter(p=>p.point_name);
+  const routePath=itinerary.map(p=>p.point_name).join(' → ');
+  let routeLabel='';
+  try{
+    const course=representativeCourseFor(mountain);
+    const officialPath=representativeCoursePathText(course,mountain);
+    if(course&&officialPath===routePath)routeLabel=course.label||'代表コース';
+  }catch(_){ }
+  if(!routeLabel&&itinerary.length){
+    routeLabel=itinerary.length===1?itinerary[0].point_name:`${itinerary[0].point_name} → ${itinerary.at(-1).point_name}`;
+  }
+  const dates=itinerary.map(p=>p.date).filter(Boolean);
+  return {
+    route_label:routeLabel,
+    route_path:routePath,
+    start_date:dates[0]||'',
+    end_date:dates.at(-1)||dates[0]||'',
+    overnight_count:itinerary.filter(p=>p.stay).length,
+    itinerary,
+    ct_review_segments:analysisCtReviewSegments(safePoints),
+  };
+}
 function refreshMountainInfoButton(){
   const btn=$('mountainInfoBtn');if(!btn)return;
   const selectValue=$('mountainPreset')?.value?.trim()||'';
@@ -5278,8 +5350,31 @@ function nationalOutlookDateLabel(value){
 }
 function updateNationalOutlookMapDate(){
   const label=nationalOutlookDateLabel($('nationalOutlookDate')?.value);
-  const el=document.querySelector('.national-map-date-badge');
-  if(el)el.textContent=label||'--/--';
+  document.querySelectorAll('.national-map-date-label').forEach(el=>{el.textContent=label||'--/--';});
+  const legacy=document.querySelector('.national-map-date-badge');
+  if(legacy&&!legacy.querySelector('.national-map-date-label'))legacy.textContent=label||'--/--';
+  updateNationalOutlookDateNavState();
+}
+function shiftNationalOutlookDate(days){
+  const date=$('nationalOutlookDate');if(!date)return;
+  const current=String(date.value||'');if(!/^\d{4}-\d{2}-\d{2}$/.test(current))return;
+  const t=new Date(`${current}T00:00:00+09:00`).getTime();
+  if(!Number.isFinite(t))return;
+  const next=formatJstInput(t+Number(days||0)*86400000).date;
+  if(date.min&&next<date.min)return;
+  if(date.max&&next>date.max)return;
+  date.value=next;
+  date.dispatchEvent(new Event('change',{bubbles:true}));
+}
+function updateNationalOutlookDateNavState(){
+  const date=$('nationalOutlookDate');if(!date)return;
+  document.querySelectorAll('[data-national-date-shift]').forEach(btn=>{
+    const days=Number(btn.dataset.nationalDateShift||0);
+    const current=String(date.value||'');
+    const t=/^\d{4}-\d{2}-\d{2}$/.test(current)?new Date(`${current}T00:00:00+09:00`).getTime():NaN;
+    const next=Number.isFinite(t)?formatJstInput(t+days*86400000).date:'';
+    btn.disabled=!next||(date.min&&next<date.min)||(date.max&&next>date.max);
+  });
 }
 
 function nationalOutlookSelectedLabel(){
@@ -5642,7 +5737,7 @@ async function runNationalOutlook(){
         const remainMin=Math.max(0,Math.round(remainSec/60));
         note+=`<br><small class="national-cache-help">キャッシュ年齢 約${ageMin}分 / 4時間TTL残り 約${remainMin}分${data.cache?.cacheHit?'（キャッシュヒット）':''}</small>`;
       }else{
-        note+=`<br><small class="national-cache-help">キャッシュデータがない場合、全国判定には1〜2分程度かかることがあります。共有キャッシュは約4時間ごとに更新されます。</small>`;
+        note+=`<br><small class="national-cache-help">百名山は翌日〜7日先を共有キャッシュへ先行保存し、各結果は4時間TTLで更新します。キャッシュがない対象は全国判定に1〜2分程度かかることがあります。</small>`;
       }
       const dualCount=Number(data.dualModelCount||0);
       const metnoOnly=Number(data.metnoOnlyCount||0), gfsOnly=Number(data.gfsOnlyCount||0);
@@ -5753,13 +5848,15 @@ async function setupNationalOutlook(){
     L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png',{minZoom:5,maxZoom:18,attribution:'<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener noreferrer">地理院タイル</a>'}).addTo(nationalOutlookMap);
     nationalOutlookDateControl=L.control({position:'topright'});
     nationalOutlookDateControl.onAdd=()=>{
-      const badge=L.DomUtil.create('div','national-map-date-badge');
-      badge.setAttribute('aria-label','全国判定の表示日');
-      badge.textContent=nationalOutlookDateLabel(date.value)||'--/--';
-      L.DomEvent.disableClickPropagation(badge);
-      return badge;
+      const nav=L.DomUtil.create('div','national-map-date-nav');
+      nav.setAttribute('aria-label','全国判定の表示日を移動');
+      nav.innerHTML='<button type="button" class="national-map-date-arrow" data-national-date-shift="-1" aria-label="前日へ">‹</button><span class="national-map-date-label">--/--</span><button type="button" class="national-map-date-arrow" data-national-date-shift="1" aria-label="翌日へ">›</button>';
+      L.DomEvent.disableClickPropagation(nav);L.DomEvent.disableScrollPropagation(nav);
+      nav.querySelectorAll('[data-national-date-shift]').forEach(button=>button.addEventListener('click',()=>shiftNationalOutlookDate(Number(button.dataset.nationalDateShift||0))));
+      return nav;
     };
     nationalOutlookDateControl.addTo(nationalOutlookMap);
+    updateNationalOutlookMapDate();
     renderNationalOutlookMarkers();
     const allCoords=nationalOutlookVisiblePoints().map(p=>[p.lat,p.lon]);
     if(allCoords.length)nationalOutlookMap.fitBounds(allCoords,{padding:[18,18],maxZoom:5});
@@ -7908,9 +8005,15 @@ function representativeSegmentMeta(row,from,to){
 }
 function refreshCourseTimeMissingBadge(row){
   const badge=row?.querySelector('.course-time-missing-badge');
+  const timeInput=row?.querySelector('.point-time');
   if(!badge)return;
   const prev=row.previousElementSibling;
   badge.classList.remove('verified','estimated','derived');
+  if(timeInput){
+    timeInput.classList.remove('ct-time-missing','ct-time-estimated');
+    timeInput.removeAttribute('data-ct-attention');
+    timeInput.title='';
+  }
   if(!prev){
     badge.classList.add('hidden');
     return;
@@ -7924,8 +8027,13 @@ function refreshCourseTimeMissingBadge(row){
   const stored=representativeSegmentMeta(row,from,to);
   const info=stored||courseTimeInfo(from,to);
   if(!info){
-    badge.textContent='CT情報なし';
-    badge.title='直前地点からの標準CTが未登録です';
+    badge.textContent='CT情報なし・時刻入力';
+    badge.title='直前地点からの標準CTが未登録です。通過時刻を手入力してください。';
+    if(timeInput){
+      timeInput.classList.add('ct-time-missing');
+      timeInput.dataset.ctAttention='missing';
+      timeInput.title='CT情報がない区間です。通過時刻を手入力してください。';
+    }
     badge.classList.remove('hidden');
     return;
   }
@@ -7938,8 +8046,13 @@ function refreshCourseTimeMissingBadge(row){
     return;
   }
   if(stored?.kind==='estimated'||info.estimated){
-    badge.textContent=`推定CT ${timeText}${walkingPacePercent()===100?'':` → ${formatCourseTimeMinutes(adjustedCourseMinutes(info.minutes))}`}`;
-    badge.title='確認済みCTが未登録のため、固定座標・標高差などから算出した参考CTです';
+    badge.textContent=`推定CT ${timeText}${walkingPacePercent()===100?'':` → ${formatCourseTimeMinutes(adjustedCourseMinutes(info.minutes))}`}・要確認`;
+    badge.title='確認済みCTが未登録のため、固定座標・標高差などから算出した参考CTです。必要に応じて通過時刻を調整してください。';
+    if(timeInput){
+      timeInput.classList.add('ct-time-estimated');
+      timeInput.dataset.ctAttention='estimated';
+      timeInput.title='推定CTから自動計算した時刻です。必要に応じて手入力で調整してください。';
+    }
     badge.classList.add('estimated');
     badge.classList.remove('hidden');
     return;
@@ -9965,7 +10078,16 @@ Object.assign(BUILTIN_ROUTE_CATALOG, {
   ]
 });
 
-function logEvent(event_name,details={}){fetch('/api/event',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sessionId,app_version:APP_VERSION,event_name,...details})}).catch(()=>{});}
+function logEvent(event_name,details={}){
+  let payloadDetails=details;
+  if(event_name==='weather_analysis'){
+    try{
+      const routePoints=collectPoints();
+      payloadDetails={...details,metadata:{...(details?.metadata||{}),...analysisRouteLogMetadata(routePoints,details?.mountain||currentMountainLabel())}};
+    }catch(_){ }
+  }
+  fetch('/api/event',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sessionId,app_version:APP_VERSION,event_name,...payloadDetails})}).catch(()=>{});
+}
 
 
 
@@ -10037,6 +10159,7 @@ Object.assign(MOUNTAIN_PRESETS, {
 Object.assign(BUILTIN_ROUTE_CATALOG, {
   '剣山': [
     {id:'fixed16-shikoku-tsurugi-minokoshi',type:'trailhead',name:'見ノ越 剣山登山口',lat:33.866558,lon:134.089036,elevation:1394,source:'固定候補'},
+    {id:'fixed1511-shikoku-tsurugi-nishijima-camp',type:'camp',name:'剣山野営場（西島野営場）',lat:33.8603605,lon:134.0884449585372,elevation:1710,source:'にし阿波公式・剣山野営場（西島駅野営場）埋め込み地図'},
     {id:'fixed16-shikoku-tsurugi-nishijima',type:'trailhead',name:'剣山観光登山リフト西島駅',lat:33.860656,lon:134.092260,elevation:1750,source:'固定候補'},
     {id:'fixed16-shikoku-tsurugi-hutte',type:'hut',name:'剣山頂上ヒュッテ',lat:33.855000,lon:134.096111,elevation:1939,source:'固定候補'},
     {id:'fixed16-shikoku-tsurugi-peak',type:'peak',name:'剣山',lat:33.853611,lon:134.094167,elevation:1955,source:'固定候補'},

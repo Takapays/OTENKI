@@ -2,8 +2,8 @@ name: Refresh nationwide cache
 
 on:
   schedule:
-    # Check hourly. The server seeds tomorrow's 100 mountains if missing, and refreshes rows only after the 4-hour TTL.
-    - cron: '17 * * * *'
+    # Wake Render every 15 minutes. V1.5.8 maintains tomorrow through seven days ahead for the 100 Famous Mountains; one forecast date is processed per refresh cycle and only rows past the 4-hour TTL are fetched.
+    - cron: '7,22,37,52 * * * *'
   workflow_dispatch:
 
 jobs:

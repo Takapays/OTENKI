@@ -32,7 +32,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.5.5"
+APP_VERSION = "1.5.11"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -145,7 +145,15 @@ NATIONAL_OUTLOOK_REFRESH_INTERVAL = int(os.environ.get("NATIONAL_OUTLOOK_REFRESH
 NATIONAL_OUTLOOK_AUTO_REFRESH = os.environ.get("NATIONAL_OUTLOOK_AUTO_REFRESH", "1").lower() not in {"0", "false", "no"}
 NATIONAL_OUTLOOK_BOOT_GRACE = int(os.environ.get("NATIONAL_OUTLOOK_BOOT_GRACE", "45"))
 NATIONAL_CACHE_REFRESH_TOKEN = os.environ.get("NATIONAL_CACHE_REFRESH_TOKEN", "")
-NATIONAL_NEXTDAY_100_AUTO_CACHE = os.environ.get("NATIONAL_NEXTDAY_100_AUTO_CACHE", "1").lower() not in {"0", "false", "no"}
+# V1.5.7: proactively keep the next seven days of Japan 100 Famous Mountains
+# in the persistent Supabase cache. One forecast date is refreshed per cycle to
+# avoid API bursts; the 15-minute worker interval still completes a full sweep
+# comfortably inside the four-hour TTL.
+NATIONAL_100_ROLLING_AUTO_CACHE = os.environ.get(
+    "NATIONAL_100_ROLLING_AUTO_CACHE", os.environ.get("NATIONAL_NEXTDAY_100_AUTO_CACHE", "1")
+).lower() not in {"0", "false", "no"}
+NATIONAL_100_ROLLING_DAYS = max(1, min(9, int(os.environ.get("NATIONAL_100_ROLLING_DAYS", "7"))))
+NATIONAL_100_ROLLING_DATES_PER_CYCLE = max(1, min(3, int(os.environ.get("NATIONAL_100_ROLLING_DATES_PER_CYCLE", "1"))))
 NATIONAL_100_POINTS_FILE = os.path.join(BASE, "national-100-points.json")
 NATIONAL_REFRESH_STATUS_FILE = os.path.join(tempfile.gettempdir(), "traten-national-refresh-status.json")
 _national_last_refresh_report: dict[str, Any] = {}
@@ -326,18 +334,82 @@ def _clean_int(value: Any, minimum: int = 0, maximum: int = 10_000_000) -> int |
     return max(minimum, min(maximum, number))
 
 
+def _sanitize_route_itinerary(value: Any) -> list[dict[str, Any]]:
+    """Sanitize anonymous route/timing detail for usage analytics.
+
+    Deliberately stores no coordinates, IP, user agent, email, or free-form identity data.
+    The route is capped so one analytics event stays small even for long traverses.
+    """
+    if not isinstance(value, list):
+        return []
+    allowed = {"point_name", "point_type", "point_role", "date", "time", "stay"}
+    out: list[dict[str, Any]] = []
+    for raw in value[:40]:
+        if not isinstance(raw, dict):
+            continue
+        row: dict[str, Any] = {}
+        for key in allowed:
+            val = raw.get(key)
+            if key == "stay":
+                row[key] = bool(val)
+            elif val is not None:
+                limit = 120 if key == "point_name" else 40
+                row[key] = str(val)[:limit]
+        if row.get("point_name"):
+            out.append(row)
+    return out
+
+
+def _sanitize_ct_review_segments(value: Any) -> list[dict[str, Any]]:
+    """Sanitize CT review candidates captured from anonymous analyzed routes."""
+    if not isinstance(value, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for raw in value[:39]:
+        if not isinstance(raw, dict):
+            continue
+        from_name = _clean_text(raw.get("from_name"), 120)
+        to_name = _clean_text(raw.get("to_name"), 120)
+        status = str(raw.get("status") or "").strip()
+        if not from_name or not to_name or status not in {"estimated", "missing"}:
+            continue
+        row = {"from_name": from_name, "to_name": to_name, "status": status}
+        minutes = _clean_int(raw.get("minutes"), 0, 2000)
+        if minutes is not None:
+            row["minutes"] = minutes
+        source = _clean_text(raw.get("source"), 180)
+        if source:
+            row["source"] = source
+        out.append(row)
+    return out
+
+
 def _sanitize_metadata(value: Any) -> dict[str, Any]:
     if not isinstance(value, dict):
         return {}
     # Keep analytics payloads small and deliberately exclude common identity fields.
     blocked = {"ip", "ip_address", "email", "name", "user_agent", "ua", "phone", "address"}
+    long_text_keys = {"route_path"}
     out: dict[str, Any] = {}
-    for key, val in list(value.items())[:24]:
+    for key, val in list(value.items())[:32]:
         k = str(key)[:64]
         if k.lower() in blocked:
             continue
+        if k == "itinerary":
+            rows = _sanitize_route_itinerary(val)
+            if rows:
+                out[k] = rows
+            continue
+        if k == "ct_review_segments":
+            rows = _sanitize_ct_review_segments(val)
+            if rows:
+                out[k] = rows
+            continue
         if isinstance(val, (str, int, float, bool)) or val is None:
-            out[k] = val if not isinstance(val, str) else val[:300]
+            if isinstance(val, str):
+                out[k] = val[:1600 if k in long_text_keys else 300]
+            else:
+                out[k] = val
     return out
 
 
@@ -600,6 +672,103 @@ def _usage_dashboard_summary(events: list[dict[str, Any]]) -> dict[str, Any]:
         places.append(row)
     places.sort(key=lambda x: (-x["used_count"], -x["selected_count"], x["mountain"], x["point_name"]))
 
+    # V1.5.8: anonymous analyzed-route history and popular-route aggregation.
+    # Route/timing details live inside the existing metadata JSON, so no Supabase
+    # schema migration is required. Older events simply have no itinerary field.
+    analysis_history: list[dict[str, Any]] = []
+    route_map: dict[tuple[str, str], dict[str, Any]] = {}
+    for e in events:
+        if e.get("event_name") != "weather_analysis" or e.get("success") is not True:
+            continue
+        meta = e.get("metadata") if isinstance(e.get("metadata"), dict) else {}
+        itinerary = _sanitize_route_itinerary(meta.get("itinerary"))
+        mountain = str(e.get("mountain") or meta.get("mountain") or "").strip()
+        route_path = str(meta.get("route_path") or "").strip()
+        if not route_path and itinerary:
+            route_path = " → ".join(str(x.get("point_name") or "") for x in itinerary if x.get("point_name"))
+        route_label = str(meta.get("route_label") or "").strip()
+        start_date = str(meta.get("start_date") or (itinerary[0].get("date") if itinerary else "") or "")[:10]
+        end_date = str(meta.get("end_date") or (itinerary[-1].get("date") if itinerary else "") or "")[:10]
+        stay_count = int(e.get("stay_count") or meta.get("overnight_count") or 0)
+        row = {
+            "created_at": e.get("created_at"),
+            "mountain": mountain,
+            "route_label": route_label,
+            "route_path": route_path,
+            "start_date": start_date,
+            "end_date": end_date,
+            "stay_count": stay_count,
+            "point_count": int(e.get("route_points") or len(itinerary) or 0),
+            "itinerary": itinerary,
+        }
+        if route_path or itinerary:
+            analysis_history.append(row)
+
+        if not route_path:
+            continue
+        key = (mountain, route_path)
+        rr = route_map.setdefault(key, {
+            "mountain": mountain, "route_label": route_label, "route_path": route_path,
+            "analysis_count": 0, "sessions": set(), "last_used": "",
+        })
+        rr["analysis_count"] += 1
+        if e.get("session_id"):
+            rr["sessions"].add(str(e.get("session_id")))
+        created = str(e.get("created_at") or "")
+        if created > rr["last_used"]:
+            rr["last_used"] = created
+        if not rr["route_label"] and route_label:
+            rr["route_label"] = route_label
+
+    analysis_history.sort(key=lambda x: str(x.get("created_at") or ""), reverse=True)
+    analysis_history = analysis_history[:100]
+    popular_routes = []
+    for row in route_map.values():
+        row["unique_sessions"] = len(row.pop("sessions"))
+        popular_routes.append(row)
+    popular_routes.sort(key=lambda x: str(x.get("last_used") or ""), reverse=True)
+    popular_routes.sort(key=lambda x: (x["analysis_count"], x["unique_sessions"]), reverse=True)
+    popular_routes = popular_routes[:20]
+
+    # V1.5.9: aggregate actually-used estimated/missing CT segments.
+    # This is a review queue only; user usage never turns an estimate into a verified CT.
+    ct_review_map: dict[tuple[str, str], dict[str, Any]] = {}
+    for e in events:
+        if e.get("event_name") != "weather_analysis" or e.get("success") is not True:
+            continue
+        meta = e.get("metadata") if isinstance(e.get("metadata"), dict) else {}
+        segments = _sanitize_ct_review_segments(meta.get("ct_review_segments"))
+        mountain = str(e.get("mountain") or "").strip()
+        session = str(e.get("session_id") or "")
+        created = str(e.get("created_at") or "")
+        for seg in segments:
+            key = (seg["from_name"], seg["to_name"])
+            row = ct_review_map.setdefault(key, {
+                "from_name": seg["from_name"], "to_name": seg["to_name"],
+                "status": seg["status"], "minutes": seg.get("minutes"),
+                "source": seg.get("source", ""), "use_count": 0,
+                "sessions": set(), "mountains": set(), "last_used": "",
+            })
+            row["use_count"] += 1
+            if seg["status"] == "missing":
+                row["status"] = "missing"
+                row["minutes"] = None
+            elif row.get("minutes") is None and seg.get("minutes") is not None:
+                row["minutes"] = seg.get("minutes")
+            if session:
+                row["sessions"].add(session)
+            if mountain:
+                row["mountains"].add(mountain)
+            if created > row["last_used"]:
+                row["last_used"] = created
+    ct_review_segments = []
+    for row in ct_review_map.values():
+        row["unique_sessions"] = len(row.pop("sessions"))
+        row["mountains"] = sorted(row.pop("mountains"))
+        ct_review_segments.append(row)
+    ct_review_segments.sort(key=lambda x: (x["use_count"], x["unique_sessions"], x["last_used"]), reverse=True)
+    ct_review_segments = ct_review_segments[:100]
+
     recent_failures = [
         {
             "created_at": e.get("created_at"), "event_name": e.get("event_name"),
@@ -620,6 +789,9 @@ def _usage_dashboard_summary(events: list[dict[str, Any]]) -> dict[str, Any]:
         "mountains": mountains,
         "places": places,
         "daily_trend": daily_trend,
+        "analysis_history": analysis_history,
+        "popular_routes": popular_routes,
+        "ct_review_segments": ct_review_segments,
         "recent_failures": recent_failures,
     }
 
@@ -995,54 +1167,91 @@ def _national_load_100_points() -> list[dict[str, Any]]:
     return out
 
 
-def _national_nextday_date_text() -> str:
+def _national_rolling_100_date_texts() -> list[str]:
+    """Return tomorrow through N days ahead in JST for proactive 100-mountain caching."""
     today_jst=(datetime.now(timezone.utc)+timedelta(hours=9)).date()
-    return (today_jst+timedelta(days=1)).isoformat()
+    return [(today_jst+timedelta(days=offset)).isoformat() for offset in range(1, NATIONAL_100_ROLLING_DAYS+1)]
 
 
-def _refresh_nextday_100_cache(*, force: bool=False) -> dict[str, Any]:
-    """Ensure tomorrow's Japan 100 Famous Mountains cache exists and stays within TTL.
+def _national_nextday_date_text() -> str:
+    # Backward-compatible helper retained for diagnostics / older callers.
+    return _national_rolling_100_date_texts()[0]
 
-    Missing rows are created. Existing fresh rows are reused. Stale rows are refreshed.
-    This is the seed cache used by the nationwide page's default view.
+
+def _national_100_date_cache_status(date_text: str, points: list[dict[str, Any]], *, force: bool=False) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Inspect one rolling forecast date and return its status plus due points."""
+    report={"date":date_text,"seedCount":len(points),"freshBefore":0,"staleBefore":0,"missingBefore":0,"pointsDue":0,"pointsUpdated":0,"ok":True,"error":None}
+    fresh,stale,_=_national_supabase_read(date_text,points)
+    report["freshBefore"]=len(fresh); report["staleBefore"]=len(stale)
+    report["missingBefore"]=sum(1 for p in points if p["name"] not in fresh and p["name"] not in stale)
+    due=points if force else [p for p in points if p["name"] not in fresh]
+    report["pointsDue"]=len(due)
+    return report,due
+
+
+def _refresh_rolling_100_cache(*, force: bool=False, max_dates: int | None=None) -> dict[str, Any]:
+    """Maintain a rolling 7-day Supabase cache for Japan's 100 Famous Mountains.
+
+    The window is tomorrow through NATIONAL_100_ROLLING_DAYS days ahead.
+    To protect upstream weather APIs, only the earliest due forecast date(s) are
+    refreshed each cycle (one date by default). Fresh rows are never refetched.
     """
     points=_national_load_100_points()
-    report={"ok":True,"date":_national_nextday_date_text(),"seedCount":len(points),"freshBefore":0,"staleBefore":0,"missingBefore":0,"pointsDue":0,"pointsUpdated":0,"error":None}
+    dates=_national_rolling_100_date_texts()
+    limit=max(1, int(max_dates or NATIONAL_100_ROLLING_DATES_PER_CYCLE))
+    report: dict[str, Any]={
+        "ok":True,"windowStart":dates[0] if dates else None,"windowEnd":dates[-1] if dates else None,
+        "rollingDays":len(dates),"seedCount":len(points),"targetRows":len(dates)*len(points),
+        "datesInspected":0,"datesDue":0,"datesProcessed":0,"pointsDue":0,"pointsUpdated":0,
+        "dateReports":[],"errors":[],
+    }
     if len(points)!=100:
         report.update(ok=False,error=f"百名山固定座標が100件ではありません: {len(points)}")
         return report
     if not _national_supabase_enabled():
         report.update(ok=False,error="Supabase national cache is not configured")
         return report
-    date_text=report["date"]
-    fresh,stale,_=_national_supabase_read(date_text,points)
-    report["freshBefore"]=len(fresh); report["staleBefore"]=len(stale)
-    due=points if force else [p for p in points if p["name"] not in fresh]
-    report["missingBefore"]=sum(1 for p in points if p["name"] not in fresh and p["name"] not in stale)
-    report["pointsDue"]=len(due)
-    if not due:
-        return report
-    fingerprint=_national_points_fingerprint(points)
-    if not _national_try_lock(date_text,fingerprint):
-        report["locked"]=True
-        return report
-    try:
-        results,complete,rate_limited,error=_national_fetch_shared(date_text,due)
-        if results:
-            _national_supabase_write(date_text,due,results)
-            report["pointsUpdated"]=len(results)
-        report["completeFetch"]=bool(complete)
-        report["rateLimited"]=bool(rate_limited)
-        if error:
-            report["error"]=error; report["ok"]=False
-        if rate_limited:
-            report["ok"]=False
-    except Exception as exc:
-        app.logger.exception("national_nextday_100_refresh_failed")
-        report["ok"]=False; report["error"]=str(exc)[:200]
-    finally:
-        _national_unlock(date_text,fingerprint)
+
+    due_dates: list[tuple[str,list[dict[str,Any]],dict[str,Any]]]=[]
+    for date_text in dates:
+        date_report,due=_national_100_date_cache_status(date_text,points,force=force)
+        report["datesInspected"]+=1
+        report["pointsDue"]+=len(due)
+        report["dateReports"].append(date_report)
+        if due:
+            report["datesDue"]+=1
+            due_dates.append((date_text,due,date_report))
+
+    for date_text,due,date_report in due_dates[:limit]:
+        fingerprint=_national_points_fingerprint(points)
+        if not _national_try_lock(date_text,fingerprint):
+            date_report["locked"]=True
+            continue
+        report["datesProcessed"]+=1
+        try:
+            results,complete,rate_limited,error=_national_fetch_shared(date_text,due)
+            if results:
+                _national_supabase_write(date_text,due,results)
+                date_report["pointsUpdated"]=len(results)
+                report["pointsUpdated"]+=len(results)
+            date_report["completeFetch"]=bool(complete)
+            date_report["rateLimited"]=bool(rate_limited)
+            if error:
+                date_report["error"]=error; date_report["ok"]=False
+                report["errors"].append({"date":date_text,"error":error})
+            if rate_limited:
+                date_report["ok"]=False
+                report["errors"].append({"date":date_text,"error":"rate_limited"})
+                break
+        except Exception as exc:
+            app.logger.exception("national_rolling_100_refresh_failed date=%s",date_text)
+            date_report["ok"]=False; date_report["error"]=str(exc)[:200]
+            report["errors"].append({"date":date_text,"error":str(exc)[:200]})
+        finally:
+            _national_unlock(date_text,fingerprint)
+    report["ok"]=not report["errors"] and not report.get("error")
     return report
+
 
 def _national_supabase_refresh_candidates(force: bool = False) -> dict[str, list[dict[str, Any]]]:
     """Load persistent cache rows that should be refreshed, grouped by forecast date.
@@ -1097,45 +1306,36 @@ def _national_supabase_refresh_candidates(force: bool = False) -> dict[str, list
 
 
 def _refresh_national_persistent_cache(*, force: bool = False) -> dict[str, Any]:
-    """Ensure tomorrow's 100-mountain seed, then refresh other stale shared rows."""
+    """Refresh only the proactive rolling 7-day / 100-mountain cache.
+
+    Other dates and the additional 200 mountains remain opportunistic/on-demand:
+    every successful user analysis is stored in the same Supabase shared cache and
+    is reusable within the four-hour fresh TTL, but the background worker does not
+    spend API calls keeping those rows warm.
+    """
     global _national_last_refresh_report
-    started = time.time()
-    nextday = _refresh_nextday_100_cache(force=force) if NATIONAL_NEXTDAY_100_AUTO_CACHE else {"ok":True,"disabled":True,"pointsDue":0,"pointsUpdated":0}
-    groups = _national_supabase_refresh_candidates(force=force)
-    report: dict[str, Any] = {
-        "ok": bool(nextday.get("ok", True)), "force": force, "nextday100": nextday,
-        "datesChecked": len(groups), "pointsDue": int(nextday.get("pointsDue") or 0) + sum(len(v) for v in groups.values()),
-        "pointsUpdated": int(nextday.get("pointsUpdated") or 0), "datesUpdated": 1 if nextday.get("pointsUpdated") else 0, "errors": [],
+    started=time.time()
+    rolling=(
+        _refresh_rolling_100_cache(force=force)
+        if NATIONAL_100_ROLLING_AUTO_CACHE
+        else {"ok":True,"disabled":True,"rollingDays":NATIONAL_100_ROLLING_DAYS,"pointsDue":0,"pointsUpdated":0,"errors":[]}
+    )
+    report: dict[str, Any]={
+        "ok":bool(rolling.get("ok",True)),"force":force,"rolling100":rolling,
+        "datesChecked":int(rolling.get("datesInspected") or 0),
+        "datesDue":int(rolling.get("datesDue") or 0),
+        "datesProcessed":int(rolling.get("datesProcessed") or 0),
+        "pointsDue":int(rolling.get("pointsDue") or 0),
+        "pointsUpdated":int(rolling.get("pointsUpdated") or 0),
+        "errors":list(rolling.get("errors") or []),
+        "backgroundScope":"100-famous-mountains-next-7-days",
     }
-    if not nextday.get("ok", True) and nextday.get("error"):
-        report["errors"].append({"date":nextday.get("date"),"error":nextday.get("error")})
-    for date_text in sorted(groups):
-        points = groups[date_text]
-        if not points:
-            continue
-        fingerprint = _national_points_fingerprint(points)
-        if not _national_try_lock(date_text, fingerprint):
-            continue
-        try:
-            results, complete, rate_limited, error = _national_fetch_shared(date_text, points)
-            if results:
-                _national_supabase_write(date_text, points, results)
-                report["pointsUpdated"] += len(results)
-                report["datesUpdated"] += 1
-            if error:
-                report["errors"].append({"date": date_text, "error": error})
-            if rate_limited:
-                report["errors"].append({"date": date_text, "error": "rate_limited"})
-                break
-        except Exception as exc:
-            app.logger.exception("national_persistent_refresh_failed date=%s", date_text)
-            report["errors"].append({"date": date_text, "error": str(exc)[:200]})
-        finally:
-            _national_unlock(date_text, fingerprint)
-    report["elapsedSeconds"] = round(time.time() - started, 2)
-    report["ok"] = not report["errors"]
-    _national_last_refresh_report = dict(report)
-    _national_last_refresh_report["finishedAt"] = datetime.now(timezone.utc).isoformat()
+    if rolling.get("error"):
+        report["errors"].append({"error":rolling.get("error")})
+    report["elapsedSeconds"]=round(time.time()-started,2)
+    report["ok"]=bool(rolling.get("ok",True)) and not report["errors"]
+    _national_last_refresh_report=dict(report)
+    _national_last_refresh_report["finishedAt"]=datetime.now(timezone.utc).isoformat()
     return report
 
 
@@ -1761,7 +1961,7 @@ def national_outlook_refresh_cache():
     """Scheduled wake-up endpoint for the persistent nationwide cache.
 
     Configure the same NATIONAL_CACHE_REFRESH_TOKEN in Render and GitHub Actions.
-    The endpoint refreshes only rows whose four-hour TTL has expired.
+    The endpoint maintains tomorrow through seven days ahead for the 100 Famous Mountains, refreshing only rows whose four-hour TTL has expired.
     """
     if not NATIONAL_CACHE_REFRESH_TOKEN:
         return jsonify(error="NATIONAL_CACHE_REFRESH_TOKEN is not configured"), 503
@@ -1941,7 +2141,10 @@ def health():
         national_auto_refresh_enabled=NATIONAL_OUTLOOK_AUTO_REFRESH,
         national_refresh_interval_seconds=NATIONAL_OUTLOOK_REFRESH_INTERVAL,
         national_refresh_token_configured=bool(NATIONAL_CACHE_REFRESH_TOKEN),
-        national_nextday_100_auto_cache=NATIONAL_NEXTDAY_100_AUTO_CACHE,
+        national_100_rolling_auto_cache=NATIONAL_100_ROLLING_AUTO_CACHE,
+        national_100_rolling_days=NATIONAL_100_ROLLING_DAYS,
+        national_100_rolling_dates_per_cycle=NATIONAL_100_ROLLING_DATES_PER_CYCLE,
+        national_100_rolling_target_rows=NATIONAL_100_ROLLING_DAYS*len(_national_load_100_points()),
         national_nextday_100_seed_count=len(_national_load_100_points()),
         national_last_refresh_report=_national_last_refresh_report or None,
         national_refresh_runtime=_national_refresh_runtime_snapshot(),
@@ -2148,7 +2351,7 @@ def _water_mountain_cache_remote_load() -> dict[str, Any] | None:
         try:
             req = urllib.request.Request(
                 url,
-                headers={"User-Agent": "Traten/1.5.5", "Cache-Control": "no-cache"},
+                headers={"User-Agent": "Traten/1.5.11", "Cache-Control": "no-cache"},
             )
             with urllib.request.urlopen(req, timeout=WATER_MOUNTAIN_CACHE_REMOTE_TIMEOUT) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
@@ -2193,7 +2396,7 @@ def _water_mountain_cache_entry(mountain: str) -> dict[str, Any] | None:
     return row if isinstance(row, dict) else None
 
 
-# V1.5.5: curated water corrections that must survive remote cache refreshes.
+# V1.5.6: curated water corrections that must survive remote cache refreshes.
 # Coordinates are fixed only from public published coordinates; never guessed.
 def _apply_water_manual_overrides(data: dict[str, Any]) -> dict[str, Any]:
     if not _valid_water_mountain_cache(data):
