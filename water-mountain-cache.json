@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T05:09:54.885225Z",
+  "generated_at": "2026-08-28T05:10:00.306315Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 254,
-  "available_count": 51,
-  "unresolved_count": 46,
+  "checked_count": 255,
+  "available_count": 52,
+  "unresolved_count": 45,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -3119,10 +3119,43 @@
       "checked_at": "2026-08-28T05:09:54.882522Z"
     },
     "愛宕山": {
-      "checked": false,
-      "available": false,
-      "count": 0,
-      "sources": []
+      "checked": true,
+      "available": true,
+      "count": 3,
+      "sources": [
+        {
+          "name": "清滝・愛宕山表参道登山口付近の湧水",
+          "lat": 35.040881,
+          "lon": 135.655492,
+          "kind": "湧水",
+          "potability": "confirmed",
+          "near_point": "清滝・愛宕山表参道登山口",
+          "distance_m": 278,
+          "osm_id": "node/10247103816"
+        },
+        {
+          "name": "清滝・愛宕山表参道登山口付近の湧水",
+          "lat": 35.044018,
+          "lon": 135.654954,
+          "kind": "湧水",
+          "potability": "unknown",
+          "near_point": "清滝・愛宕山表参道登山口",
+          "distance_m": 560,
+          "osm_id": "node/13115633401"
+        },
+        {
+          "name": "愛宕山付近の湧水",
+          "lat": 35.05257,
+          "lon": 135.622379,
+          "kind": "湧水",
+          "potability": "confirmed",
+          "near_point": "愛宕山",
+          "distance_m": 1373,
+          "osm_id": "node/11335039778"
+        }
+      ],
+      "attempts": 2,
+      "checked_at": "2026-08-28T05:10:00.303564Z"
     },
     "六甲山": {
       "checked": false,
