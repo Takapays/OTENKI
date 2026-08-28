@@ -1,14 +1,14 @@
 {
   "schema_version": 4,
   "app_version": "1.4.248",
-  "generated_at": "2026-08-28T04:00:18.148280Z",
+  "generated_at": "2026-08-28T04:00:29.218579Z",
   "source": "OpenStreetMap / Overpass API",
   "audit_mode": "incremental-rotating",
   "radius_m": 1400,
   "mountain_count": 300,
-  "checked_count": 111,
+  "checked_count": 112,
   "available_count": 14,
-  "unresolved_count": 189,
+  "unresolved_count": 188,
   "mountains": {
     "利尻山": {
       "checked": true,
@@ -1170,10 +1170,12 @@
       "error": "https://overpass-api.de/api/interpreter: TimeoutError: The read operation timed out"
     },
     "入笠山": {
-      "checked": false,
+      "checked": true,
       "available": false,
       "count": 0,
-      "sources": []
+      "sources": [],
+      "attempts": 2,
+      "checked_at": "2026-08-28T04:00:29.216113Z"
     },
     "霧ヶ峰（車山）": {
       "checked": false,
