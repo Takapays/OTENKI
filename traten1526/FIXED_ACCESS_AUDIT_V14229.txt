@@ -1,0 +1,3 @@
+Japan 300 fixed/resolved trailhead coverage: 300/300
+
+Missing fixed coordinates:

@@ -1,0 +1,1 @@
+SUMMARY mountains=109 courses=114 multi=5 bad=0

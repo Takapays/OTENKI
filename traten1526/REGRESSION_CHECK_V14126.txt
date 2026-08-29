@@ -1,0 +1,6 @@
+トラテン V1.4.126 回帰確認
+- node --check app.js: PASS
+- python3 -m py_compile server.py: PASS
+- CT監査: 413/413 CT表示可能、確認済み246、推定167、CT情報なし0
+- access.js MutationObserver: 非復活確認
+- 全国簡易判定の部分共有キャッシュ: V1.4.124以降の実装を維持

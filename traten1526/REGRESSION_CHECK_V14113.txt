@@ -1,0 +1,15 @@
+V1.4.113 regression check
+- node --check app.js: PASS
+- python3 -m py_compile server.py: PASS
+- nationwide simple-outlook engine: MET Norway + NOAA GFS direct only
+- national cache key versioned: metno-gfs-v1
+- browser national cache bumped to v3
+- shared cache TTL remains 4h, stale last-good remains 24h
+- GFS Japan-region GRIB2 sampling implemented
+- dual model merge uses stricter ABC grade; single-source fallback allowed
+- bottom button order: add point -> save route -> analyze
+- representative course summaries: all options visible, clickable on desktop/mobile
+- Yari: 2 routes (Kamikochi/Yarisawa, Shinhotaka/Yaridaira)
+- Tsurugi: 2 routes (Murodo/Bessan ridge, Babajima/Hayatsuki ridge)
+- MutationObserver in access.js: must remain absent
+- Flask HTTP/runtime network test: not run in this container (Flask module unavailable here)

@@ -1,0 +1,9 @@
+V1.4.256で追加した静的フロント実験ファイルです。V1.5.0では削除してください。
+
+api-config.js
+STATIC_FRONTEND_V14256.md
+scripts/  （フォルダごと）
+dist/     （フォルダごと）
+
+※ full ZIPには上記は含まれていません。
+※ changed-files ZIPを既存フォルダへ上書きする場合だけ、この一覧の削除も実施してください。

@@ -1,0 +1,7 @@
+V1.4.87 regression check
+- Result screenshot button exists inside #results.
+- Screenshot excludes .screenshot-exclude elements.
+- Model details section is marked screenshot-exclude.
+- html2canvas 1.4.1 is loaded before app.js.
+- Output format: PNG.
+- Screenshot source is a 1120px off-screen result clone for consistent full-page capture.
