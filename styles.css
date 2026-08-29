@@ -4616,3 +4616,34 @@ body.install-guide-open{overflow:hidden}
   #forecastCards .rf-wind-direction-inline b{font-size:12px !important}
   #forecastCards .rf-wind-direction-inline small{font-size:9px !important}
 }
+
+
+/* V1.5.30 スマホ版地点別予報: V1.5.29後に残った旧named grid-areaを完全解除 */
+#forecastCards .rf-metrics-grid > .rf-metric.temp,
+#forecastCards .rf-metrics-grid > .rf-metric.wind,
+#forecastCards .rf-metrics-grid > .rf-metric.rain,
+#forecastCards .rf-metrics-grid > .rf-metric.vis{
+  grid-area:auto !important;
+  grid-column:auto !important;
+  grid-row:auto !important;
+}
+@media(max-width:900px){
+  #forecastCards .rf-metrics-grid{
+    display:grid !important;
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    grid-template-rows:auto auto !important;
+    grid-template-areas:none !important;
+    grid-auto-flow:row !important;
+  }
+  #forecastCards .rf-metrics-grid > .rf-metric.temp,
+  #forecastCards .rf-metrics-grid > .rf-metric.wind,
+  #forecastCards .rf-metrics-grid > .rf-metric.rain,
+  #forecastCards .rf-metrics-grid > .rf-metric.vis{
+    grid-area:auto !important;
+    grid-column:auto !important;
+    grid-row:auto !important;
+    width:100% !important;
+    min-width:0 !important;
+    box-sizing:border-box !important;
+  }
+}
