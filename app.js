@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.28';
+const APP_VERSION = '1.5.29';
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
@@ -10271,7 +10271,7 @@ function pointForecastRow(r,i,total){
   const msg=pointForecastMessage(r);
   const windDeg=r.providerRows?.[0]?.row?.windDir ?? NaN;
   const visEval=visibilityEvaluation(r.visibility);
-  const windDegLabel=Number.isFinite(windDeg)?`(${Math.round((((windDeg%360)+360)%360))}°)`: '風の向き';
+  const windDegLabel=Number.isFinite(windDeg)?`${Math.round((((windDeg%360)+360)%360))}°`:'データなし';
   const conf=pointForecastConfidence(r);
   return `<article class="route-forecast-row point-dashboard-card">
     <div class="rf-point-head">
@@ -10290,17 +10290,17 @@ function pointForecastRow(r,i,total){
       <div class="rf-metric wind${hazardMetricClass(hz.wind)}" data-label="風">
         <div class="rf-metric-title"><span class="rf-metric-symbol wind">${pointMetricIcon('wind')}</span><b>風</b></div>
         <div class="rf-value-wrap"><strong>${num(r.wind,0)}</strong><small>m/s</small></div>
+        <div class="rf-wind-direction-inline" aria-label="風向">
+          <span class="rf-wind-dir-arrow">${windDirectionArrow(windDeg)}</span>
+          <b>${windDirectionLabel(windDeg)}</b>
+          <small>${windDegLabel}</small>
+        </div>
         ${metricGauge('wind',r.wind)}
       </div>
       <div class="rf-metric rain${hazardMetricClass(hz.rain)}" data-label="雨">
         <div class="rf-metric-title"><span class="rf-metric-symbol rain">${pointMetricIcon('rain')}</span><b>雨</b></div>
         <div class="rf-value-wrap"><strong>${num(r.rain,1)}</strong><small>mm/h</small></div>
         ${metricGauge('rain',r.rain)}
-      </div>
-      <div class="rf-direction" data-label="風向">
-        <div class="rf-metric-title"><span class="rf-metric-symbol direction">${pointMetricIcon('direction')}</span><b>風向</b></div>
-        <div class="rf-direction-main"><strong>${windDirectionArrow(windDeg)}</strong><b>${windDirectionLabel(windDeg)}</b></div>
-        <small>${windDegLabel}</small>
       </div>
       <div class="rf-metric vis${hazardMetricClass(hz.visibility)}" data-label="視界">
         <div class="rf-metric-title"><span class="rf-metric-symbol visibility">${pointMetricIcon('visibility')}</span><b>視界</b><em class="rf-vis-eval ${visEval.cls}">${visEval.label}</em></div>
