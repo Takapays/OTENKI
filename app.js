@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.17';
+const APP_VERSION = '1.5.18';
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
@@ -1375,6 +1375,25 @@ function normalizeCourseTimePointName(name){
 // V1.5.14: abolish proportional/apportioned CT. Every fixed intermediate waypoint
 // used by representative routes must have an explicit published segment CT.
 
+// V1.5.18: 追加王道ルート用の区間CT。距離按分は使わず、公開標準CTのみを方向別に固定。
+const V1518_CLASSIC_ROUTE_VERIFIED_COURSE_TIMES = Object.freeze({
+  // 三股サーキット（YAMAPモデルコースのチェックポイント時刻から区間合算）
+  '三股登山口→常念岳': {minutes:440, source:'YAMAPモデルコース・三股-常念岳-蝶ヶ岳周回（標準CT 7時間20分）', sourceType:'yamap'},
+  '常念岳→三股登山口': {minutes:265, source:'YAMAPモデルコース・常念岳（三股）（標準CT 4時間25分）', sourceType:'yamap'},
+
+  // 雲ノ平グランドサークル
+  '太郎平小屋→薬師沢小屋': {minutes:140, source:'雲ノ平山荘公式・折立登山口ルート（太郎平小屋→薬師沢小屋 2時間20分）', sourceType:'official'},
+  '薬師沢小屋→太郎平小屋': {minutes:141, source:'ヤマレコ公開山行計画・薬師沢小屋→太郎平小屋 標準CT 141分', sourceType:'yamareco'},
+  '薬師沢小屋→雲ノ平山荘': {minutes:195, source:'雲ノ平山荘公式・折立登山口ルート（アラスカ庭園・祖母岳分岐経由 3時間15分）', sourceType:'official'},
+  '雲ノ平山荘→薬師沢小屋': {minutes:97, source:'ヤマレコ公開山行計画・雲ノ平山荘→薬師沢小屋 標準CT 97分', sourceType:'yamareco'},
+  '雲ノ平山荘→三俣山荘': {minutes:170, source:'山旅旅・折立〜雲ノ平〜黒部五郎岳周回（キャンプ場・祖父岳分岐・徒渉点経由 2時間50分）', sourceType:'other'},
+  '三俣山荘→雲ノ平山荘': {minutes:160, source:'雲ノ平山荘公式・新穂高温泉ルート（黒部源流・祖父岳分岐・キャンプ場分岐経由 2時間40分）', sourceType:'official'},
+  '三俣蓮華岳→黒部五郎小舎': {minutes:90, source:'山旅旅・折立〜雲ノ平〜黒部五郎岳周回（巻道合流点経由 1時間30分）', sourceType:'other'},
+  '黒部五郎小舎→三俣蓮華岳': {minutes:122, source:'ヤマレコ公開山行計画・黒部五郎小舎→三俣蓮華岳 標準CT 122分', sourceType:'yamareco'},
+  '黒部五郎小舎→黒部五郎岳': {minutes:130, source:'山旅旅・折立〜雲ノ平〜黒部五郎岳周回（黒部五郎小舎→黒部五郎岳 2時間10分）', sourceType:'other'},
+  '黒部五郎岳→黒部五郎小舎': {minutes:77, source:'ヤマレコ公開山行計画・黒部五郎岳→黒部五郎小舎 標準CT 77分', sourceType:'yamareco'}
+});
+
 // V1.5.16: 王道ルート内で実際に CT情報なし となっていた細区間を公開標準CTで固定。
 // 距離按分・推定による補完は行わず、各区間の公開コースタイムを方向別に登録する。
 const V1516_CLASSIC_ROUTE_VERIFIED_COURSE_TIMES = Object.freeze({
@@ -1662,6 +1681,7 @@ const V14188_PRIORITY_VERIFIED_COURSE_TIMES = Object.freeze({
 });
 
 const COURSE_TIME_TABLES = Object.freeze([
+  V1518_CLASSIC_ROUTE_VERIFIED_COURSE_TIMES,
   V1516_CLASSIC_ROUTE_VERIFIED_COURSE_TIMES,
   V1514_INTERMEDIATE_VERIFIED_COURSE_TIMES,
   V1513_INTERMEDIATE_VERIFIED_COURSE_TIMES,
@@ -2116,6 +2136,18 @@ const CLASSIC_ROUTES=[
   ]},
   {id:'yari-hotaka',name:'槍・穂高縦走',subtitle:'上高地 → 槍ヶ岳 → 南岳 → 北穂高岳 → 奥穂高岳 → 上高地',anchor:'槍ヶ岳',days:'3泊4日目安',level:'上級・大キレット',points:[
     ['trailhead','上高地','槍ヶ岳'],['hut','横尾山荘','槍ヶ岳'],['hut','槍沢ロッヂ','槍ヶ岳'],['hut','槍ヶ岳山荘','槍ヶ岳'],['peak','槍ヶ岳','槍ヶ岳'],['hut','槍ヶ岳山荘','槍ヶ岳',true],['peak','大喰岳','槍ヶ岳'],['peak','中岳','槍ヶ岳'],['peak','南岳','槍ヶ岳'],['hut','南岳小屋','槍ヶ岳',true],['peak','北穂高岳','槍ヶ岳'],['hut','北穂高小屋','槍ヶ岳'],['peak','涸沢岳','槍ヶ岳'],['hut','穂高岳山荘','奥穂高岳',true],['peak','奥穂高岳','奥穂高岳'],['hut','穂高岳山荘','奥穂高岳'],['hut','涸沢ヒュッテ','奥穂高岳'],['hut','横尾山荘','槍ヶ岳'],['trailhead','上高地','槍ヶ岳']
+  ]},
+  {id:'shiramine-sanzan',name:'白峰三山',subtitle:'広河原 → 北岳 → 間ノ岳 → 農鳥岳 → 奈良田',anchor:'北岳',days:'2泊3日目安',level:'南アルプス縦走',points:[
+    ['trailhead','広河原','北岳'],['hut','白根御池小屋','北岳'],['hut','北岳肩の小屋','北岳'],['peak','北岳','北岳'],['hut','北岳山荘','間ノ岳',true],['peak','中白根山','間ノ岳'],['peak','間ノ岳','間ノ岳'],['hut','農鳥小屋','農鳥岳',true],['peak','農鳥岳','農鳥岳'],['trailhead','奈良田','農鳥岳']
+  ]},
+  {id:'houou-sanzan',name:'鳳凰三山',subtitle:'夜叉神峠 → 薬師岳 → 観音岳 → 地蔵岳 → 夜叉神峠',anchor:'観音岳(鳳凰)',days:'1泊2日目安',level:'南アルプス縦走',points:[
+    ['trailhead','夜叉神峠登山口','観音岳(鳳凰)'],['hut','南御室小屋','観音岳(鳳凰)',true],['peak','薬師岳(鳳凰)','観音岳(鳳凰)'],['peak','観音岳(鳳凰)','観音岳(鳳凰)'],['peak','地蔵岳(鳳凰)','地蔵岳(鳳凰)'],['peak','観音岳(鳳凰)','観音岳(鳳凰)'],['peak','薬師岳(鳳凰)','観音岳(鳳凰)'],['hut','南御室小屋','観音岳(鳳凰)'],['trailhead','夜叉神峠登山口','観音岳(鳳凰)']
+  ]},
+  {id:'mitsumata-circuit',name:'三股サーキット',subtitle:'三股 → 常念岳 → 蝶ヶ岳 → 三股',anchor:'常念岳',days:'日帰り目安',level:'ロング・周回',points:[
+    ['trailhead','三股登山口','常念岳'],['peak','常念岳','常念岳'],['peak','蝶ヶ岳','蝶ヶ岳'],['trailhead','三股登山口','蝶ヶ岳']
+  ]},
+  {id:'kumonodaira-grand-circle',name:'雲ノ平グランドサークル',subtitle:'折立 → 雲ノ平 → 三俣蓮華岳 → 黒部五郎岳 → 折立',anchor:'黒部五郎岳',days:'2泊3日目安',level:'ロング・周回',points:[
+    ['trailhead','折立登山口','黒部五郎岳'],['hut','太郎平小屋','黒部五郎岳'],['hut','薬師沢小屋','黒部五郎岳'],['hut','雲ノ平山荘','黒部五郎岳',true],['hut','三俣山荘','三俣蓮華岳'],['peak','三俣蓮華岳','三俣蓮華岳'],['hut','黒部五郎小舎','黒部五郎岳',true],['peak','黒部五郎岳','黒部五郎岳'],['hut','太郎平小屋','黒部五郎岳'],['trailhead','折立登山口','黒部五郎岳']
   ]}
 ];
 function classicRoutePoint(def){
@@ -3196,6 +3228,9 @@ Object.assign(REGIONAL_CATALOG, {
   yakushi_kurobe: [
     {id:'area-yk-oritate',type:'trailhead',name:'折立登山口',lat:36.4786,lon:137.4780,elevation:1350},
     {id:'area-yk-tarobe',type:'hut',name:'太郎平小屋',lat:36.4548,lon:137.5195,elevation:2330},
+    // V1.5.18: 雲ノ平グランドサークル用。公開座標のみを固定し、推測座標は使用しない。
+    {id:'v1518-yakushisawa',type:'hut',name:'薬師沢小屋',lat:36.42859,lon:137.54628,elevation:1920,source:'OpenStreetMap node 4346427174 / 公開山小屋情報'},
+    {id:'v1518-kumonodaira',type:'hut',name:'雲ノ平山荘',lat:36.42061,lon:137.57654,elevation:2551,source:'OpenStreetMap node 5643992032 / 公開山小屋情報'},
     {id:'area-yk-yakushi',type:'peak',name:'薬師岳',lat:36.4689,lon:137.5447,elevation:2926},
     {id:'area-yk-yakushigoya',type:'hut',name:'薬師岳山荘',lat:36.4630,lon:137.5400,elevation:2700},
     {id:'area-yk-kurobegoro',type:'peak',name:'黒部五郎岳',lat:36.3925,lon:137.5408,elevation:2840},
