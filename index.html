@@ -71,8 +71,8 @@
     ]
   }
   </script>
-    <link rel="stylesheet" href="styles.css?v=1.5.14">
-    <link rel="stylesheet" href="ui-v1.4.254.css?v=1.5.14">
+    <link rel="stylesheet" href="styles.css?v=1.5.17">
+    <link rel="stylesheet" href="ui-v1.4.254.css?v=1.5.17">
     <style>
       /* V1.4.250: mobile TOP explainer is intentionally moved to guide.html.
          Inline fallback prevents an old/missing override stylesheet from leaving it visible. */
@@ -91,7 +91,7 @@
     <div class="topbar-center">
       <h1>その時、その場所の空を読む。</h1>
       <div class="topbar-badges">
-        <span>V1.5.14</span>
+        <span>V1.5.17</span>
         <span>日本三百名山 網羅</span>
         <span>5系統アラート</span>
         <span>全国一括簡易判定</span>
@@ -99,7 +99,7 @@
       </div>
     </div>
     <div class="mobile-topbar-copy">その時、その場所の空を読む。</div>
-    <span class="mobile-topbar-version">V1.5.14</span>
+    <span class="mobile-topbar-version">V1.5.17</span>
     <div class="mobile-topbar-badges" aria-label="トラテン機能"><span>日本三百名山 網羅</span><span>5系統アラート</span><span>全国一括簡易判定</span><span>登山口アクセス情報</span></div>
     <nav class="topbar-nav topbar-resource-nav" aria-label="トラテン主要メニュー">
       <a class="topbar-nav-link trailhead" href="trailheads.html" aria-label="登山口一覧を開く"><span class="resource-nav-icon" aria-hidden="true">⛰</span><span class="resource-nav-copy"><b>登山口</b><small>アクセス情報</small></span></a>
@@ -162,6 +162,10 @@
         </div>
         <p>この端末・このブラウザに保存された前回のルートと通過日時です。</p>
       </section>
+      <section class="classic-route-launch" aria-label="王道ルート">
+        <div><strong>王道ルート</strong><small>定番の縦走ルートを一発で読み込み</small></div>
+        <button id="classicRoutesBtn" class="secondary" type="button">王道ルート</button>
+      </section>
       <div class="section-title compact-title planner-title-row">
         <span>01</span>
         <div><h2>山行設定</h2><p>山と通過予定地点を設定</p></div>
@@ -190,9 +194,6 @@
           <div class="walking-pace-input"><input id="walkingPaceRange" type="range" min="50" max="150" step="10" value="100" aria-label="歩くスピード"><output id="walkingPaceValue" for="walkingPaceRange">100%</output></div>
         </div>
         <div id="mobileRepresentativeCourses" class="mobile-representative-courses hidden" role="group" aria-label="代表コース候補"></div>
-        <div class="mountain-route-load-primary">
-          <button id="loadPoiBtn" class="secondary" type="button">通過ポイントを自分で設計</button>
-        </div>
         <div class="mountain-route-actions">
           <div class="representative-course-mainline">
             <button id="representativeCourseBtn" class="secondary representative-course-btn hidden" type="button">代表コースを読み込む</button>
@@ -201,6 +202,9 @@
           </div>
           <select id="representativeCourseSelect" class="representative-course-select hidden" aria-label="代表コースを選択"></select>
           <div id="representativeCourseChoices" class="representative-course-choices hidden" role="group" aria-label="代表コース候補"></div>
+        </div>
+        <div class="mountain-route-load-primary">
+          <button id="loadPoiBtn" class="secondary" type="button">コースを自分で設計</button>
         </div>
         <div id="candidateState" class="state"></div>
       </div>
@@ -366,6 +370,18 @@
 </div>
 
 
+<div id="classicRoutesModal" class="saved-routes-modal hidden" aria-hidden="true">
+  <div class="saved-routes-backdrop" data-classic-routes-close></div>
+  <section class="saved-routes-dialog classic-routes-dialog" role="dialog" aria-modal="true" aria-labelledby="classicRoutesTitle">
+    <div class="saved-routes-head">
+      <div><span>CLASSIC TRAVERSE</span><h3 id="classicRoutesTitle">王道ルート</h3><p>北アルプスの定番縦走を、固定通過ポイントで山行設定へ読み込みます。</p></div>
+      <button id="classicRoutesClose" class="saved-routes-close" type="button" aria-label="閉じる">×</button>
+    </div>
+    <div id="classicRoutesList" class="classic-routes-list"></div>
+    <p class="saved-routes-note">翌日06:00開始で読み込み、宿泊候補は翌朝05:00出発に設定します。CT情報なし・推定CTは通過時刻欄で色分けされます。</p>
+  </section>
+</div>
+
 <div id="waterReportModal" class="water-report-modal hidden" aria-hidden="true">
   <div class="water-report-backdrop" data-water-report-close="1"></div>
   <section class="water-report-dialog" role="dialog" aria-modal="true" aria-labelledby="waterReportTitle">
@@ -428,6 +444,6 @@
     </a>
   </div>
 </footer>
-<script src="app.js?v=1.5.14" defer></script>
+<script src="app.js?v=1.5.17" defer></script>
 </body>
 </html>

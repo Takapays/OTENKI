@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.14';
+const APP_VERSION = '1.5.17';
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
@@ -1374,6 +1374,53 @@ function normalizeCourseTimePointName(name){
 
 // V1.5.14: abolish proportional/apportioned CT. Every fixed intermediate waypoint
 // used by representative routes must have an explicit published segment CT.
+
+// V1.5.16: 王道ルート内で実際に CT情報なし となっていた細区間を公開標準CTで固定。
+// 距離按分・推定による補完は行わず、各区間の公開コースタイムを方向別に登録する。
+const V1516_CLASSIC_ROUTE_VERIFIED_COURSE_TIMES = Object.freeze({
+  // 表銀座 / パノラマ銀座
+  '大天荘→大天井岳': {minutes:10, source:'大天荘公式・大天井岳山頂まで10分', sourceType:'official'},
+  '大天井岳→大天荘': {minutes:5, source:'山旅旅・表銀座モデルコース（大天井岳→大天荘 5分）'},
+  '蝶ヶ岳→蝶ヶ岳ヒュッテ': {minutes:5, source:'公開登山ガイド・蝶ヶ岳山頂↔蝶ヶ岳ヒュッテ 約5分'},
+  '蝶ヶ岳ヒュッテ→蝶ヶ岳': {minutes:5, source:'公開登山ガイド・蝶ヶ岳山頂↔蝶ヶ岳ヒュッテ 約5分'},
+  '三股登山口→蝶ヶ岳ヒュッテ': {minutes:257, source:'YAMAPモデルコース・三股登山口→蝶ヶ岳ヒュッテ 標準CT区間合算', sourceType:'yamap'},
+  '蝶ヶ岳ヒュッテ→三股登山口': {minutes:200, source:'YAMAPモデルコース・蝶ヶ岳ヒュッテ→三股登山口 標準CT区間合算', sourceType:'yamap'},
+
+  // 裏銀座
+  '野口五郎小屋→野口五郎岳': {minutes:15, source:'ヤマレコ山行計画・裏銀座標準CT', sourceType:'yamareco'},
+  '野口五郎岳→野口五郎小屋': {minutes:10, source:'ヤマレコ山行計画・裏銀座標準CT', sourceType:'yamareco'},
+  '野口五郎小屋→水晶小屋': {minutes:165, source:'ヤマレコ山行計画・竹村新道分岐/東沢乗越経由 標準CT合算', sourceType:'yamareco'},
+  '水晶小屋→野口五郎小屋': {minutes:134, source:'ヤマレコ山行計画・東沢乗越/竹村新道分岐/野口五郎岳経由 標準CT合算', sourceType:'yamareco'},
+  '水晶小屋→水晶岳': {minutes:38, source:'ヤマレコ山行計画・水晶小屋→水晶岳 標準CT', sourceType:'yamareco'},
+  '水晶岳→水晶小屋': {minutes:28, source:'ヤマレコ山行計画・水晶岳→水晶小屋 標準CT', sourceType:'yamareco'},
+  '水晶小屋→鷲羽岳': {minutes:87, source:'ヤマレコ山行計画・ワリモ北分岐/ワリモ岳経由 標準CT合算', sourceType:'yamareco'},
+  '鷲羽岳→水晶小屋': {minutes:83, source:'ヤマレコ山行計画・ワリモ岳/ワリモ北分岐経由 標準CT合算', sourceType:'yamareco'},
+  '鷲羽岳→三俣山荘': {minutes:51, source:'ヤマレコ山行計画・伊藤新道分岐経由 標準CT合算', sourceType:'yamareco'},
+  '三俣山荘→鷲羽岳': {minutes:90, source:'YAMAP/ヤマレコ公開標準コース・三俣山荘→鷲羽岳 標準CT', sourceType:'yamareco'},
+  '三俣蓮華岳→双六岳': {minutes:69, source:'ヤマレコ山行計画・丸山経由 標準CT合算', sourceType:'yamareco'},
+  '双六岳→三俣蓮華岳': {minutes:71, source:'YAMAPモデルコース・中道稜線分岐/丸山経由 標準CT合算', sourceType:'yamap'},
+  '双六小屋→双六岳': {minutes:70, source:'双六小屋グループ公式おすすめプラン・双六小屋→双六岳', sourceType:'official'},
+  '双六岳→双六小屋': {minutes:50, source:'双六小屋グループ公式おすすめプラン・双六岳→双六小屋', sourceType:'official'},
+  '鏡平山荘→わさび平小屋': {minutes:140, source:'公開登山コースタイム・小池新道下山（鏡平山荘→わさび平小屋）'},
+  'わさび平小屋→新穂高温泉': {minutes:55, source:'公開登山コースタイム・小池新道下山（わさび平小屋→新穂高温泉）'},
+
+  // 槍・穂高縦走
+  '槍ヶ岳山荘→大喰岳': {minutes:33, source:'ヤマレコ山行計画・飛騨乗越経由 標準CT合算', sourceType:'yamareco'},
+  '大喰岳→槍ヶ岳山荘': {minutes:31, source:'ヤマレコ山行計画・飛騨乗越経由 標準CT合算', sourceType:'yamareco'},
+  '大喰岳→中岳': {minutes:28, source:'ヤマレコ山行計画・槍穂縦走 標準CT', sourceType:'yamareco'},
+  '中岳→大喰岳': {minutes:30, source:'ヤマレコ山行計画・槍穂縦走 標準CT', sourceType:'yamareco'},
+  '中岳→南岳': {minutes:55, source:'ヤマレコ山行計画・氷河公園分岐経由 標準CT合算', sourceType:'yamareco'},
+  '南岳→中岳': {minutes:59, source:'ヤマレコ山行計画・氷河公園分岐経由 標準CT合算', sourceType:'yamareco'},
+  '南岳→南岳小屋': {minutes:7, source:'ヤマレコ山行計画・槍穂縦走 標準CT', sourceType:'yamareco'},
+  '南岳小屋→南岳': {minutes:13, source:'ヤマレコ山行計画・槍穂縦走 標準CT', sourceType:'yamareco'},
+  '北穂高岳→北穂高小屋': {minutes:1, source:'ヤマレコ山行計画・北穂高岳→北穂高小屋 標準CT', sourceType:'yamareco'},
+  '北穂高小屋→北穂高岳': {minutes:2, source:'ヤマレコ山行計画・北穂高小屋→北穂高岳 標準CT', sourceType:'yamareco'},
+  '北穂高小屋→涸沢岳': {minutes:152, source:'ヤマレコ山行計画・北穂高岳/南稜分岐/最低コル経由 標準CT合算', sourceType:'yamareco'},
+  '涸沢岳→北穂高小屋': {minutes:144, source:'ヤマレコ山行計画・最低コル/南稜分岐/北穂高岳経由 標準CT合算', sourceType:'yamareco'},
+  '涸沢岳→穂高岳山荘': {minutes:20, source:'ヤマレコ山行計画・槍穂縦走 標準CT', sourceType:'yamareco'},
+  '穂高岳山荘→涸沢岳': {minutes:32, source:'ヤマレコ山行計画・槍穂縦走 標準CT', sourceType:'yamareco'}
+});
+
 const V1514_INTERMEDIATE_VERIFIED_COURSE_TIMES = Object.freeze({
   // Takatsuma: published route guide segment CTs.
   '戸隠キャンプ場・高妻山登山者駐車場→一不動避難小屋': {minutes:80, source:'日本アルプス登山ルートガイド・高妻山 一不動経由（戸隠キャンプ場→一不動避難小屋 1時間20分）', sourceType:'other'},
@@ -1615,6 +1662,7 @@ const V14188_PRIORITY_VERIFIED_COURSE_TIMES = Object.freeze({
 });
 
 const COURSE_TIME_TABLES = Object.freeze([
+  V1516_CLASSIC_ROUTE_VERIFIED_COURSE_TIMES,
   V1514_INTERMEDIATE_VERIFIED_COURSE_TIMES,
   V1513_INTERMEDIATE_VERIFIED_COURSE_TIMES,
   V14207_VERIFIED_COURSE_TIMES,
@@ -2050,6 +2098,72 @@ function deleteFavoriteRoute(id){
   const routes=loadSavedRoutes();const item=routes.find(x=>x.id===id);if(!item)return;
   if(!confirm(`「${item.name}」を削除しますか？`))return;
   writeSavedRoutes(routes.filter(x=>x.id!==id));renderSavedRoutesList();setStatus(`「${item.name}」を削除しました。`);
+}
+
+
+const CLASSIC_ROUTES=[
+  {id:'omote-ginza',name:'表銀座',subtitle:'中房温泉 → 燕岳 → 大天井岳 → 槍ヶ岳 → 上高地',anchor:'槍ヶ岳',days:'2泊3日目安',level:'ロング',points:[
+    ['trailhead','中房温泉登山口','燕岳'],['hut','合戦小屋','燕岳'],['hut','燕山荘','燕岳'],['peak','燕岳','燕岳'],['hut','燕山荘','燕岳',true],['hut','大天荘','大天井岳'],['peak','大天井岳','大天井岳'],['hut','槍ヶ岳山荘','槍ヶ岳'],['peak','槍ヶ岳','槍ヶ岳'],['hut','槍ヶ岳山荘','槍ヶ岳',true],['hut','槍沢ロッヂ','槍ヶ岳'],['hut','横尾山荘','槍ヶ岳'],['trailhead','上高地','槍ヶ岳']
+  ]},
+  {id:'panorama-ginza',name:'パノラマ銀座',subtitle:'中房温泉 → 燕岳 → 大天井岳 → 常念岳 → 蝶ヶ岳 → 三股',anchor:'槍ヶ岳',days:'2泊3日目安',level:'縦走',points:[
+    ['trailhead','中房温泉登山口','燕岳'],['hut','合戦小屋','燕岳'],['hut','燕山荘','燕岳'],['peak','燕岳','燕岳'],['hut','燕山荘','燕岳',true],['hut','大天荘','大天井岳'],['peak','大天井岳','大天井岳'],['hut','常念小屋','常念岳',true],['peak','常念岳','常念岳'],['peak','蝶ヶ岳','蝶ヶ岳'],['hut','蝶ヶ岳ヒュッテ','蝶ヶ岳'],['trailhead','三股登山口','蝶ヶ岳']
+  ]},
+  {id:'ura-ginza',name:'裏銀座',subtitle:'高瀬ダム → 烏帽子岳 → 野口五郎岳 → 水晶岳 → 鷲羽岳 → 双六岳 → 新穂高',anchor:'鷲羽岳',days:'4泊5日目安',level:'ロング',points:[
+    ['trailhead','高瀬ダム','野口五郎岳'],['hut','烏帽子小屋','野口五郎岳'],['peak','烏帽子岳','烏帽子岳'],['hut','烏帽子小屋','野口五郎岳',true],['peak','野口五郎岳','野口五郎岳'],['hut','野口五郎小屋','野口五郎岳',true],['hut','水晶小屋','水晶岳（黒岳）'],['peak','水晶岳','水晶岳（黒岳）'],['hut','水晶小屋','水晶岳（黒岳）'],['peak','鷲羽岳','鷲羽岳'],['hut','三俣山荘','鷲羽岳',true],['peak','三俣蓮華岳','三俣蓮華岳'],['peak','双六岳','双六岳'],['hut','双六小屋','双六岳',true],['hut','鏡平山荘','双六岳'],['hut','わさび平小屋','双六岳'],['trailhead','新穂高温泉','双六岳']
+  ]},
+  {id:'ushiro-tateyama',name:'後立山縦走',subtitle:'八方 → 唐松岳 → 五竜岳 → 鹿島槍ヶ岳 → 爺ヶ岳 → 扇沢',anchor:'鹿島槍ヶ岳',days:'3泊4日目安',level:'上級',points:[
+    ['trailhead','八方池山荘','唐松岳'],['hut','唐松岳頂上山荘','唐松岳'],['peak','唐松岳','唐松岳'],['hut','唐松岳頂上山荘','唐松岳',true],['hut','五竜山荘','五竜岳',true],['peak','五竜岳','五竜岳'],['hut','キレット小屋','鹿島槍ヶ岳'],['peak','鹿島槍ヶ岳','鹿島槍ヶ岳'],['hut','冷池山荘','鹿島槍ヶ岳',true],['peak','爺ヶ岳','爺ヶ岳'],['hut','種池山荘','爺ヶ岳'],['trailhead','扇沢登山口','爺ヶ岳']
+  ]},
+  {id:'yari-hotaka',name:'槍・穂高縦走',subtitle:'上高地 → 槍ヶ岳 → 南岳 → 北穂高岳 → 奥穂高岳 → 上高地',anchor:'槍ヶ岳',days:'3泊4日目安',level:'上級・大キレット',points:[
+    ['trailhead','上高地','槍ヶ岳'],['hut','横尾山荘','槍ヶ岳'],['hut','槍沢ロッヂ','槍ヶ岳'],['hut','槍ヶ岳山荘','槍ヶ岳'],['peak','槍ヶ岳','槍ヶ岳'],['hut','槍ヶ岳山荘','槍ヶ岳',true],['peak','大喰岳','槍ヶ岳'],['peak','中岳','槍ヶ岳'],['peak','南岳','槍ヶ岳'],['hut','南岳小屋','槍ヶ岳',true],['peak','北穂高岳','槍ヶ岳'],['hut','北穂高小屋','槍ヶ岳'],['peak','涸沢岳','槍ヶ岳'],['hut','穂高岳山荘','奥穂高岳',true],['peak','奥穂高岳','奥穂高岳'],['hut','穂高岳山荘','奥穂高岳'],['hut','涸沢ヒュッテ','奥穂高岳'],['hut','横尾山荘','槍ヶ岳'],['trailhead','上高地','槍ヶ岳']
+  ]}
+];
+function classicRoutePoint(def){
+  const [type,name,sourceMountain]=def;
+  return representativeCandidateForMountain(sourceMountain,type,name)
+    || Object.values(REGIONAL_CATALOG).flat().find(p=>p.type===type&&p.name===name&&hasResolvedCoord(p))
+    || Object.values(BUILTIN_ROUTE_CATALOG).flat().find(p=>p.type===type&&p.name===name&&hasResolvedCoord(p))
+    || Object.values(TRAVERSE_CATALOG).flat().find(p=>p.type===type&&p.name===name&&hasResolvedCoord(p))
+    || null;
+}
+function renderClassicRoutes(){
+  const box=$('classicRoutesList');if(!box)return;
+  box.innerHTML=CLASSIC_ROUTES.map(r=>`<article class="classic-route-card"><div class="classic-route-copy"><strong>${esc(r.name)}</strong><p>${esc(r.subtitle)}</p><small>${esc(r.days)} / ${esc(r.level)}</small></div><button type="button" data-classic-route="${esc(r.id)}">読み込む</button></article>`).join('');
+  box.querySelectorAll('[data-classic-route]').forEach(btn=>btn.addEventListener('click',()=>loadClassicRoute(btn.dataset.classicRoute)));
+}
+function openClassicRoutesModal(){
+  renderClassicRoutes();const modal=$('classicRoutesModal');if(!modal)return;modal.classList.remove('hidden');modal.setAttribute('aria-hidden','false');document.body.classList.add('classic-routes-open');
+}
+function closeClassicRoutesModal(){const modal=$('classicRoutesModal');if(!modal)return;modal.classList.add('hidden');modal.setAttribute('aria-hidden','true');document.body.classList.remove('classic-routes-open');}
+async function loadClassicRoute(id){
+  const route=CLASSIC_ROUTES.find(r=>r.id===id);if(!route)return;
+  const resolved=route.points.map(def=>({def,p:classicRoutePoint(def)}));
+  const missing=resolved.filter(x=>!x.p).map(x=>x.def[1]);
+  if(missing.length)return setStatus(`王道ルートを読み込めませんでした。固定ポイント不足：${missing.join('、')}`,true);
+  const currentRows=[...$('points').children].filter(r=>r.querySelector('.point-select')?.value);
+  if(currentRows.length&&typeof window!=='undefined'&&typeof window.confirm==='function'&&!window.confirm(`現在の通過ポイントを「${route.name}」で置き換えます。よろしいですか？`))return;
+  const search=$('mountainSearch');search.value=route.anchor;search.dispatchEvent(new Event('change',{bubbles:true}));await new Promise(r=>setTimeout(r,60));await loadCandidates();
+  const seen=new Set(candidates.map(p=>`${p.type}|${p.name}`));
+  for(const x of resolved){const key=`${x.p.type}|${x.p.name}`;if(!seen.has(key)){candidates.push({...x.p,id:`classic-${route.id}-${x.p.id||Math.random().toString(36).slice(2)}`});seen.add(key);}}
+  $('points').innerHTML='';pointSeq=0;
+  let missingCt=0,estimatedCt=0;
+  resolved.forEach((x,i)=>{
+    const p=candidates.find(c=>c.type===x.p.type&&c.name===x.p.name)||x.p;
+    const initial=i===0?{date:tomorrowLocal(),time:'06:00'}:{date:tomorrowLocal(),time:'06:00'};
+    addPointRow(p.type,p.id,x.def[0]==='trailhead'?(i===0?'登山口':'下山口'):(p.type==='peak'?'山頂':(p.type==='hut'||p.type==='camp'?'山小屋':'経由')),initial);
+    const row=$('points').lastElementChild;
+    if(i>0){
+      const prev=row.previousElementSibling;const from=selectedCandidate(prev.querySelector('.point-select')?.value);const to=selectedCandidate(row.querySelector('.point-select')?.value);const info=from&&to?courseTimeInfo(from,to):null;
+      if(info){if(info.estimated)estimatedCt++;applyCourseTimeFromPrevious(row,{announce:false});}
+      else{missingCt++;const base=prev.querySelector('.point-stay')?.checked?stayDepartureBaseMs(prev):new Date(rowDateTimeValue(prev)).getTime();if(Number.isFinite(base))setRowDateTimeMs(row,base+60*60*1000,false);}
+    }
+    if(x.def[3]&&row.querySelector('.point-stay')){row.querySelector('.point-stay').checked=true;row.querySelector('.stay-departure')?.classList.remove('hidden');const dep=row.querySelector('.stay-departure-time');if(dep)dep.value='05:00';}
+    updateMeta(row);refreshCourseTimeMissingBadge(row);
+  });
+  updateForecastHorizon();renderRouteMaps();refreshAllCourseTimeMissingBadges();closeClassicRoutesModal();
+  setStatus(`${route.name} を入力しました。${route.days}。${missingCt?`CT情報なし ${missingCt}区間は時刻を確認してください。`:estimatedCt?`推定CT ${estimatedCt}区間は時刻を確認してください。`:'全区間の登録CTで時刻を展開しました。'}`);
+  logEvent('classic_route_loaded',{success:true,mountain:route.anchor,metadata:{classic_route_id:route.id,classic_route_name:route.name,point_count:route.points.length,missing_ct_count:missingCt,estimated_ct_count:estimatedCt}});
+  $('points')?.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
 const providers = [
@@ -6456,10 +6570,13 @@ function init(){
   $('waterReportClose')?.addEventListener('click',closeWaterReportModal);
   document.querySelectorAll('[data-water-report-close]').forEach(el=>el.addEventListener('click',closeWaterReportModal));
   $('savedRoutesBtn')?.addEventListener('click',()=>openSavedRoutesModal(false));
+  $('classicRoutesBtn')?.addEventListener('click',openClassicRoutesModal);
+  $('classicRoutesClose')?.addEventListener('click',closeClassicRoutesModal);
+  document.querySelectorAll('[data-classic-routes-close]').forEach(el=>el.addEventListener('click',closeClassicRoutesModal));
   $('savedRouteCreateBtn')?.addEventListener('click',createFavoriteRoute);
   $('savedRoutesClose')?.addEventListener('click',closeSavedRoutesModal);
   document.querySelectorAll('[data-saved-routes-close]').forEach(el=>el.addEventListener('click',closeSavedRoutesModal));
-  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('savedRoutesModal')?.classList.contains('hidden'))closeSavedRoutesModal();if(e.key==='Escape'&&!$('waterReportModal')?.classList.contains('hidden'))closeWaterReportModal();if(e.key==='Escape'&&!$('routeCameraModal')?.classList.contains('hidden'))closeRouteCameraModal();});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('savedRoutesModal')?.classList.contains('hidden'))closeSavedRoutesModal();if(e.key==='Escape'&&!$('waterReportModal')?.classList.contains('hidden'))closeWaterReportModal();if(e.key==='Escape'&&!$('routeCameraModal')?.classList.contains('hidden'))closeRouteCameraModal();if(e.key==='Escape'&&!$('classicRoutesModal')?.classList.contains('hidden'))closeClassicRoutesModal();});
   refreshSavedRoutesCount();
 
   search.addEventListener('input',()=>{
@@ -6504,7 +6621,7 @@ function updateLoadButtonAppearance(loaded){
   if(!btn)return;
   const hasMountain=!!$('mountainPreset')?.value?.trim();
   btn.disabled=!hasMountain;
-  btn.textContent=loaded?'設計用ポイント表示中':'通過ポイントを自分で設計';
+  btn.textContent=loaded?'設計用ポイント表示中':'コースを自分で設計';
   btn.classList.toggle('primary',hasMountain&&!loaded);
   btn.classList.toggle('secondary',!hasMountain||loaded);
   btn.classList.toggle('route-load-needed',hasMountain&&!loaded);
