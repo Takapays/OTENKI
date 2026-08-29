@@ -1,6 +1,0 @@
-V1.4.119 regression check
-- node --check app.js: PASS
-- python3 -m py_compile server.py: PASS
-- representative course CT audit: PASS (110 mountains / 116 courses / bad=0)
-- MutationObserver in access.js: must remain absent
-- CT missing UI fallback remains available for genuinely unresolved/ambiguous segments

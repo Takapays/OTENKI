@@ -1,7 +1,0 @@
-V1.4.115 regression checks
-- GSI standard tile URL present in national outlook map: PASS
-- GSI standard tile URL present in route maps: PASS
-- GSI attribution link present: PASS
-- OpenStreetMap tile URL removed from Leaflet background maps: PASS
-- app/server/cache version 1.4.115: PASS
-- access.js MutationObserver absent: CHECKED
