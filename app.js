@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.20';
+const APP_VERSION = '1.5.22';
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
@@ -1375,6 +1375,26 @@ function normalizeCourseTimePointName(name){
 // V1.5.14: abolish proportional/apportioned CT. Every fixed intermediate waypoint
 // used by representative routes must have an explicit published segment CT.
 
+// V1.5.22: 表銀座・大天井岳〜槍ヶ岳を実際の東鎌尾根通過ポイントへ細分化。
+// 18時間10分になっていた composed CT の遠回り結合を避け、公開標準CTを各区間に固定する。
+const V1522_OMOTE_GINZA_VERIFIED_COURSE_TIMES = Object.freeze({
+  '大天井岳→大天荘': {minutes:6, source:'YAMA HACK・表銀座縦走コース（大天井岳→大天荘 6分）', sourceType:'other'},
+  '大天荘→大天井岳': {minutes:10, source:'大天荘公式・大天井岳山頂まで10分', sourceType:'official'},
+  '大天荘→大天井ヒュッテ': {minutes:34, source:'YAMA HACK・表銀座縦走コース（大天荘→大天井ヒュッテ 34分）', sourceType:'other'},
+  '大天井ヒュッテ→大天荘': {minutes:40, source:'公開標準CT・大天井ヒュッテ→大天荘 40分', sourceType:'other'},
+  '大天井ヒュッテ→ヒュッテ西岳': {minutes:122, source:'YAMA HACK・表銀座縦走コース（貧乏沢のコル経由 24+98分）', sourceType:'other'},
+  'ヒュッテ西岳→大天井ヒュッテ': {minutes:150, source:'公開標準CT・表銀座（ヒュッテ西岳→大天井ヒュッテ 2時間30分）', sourceType:'other'},
+  'ヒュッテ西岳→西岳': {minutes:16, source:'YAMA HACK・表銀座縦走コース（ヒュッテ西岳→西岳 16分）', sourceType:'other'},
+  '西岳→ヒュッテ西岳': {minutes:8, source:'YAMA HACK・表銀座縦走コース（西岳→ヒュッテ西岳 8分）', sourceType:'other'},
+  'ヒュッテ西岳→水俣乗越': {minutes:70, source:'YAMA HACK・表銀座縦走コース（ヒュッテ西岳→水俣乗越 70分）', sourceType:'other'},
+  '水俣乗越→ヒュッテ西岳': {minutes:60, source:'公開標準CT・表銀座（水俣乗越→ヒュッテ西岳 1時間）', sourceType:'other'},
+  '水俣乗越→ヒュッテ大槍': {minutes:135, source:'YAMA HACK・表銀座縦走コース（水俣乗越→ヒュッテ大槍 135分）', sourceType:'other'},
+  'ヒュッテ大槍→水俣乗越': {minutes:130, source:'公開標準CT・東鎌尾根（ヒュッテ大槍→水俣乗越 2時間10分）', sourceType:'other'},
+  'ヒュッテ大槍→槍ヶ岳山荘': {minutes:51, source:'YAMA HACK・表銀座縦走コース（ヒュッテ大槍→槍ヶ岳山荘 51分）', sourceType:'other'},
+  '槍ヶ岳山荘→ヒュッテ大槍': {minutes:55, source:'公開標準CT・東鎌尾根（槍ヶ岳山荘→ヒュッテ大槍 55分）', sourceType:'other'},
+  '槍沢ロッヂ→横尾山荘': {minutes:80, source:'YAMA HACK・槍ヶ岳上高地ルート（槍沢ロッヂ→一ノ俣30分→横尾50分）', sourceType:'other'}
+});
+
 // V1.5.20: 王道ルート更新。裏銀座は双六から西鎌尾根で槍ヶ岳を経由して新穂高へ、
 // 三股サーキットは前常念岳・蝶槍・蝶ヶ岳ヒュッテを明示通過ポイント化。
 // 距離按分は使わず、公開標準CTを区間ごとに固定する。
@@ -1704,6 +1724,7 @@ const V14188_PRIORITY_VERIFIED_COURSE_TIMES = Object.freeze({
 });
 
 const COURSE_TIME_TABLES = Object.freeze([
+  V1522_OMOTE_GINZA_VERIFIED_COURSE_TIMES,
   V1520_CLASSIC_ROUTE_VERIFIED_COURSE_TIMES,
   V1518_CLASSIC_ROUTE_VERIFIED_COURSE_TIMES,
   V1516_CLASSIC_ROUTE_VERIFIED_COURSE_TIMES,
@@ -2147,7 +2168,7 @@ function deleteFavoriteRoute(id){
 
 const CLASSIC_ROUTES=[
   {id:'omote-ginza',name:'表銀座',subtitle:'中房温泉 → 燕岳 → 大天井岳 → 槍ヶ岳 → 上高地',anchor:'槍ヶ岳',days:'2泊3日目安',level:'ロング',points:[
-    ['trailhead','中房温泉登山口','燕岳'],['hut','合戦小屋','燕岳'],['hut','燕山荘','燕岳'],['peak','燕岳','燕岳'],['hut','燕山荘','燕岳',true],['hut','大天荘','大天井岳'],['peak','大天井岳','大天井岳'],['hut','槍ヶ岳山荘','槍ヶ岳'],['peak','槍ヶ岳','槍ヶ岳'],['hut','槍ヶ岳山荘','槍ヶ岳',true],['hut','槍沢ロッヂ','槍ヶ岳'],['hut','横尾山荘','槍ヶ岳'],['trailhead','上高地','槍ヶ岳']
+    ['trailhead','中房温泉登山口','燕岳'],['hut','合戦小屋','燕岳'],['hut','燕山荘','燕岳'],['peak','燕岳','燕岳'],['hut','燕山荘','燕岳',true],['hut','大天荘','大天井岳'],['peak','大天井岳','大天井岳'],['hut','大天荘','大天井岳'],['hut','大天井ヒュッテ','大天井岳'],['hut','ヒュッテ西岳','槍ヶ岳'],['peak','西岳','槍ヶ岳'],['hut','ヒュッテ西岳','槍ヶ岳'],['pass','水俣乗越','槍ヶ岳'],['hut','ヒュッテ大槍','槍ヶ岳'],['hut','槍ヶ岳山荘','槍ヶ岳'],['peak','槍ヶ岳','槍ヶ岳'],['hut','槍ヶ岳山荘','槍ヶ岳',true],['hut','槍沢ロッヂ','槍ヶ岳'],['hut','横尾山荘','槍ヶ岳'],['trailhead','上高地','槍ヶ岳']
   ]},
   {id:'panorama-ginza',name:'パノラマ銀座',subtitle:'中房温泉 → 燕岳 → 大天井岳 → 常念岳 → 蝶ヶ岳 → 三股',anchor:'槍ヶ岳',days:'2泊3日目安',level:'縦走',points:[
     ['trailhead','中房温泉登山口','燕岳'],['hut','合戦小屋','燕岳'],['hut','燕山荘','燕岳'],['peak','燕岳','燕岳'],['hut','燕山荘','燕岳',true],['hut','大天荘','大天井岳'],['peak','大天井岳','大天井岳'],['hut','常念小屋','常念岳',true],['peak','常念岳','常念岳'],['peak','蝶ヶ岳','蝶ヶ岳'],['hut','蝶ヶ岳ヒュッテ','蝶ヶ岳'],['trailhead','三股登山口','蝶ヶ岳']
@@ -4372,6 +4393,20 @@ function appendFixedWaypoints(mountain, points){
   const add=points.filter(p=>!seen.has(`${p.type}|${accessNameKey(p.name)}`));
   BUILTIN_ROUTE_CATALOG[mountain]=[...old,...add];
 }
+
+// V1.5.22: 表銀座・東鎌尾根の固定通過ポイント。座標は公開座標のみ。
+const V1522_OMOTE_GINZA_WAYPOINTS = {
+  '大天井岳':[
+    {id:'v1522-otenjo-hutte',type:'hut',name:'大天井ヒュッテ',lat:36.362846,lon:137.695560,elevation:2630,source:'北アルプス山小屋友交会・公開座標'}
+  ],
+  '槍ヶ岳':[
+    {id:'v1522-nishidake-hutte',type:'hut',name:'ヒュッテ西岳',lat:36.335644,lon:137.680013,elevation:2680,source:'北アルプス山小屋友交会・公開座標'},
+    {id:'v1522-nishidake-peak',type:'peak',name:'西岳',lat:36.337222,lon:137.679444,elevation:2758,source:'国土地理院・日本の主な山岳（36°20′14″, 137°40′46″）'},
+    {id:'v1522-mizumata-nokkoshi',type:'pass',name:'水俣乗越',lat:36.336867,lon:137.670133,elevation:2471,source:'公開GPS記録（N36 20.212 E137 40.208）'},
+    {id:'v1522-hutte-oyari',type:'hut',name:'ヒュッテ大槍',lat:36.338116,lon:137.654940,elevation:2884,source:'北アルプス山小屋友交会・公開座標'}
+  ]
+};
+for(const [mountain,points] of Object.entries(V1522_OMOTE_GINZA_WAYPOINTS)) appendFixedWaypoints(mountain,points);
 
 const V14155_MAJOR_WAYPOINTS = {
   '大雪山（旭岳）':[

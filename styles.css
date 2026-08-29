@@ -4201,3 +4201,91 @@ body.install-guide-open{overflow:hidden}
 #representativeCourseBtn:hover:not(:disabled){filter:brightness(1.03);transform:translateY(-1px)}
 #loadPoiBtn,#loadPoiBtn.route-load-needed{background:#eef7f2!important;color:#174d39!important;border-color:#b8d4c7!important;box-shadow:none!important}
 #loadPoiBtn:hover:not(:disabled),#loadPoiBtn.route-load-needed:hover:not(:disabled){background:#e3f2ea!important;filter:none;transform:none}
+
+
+/* V1.5.21: 王道ルートを保存/前回ルートより上の主導線へ。04地点別予報を縦方向に圧縮。 */
+.classic-route-launch.classic-route-primary{
+  margin:4px 0 10px;
+  padding:12px 13px;
+  border:1px solid #e4a34e;
+  background:linear-gradient(135deg,#fff8e8 0%,#fff1d2 100%);
+  box-shadow:0 9px 22px rgba(190,113,24,.12);
+}
+.classic-route-launch.classic-route-primary strong{color:#7a4310;font-size:14px}
+.classic-route-launch.classic-route-primary small{color:#9a6b36;font-size:10px;font-weight:750}
+#classicRoutesBtn.classic-route-primary-btn{
+  min-width:128px;
+  min-height:40px;
+  border-color:transparent!important;
+  background:linear-gradient(135deg,#f0a13a,#df7828)!important;
+  color:#fff!important;
+  box-shadow:0 8px 18px rgba(211,113,31,.24)!important;
+  font-weight:950!important;
+}
+#classicRoutesBtn.classic-route-primary-btn:hover:not(:disabled){filter:brightness(1.04);transform:translateY(-1px)}
+
+/* 04 地点別予報: バー/ゲージは残したまま上下の占有量を削減。 */
+#results .dashboard-section:has(#forecastCards){padding-top:15px;padding-bottom:15px}
+#results .dashboard-section:has(#forecastCards)>.section-title{margin-bottom:12px;gap:10px}
+#results .dashboard-section:has(#forecastCards)>.section-title>span{width:34px;height:34px;min-width:34px;border-radius:11px}
+#results .dashboard-section:has(#forecastCards)>.section-title h2{margin-top:0;font-size:20px;line-height:1.15}
+#results .dashboard-section:has(#forecastCards)>.section-title p{margin-top:3px;font-size:11px;line-height:1.25}
+#forecastCards .route-forecast-list{padding-top:0!important;padding-bottom:0!important}
+#forecastCards .point-dashboard-card{margin-bottom:8px!important;padding-top:10px!important;padding-bottom:10px!important}
+#forecastCards .rf-point-head{margin-bottom:8px!important}
+#forecastCards .rf-place small{margin-top:3px!important}
+#forecastCards .rf-metrics-grid{gap:8px!important}
+#forecastCards .rf-metric-title{margin-bottom:5px!important}
+#forecastCards .rf-metrics-grid .rf-value-wrap{min-height:24px!important;margin-bottom:6px!important}
+#forecastCards .rf-direction-main{min-height:26px!important;margin-bottom:5px!important}
+#forecastCards .rf-metrics-grid>.rf-metric,
+#forecastCards .rf-metrics-grid>.rf-direction{min-height:104px!important;padding-top:9px!important;padding-bottom:8px!important}
+#forecastCards .rf-metrics-grid>.rf-metric.vis{min-height:110px!important;padding-top:9px!important;padding-bottom:7px!important}
+#forecastCards .rf-metric.vis .rf-metric-title{margin-bottom:4px!important}
+#forecastCards .rf-metric.vis .rf-value-wrap{min-height:25px!important;margin-bottom:5px!important}
+#forecastCards .rf-vis-ticks{height:21px!important;margin-top:3px!important}
+#forecastCards .rf-vis-ticks::after{top:11px!important}
+#forecastCards .rf-point-message{margin-top:7px!important;padding-top:7px!important;padding-bottom:7px!important}
+#forecastCards .route-forecast-foot{padding:8px 12px!important;line-height:1.35!important}
+
+@media(min-width:901px){
+  #forecastCards .point-dashboard-card{padding:11px 13px!important}
+  #forecastCards .rf-point-head{margin-bottom:8px!important}
+  #forecastCards .rf-metrics-grid>.rf-metric,
+  #forecastCards .rf-metrics-grid>.rf-direction{min-height:112px!important;padding:9px 9px!important}
+  #forecastCards .rf-metrics-grid>.rf-metric.vis{min-height:108px!important}
+  #forecastCards .rf-metrics-grid .rf-value-wrap strong{font-size:20px!important}
+  #forecastCards .rf-direction-main strong{font-size:21px!important}
+  #forecastCards .rf-direction-main b{font-size:16px!important}
+}
+@media(max-width:900px){
+  .classic-route-launch.classic-route-primary{margin:4px 0 9px;padding:11px}
+  #classicRoutesBtn.classic-route-primary-btn{width:100%;min-height:42px}
+  #results .dashboard-section:has(#forecastCards){padding-top:12px;padding-bottom:12px}
+  #results .dashboard-section:has(#forecastCards)>.section-title{margin-bottom:9px}
+  #results .dashboard-section:has(#forecastCards)>.section-title h2{font-size:18px}
+  #results .dashboard-section:has(#forecastCards)>.section-title p{font-size:10px}
+  #forecastCards .point-dashboard-card{padding:10px 10px!important}
+  #forecastCards .rf-point-head{margin-bottom:7px!important}
+  #forecastCards .rf-time{margin-bottom:3px!important}
+  #forecastCards .rf-metrics-grid{gap:7px!important}
+  #forecastCards .rf-metrics-grid>.rf-metric,
+  #forecastCards .rf-metrics-grid>.rf-direction{min-height:98px!important;padding:8px 8px!important}
+  #forecastCards .rf-metrics-grid>.rf-metric.vis{min-height:103px!important;padding:8px 9px!important}
+  #forecastCards .rf-metric-title{margin-bottom:4px!important}
+  #forecastCards .rf-metrics-grid .rf-value-wrap{min-height:22px!important;margin-bottom:5px!important}
+  #forecastCards .rf-metrics-grid .rf-value-wrap strong{font-size:20px!important}
+  #forecastCards .rf-direction-main{margin-bottom:4px!important}
+  #forecastCards .rf-direction-main strong{font-size:21px!important}
+  #forecastCards .rf-direction-main b{font-size:15px!important}
+  #forecastCards .rf-gauge-track{height:8px!important;min-height:8px!important}
+  #forecastCards .rf-gauge-fill{height:8px!important}
+  #forecastCards .rf-gauge-visibility .rf-gauge-track,
+  #forecastCards .rf-gauge-visibility .rf-gauge-track::before{height:8px!important;min-height:8px!important}
+  #forecastCards .rf-point-message{margin-top:6px!important;padding:6px 9px!important}
+}
+@media(max-width:390px){
+  #forecastCards .rf-metrics-grid>.rf-metric,
+  #forecastCards .rf-metrics-grid>.rf-direction{min-height:94px!important;padding:7px 7px!important}
+  #forecastCards .rf-metrics-grid>.rf-metric.vis{min-height:100px!important}
+}
