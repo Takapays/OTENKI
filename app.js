@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.27';
+const APP_VERSION = '1.5.28';
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
@@ -9823,7 +9823,7 @@ function niceMax(v){
 }
 
 function pointLegend(points){
-  return `<div class="point-key" style="--point-count:${Math.max(points.length,1)}">${points.map((p,i)=>`<span class="point-key-item"><b>${String(i+1).padStart(2,'0')}</b><span class="point-key-copy"><strong>${esc(p.point.name)}</strong><small>${esc(p.point.time||'--:--')}</small></span></span>`).join('')}</div>`;
+  return `<div class="point-key-wrap"><div class="point-key-head"><b>地点・到着</b><small>番号はグラフ内のポイントと対応</small></div><div class="point-key">${points.map((p,i)=>`<span class="point-key-item"><b>${String(i+1).padStart(2,'0')}</b><span class="point-key-copy"><strong title="${esc(p.point.name)}">${esc(p.point.name)}</strong><small>${esc(p.point.time||'--:--')}</small></span></span>`).join('')}</div></div>`;
 }
 function chartPointDate(point){
   return String(point?.point?.date||'').slice(0,10);
