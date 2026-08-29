@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.19';
+const APP_VERSION = '1.5.20';
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
@@ -1375,6 +1375,29 @@ function normalizeCourseTimePointName(name){
 // V1.5.14: abolish proportional/apportioned CT. Every fixed intermediate waypoint
 // used by representative routes must have an explicit published segment CT.
 
+// V1.5.20: 王道ルート更新。裏銀座は双六から西鎌尾根で槍ヶ岳を経由して新穂高へ、
+// 三股サーキットは前常念岳・蝶槍・蝶ヶ岳ヒュッテを明示通過ポイント化。
+// 距離按分は使わず、公開標準CTを区間ごとに固定する。
+const V1520_CLASSIC_ROUTE_VERIFIED_COURSE_TIMES = Object.freeze({
+  // 裏銀座：双六小屋 ↔ 槍ヶ岳山荘（西鎌尾根）
+  '双六小屋→槍ヶ岳山荘': {minutes:340, source:'双六小屋グループ公式・槍ヶ岳へのコースタイム（双六小屋→槍ヶ岳山荘 5時間40分）', sourceType:'official'},
+  '槍ヶ岳山荘→双六小屋': {minutes:300, source:'双六小屋グループ公式・槍ヶ岳へのコースタイム（槍ヶ岳山荘→双六小屋 5時間）', sourceType:'official'},
+
+  // 三股サーキット：前常念岳を含む三股ルート
+  '三股登山口→前常念岳': {minutes:270, source:'YAMAPモデルコース・三股-常念岳-蝶ヶ岳周回（05:15→09:45）', sourceType:'yamap'},
+  '前常念岳→三股登山口': {minutes:210, source:'YAMAPモデルコース・常念岳（三股）（12:10→15:40）', sourceType:'yamap'},
+  '前常念岳→常念岳': {minutes:80, source:'YAMAPモデルコース・常念岳（三股）（前常念岳09:45→常念岳11:05）', sourceType:'yamap'},
+  '常念岳→前常念岳': {minutes:65, source:'YAMAPモデルコース・常念岳（三股）（常念岳11:05→前常念岳12:10）', sourceType:'yamap'},
+
+  // 常念岳 ↔ 蝶槍。公開コースガイドの方向別標準CT。
+  '常念岳→蝶槍': {minutes:210, source:'公開登山コースガイド・常念岳→蝶槍 3時間30分', sourceType:'other'},
+  '蝶槍→常念岳': {minutes:240, source:'公開登山コースガイド・蝶槍→常念岳 4時間', sourceType:'other'},
+
+  // 蝶槍 ↔ 蝶ヶ岳ヒュッテ。YAMAP往復モデルのチェックポイント時刻から直接確認。
+  '蝶槍→蝶ヶ岳ヒュッテ': {minutes:55, source:'YAMAPモデルコース・三股登山口-蝶ヶ岳-蝶槍往復（蝶槍10:33→蝶ヶ岳ヒュッテ11:28）', sourceType:'yamap'},
+  '蝶ヶ岳ヒュッテ→蝶槍': {minutes:55, source:'YAMAPモデルコース・三股登山口-蝶ヶ岳-蝶槍往復（蝶ヶ岳ヒュッテ09:38→蝶槍10:33）', sourceType:'yamap'}
+});
+
 // V1.5.18: 追加王道ルート用の区間CT。距離按分は使わず、公開標準CTのみを方向別に固定。
 const V1518_CLASSIC_ROUTE_VERIFIED_COURSE_TIMES = Object.freeze({
   // 三股サーキット（YAMAPモデルコースのチェックポイント時刻から区間合算）
@@ -1681,6 +1704,7 @@ const V14188_PRIORITY_VERIFIED_COURSE_TIMES = Object.freeze({
 });
 
 const COURSE_TIME_TABLES = Object.freeze([
+  V1520_CLASSIC_ROUTE_VERIFIED_COURSE_TIMES,
   V1518_CLASSIC_ROUTE_VERIFIED_COURSE_TIMES,
   V1516_CLASSIC_ROUTE_VERIFIED_COURSE_TIMES,
   V1514_INTERMEDIATE_VERIFIED_COURSE_TIMES,
@@ -2128,8 +2152,8 @@ const CLASSIC_ROUTES=[
   {id:'panorama-ginza',name:'パノラマ銀座',subtitle:'中房温泉 → 燕岳 → 大天井岳 → 常念岳 → 蝶ヶ岳 → 三股',anchor:'槍ヶ岳',days:'2泊3日目安',level:'縦走',points:[
     ['trailhead','中房温泉登山口','燕岳'],['hut','合戦小屋','燕岳'],['hut','燕山荘','燕岳'],['peak','燕岳','燕岳'],['hut','燕山荘','燕岳',true],['hut','大天荘','大天井岳'],['peak','大天井岳','大天井岳'],['hut','常念小屋','常念岳',true],['peak','常念岳','常念岳'],['peak','蝶ヶ岳','蝶ヶ岳'],['hut','蝶ヶ岳ヒュッテ','蝶ヶ岳'],['trailhead','三股登山口','蝶ヶ岳']
   ]},
-  {id:'ura-ginza',name:'裏銀座',subtitle:'高瀬ダム → 烏帽子岳 → 野口五郎岳 → 水晶岳 → 鷲羽岳 → 双六岳 → 新穂高',anchor:'鷲羽岳',days:'4泊5日目安',level:'ロング',points:[
-    ['trailhead','高瀬ダム','野口五郎岳'],['hut','烏帽子小屋','野口五郎岳'],['peak','烏帽子岳','烏帽子岳'],['hut','烏帽子小屋','野口五郎岳',true],['peak','野口五郎岳','野口五郎岳'],['hut','野口五郎小屋','野口五郎岳',true],['hut','水晶小屋','水晶岳（黒岳）'],['peak','水晶岳','水晶岳（黒岳）'],['hut','水晶小屋','水晶岳（黒岳）'],['peak','鷲羽岳','鷲羽岳'],['hut','三俣山荘','鷲羽岳',true],['peak','三俣蓮華岳','三俣蓮華岳'],['peak','双六岳','双六岳'],['hut','双六小屋','双六岳',true],['hut','鏡平山荘','双六岳'],['hut','わさび平小屋','双六岳'],['trailhead','新穂高温泉','双六岳']
+  {id:'ura-ginza',name:'裏銀座',subtitle:'高瀬ダム → 烏帽子岳 → 野口五郎岳 → 水晶岳 → 鷲羽岳 → 双六岳 → 槍ヶ岳 → 新穂高',anchor:'鷲羽岳',days:'4泊5日目安',level:'ロング',points:[
+    ['trailhead','高瀬ダム','野口五郎岳'],['hut','烏帽子小屋','野口五郎岳'],['peak','烏帽子岳','烏帽子岳'],['hut','烏帽子小屋','野口五郎岳',true],['peak','野口五郎岳','野口五郎岳'],['hut','野口五郎小屋','野口五郎岳',true],['hut','水晶小屋','水晶岳（黒岳）'],['peak','水晶岳','水晶岳（黒岳）'],['hut','水晶小屋','水晶岳（黒岳）'],['peak','鷲羽岳','鷲羽岳'],['hut','三俣山荘','鷲羽岳',true],['peak','三俣蓮華岳','三俣蓮華岳'],['peak','双六岳','双六岳'],['hut','双六小屋','双六岳'],['hut','槍ヶ岳山荘','槍ヶ岳'],['peak','槍ヶ岳','槍ヶ岳'],['hut','槍ヶ岳山荘','槍ヶ岳',true],['hut','槍平小屋','槍ヶ岳'],['trailhead','新穂高温泉','槍ヶ岳']
   ]},
   {id:'ushiro-tateyama',name:'後立山縦走',subtitle:'八方 → 唐松岳 → 五竜岳 → 鹿島槍ヶ岳 → 爺ヶ岳 → 扇沢',anchor:'鹿島槍ヶ岳',days:'3泊4日目安',level:'上級',points:[
     ['trailhead','八方池山荘','唐松岳'],['hut','唐松岳頂上山荘','唐松岳'],['peak','唐松岳','唐松岳'],['hut','唐松岳頂上山荘','唐松岳',true],['hut','五竜山荘','五竜岳',true],['peak','五竜岳','五竜岳'],['hut','キレット小屋','鹿島槍ヶ岳'],['peak','鹿島槍ヶ岳','鹿島槍ヶ岳'],['hut','冷池山荘','鹿島槍ヶ岳',true],['peak','爺ヶ岳','爺ヶ岳'],['hut','種池山荘','爺ヶ岳'],['trailhead','扇沢登山口','爺ヶ岳']
@@ -2143,8 +2167,8 @@ const CLASSIC_ROUTES=[
   {id:'houou-sanzan',name:'鳳凰三山',subtitle:'夜叉神峠 → 薬師岳 → 観音岳 → 地蔵岳 → 夜叉神峠',anchor:'観音岳(鳳凰)',days:'1泊2日目安',level:'南アルプス縦走',points:[
     ['trailhead','夜叉神峠登山口','観音岳(鳳凰)'],['hut','南御室小屋','観音岳(鳳凰)',true],['peak','薬師岳(鳳凰)','観音岳(鳳凰)'],['peak','観音岳(鳳凰)','観音岳(鳳凰)'],['peak','地蔵岳(鳳凰)','地蔵岳(鳳凰)'],['peak','観音岳(鳳凰)','観音岳(鳳凰)'],['peak','薬師岳(鳳凰)','観音岳(鳳凰)'],['hut','南御室小屋','観音岳(鳳凰)'],['trailhead','夜叉神峠登山口','観音岳(鳳凰)']
   ]},
-  {id:'mitsumata-circuit',name:'三股サーキット',subtitle:'三股 → 常念岳 → 蝶ヶ岳 → 三股',anchor:'常念岳',days:'日帰り目安',level:'ロング・周回',points:[
-    ['trailhead','三股登山口','常念岳'],['peak','常念岳','常念岳'],['peak','蝶ヶ岳','蝶ヶ岳'],['trailhead','三股登山口','蝶ヶ岳']
+  {id:'mitsumata-circuit',name:'三股サーキット',subtitle:'三股 → 前常念岳 → 常念岳 → 蝶槍 → 蝶ヶ岳ヒュッテ → 蝶ヶ岳 → 三股',anchor:'常念岳',days:'1泊2日目安',level:'ロング・周回',points:[
+    ['trailhead','三股登山口','常念岳'],['peak','前常念岳','常念岳'],['peak','常念岳','常念岳'],['peak','蝶槍','常念岳'],['hut','蝶ヶ岳ヒュッテ','蝶ヶ岳',true],['peak','蝶ヶ岳','蝶ヶ岳'],['trailhead','三股登山口','蝶ヶ岳']
   ]},
   {id:'kumonodaira-grand-circle',name:'雲ノ平グランドサークル',subtitle:'折立 → 雲ノ平 → 三俣蓮華岳 → 黒部五郎岳 → 折立',anchor:'黒部五郎岳',days:'2泊3日目安',level:'ロング・周回',points:[
     ['trailhead','折立登山口','黒部五郎岳'],['hut','太郎平小屋','黒部五郎岳'],['hut','薬師沢小屋','黒部五郎岳'],['hut','雲ノ平山荘','黒部五郎岳',true],['hut','三俣山荘','三俣蓮華岳'],['peak','三俣蓮華岳','三俣蓮華岳'],['hut','黒部五郎小舎','黒部五郎岳',true],['peak','黒部五郎岳','黒部五郎岳'],['hut','太郎平小屋','黒部五郎岳'],['trailhead','折立登山口','黒部五郎岳']
@@ -4445,6 +4469,7 @@ const V14157_MAJOR_WAYPOINTS = {
     {id:'v14157-chou-sankakuten',type:'peak',name:'蝶ヶ岳三角点',lat:36.298333,lon:137.721704,elevation:2664,source:'国土地理院地形図参照公開座標'},
   ],
   '常念岳':[
+    {id:'v1520-jonen-maejonen',type:'peak',name:'前常念岳',lat:36.32304,lon:137.73811,elevation:2662,source:'OpenStreetMap公開座標 / YAMAP標高2662m'},
     {id:'v14157-jonen-chouyari',type:'peak',name:'蝶槍',lat:36.300045,lon:137.722014,elevation:2660,source:'国土地理院地形図参照公開座標'},
   ],
 };
