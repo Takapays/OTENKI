@@ -4447,3 +4447,13 @@ body.install-guide-open{overflow:hidden}
   #forecastCards .rf-metrics-grid>.rf-metric.vis{min-height:76px!important}
   #forecastCards .rf-metrics-grid .rf-value-wrap strong{font-size:15px!important}
 }
+
+
+/* V1.5.27 縦走気象グラフの日付帯・日付境界 */
+.chart-date-boundary{stroke:#6f8f82;stroke-width:1.5;stroke-dasharray:6 5;opacity:.82;pointer-events:none}
+.chart-date-band-wrap{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:8px;margin-top:7px}
+.chart-date-band-label{font-size:10px;font-weight:900;color:#6b8277;letter-spacing:.08em;white-space:nowrap}
+.chart-date-band-svg{display:block;width:100%;height:28px;overflow:visible}
+.chart-date-segment{fill:#eef5f1;stroke:#d2e2da;stroke-width:1}
+.chart-date-text{fill:#315f4c;font-size:11px;font-weight:900}
+@media(max-width:680px){.chart-date-band-wrap{gap:5px;margin-top:5px}.chart-date-band-label{font-size:9px}.chart-date-band-svg{height:25px}.chart-date-text{font-size:10px}}
