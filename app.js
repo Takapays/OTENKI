@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.22';
+const APP_VERSION = '1.5.24';
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
@@ -197,12 +197,14 @@ const NORTH_ALPS_COURSE_TIMES = Object.freeze({
   '横尾→蝶ヶ岳': {minutes:270, source:'北アルプス山小屋友交会・蝶ヶ岳ヒュッテ'},
   '蝶ヶ岳→横尾': {minutes:180, source:'北アルプス山小屋友交会・蝶ヶ岳ヒュッテ'},
   '常念小屋→常念山頂': {minutes:90, source:'北アルプス山小屋友交会・蝶ヶ岳ヒュッテ'},
-  '常念山頂→常念小屋': {minutes:90, source:'北アルプス山小屋友交会・蝶ヶ岳ヒュッテ'},
+  '常念山頂→常念小屋': {minutes:60, source:'常念小屋公式・コース（常念岳山頂→常念小屋 約1時間）', sourceType:'official'},
   '常念山頂→蝶ヶ岳': {minutes:270, source:'北アルプス山小屋友交会・蝶ヶ岳ヒュッテ'},
   '蝶ヶ岳→常念山頂': {minutes:300, source:'北アルプス山小屋友交会・蝶ヶ岳ヒュッテ'},
   '燕山荘→大天荘': {minutes:210, source:'北アルプス山小屋友交会・大天荘'},
   '高瀬ダム→烏帽子小屋': {minutes:360, source:'北アルプス山小屋友交会・夏山コースタイム'},
   '烏帽子小屋→高瀬ダム': {minutes:240, source:'北アルプス山小屋友交会・夏山コースタイム'},
+  '烏帽子小屋→烏帽子岳': {minutes:45, source:'北アルプス山小屋友交会・烏帽子小屋（小屋→烏帽子岳山頂 片道45分）', sourceType:'official'},
+  '烏帽子岳→烏帽子小屋': {minutes:45, source:'北アルプス山小屋友交会・烏帽子小屋（小屋↔烏帽子岳山頂 片道45分）', sourceType:'official'},
   '烏帽子小屋→野口五郎岳': {minutes:210, source:'北アルプス山小屋友交会・夏山コースタイム'},
   '野口五郎岳→烏帽子小屋': {minutes:150, source:'北アルプス山小屋友交会・夏山コースタイム'},
   '野口五郎岳→水晶小屋': {minutes:180, source:'北アルプス山小屋友交会・夏山コースタイム'},
@@ -222,21 +224,28 @@ const NORTH_ALPS_COURSE_TIMES = Object.freeze({
   'わさび平小屋→鏡平山荘': {minutes:240, source:'双六小屋グループ・FAQ'},
   '鏡平山荘→双六小屋': {minutes:130, source:'双六小屋グループ・鏡平山荘（現行案内）'},
   // V1.4.33: 槍・穂高主要区間（北アルプス山小屋友交会・夏山コースタイム）
-  '上高地→横尾': {minutes:175, source:'北アルプス山小屋友交会・夏山コースタイム'},
-  '横尾→上高地': {minutes:175, source:'北アルプス山小屋友交会・夏山コースタイム'},
+  '上高地→横尾': {minutes:180, source:'北穂高小屋公式・ルートガイド（上高地→横尾 3時間）', sourceType:'official'},
+  '横尾→上高地': {minutes:190, source:'山と高原地図2026掲載CT（横尾→上高地 3時間10分）', sourceType:'other'},
+  // V1.5.24: 代表コース側の表示名「横尾山荘」でも合成CTへ落ちないよう明示キーを持つ。
+  '上高地→横尾山荘': {minutes:180, source:'北穂高小屋公式・ルートガイド（上高地→横尾 3時間）', sourceType:'official'},
+  '横尾山荘→上高地': {minutes:190, source:'山と高原地図2026掲載CT（横尾→上高地 3時間10分）', sourceType:'other'},
   // V1.4.246: 槍ヶ岳山荘グループ公式モデルルートで横尾→槍沢ロッヂ 1時間30分を確認。
   // これが無いと composed CT が 横尾→上高地→槍沢ロッヂ と逆走結合し 7時間15分になるため、直接CTを優先登録する。
   '横尾→槍沢ロッヂ': {minutes:90, source:'槍ヶ岳山荘グループ・殺生小屋モデルルート（横尾→槍沢ロッヂ 1時間30分）', sourceType:'official'},
-  '横尾→涸沢ヒュッテ': {minutes:180, source:'北アルプス山小屋友交会・夏山コースタイム'},
-  '涸沢ヒュッテ→横尾': {minutes:120, source:'北アルプス山小屋友交会・夏山コースタイム'},
+  '横尾→涸沢ヒュッテ': {minutes:190, source:'北穂高小屋公式・ルートガイド（横尾→本谷橋1時間10分→涸沢2時間）', sourceType:'official'},
+  '涸沢ヒュッテ→横尾': {minutes:120, source:'山と高原地図2026掲載CT（涸沢→横尾 2時間）', sourceType:'other'},
+  // V1.5.24: 表示名「横尾山荘」でも直接CTを確実に採用する。
+  '横尾山荘→涸沢ヒュッテ': {minutes:190, source:'北穂高小屋公式・ルートガイド（横尾→本谷橋1時間10分→涸沢2時間）', sourceType:'official'},
+  '涸沢ヒュッテ→横尾山荘': {minutes:120, source:'山と高原地図2026掲載CT（涸沢→横尾 2時間）', sourceType:'other'},
   '新穂高温泉→槍平小屋': {minutes:270, source:'北アルプス山小屋友交会・夏山コースタイム'},
   '槍平小屋→新穂高温泉': {minutes:210, source:'北アルプス山小屋友交会・夏山コースタイム'},
   '槍平小屋→槍ヶ岳山荘': {minutes:240, source:'北アルプス山小屋友交会・夏山コースタイム'},
   '槍ヶ岳山荘→槍平小屋': {minutes:150, source:'北アルプス山小屋友交会・夏山コースタイム'},
   '槍ヶ岳山荘→南岳小屋': {minutes:120, source:'北アルプス山小屋友交会・夏山コースタイム'},
   '南岳小屋→槍ヶ岳山荘': {minutes:120, source:'北アルプス山小屋友交会・夏山コースタイム'},
-  '南岳小屋→北穂高小屋': {minutes:180, source:'北アルプス山小屋友交会・夏山コースタイム'},
-  '北穂高小屋→南岳小屋': {minutes:180, source:'北アルプス山小屋友交会・夏山コースタイム'},
+  '南岳小屋→北穂高小屋': {minutes:210, source:'山と高原地図2026掲載CT（南岳小屋→北穂高小屋 3時間30分）', sourceType:'other'},
+  '南岳小屋→北穂高岳': {minutes:210, source:'山と高原地図2026掲載CT（南岳小屋→北穂高小屋・北穂高岳直下 3時間30分）', sourceType:'other'},
+  '北穂高小屋→南岳小屋': {minutes:200, source:'山と高原地図2026掲載CT（北穂高小屋→南岳小屋 3時間20分）', sourceType:'other'},
   '北穂高小屋→涸沢ヒュッテ': {minutes:105, source:'北アルプス山小屋友交会・夏山コースタイム'},
   '涸沢ヒュッテ→北穂高小屋': {minutes:180, source:'北アルプス山小屋友交会・夏山コースタイム'},
 
@@ -1122,7 +1131,7 @@ const SUPPLEMENTAL_COURSE_TIMES = Object.freeze({
   '笠新道登山口→笠ヶ岳': {minutes:320, source:'ユーザー確定・V1.4.252表示推定CTを採用（V1.4.253）', sourceType:'manual'},
   '笠ヶ岳→笠新道登山口': {minutes:190, source:'ユーザー確定・V1.4.252表示推定CTを採用（V1.4.253）', sourceType:'manual'},
   '大天井岳→中房登山口（燕岳・大天井岳 表銀座ルート）': {minutes:260, source:'ユーザー確定・V1.4.252表示推定CTを採用（V1.4.253）', sourceType:'manual'},
-  '霞沢岳→上高地': {minutes:150, source:'ユーザー確定・V1.4.252表示推定CTを採用（V1.4.253）', sourceType:'manual'},
+  '霞沢岳→上高地': {minutes:365, source:'YAMA HACK・霞沢岳 上高地ピストン（山頂→K1→JP→徳本峠→明神→上高地 区間合算 6時間05分）', sourceType:'other'},
   '中宮温泉ビジターセンター（笈ヶ岳ルート起点）→笈ヶ岳': {minutes:310, source:'ユーザー確定・V1.4.252表示推定CTを採用（V1.4.253）', sourceType:'manual'},
   '笈ヶ岳→中宮温泉ビジターセンター（笈ヶ岳ルート起点）': {minutes:250, source:'ユーザー確定・V1.4.252表示推定CTを採用（V1.4.253）', sourceType:'manual'},
   '倶留尊山→曽爾高原 倶留尊山登山口': {minutes:80, source:'ユーザー確定・V1.4.252表示推定CTを採用（V1.4.253）', sourceType:'manual'},
@@ -1150,6 +1159,7 @@ const SUPPLEMENTAL_COURSE_TIMES = Object.freeze({
   '男池駐車場・男池登山口→大船山': {minutes:243, source:'YAMA HACK・男池〜大船山コース（男池69分＋ソババッケ82分＋大戸越92分＝4時間03分）'},
   '椎原峠登山口→脊振山': {minutes:170, source:'公開登山ガイド・椎原峠登山口〜脊振山（区間CT合算 2時間50分）'},
   '妙義神社入口・登山者駐車場→妙義山（相馬岳）': {minutes:225, source:'登山口ナビ・表妙義 白雲山（妙義山市営駐車場→相馬岳）標準登り3時間45分'},
+  '妙義山（相馬岳）→妙義神社入口・登山者駐車場': {minutes:100, source:'日本アルプスガイド・タルワキ沢コース（相馬岳→妙義神社南入口 1時間40分）', sourceType:'other'},
   '青崩峠入口・熊伏山登山口→熊伏山': {minutes:120, source:'信州遠山郷公式・熊伏山（駐車場→青崩峠20分→青崩の頭40分→前熊伏山40分→山頂20分）'},
   '竜門岳登山口 吉野→竜門岳': {minutes:120, source:'公開登山ガイド・竜門岳 吉野側ルート（登山口→山頂 標準約2時間、YAMAP往復モデル3時間40分とも整合）'},
   // V1.4.149: 推定CTから確認済みCTへ昇格（端点一致の公開標準CT）。
@@ -1203,7 +1213,7 @@ const SUPPLEMENTAL_COURSE_TIMES = Object.freeze({
   '剱岳→剣山荘': {minutes:166, source:'ヤマレコ・剱岳 室堂/別山尾根 山行計画（標準CT区間合算）', sourceType:'yamareco'},
   '剣山荘→剱澤小屋': {minutes:20, source:'公開登山ガイド・剱岳 別山尾根標準CT'},
   '室堂→剣山荘': {minutes:230, source:'THE JAPAN ALPS・剱岳 別山尾根ルート'},
-  '馬場島→早月小屋': {minutes:350, source:'THE JAPAN ALPS・剱岳 早月尾根ルート'},
+  '馬場島→早月小屋': {minutes:360, source:'早月小屋公式・アクセス', sourceType:'official'},
   '早月小屋→剱岳': {minutes:210, source:'THE JAPAN ALPS・剱岳 早月尾根ルート'},
   '剱岳→早月小屋': {minutes:150, source:'THE JAPAN ALPS・剱岳 早月尾根ルート'},
   '早月小屋→馬場島': {minutes:230, source:'THE JAPAN ALPS・剱岳 早月尾根ルート'},
@@ -1278,6 +1288,7 @@ const SUPPLEMENTAL_COURSE_TIMES = Object.freeze({
   // V1.4.153: CT最終精査。起点一致の標準CTを優先して推定値を置換。
   '楢原・樽原登山口→諏訪山（上野村）': {minutes:280, source:'上野村公式・諏訪山コース（楢原登山口→諏訪山 区間合算）'},
   '蓮華温泉→雪倉岳': {minutes:420, source:'山と溪谷オンライン・雪倉岳（蓮華温泉から約7時間）', sourceType:'yamakei'},
+  '雪倉岳→蓮華温泉': {minutes:283, source:'YAMAP・朝日岳周回モデルコース（雪倉岳08:29→蓮華温泉ロッジ13:12＝4時間43分）', sourceType:'yamap'},
   '沼平ゲート→茶臼岳': {minutes:440, source:'YAMAP・茶臼岳/光岳モデルコース（ゲート→茶臼岳 標準CT区間合算）', sourceType:'yamap'},
   '沼平ゲート→上河内岳': {minutes:518, source:'YAMAP・上河内岳/茶臼岳モデルコース（ゲート→上河内岳 標準CT区間合算）', sourceType:'yamap'},
   '沼平ゲート→光岳': {minutes:685, source:'YAMAP・茶臼岳/光岳モデルコース（ゲート→光岳 標準CT区間合算）', sourceType:'yamap'},
@@ -1442,7 +1453,7 @@ const V1518_CLASSIC_ROUTE_VERIFIED_COURSE_TIMES = Object.freeze({
 const V1516_CLASSIC_ROUTE_VERIFIED_COURSE_TIMES = Object.freeze({
   // 表銀座 / パノラマ銀座
   '大天荘→大天井岳': {minutes:10, source:'大天荘公式・大天井岳山頂まで10分', sourceType:'official'},
-  '大天井岳→大天荘': {minutes:5, source:'山旅旅・表銀座モデルコース（大天井岳→大天荘 5分）'},
+  '大天井岳→大天荘': {minutes:6, source:'YAMA HACK・表銀座縦走コース（大天井岳→大天荘 6分）', sourceType:'other'},
   '蝶ヶ岳→蝶ヶ岳ヒュッテ': {minutes:5, source:'公開登山ガイド・蝶ヶ岳山頂↔蝶ヶ岳ヒュッテ 約5分'},
   '蝶ヶ岳ヒュッテ→蝶ヶ岳': {minutes:5, source:'公開登山ガイド・蝶ヶ岳山頂↔蝶ヶ岳ヒュッテ 約5分'},
   '三股登山口→蝶ヶ岳ヒュッテ': {minutes:257, source:'YAMAPモデルコース・三股登山口→蝶ヶ岳ヒュッテ 標準CT区間合算', sourceType:'yamap'},
@@ -1573,7 +1584,7 @@ const V14206_VERIFIED_COURSE_TIMES = Object.freeze({
   'モンデウス飛騨位山→位山': {minutes:158, source:'YAMAP標準モデル・モンデウス飛騨位山-位山（駐車場08:06→位山10:44、2時間38分）', sourceType:'yamap'},
   '位山→モンデウス飛騨位山': {minutes:109, source:'YAMAP標準モデル・モンデウス飛騨位山-位山（位山10:44→駐車場12:33、1時間49分）', sourceType:'yamap'},
   '伯母子岳→大股登山口 伯母子岳': {minutes:175, source:'YAMAP標準モデル・大股-伯母子岳往復（伯母子岳11:32→大股14:27、2時間55分）', sourceType:'yamap'},
-  '脊振山→脊振山山頂駐車場': {minutes:1, source:'YAMAP標準モデル・脊振山往復（脊振山09:30→脊振山駐車場09:31、1分）', sourceType:'yamap'},
+  '脊振山→脊振山山頂駐車場': {minutes:10, source:'神埼市公式・山頂手前駐車場から約10分（往復同一区間）', sourceType:'official'},
   '篠山→篠山登山口 愛媛高知': {minutes:40, source:'YAMAP標準モデル・篠山往復（篠山08:49→篠山第一駐車場09:29、40分）', sourceType:'yamap'},
   '笹ヶ峰→下津池 笹ヶ峰登山口': {minutes:106, source:'YAMAP標準モデル・笹ヶ峰往復（笹ヶ峰10:22→笹ヶ峰登山口駐車場12:08、1時間46分）', sourceType:'yamap'},
   '長者原→大船山': {minutes:309, source:'YAMAP標準モデル・長者原-大船山往復（長者原08:00→大船山13:09、5時間09分）', sourceType:'yamap'},
@@ -1630,10 +1641,10 @@ const V14201_REPRESENTATIVE_VERIFIED_COURSE_TIMES = Object.freeze({
   '唐沢鉱泉→天狗岳': {minutes:240, source:'YAMAP標準モデル・天狗岳（唐沢鉱泉）西尾根（唐沢鉱泉→西天狗岳 4時間）', sourceType:'yamap'},
   '天狗岳→唐沢鉱泉': {minutes:130, source:'YAMAP標準モデル・天狗岳（唐沢鉱泉）西尾根（西天狗岳→唐沢鉱泉 2時間10分）', sourceType:'yamap'},
   '蓮華温泉→白馬大池山荘': {minutes:195, source:'白馬館公式・蓮華温泉ルート（蓮華温泉登山口→白馬大池山荘 3時間15分）', sourceType:'official'},
-  '比羅夫登山口・半月湖畔自然公園→後方羊蹄山（羊蹄山）': {minutes:359, source:'YAMAP標準モデル・比羅夫→羊蹄山→真狩縦走（比羅夫登山口→山頂 5時間59分）', sourceType:'yamap'},
+  '比羅夫登山口・半月湖畔自然公園→後方羊蹄山（羊蹄山）': {minutes:310, source:'倶知安町公式・羊蹄山 倶知安ひらふコース', sourceType:'official'},
   '岩木山→嶽温泉・嶽コース登山口': {minutes:159, source:'YAMAP標準モデル・百沢→岩木山→嶽温泉縦走（山頂→嶽コース登山口 2時間39分）', sourceType:'yamap'},
   '十勝岳温泉登山口→十勝岳': {minutes:305, source:'YAMAP標準モデル・上ホロカメットク山-十勝岳縦走（十勝岳温泉登山口→十勝岳 5時間05分）', sourceType:'yamap'},
-  '十勝岳→吹上温泉登山口': {minutes:130, source:'YAMAP標準モデル・上ホロカメットク山-十勝岳縦走（十勝岳→吹上温泉登山口 2時間10分）', sourceType:'yamap'},
+  '十勝岳→吹上温泉登山口': {minutes:165, source:'ヤマレコ・十勝岳 吹上温泉ルート p5503284（区間CT合算）', sourceType:'yamareco'},
   '坊村登山口→武奈ヶ岳': {minutes:232, source:'既存確認済みCT「坊村→武奈ヶ岳」と同一登山口名称を接続', sourceType:'yamareco'},
   '武奈ヶ岳→坊村登山口': {minutes:143, source:'既存確認済みCT「武奈ヶ岳→坊村」と同一登山口名称を接続', sourceType:'yamareco'}
 });
@@ -1972,12 +1983,20 @@ function courseTimeInfo(fromPoint,toPoint){
   const rawTo=String(toPoint.name||'').trim();
   // V1.4.66: 固定地点名とCT端点が完全一致する場合は、名称正規化より先に生の名称を優先する。
   // 括弧の全角/半角変換などで確認済みCTキーを取りこぼすのを防ぐ。
-  const rawInfo=directCourseTimeInfoByNames(rawFrom,rawTo)||composedCourseTimeInfo(rawFrom,rawTo);
-  if(rawInfo)return rawInfo;
+  // V1.5.23: direct CT must win before any graph composition, including alias-normalized endpoints.
+  // Otherwise an alias such as 常念岳→常念山頂 can be bypassed by a much longer composed detour.
+  const rawDirect=directCourseTimeInfoByNames(rawFrom,rawTo);
+  if(rawDirect)return rawDirect;
   const fromName=canonicalCourseTimeEndpointName(normalizeCourseTimePointName(rawFrom));
   const toName=canonicalCourseTimeEndpointName(normalizeCourseTimePointName(rawTo));
-  const normalizedInfo=directCourseTimeInfoByNames(fromName,toName)||composedCourseTimeInfo(fromName,toName);
-  if(normalizedInfo)return normalizedInfo;
+  const normalizedDirect=directCourseTimeInfoByNames(fromName,toName);
+  if(normalizedDirect)return normalizedDirect;
+  // Compose with canonical endpoints first. Raw-name composition is only a final compatibility fallback.
+  // This prevents paths that pass through an alias-equivalent endpoint (e.g. 扇沢 vs 扇沢登山口) and continue on a detour.
+  const normalizedComposed=composedCourseTimeInfo(fromName,toName);
+  if(normalizedComposed)return normalizedComposed;
+  const rawComposed=composedCourseTimeInfo(rawFrom,rawTo);
+  if(rawComposed)return rawComposed;
   return estimatedGeneratedCourseTimeInfo(rawFrom,rawTo)
     ||estimatedGeneratedCourseTimeInfo(fromName,toName)
     ||null;
@@ -2177,7 +2196,7 @@ const CLASSIC_ROUTES=[
     ['trailhead','高瀬ダム','野口五郎岳'],['hut','烏帽子小屋','野口五郎岳'],['peak','烏帽子岳','烏帽子岳'],['hut','烏帽子小屋','野口五郎岳',true],['peak','野口五郎岳','野口五郎岳'],['hut','野口五郎小屋','野口五郎岳',true],['hut','水晶小屋','水晶岳（黒岳）'],['peak','水晶岳','水晶岳（黒岳）'],['hut','水晶小屋','水晶岳（黒岳）'],['peak','鷲羽岳','鷲羽岳'],['hut','三俣山荘','鷲羽岳',true],['peak','三俣蓮華岳','三俣蓮華岳'],['peak','双六岳','双六岳'],['hut','双六小屋','双六岳'],['hut','槍ヶ岳山荘','槍ヶ岳'],['peak','槍ヶ岳','槍ヶ岳'],['hut','槍ヶ岳山荘','槍ヶ岳',true],['hut','槍平小屋','槍ヶ岳'],['trailhead','新穂高温泉','槍ヶ岳']
   ]},
   {id:'ushiro-tateyama',name:'後立山縦走',subtitle:'八方 → 唐松岳 → 五竜岳 → 鹿島槍ヶ岳 → 爺ヶ岳 → 扇沢',anchor:'鹿島槍ヶ岳',days:'3泊4日目安',level:'上級',points:[
-    ['trailhead','八方池山荘','唐松岳'],['hut','唐松岳頂上山荘','唐松岳'],['peak','唐松岳','唐松岳'],['hut','唐松岳頂上山荘','唐松岳',true],['hut','五竜山荘','五竜岳',true],['peak','五竜岳','五竜岳'],['hut','キレット小屋','鹿島槍ヶ岳'],['peak','鹿島槍ヶ岳','鹿島槍ヶ岳'],['hut','冷池山荘','鹿島槍ヶ岳',true],['peak','爺ヶ岳','爺ヶ岳'],['hut','種池山荘','爺ヶ岳'],['trailhead','扇沢登山口','爺ヶ岳']
+    ['trailhead','八方池山荘','唐松岳'],['hut','唐松岳頂上山荘','唐松岳'],['peak','唐松岳','唐松岳'],['hut','唐松岳頂上山荘','唐松岳'],['hut','五竜山荘','五竜岳',true],['peak','五竜岳','五竜岳'],['hut','キレット小屋','鹿島槍ヶ岳',true],['peak','鹿島槍ヶ岳','鹿島槍ヶ岳'],['hut','冷池山荘','鹿島槍ヶ岳',true],['peak','爺ヶ岳','爺ヶ岳'],['hut','種池山荘','爺ヶ岳'],['trailhead','扇沢登山口','爺ヶ岳']
   ]},
   {id:'yari-hotaka',name:'槍・穂高縦走',subtitle:'上高地 → 槍ヶ岳 → 南岳 → 北穂高岳 → 奥穂高岳 → 上高地',anchor:'槍ヶ岳',days:'3泊4日目安',level:'上級・大キレット',points:[
     ['trailhead','上高地','槍ヶ岳'],['hut','横尾山荘','槍ヶ岳'],['hut','槍沢ロッヂ','槍ヶ岳'],['hut','槍ヶ岳山荘','槍ヶ岳'],['peak','槍ヶ岳','槍ヶ岳'],['hut','槍ヶ岳山荘','槍ヶ岳',true],['peak','大喰岳','槍ヶ岳'],['peak','中岳','槍ヶ岳'],['peak','南岳','槍ヶ岳'],['hut','南岳小屋','槍ヶ岳',true],['peak','北穂高岳','槍ヶ岳'],['hut','北穂高小屋','槍ヶ岳'],['peak','涸沢岳','槍ヶ岳'],['hut','穂高岳山荘','奥穂高岳',true],['peak','奥穂高岳','奥穂高岳'],['hut','穂高岳山荘','奥穂高岳'],['hut','涸沢ヒュッテ','奥穂高岳'],['hut','横尾山荘','槍ヶ岳'],['trailhead','上高地','槍ヶ岳']
