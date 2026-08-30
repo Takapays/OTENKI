@@ -71,8 +71,8 @@
     ]
   }
   </script>
-    <link rel="stylesheet" href="styles.css?v=1.5.30">
-    <link rel="stylesheet" href="ui-v1.4.254.css?v=1.5.30">
+    <link rel="stylesheet" href="styles.css?v=1.5.35">
+    <link rel="stylesheet" href="ui-v1.4.254.css?v=1.5.35">
     <style>
       /* V1.4.250: mobile TOP explainer is intentionally moved to guide.html.
          Inline fallback prevents an old/missing override stylesheet from leaving it visible. */
@@ -91,7 +91,7 @@
     <div class="topbar-center">
       <h1>その時、その場所の空を読む。</h1>
       <div class="topbar-badges">
-        <span>V1.5.30</span>
+        <span>V1.5.35</span>
         <span>日本三百名山 網羅</span>
         <span>5系統アラート</span>
         <span>全国一括簡易判定</span>
@@ -99,7 +99,7 @@
       </div>
     </div>
     <div class="mobile-topbar-copy">その時、その場所の空を読む。</div>
-    <span class="mobile-topbar-version">V1.5.30</span>
+    <span class="mobile-topbar-version">V1.5.35</span>
     <div class="mobile-topbar-badges" aria-label="トラテン機能"><span>日本三百名山 網羅</span><span>5系統アラート</span><span>全国一括簡易判定</span><span>登山口アクセス情報</span></div>
     <nav class="topbar-nav topbar-resource-nav" aria-label="トラテン主要メニュー">
       <a class="topbar-nav-link trailhead" href="trailheads.html" aria-label="登山口一覧を開く"><span class="resource-nav-icon" aria-hidden="true">⛰</span><span class="resource-nav-copy"><b>登山口</b><small>アクセス情報</small></span></a>
@@ -317,6 +317,12 @@
             <div class="summary-scale confidence"><i id="confidenceMarker"></i></div><div class="summary-scale-labels"><span>低</span><span>中</span><span>高</span></div>
           </article>
         </div>
+        <div class="external-weather-links screenshot-exclude" aria-label="外部の山岳天気情報">
+          <div class="external-weather-links-copy"><small>他サービスでも確認</small><b>山行前のクロスチェック</b></div>
+          <a id="tenkuraLink" class="tenkura-link is-loading" href="#" target="_blank" rel="noopener noreferrer" aria-disabled="true">
+            <span class="tenkura-link-mark" aria-hidden="true">天</span><span><b>てんくら</b><small id="tenkuraLinkStatus">選択した山を確認中…</small></span><em>↗</em>
+          </a>
+        </div>
         <div id="decisionCommentary" class="decision-commentary"></div>
         <section class="route-map-shell route-map-results-panel">
           <div class="route-map-head">
@@ -444,6 +450,6 @@
     </a>
   </div>
 </footer>
-<script src="app.js?v=1.5.30" defer></script>
+<script src="app.js?v=1.5.35" defer></script>
 </body>
 </html>

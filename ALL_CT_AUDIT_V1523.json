@@ -3,13 +3,13 @@
     "mountains": 300,
     "courses": 380,
     "segments": 901,
-    "direct": 756,
+    "direct": 757,
     "composed": 12,
-    "estimated": 133,
+    "estimated": 132,
     "missing": 0,
-    "flags": 47,
-    "conflicts": 4,
-    "reverseFlags": 4
+    "flags": 48,
+    "conflicts": 0,
+    "reverseFlags": 1
   },
   "flags": [
     {
@@ -379,6 +379,19 @@
       "reason": "CLOSE_5KM_GT300"
     },
     {
+      "mountain": "霞沢岳",
+      "course": "上高地ルート",
+      "from": "霞沢岳",
+      "to": "上高地",
+      "minutes": 365,
+      "source": "YAMA HACK・霞沢岳 上高地ピストン（山頂→K1→JP→徳本峠→明神→上高地 区間合算 6時間05分）",
+      "composed": false,
+      "estimated": false,
+      "via": [],
+      "km": 2.8683856912030286,
+      "reason": "CLOSE_5KM_GT300"
+    },
+    {
       "mountain": "奥三界岳",
       "course": "川上林道ゲート（夕森渓谷）ルート",
       "from": "川上林道ゲート（夕森渓谷）",
@@ -626,96 +639,14 @@
       "reason": "CLOSE_5KM_GT300"
     }
   ],
-  "conflicts": [
-    {
-      "key": "大天井岳→大天荘",
-      "list": [
-        {
-          "ti": 0,
-          "minutes": 6,
-          "source": "YAMA HACK・表銀座縦走コース（大天井岳→大天荘 6分）"
-        },
-        {
-          "ti": 3,
-          "minutes": 5,
-          "source": "山旅旅・表銀座モデルコース（大天井岳→大天荘 5分）"
-        }
-      ]
-    },
-    {
-      "key": "比羅夫登山口・半月湖畔自然公園→後方羊蹄山（羊蹄山）",
-      "list": [
-        {
-          "ti": 11,
-          "minutes": 359,
-          "source": "YAMAP標準モデル・比羅夫→羊蹄山→真狩縦走（比羅夫登山口→山頂 5時間59分）"
-        },
-        {
-          "ti": 19,
-          "minutes": 310,
-          "source": "倶知安町公式・羊蹄山 倶知安ひらふコース"
-        }
-      ]
-    },
-    {
-      "key": "十勝岳→吹上温泉登山口",
-      "list": [
-        {
-          "ti": 11,
-          "minutes": 130,
-          "source": "YAMAP標準モデル・上ホロカメットク山-十勝岳縦走（十勝岳→吹上温泉登山口 2時間10分）"
-        },
-        {
-          "ti": 20,
-          "minutes": 165,
-          "source": "ヤマレコ・十勝岳 吹上温泉ルート p5503284（区間CT合算）"
-        }
-      ]
-    },
-    {
-      "key": "馬場島→早月小屋",
-      "list": [
-        {
-          "ti": 15,
-          "minutes": 360,
-          "source": "早月小屋公式・アクセス"
-        },
-        {
-          "ti": 20,
-          "minutes": 350,
-          "source": "THE JAPAN ALPS・剱岳 早月尾根ルート"
-        }
-      ]
-    }
-  ],
+  "conflicts": [],
   "reverseFlags": [
-    {
-      "from": "妙義神社入口・登山者駐車場",
-      "to": "妙義山（相馬岳）",
-      "a": 225,
-      "b": 70,
-      "ratio": 3.2142857142857144
-    },
-    {
-      "from": "上高地",
-      "to": "霞沢岳",
-      "a": 512,
-      "b": 150,
-      "ratio": 3.4133333333333336
-    },
     {
       "from": "びわ湖バレイ山頂駅",
       "to": "蓬来山",
       "a": 60,
       "b": 13,
       "ratio": 4.615384615384615
-    },
-    {
-      "from": "脊振山山頂駐車場",
-      "to": "脊振山",
-      "a": 10,
-      "b": 1,
-      "ratio": 10
     }
   ],
   "rows": [
@@ -1066,8 +997,8 @@
       "course": "吹上温泉登山口ルート",
       "from": "十勝岳",
       "to": "吹上温泉登山口",
-      "minutes": 130,
-      "source": "YAMAP標準モデル・上ホロカメットク山-十勝岳縦走（十勝岳→吹上温泉登山口 2時間10分）",
+      "minutes": 165,
+      "source": "ヤマレコ・十勝岳 吹上温泉ルート p5503284（区間CT合算）",
       "composed": false,
       "estimated": false,
       "via": [],
@@ -3456,10 +3387,10 @@
       "course": "妙義神社入口・登山者駐車場ルート",
       "from": "妙義山（相馬岳）",
       "to": "妙義神社入口・登山者駐車場",
-      "minutes": 70,
-      "source": "推定CT（固定座標・標高差＋確認済みCT回帰）",
+      "minutes": 100,
+      "source": "日本アルプスガイド・タルワキ沢コース（相馬岳→妙義神社南入口 1時間40分）",
       "composed": false,
-      "estimated": true,
+      "estimated": false,
       "via": [],
       "km": 1.379699045454407
     },
@@ -6092,8 +6023,8 @@
       "course": "上高地・槍沢ルート",
       "from": "上高地",
       "to": "横尾山荘",
-      "minutes": 175,
-      "source": "北アルプス山小屋友交会・夏山コースタイム",
+      "minutes": 180,
+      "source": "北穂高小屋公式・ルートガイド（上高地→横尾 3時間）",
       "composed": false,
       "estimated": false,
       "via": [],
@@ -6284,8 +6215,8 @@
       "course": "上高地・涸沢ルート",
       "from": "上高地",
       "to": "横尾山荘",
-      "minutes": 175,
-      "source": "北アルプス山小屋友交会・夏山コースタイム",
+      "minutes": 180,
+      "source": "北穂高小屋公式・ルートガイド（上高地→横尾 3時間）",
       "composed": false,
       "estimated": false,
       "via": [],
@@ -6296,8 +6227,8 @@
       "course": "上高地・涸沢ルート",
       "from": "横尾山荘",
       "to": "涸沢ヒュッテ",
-      "minutes": 180,
-      "source": "北アルプス山小屋友交会・夏山コースタイム",
+      "minutes": 190,
+      "source": "北穂高小屋公式・ルートガイド（横尾→本谷橋1時間10分→涸沢2時間）",
       "composed": false,
       "estimated": false,
       "via": [],
@@ -6357,7 +6288,7 @@
       "from": "涸沢ヒュッテ",
       "to": "横尾山荘",
       "minutes": 120,
-      "source": "北アルプス山小屋友交会・夏山コースタイム",
+      "source": "山と高原地図2026掲載CT（涸沢→横尾 2時間）",
       "composed": false,
       "estimated": false,
       "via": [],
@@ -6368,8 +6299,8 @@
       "course": "上高地・涸沢ルート",
       "from": "横尾山荘",
       "to": "上高地",
-      "minutes": 175,
-      "source": "北アルプス山小屋友交会・夏山コースタイム",
+      "minutes": 190,
+      "source": "山と高原地図2026掲載CT（横尾→上高地 3時間10分）",
       "composed": false,
       "estimated": false,
       "via": [],
@@ -6416,8 +6347,8 @@
       "course": "上高地ルート",
       "from": "霞沢岳",
       "to": "上高地",
-      "minutes": 150,
-      "source": "ユーザー確定・V1.4.252表示推定CTを採用（V1.4.253）",
+      "minutes": 365,
+      "source": "YAMA HACK・霞沢岳 上高地ピストン（山頂→K1→JP→徳本峠→明神→上高地 区間合算 6時間05分）",
       "composed": false,
       "estimated": false,
       "via": [],
@@ -10900,8 +10831,8 @@
       "course": "脊振山山頂駐車場ルート",
       "from": "脊振山",
       "to": "脊振山山頂駐車場",
-      "minutes": 1,
-      "source": "YAMAP標準モデル・脊振山往復（脊振山09:30→脊振山駐車場09:31、1分）",
+      "minutes": 10,
+      "source": "神埼市公式・山頂手前駐車場から約10分（往復同一区間）",
       "composed": false,
       "estimated": false,
       "via": [],

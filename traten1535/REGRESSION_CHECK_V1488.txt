@@ -1,7 +1,0 @@
-V1.4.88 regression check
-- node --check app.js: PASS
-- python3 -m py_compile server.py: PASS
-- Version 1.4.88 in UI/assets/app: PASS
-- Mobile hint "山をクリックで詳細表示": PASS
-- Mobile/iOS date input overflow guard: PASS
-- Access MutationObserver: not introduced

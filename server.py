@@ -17,6 +17,8 @@ import math
 import os
 import re
 import html
+import unicodedata
+from html.parser import HTMLParser
 import xml.etree.ElementTree as ET
 import threading
 import time
@@ -32,7 +34,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.5.30"
+APP_VERSION = "1.5.35"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -115,6 +117,215 @@ NOAA_GFS_TIMEOUT = int(os.environ.get("NOAA_GFS_TIMEOUT", "35"))
 NOAA_GFS_CACHE_TTL = int(os.environ.get("NOAA_GFS_CACHE_TTL", "1800"))
 
 app = Flask(__name__, static_folder=None)
+
+
+# V1.5.35: resolve the selected mountain to an actual "てんきとくらす" mountain page.
+# URLs are not guessed from mountain names. The resolver reads Tenkura's own regional
+# mountain indexes, extracts the links that are actually published there, and returns
+# a direct link only when the name match is unambiguous. Regional index results are
+# cached so weather analysis itself is never blocked by this lookup.
+TENKURA_BASE = "https://tenkura.n-kishou.co.jp"
+TENKURA_INDEX_URLS = {
+    "hk": f"{TENKURA_BASE}/tk/kanko/kasel.html?ba=hk&type=15",
+    "th": f"{TENKURA_BASE}/tk/kanko/kasel.html?ba=th&type=15",
+    "hr": f"{TENKURA_BASE}/tk/kanko/kasel.html?ba=hr&type=15",
+    "kk": f"{TENKURA_BASE}/tk/kanko/kasel.html?ba=kk&type=15",
+    "tk": f"{TENKURA_BASE}/tk/kanko/kasel.html?ba=tk&type=15",
+    "kn": f"{TENKURA_BASE}/tk/kanko/kasel.html?ba=kn&type=15",
+    "cg": f"{TENKURA_BASE}/tk/kanko/kasel.html?ba=cg&type=15",
+    "sk": f"{TENKURA_BASE}/tk/kanko/kasel.html?ba=sk&type=15",
+    "ks": f"{TENKURA_BASE}/tk/kanko/kasel.html?ba=ks&type=15",
+}
+TENKURA_AREA_HINTS = {
+    "hokkaido": ["hk"],
+    "tohoku": ["th"],
+    "echigo_oze": ["hr", "kk", "th"],
+    "kanto_joshinetsu": ["kk", "hr"],
+    "yatsugatake_chushin": ["kk"],
+    "hokushin_kubiki": ["kk", "hr"],
+    "northern_alps": ["kk", "hr", "tk"],
+    "central_alps_ontake": ["kk", "tk"],
+    "okuchichibu_fuji": ["kk"],
+    "southern_alps": ["kk", "tk"],
+    "hokuriku_gifu": ["hr", "tk"],
+    "kinki": ["kn"],
+    "chugoku": ["cg"],
+    "shikoku": ["sk"],
+    "kyushu": ["ks"],
+}
+TENKURA_INDEX_TTL = max(3600, int(os.environ.get("TENKURA_INDEX_TTL", "21600")))
+TENKURA_TIMEOUT = max(3, min(20, int(os.environ.get("TENKURA_TIMEOUT", "8"))))
+_tenkura_index_cache: dict[str, tuple[float, list[dict[str, str]]]] = {}
+_tenkura_index_lock = threading.Lock()
+
+# Known naming differences between the Traten mountain catalog and Tenkura.
+# These aliases are names only; the actual target URL still has to be present in
+# Tenkura's regional index before it is returned.
+TENKURA_VERIFIED_LINKS = {
+    "富士山": {"name": "富士山山頂", "url": f"{TENKURA_BASE}/tk/kanko/kad.html?code=19150004&type=15", "region": "kk"},
+    "槍ヶ岳": {"name": "槍ヶ岳", "url": f"{TENKURA_BASE}/tk/kanko/kad.html?code=20150022&type=15", "region": "kk"},
+    "御嶽": {"name": "御嶽山", "url": f"{TENKURA_BASE}/tk/kanko/kad.html?code=20150023&type=15", "region": "kk"},
+    "御嶽山": {"name": "御嶽山", "url": f"{TENKURA_BASE}/tk/kanko/kad.html?code=20150023&type=15", "region": "kk"},
+}
+
+TENKURA_NAME_ALIASES = {
+    "富士山": ["富士山山頂"],
+    "御嶽": ["御嶽山"],
+    "御嶽山": ["御嶽山"],
+    "大雪山（旭岳）": ["旭岳", "大雪山旭岳"],
+    "蔵王山（熊野岳）": ["熊野岳", "蔵王山（熊野岳）"],
+    "茶臼岳（那須岳）": ["茶臼岳(那須岳)", "茶臼岳（那須岳）"],
+    "榛名山（榛名富士）": ["榛名富士"],
+    "八ヶ岳（赤岳）": ["赤岳"],
+    "霧ヶ峰（車山）": ["車山（霧ヶ峰）", "車山(霧ヶ峰)"],
+    "水晶岳（黒岳）": ["水晶岳", "黒岳"],
+    "笠ヶ岳（岐阜）": ["笠ヶ岳"],
+    "笠ヶ岳（長野）": ["笠ヶ岳"],
+    "朝日岳（群馬）": ["朝日岳"],
+    "朝日岳（新潟・富山）": ["朝日岳"],
+    "釈迦ヶ岳（栃木）": ["釈迦ヶ岳"],
+    "経ヶ岳（長野）": ["経ヶ岳"],
+    "阿蘇山（高岳）": ["高岳", "高岳(阿蘇山)", "高岳［阿蘇山］"],
+    "雲仙岳（普賢岳）": ["普賢岳", "雲仙岳（普賢岳）"],
+    "霧島山（韓国岳）": ["韓国岳", "霧島山（韓国岳）"],
+}
+
+class _TenkuraIndexParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self._href: str | None = None
+        self._parts: list[str] = []
+        self.links: list[dict[str, str]] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag.lower() != "a":
+            return
+        href = dict(attrs).get("href") or ""
+        if "kad.html" not in href or "type=15" not in href:
+            return
+        self._href = href
+        self._parts = []
+
+    def handle_data(self, data: str) -> None:
+        if self._href is not None:
+            self._parts.append(data)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag.lower() != "a" or self._href is None:
+            return
+        name = "".join(self._parts).strip()
+        href = self._href
+        self._href = None
+        self._parts = []
+        if not name:
+            return
+        url = urllib.parse.urljoin(f"{TENKURA_BASE}/tk/kanko/", href)
+        parsed = urllib.parse.urlparse(url)
+        if parsed.hostname != "tenkura.n-kishou.co.jp" or not parsed.path.endswith("/kad.html"):
+            return
+        self.links.append({"name": name, "url": url})
+
+def _tenkura_decode(body: bytes, content_type: str = "") -> str:
+    m = re.search(r"charset=([\w-]+)", content_type or "", re.I)
+    candidates = [m.group(1)] if m else []
+    candidates += ["utf-8", "cp932", "shift_jis", "euc_jp"]
+    seen: set[str] = set()
+    best = ""
+    best_bad = 10**9
+    for enc in candidates:
+        if not enc or enc.lower() in seen:
+            continue
+        seen.add(enc.lower())
+        try:
+            text = body.decode(enc, errors="replace")
+        except LookupError:
+            continue
+        bad = text.count("�")
+        if bad < best_bad:
+            best, best_bad = text, bad
+        if bad == 0:
+            return text
+    return best
+
+def _tenkura_norm(value: str) -> str:
+    text = unicodedata.normalize("NFKC", str(value or ""))
+    text = text.replace("ヶ", "ケ").replace("ヵ", "カ")
+    return re.sub(r"[\s・･　]", "", text).lower()
+
+def _tenkura_name_candidates(mountain: str) -> list[str]:
+    values = [mountain, *TENKURA_NAME_ALIASES.get(mountain, [])]
+    # Parenthetical location/alias qualifiers are common in Traten. The stripped
+    # form is only used when it produces a unique match in the hinted region(s).
+    stripped = re.sub(r"[（(［\[].*?[）)］\]]", "", mountain).strip()
+    if stripped and stripped != mountain:
+        values.append(stripped)
+    out: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        key = _tenkura_norm(value)
+        if key and key not in seen:
+            seen.add(key)
+            out.append(value)
+    return out
+
+def _fetch_tenkura_index(region: str) -> list[dict[str, str]]:
+    now = time.time()
+    with _tenkura_index_lock:
+        cached = _tenkura_index_cache.get(region)
+        if cached and cached[0] > now:
+            return [dict(x) for x in cached[1]]
+    url = TENKURA_INDEX_URLS[region]
+    req = urllib.request.Request(url, headers={
+        "User-Agent": "TRATEN/1.5.35 https://otenki.onrender.com",
+        "Accept": "text/html,application/xhtml+xml",
+        "Accept-Language": "ja,en;q=0.5",
+    })
+    with urllib.request.urlopen(req, timeout=TENKURA_TIMEOUT) as resp:
+        body = resp.read(2 * 1024 * 1024)
+        text = _tenkura_decode(body, resp.headers.get("Content-Type", ""))
+    parser = _TenkuraIndexParser()
+    parser.feed(text)
+    # Deduplicate exact URL entries while preserving the official display name.
+    rows: list[dict[str, str]] = []
+    seen_urls: set[str] = set()
+    for row in parser.links:
+        if row["url"] in seen_urls:
+            continue
+        seen_urls.add(row["url"])
+        rows.append(row)
+    with _tenkura_index_lock:
+        _tenkura_index_cache[region] = (now + TENKURA_INDEX_TTL, rows)
+    return [dict(x) for x in rows]
+
+def _resolve_tenkura_link(mountain: str, area: str = "") -> dict[str, Any] | None:
+    verified = TENKURA_VERIFIED_LINKS.get(mountain)
+    if verified:
+        return {**verified, "matchedBy": "verified-direct"}
+    candidates = _tenkura_name_candidates(mountain)
+    candidate_keys = {_tenkura_norm(x) for x in candidates}
+    hinted = [r for r in TENKURA_AREA_HINTS.get(area, []) if r in TENKURA_INDEX_URLS]
+    regions = hinted + [r for r in TENKURA_INDEX_URLS if r not in hinted]
+    matches: list[dict[str, str]] = []
+    for region in regions:
+        try:
+            rows = _fetch_tenkura_index(region)
+        except Exception:
+            continue
+        region_matches = [row for row in rows if _tenkura_norm(row.get("name", "")) in candidate_keys]
+        if region_matches:
+            matches.extend([{**row, "region": region} for row in region_matches])
+            # A unique match inside an explicitly hinted first-choice region is safe
+            # and avoids unnecessary requests to all other Tenkura regional indexes.
+            unique_urls = {m["url"] for m in region_matches}
+            if region in hinted and len(unique_urls) == 1:
+                row = region_matches[0]
+                return {"name": row["name"], "url": row["url"], "region": region, "matchedBy": "official-index"}
+    unique: dict[str, dict[str, str]] = {m["url"]: m for m in matches}
+    if len(unique) == 1:
+        row = next(iter(unique.values()))
+        return {"name": row["name"], "url": row["url"], "region": row["region"], "matchedBy": "official-index"}
+    return None
+
 app.config["MAX_CONTENT_LENGTH"] = MAX_OVERPASS_BYTES
 
 _cache: "OrderedDict[str, tuple[float, int, str, bytes]]" = OrderedDict()
@@ -2351,7 +2562,7 @@ def _water_mountain_cache_remote_load() -> dict[str, Any] | None:
         try:
             req = urllib.request.Request(
                 url,
-                headers={"User-Agent": "Traten/1.5.30", "Cache-Control": "no-cache"},
+                headers={"User-Agent": "Traten/1.5.35", "Cache-Control": "no-cache"},
             )
             with urllib.request.urlopen(req, timeout=WATER_MOUNTAIN_CACHE_REMOTE_TIMEOUT) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
@@ -2750,6 +2961,21 @@ def usage_dashboard_data():
         return jsonify(ok=False, error=f"Supabase HTTP {exc.code}", detail=detail), 502
     except Exception as exc:
         return jsonify(ok=False, error=str(exc)[:500]), 502
+
+
+@app.get("/api/tenkura-link")
+def tenkura_link():
+    mountain = (request.args.get("mountain") or "").strip()
+    area = (request.args.get("area") or "").strip()
+    if not mountain or len(mountain) > 80:
+        return jsonify(ok=False, error="mountain is required"), 400
+    try:
+        result = _resolve_tenkura_link(mountain, area)
+    except Exception as exc:
+        return jsonify(ok=False, available=False, error=str(exc)[:300]), 502
+    response = jsonify(ok=True, available=bool(result), mountain=mountain, result=result)
+    response.headers["Cache-Control"] = "public, max-age=21600"
+    return response
 
 
 @app.get("/")

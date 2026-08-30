@@ -4647,3 +4647,14 @@ body.install-guide-open{overflow:hidden}
     box-sizing:border-box !important;
   }
 }
+
+
+/* V1.5.35 分析結果: てんくら外部クロスチェックリンク */
+.external-weather-links{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:13px 0 14px;padding:11px 12px;border:1px solid #dce8e2;border-radius:14px;background:linear-gradient(180deg,#fbfefc 0%,#f6faf8 100%)}
+.external-weather-links-copy{display:flex;flex-direction:column;gap:2px;min-width:0}.external-weather-links-copy small{font-size:10px;font-weight:850;color:#71877c}.external-weather-links-copy b{font-size:13px;line-height:1.25;color:#25483a}
+.tenkura-link{display:grid;grid-template-columns:34px minmax(0,1fr) 18px;align-items:center;gap:9px;min-width:245px;padding:9px 10px;border:1px solid #cddfd6;border-radius:12px;background:#fff;color:#173d30;text-decoration:none;box-shadow:0 4px 12px rgba(27,71,51,.05);transition:.15s ease}
+.tenkura-link:hover{transform:translateY(-1px);border-color:#9fc8b5;box-shadow:0 7px 18px rgba(27,71,51,.09)}
+.tenkura-link-mark{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:10px;background:#edf7f1;color:#16764e;font-size:16px;font-weight:950}.tenkura-link>span:nth-child(2){display:flex;flex-direction:column;gap:2px;min-width:0}.tenkura-link b{font-size:13px;line-height:1.1;color:#173d30}.tenkura-link small{font-size:10px;line-height:1.25;color:#678074;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tenkura-link em{font-size:16px;font-style:normal;font-weight:900;color:#3a8062}
+.tenkura-link.is-loading{pointer-events:none;opacity:.72}.tenkura-link.is-loading .tenkura-link-mark{animation:tenkuraPulse 1.2s ease-in-out infinite}.tenkura-link.is-unavailable{pointer-events:none;opacity:.48;filter:grayscale(.2)}
+@keyframes tenkuraPulse{0%,100%{opacity:.55}50%{opacity:1}}
+@media(max-width:680px){.external-weather-links{align-items:stretch;flex-direction:column;gap:8px;margin:10px 0 12px;padding:10px}.external-weather-links-copy{padding:0 2px}.tenkura-link{width:100%;min-width:0;box-sizing:border-box;grid-template-columns:32px minmax(0,1fr) 18px;padding:9px}.tenkura-link-mark{width:32px;height:32px}.tenkura-link b{font-size:12px}.tenkura-link small{font-size:9px}}

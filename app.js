@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.30';
+const APP_VERSION = '1.5.35';
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
@@ -5413,6 +5413,53 @@ function setupInstallApp(){
 }
 
 function currentMountainLabel(){return $('mountainPreset')?.value?.trim()||$('mountainSearch')?.value?.trim()||'';}
+
+// V1.5.35: Tenkura external cross-check link. Resolution happens asynchronously
+// after results are visible, so it never blocks progressive weather rendering.
+const tenkuraLinkMemory=new Map();
+let tenkuraLinkRequestToken=0;
+let tenkuraLinkPendingKey='';
+function setTenkuraLinkState(state,data={}){
+  const link=$('tenkuraLink'),status=$('tenkuraLinkStatus');
+  if(!link||!status)return;
+  link.classList.toggle('is-loading',state==='loading');
+  link.classList.toggle('is-unavailable',state==='unavailable');
+  link.classList.toggle('is-ready',state==='ready');
+  if(state==='ready'&&data.url){
+    link.href=data.url;
+    link.setAttribute('aria-disabled','false');
+    status.textContent=`${data.name||currentMountainLabel()}のページを開く`;
+  }else{
+    link.removeAttribute('href');
+    link.setAttribute('aria-disabled','true');
+    status.textContent=state==='loading'?'選択した山を確認中…':'対応ページを確認できませんでした';
+  }
+}
+async function updateTenkuraLink(){
+  const mountain=currentMountainLabel();
+  if(!mountain){setTenkuraLinkState('unavailable');return;}
+  const area=mountainUiArea(mountain);
+  const key=`${mountain}|${area}`;
+  const cached=tenkuraLinkMemory.get(key);
+  if(cached){setTenkuraLinkState(cached.available?'ready':'unavailable',cached.result||{});return;}
+  if(tenkuraLinkPendingKey===key)return;
+  tenkuraLinkPendingKey=key;
+  const token=++tenkuraLinkRequestToken;
+  setTenkuraLinkState('loading');
+  try{
+    const res=await fetch(`/api/tenkura-link?mountain=${encodeURIComponent(mountain)}&area=${encodeURIComponent(area)}`,{cache:'force-cache'});
+    const data=await res.json().catch(()=>null);
+    if(token!==tenkuraLinkRequestToken)return;
+    const normalized={available:!!(res.ok&&data?.available&&data?.result?.url),result:data?.result||null};
+    tenkuraLinkMemory.set(key,normalized);
+    tenkuraLinkPendingKey='';
+    setTenkuraLinkState(normalized.available?'ready':'unavailable',normalized.result||{});
+  }catch(_){
+    if(token!==tenkuraLinkRequestToken)return;
+    tenkuraLinkPendingKey='';
+    setTenkuraLinkState('unavailable');
+  }
+}
 // V1.5.8: anonymous analysis history for the admin dashboard.
 // Store only route point names/types/roles and planned passage date/time; never coordinates or identity data.
 function analysisCtReviewSegments(points){
@@ -10335,6 +10382,7 @@ function renderSummaryCore(points){
   $('confidence').textContent=forecastConfidence.label; $('confidenceLabel').textContent=({LOW:'慎重に確認',MEDIUM:'まずまず',HIGH:'比較的安定'})[confidenceLevel]||'–'; const confidenceReason=$('confidenceReason'); if(confidenceReason)confidenceReason.textContent=forecastConfidence.reason;
   const setMarker=(id,pct)=>{const el=$(id);if(el)el.style.left=`${Math.max(2,Math.min(98,pct))}%`;}; setMarker('maxWindMarker',(maxWindValue/20)*100); setMarker('maxRainMarker',(maxRainValue/20)*100); setMarker('thunderMarker',({LOW:8,MEDIUM:38,HIGH:68,EXTREME:94})[thunderLevel]||8); setMarker('confidenceMarker',({LOW:8,MEDIUM:50,HIGH:94})[confidenceLevel]||8);
   $('updatedAt').textContent=new Date().toLocaleString('ja-JP');
+  updateTenkuraLink();
 }
 function renderAll(points,overnight=[]){
   renderSummaryCore(points);
