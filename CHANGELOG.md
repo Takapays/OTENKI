@@ -1,3 +1,10 @@
+## V1.5.49
+- TOP value proposition: 全国分析の日本地図と「自分専用の登山天気予報」を最上段で明示。
+- 「全国から登山日和を探す」「自分専用予報をつくる」の2導線を追加。
+- 全国一括簡易判定のユーザー向け見出しを「全国分析｜どこが登山日和？」へ改定。
+- guide.html の冒頭を2つの使い方と4ステップ中心に再構成し、現行の推測禁止CT方針へ説明を更新。
+- Weather/CT/fixed-coordinate/progressive-rendering logic unchanged.
+
 ## V1.5.48
 
 - Deepened five previously incomplete mountain-area networks: Daisetsu, Iide, Asahi, Okuchichibu main ridge, and Tanigawa main ridge.

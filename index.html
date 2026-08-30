@@ -71,8 +71,8 @@
     ]
   }
   </script>
-    <link rel="stylesheet" href="styles.css?v=1.5.48">
-    <link rel="stylesheet" href="ui-v1.4.254.css?v=1.5.48">
+    <link rel="stylesheet" href="styles.css?v=1.5.49">
+    <link rel="stylesheet" href="ui-v1.4.254.css?v=1.5.49">
     <style>
       /* V1.4.250: mobile TOP explainer is intentionally moved to guide.html.
          Inline fallback prevents an old/missing override stylesheet from leaving it visible. */
@@ -89,17 +89,17 @@
       <picture><source srcset="traten-logo.webp?v=1.4.228" type="image/webp"><img src="traten-logo.png?v=1.4.60" alt="トラテン｜トラバース天気" decoding="async"></picture>
     </div>
     <div class="topbar-center">
-      <h1>その時、その場所の空を読む。</h1>
+      <h1>全国から探す。自分の山行を読む。</h1>
       <div class="topbar-badges">
-        <span>V1.5.48</span>
+        <span>V1.5.49</span>
         <span>日本三百名山 網羅</span>
         <span>5系統アラート</span>
         <span>全国一括簡易判定</span>
         <span>登山口アクセス情報</span>
       </div>
     </div>
-    <div class="mobile-topbar-copy">その時、その場所の空を読む。</div>
-    <span class="mobile-topbar-version">V1.5.48</span>
+    <div class="mobile-topbar-copy">全国から探す。自分の山行を読む。</div>
+    <span class="mobile-topbar-version">V1.5.49</span>
     <div class="mobile-topbar-badges" aria-label="トラテン機能"><span>日本三百名山 網羅</span><span>5系統アラート</span><span>全国一括簡易判定</span><span>登山口アクセス情報</span></div>
     <nav class="topbar-nav topbar-resource-nav" aria-label="トラテン主要メニュー">
       <a class="topbar-nav-link trailhead" href="trailheads.html" aria-label="登山口一覧を開く"><span class="resource-nav-icon" aria-hidden="true">⛰</span><span class="resource-nav-copy"><b>登山口</b><small>アクセス情報</small></span></a>
@@ -120,19 +120,31 @@
 </header>
 
 <main class="dashboard-shell">
+  <section class="top-value" aria-labelledby="topValueTitle">
+    <div class="top-value-copy">
+      <div class="top-value-kicker">TRATEN / TRAVERSE WEATHER</div>
+      <h2 id="topValueTitle">全国の登山日和を地図で見る。<br><strong>自分専用の登山天気予報をつくる。</strong></h2>
+      <p>「どこへ行く？」は全国分析で比較。行く山が決まったら、ルートと出発時刻から<strong>あなたが各地点を通る時刻の天気</strong>を分析します。</p>
+    </div>
+    <div class="top-value-actions" aria-label="トラテンの主な使い方">
+      <a class="top-value-action national" href="#nationalOutlook"><span>1</span><b>全国から登山日和を探す</b><small>日本地図で候補を比較</small></a>
+      <a class="top-value-action personal" href="#routePlanner"><span>2</span><b>自分専用予報をつくる</b><small>ルート × 通過時刻で分析</small></a>
+    </div>
+    <div class="top-value-flow" aria-label="自分専用予報の流れ"><span>山を選ぶ</span><i>→</i><span>ルート・出発時刻</span><i>→</i><strong>通過時刻ごとの天気</strong></div>
+  </section>
   <section class="seo-intro" aria-labelledby="seoIntroTitle">
     <div>
-      <h2 id="seoIntroTitle">登山ルートの「その時、その場所」を読む山岳天気予報</h2>
-      <p>トラテンは、日本三百名山の登山口・山頂・山小屋などの<strong>通過地点と到着予定時刻</strong>に合わせて、天気・気温・風・雨・雷・視界を確認できる登山向け予報ツールです。JMA（日本）・ECMWF（欧州）・GFS（米国）・ICON（ドイツ）を比較し、山小屋泊・テント泊では夕景、星空・天の川、雲海、日の出まで分析します。</p>
+      <h2 id="seoIntroTitle">全国分析から、自分専用の登山天気予報へ</h2>
+      <p>日本地図で全国の山を比較し、行き先を決めたら、登山口・山頂・山小屋などの<strong>通過予定時刻</strong>に合わせて天気・気温・風・雨・雷・視界を分析します。山頂の天気だけでなく、<strong>あなたの山行の時間軸</strong>で確認できます。</p>
     </div>
     <a href="guide.html">トラテンの使い方を見る</a>
   </section>
   <section class="national-outlook panel" id="nationalOutlook" aria-labelledby="nationalOutlookTitle">
     <div class="national-outlook-head">
-      <div><div class="panel-kicker">NATIONAL OUTLOOK</div><h2 id="nationalOutlookTitle">全国一括簡易判定</h2><p>日付と名山区分から、山行候補を6時から15時の予報で簡易スクリーニング</p></div>
+      <div><div class="panel-kicker">NATIONAL OUTLOOK</div><h2 id="nationalOutlookTitle">全国分析｜どこが登山日和？</h2><p>日本地図で全国の候補を比較。気になる山を見つけたら、そのまま自分専用予報へ。</p></div>
       <div class="national-outlook-controls">
         <label>日付<input id="nationalOutlookDate" type="date"></label>
-        <button id="nationalOutlookRun" class="primary" type="button">全国を判定</button>
+        <button id="nationalOutlookRun" class="primary" type="button">全国を分析</button>
       </div>
     </div>
     <div class="national-mountain-filters" aria-label="表示する名山区分">
@@ -146,9 +158,9 @@
     <div class="national-mobile-map-hint" aria-hidden="true">山をクリックで詳細表示</div>
     <div class="national-outlook-body">
       <div id="nationalOutlookMap" class="national-outlook-map" aria-label="日本三百名山 全国一括簡易判定"></div>
-      <aside id="nationalOutlookDetail" class="national-outlook-detail"><div style="padding:18px"><strong>山をタップすると詳細を表示</strong><p>ABC判定、6〜15時の気象要約、代表コース、近くの山をまとめて表示します。</p></div></aside>
+      <aside id="nationalOutlookDetail" class="national-outlook-detail"><div style="padding:18px"><strong>山をタップして候補を比較</strong><p>ABC判定、6〜15時の気象要約、代表コースを確認し、その山の「自分専用予報」へ進めます。</p></div></aside>
     </div>
-    <p class="national-outlook-note">※ABCは候補地を絞るための簡易指標です。登山可否を保証するものではありません。最終判断は「この山を山行設定に入力」から通過地点・時刻・複数モデルを確認してください。</p>
+    <p class="national-outlook-note">※ABCは「どこへ行くか」を探すための簡易指標です。登山可否を保証するものではありません。候補を決めたら「この山を山行設定に入力」からルート・通過時刻・複数モデルを確認し、自分専用の予報で判断してください。</p>
   </section>
 
   <aside class="planner-rail">
@@ -458,6 +470,6 @@
     </a>
   </div>
 </footer>
-<script src="app.js?v=1.5.48" defer></script>
+<script src="app.js?v=1.5.49" defer></script>
 </body>
 </html>

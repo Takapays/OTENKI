@@ -1,3 +1,12 @@
+# V1.5.49
+
+- TOP最上段に「全国の登山日和を地図で見る / 自分専用の登山天気予報をつくる」の価値訴求を追加。
+- 全国分析と自分専用予報の2つの入口を3秒で理解できる導線へ整理。
+- 全国地図の見出し・CTAを「全国分析」中心の表現へ変更。
+- 使い方ページを「全国から探す → ルートと出発時刻 → 通過時刻ごとの予報」という利用目的中心の説明へ改定。
+- 現行仕様に合わせ、CT説明から推定CTの表現を削除。公開確認できない区間は「CT情報なし」と明記。
+- 気象ロジック、progressive rendering、CTデータ、固定座標は変更なし。
+
 # V1.5.48 Deep traverse CT network completion
 
 V1.5.48 deepens the five major networks left intentionally incomplete in V1.5.47: Daisetsu, Iide, Asahi, Okuchichibu main ridge, and Tanigawa main ridge. The explicit mountain-area audit now covers **36 areas / 264 named nodes / 424 directed adjacent audit edges**, with direct verified 424 / missing 0 / estimated 0 / composed-only 0 / disconnected 0. The Hyakumeizan route union + explicit networks covers **700/700** unique adjacent audit edges.
