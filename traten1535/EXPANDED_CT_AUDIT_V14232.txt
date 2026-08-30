@@ -1,0 +1,12 @@
+トラテン 展開後代表コースCT監査 V1.4.232
+========================================
+mountains: 300
+courses: 380
+expanded directional segments: 901
+verified/composed CT: 768
+estimated CT: 133
+derived intermediate-point CT: 0
+CT missing: 0
+route build errors: 0
+point/segment alignment errors: 0
+

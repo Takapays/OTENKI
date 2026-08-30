@@ -1,0 +1,34 @@
+V1.4.119 CT audit / first reduction batch
+
+Representative course audit after patch:
+- mountains with representative courses: 110
+- representative courses: 116
+- representative-course CT failures: 0
+
+New fixed CT edges (Tsurugi-dake priority):
+- Murodo -> Tsurugisawa-goya: 202 min
+- Tsurugisawa-goya -> Kenzanso: 29 min
+- Kenzanso -> Tsurugi-dake: 150 min
+- Tsurugi-dake -> Kenzanso: 120 min
+- Kenzanso -> Tsurugisawa-goya: 20 min
+- Murodo -> Kenzanso: 230 min
+- Babajima -> Hayatsuki-goya: 350 min
+- Hayatsuki-goya -> Tsurugi-dake: 210 min
+- Tsurugi-dake -> Hayatsuki-goya: 150 min
+- Hayatsuki-goya -> Babajima: 230 min
+
+Source policy:
+- THE JAPAN ALPS public route guide
+- YAMAP public model course
+- public route guides with explicit standard CT
+- Hayatsuki-goya official access guidance used as cross-check
+
+Next high-priority audit targets from nationwide selectable-point scan:
+1. Southern Alps: Hijiri / Kamikochi-dake / Chausu / Tekari network
+2. Hakuba / Yukikura / Renge Onsen network
+3. Yari / Hotaka common cross-route pairs
+4. Tateyama / Tsurugi cross-route pairs
+5. Arakawa / Akaishi / Sawarajima network
+
+Note:
+CT information is intentionally not inferred where multiple plausible trail paths exist. The app keeps CT_INFO_NONE / +1h fallback in ambiguous cases rather than guessing a route.

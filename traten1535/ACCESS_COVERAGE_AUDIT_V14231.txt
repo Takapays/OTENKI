@@ -1,0 +1,1 @@
+{"sources": ["app.js"], "candidates": 426, "db": 246, "covered": 192, "missing": 234, "report": "ACCESS_COVERAGE_REPORT.md", "missing_only": "ACCESS_MISSING_ONLY.txt", "csv": "ACCESS_COVERAGE.csv"}

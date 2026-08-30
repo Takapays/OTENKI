@@ -1,0 +1,584 @@
+(() => {
+  'use strict';
+
+  const BASE_ACCESS_DB = {
+    '折立': {
+      area:'北アルプス・薬師岳／雲ノ平方面', prefecture:'富山県富山市',
+      nearestIC:'立山IC', drive:'約1時間20〜30分', parking:'約300台・無料', transit:'富山駅から夏山バス（季節運行）',
+      roadNote:'有峰林道を利用。通行時間・料金・当日の規制を要確認。',
+      car:[
+        ['立山IC','立山IC → 亀谷ゲート → 有峰林道 → 折立','約50km前後','約1時間20〜30分'],
+        ['富山IC','富山IC → 大山方面 → 亀谷ゲート → 折立','約55〜60km','約1時間30分'],
+        ['飛騨清見IC','高山 → 神岡 → 東谷ゲート → 折立','約110km前後','約2時間30分〜3時間']
+      ],
+      transitRows:[
+        ['富山駅 → 折立','夏山バス・直通便（季節運行）','約1時間40分'],
+        ['電鉄富山 → 有峰口 → 折立','富山地方鉄道＋バス','約2時間〜'],
+        ['折立 → 富山駅','下山後の直通便あり（運行日要確認）','約2時間']
+      ],
+      tips:['薬師岳往復はマイカーが便利。','雲ノ平・黒部五郎方面への縦走は公共交通と好相性。','早朝出発は有峰林道のゲート時間に注意。'],
+      links:[['有峰林道 公式','https://www.arimine.net/'],['富山地方鉄道','https://www.chitetsu.co.jp/']]
+    },
+    '新穂高温泉': {
+      area:'北アルプス・槍ヶ岳／穂高／双六方面', prefecture:'岐阜県高山市',
+      nearestIC:'松本IC／飛騨清見IC', drive:'松本ICから約1時間30〜2時間', parking:'周辺に登山者用駐車場あり', transit:'高山・平湯方面から路線バス',
+      roadNote:'繁忙期は登山者用駐車場が早朝に満車になることがあります。',
+      car:[['松本IC','国道158号 → 安房トンネル → 平湯 → 新穂高','約70km前後','約1時間30分〜2時間'],['飛騨清見IC','高山 → 平湯 → 新穂高','約80km前後','約1時間30分〜2時間']],
+      transitRows:[['高山濃飛バスセンター → 新穂高','平湯温泉経由の路線バス','約1時間30分'],['松本 → 平湯温泉 → 新穂高','バス乗継','約2時間〜']],
+      tips:['槍ヶ岳・双六岳・笠ヶ岳など西側ルートの大拠点。','縦走で上高地へ抜ける場合は公共交通が便利。'],
+      links:[['濃飛バス','https://www.nouhibus.co.jp/'],['新穂高ロープウェイ','https://shinhotaka-ropeway.jp/']]
+    },
+    '上高地': {
+      area:'北アルプス・穂高／槍ヶ岳方面', prefecture:'長野県松本市', nearestIC:'松本IC', drive:'沢渡まで約1時間', parking:'沢渡・平湯に駐車しシャトル利用', transit:'松本・新島々からバス',
+      roadNote:'上高地は通年マイカー規制。自家用車は沢渡または平湯で乗換。',
+      car:[['松本IC','国道158号 → 沢渡駐車場 → シャトルバス','約40km＋バス','約1時間30分〜'],['高山方面','平湯あかんだな駐車場 → シャトルバス','—','約30分〜（平湯から）']],
+      transitRows:[['松本駅 → 新島々 → 上高地','鉄道＋バス','約1時間30分〜2時間'],['高山 → 平湯 → 上高地','路線バス乗継','約1時間30分〜']],
+      tips:['マイカーで直接上高地には入れません。','穂高・槍方面の縦走起点として公共交通が使いやすい。'],
+      links:[['上高地公式','https://www.kamikochi.or.jp/'],['アルピコ交通','https://www.alpico.co.jp/traffic/']]
+    },
+    '中房温泉登山口': {
+      aliases:['中房温泉'], area:'北アルプス・燕岳方面', prefecture:'長野県安曇野市', nearestIC:'安曇野IC', drive:'約1時間15分〜1時間30分', parking:'登山者用駐車場あり', transit:'穂高駅から季節バス',
+      roadNote:'中房線は山岳道路。繁忙期は駐車場満車や交通規制に注意。',
+      car:[['安曇野IC','穂高 → 有明 → 中房温泉','約35km前後','約1時間15分〜1時間30分']], transitRows:[['穂高駅 → 中房温泉','季節運行バス','約1時間']], tips:['燕岳・表銀座の代表的登山口。','週末・連休は早い時間帯から混雑しやすい。'], links:[['安曇野市観光協会','https://www.azumino-e-tabi.net/']]
+    },
+    '一ノ沢登山口': {
+      aliases:['一ノ沢'], area:'北アルプス・常念岳方面', prefecture:'長野県安曇野市', nearestIC:'安曇野IC', drive:'約1時間', parking:'登山者用駐車場あり', transit:'穂高駅等からタクシー利用が一般的',
+      roadNote:'林道・道路状況は季節や災害で変わるため事前確認推奨。', car:[['安曇野IC','穂高 → 一ノ沢登山口','約30km前後','約1時間']], transitRows:[['穂高駅 → 一ノ沢','タクシー','約40〜50分']], tips:['常念岳往復の定番。','三股へ下山する周回・縦走では車回収に注意。'], links:[['安曇野市観光協会','https://www.azumino-e-tabi.net/']]
+    },
+    '猿倉': {
+      area:'北アルプス・白馬岳方面', prefecture:'長野県白馬村', nearestIC:'安曇野IC／長野IC', drive:'白馬村中心部から約20〜30分', parking:'猿倉周辺（混雑期注意）', transit:'白馬駅・八方から季節バス／タクシー',
+      roadNote:'白馬大雪渓方面の代表登山口。道路・バス運行は季節確認。', car:[['安曇野IC','大町 → 白馬 → 猿倉','約70km前後','約1時間30分〜2時間'],['長野IC','長野 → 白馬 → 猿倉','約55km前後','約1時間20分〜']], transitRows:[['白馬駅／八方 → 猿倉','季節バスまたはタクシー','約20〜30分']], tips:['白馬岳大雪渓ルートの起点。','栂池へ下山する縦走なら公共交通が便利。'], links:[['白馬村観光局','https://www.vill.hakuba.nagano.jp/']]
+    },
+    '栂池自然園': {
+      area:'北アルプス・白馬岳／白馬大池方面', prefecture:'長野県小谷村', nearestIC:'安曇野IC／長野IC', drive:'栂池高原まで約1時間30分〜2時間', parking:'栂池高原に駐車場', transit:'白馬駅・南小谷駅からバス＋ゴンドラ等',
+      roadNote:'登山口へは栂池ゴンドラ・ロープウェイ等の営業時間に制約されます。', car:[['安曇野IC','大町 → 白馬 → 栂池高原','約80km前後','約1時間45分〜'],['長野IC','長野 → 白馬 → 栂池高原','約60km前後','約1時間30分〜']], transitRows:[['白馬駅 → 栂池高原 → 自然園','バス＋ゴンドラ等','約1時間〜']], tips:['白馬大池経由の白馬岳ルート。','最終便時刻を必ず確認。'], links:[['栂池自然園','https://sizenen.otarimura.com/']]
+    },
+    '八方池山荘': {
+      area:'北アルプス・唐松岳方面', prefecture:'長野県白馬村', nearestIC:'安曇野IC／長野IC', drive:'八方まで約1時間30分〜2時間', parking:'八方周辺に駐車場', transit:'白馬駅→八方＋ゴンドラ・リフト',
+      roadNote:'八方アルペンラインの運行時間・天候運休に注意。', car:[['安曇野IC','大町 → 白馬八方','約70km前後','約1時間30分〜2時間']], transitRows:[['白馬駅 → 八方 → 八方池山荘','バス＋ゴンドラ・リフト','約45分〜']], tips:['唐松岳の代表ルート。','ゴンドラ・リフト最終時刻が下山計画を左右します。'], links:[['八方尾根','https://www.happo-one.jp/']]
+    },
+    'アルプス平': {
+      area:'北アルプス・五竜岳方面', prefecture:'長野県白馬村', nearestIC:'安曇野IC／長野IC', drive:'白馬五竜まで約1時間30分〜2時間', parking:'白馬五竜周辺に駐車場', transit:'白馬駅等からバス＋テレキャビン',
+      roadNote:'テレキャビンの営業期間・始発終発・天候運休を確認。', car:[['安曇野IC','大町 → 白馬五竜','約65km前後','約1時間30分〜']], transitRows:[['白馬駅 → 白馬五竜 → アルプス平','バス＋テレキャビン','約45分〜']], tips:['五竜岳・唐松岳縦走の主要入口。'], links:[['白馬五竜','https://www.hakubaescal.com/']]
+    },
+    '室堂': {
+      area:'北アルプス・立山／剱岳方面', prefecture:'富山県立山町', nearestIC:'立山IC（立山駅側）', drive:'立山駅まで約40分', parking:'立山駅周辺に駐車場', transit:'立山駅から立山黒部アルペンルート',
+      roadNote:'室堂へ一般車は直接入れません。アルペンルートの乗継・最終便に注意。', car:[['立山IC','立山駅 → アルペンルート → 室堂','立山駅まで約25km','約40分＋乗継'],['長野側','扇沢 → アルペンルート → 室堂','—','乗継約1時間30分〜']], transitRows:[['電鉄富山 → 立山 → 室堂','鉄道＋ケーブルカー・バス','約2時間30分〜']], tips:['立山・剱岳の大拠点。','乗車予約・混雑期の時間余裕を確保。'], links:[['立山黒部アルペンルート','https://www.alpen-route.com/']]
+    },
+    '広河原': {
+      area:'南アルプス・北岳／間ノ岳方面', prefecture:'山梨県南アルプス市', nearestIC:'甲府昭和IC／白根IC方面', drive:'芦安等の駐車場まで', parking:'芦安等に駐車しバス・乗合タクシー', transit:'甲府駅・芦安方面から季節バス',
+      roadNote:'広河原へはマイカー規制区間あり。一般車は指定駐車場から公共交通へ乗換。', car:[['甲府昭和IC','芦安駐車場 → バス／乗合タクシー → 広河原','—','約1時間30分〜']], transitRows:[['甲府駅 → 広河原','季節バス（運行日確認）','約2時間前後']], tips:['北岳の代表登山口。','奈良田方面への縦走は交通時刻を先に確認。'], links:[['南アルプス市','https://www.city.minami-alps.yamanashi.jp/']]
+    },
+    '富士スバルライン五合目': {
+      aliases:['富士山五合目','スバルライン五合目'], area:'富士山・吉田ルート', prefecture:'山梨県富士河口湖町', nearestIC:'河口湖IC', drive:'約45分〜（規制時除く）', parking:'マイカー規制時は麓で乗換', transit:'富士山駅・河口湖駅等からバス',
+      roadNote:'登山シーズンはマイカー規制が実施されるため、指定駐車場からシャトル利用。', car:[['河口湖IC','富士スバルライン方面','約30km前後','約45分〜']], transitRows:[['河口湖駅 → 五合目','登山バス','約50分〜']], tips:['開山期間・登山規制・予約制度を必ず最新確認。'], links:[['富士登山オフィシャルサイト','https://www.fujisan-climb.jp/']]
+    },
+    '美濃戸口': {
+      area:'八ヶ岳・赤岳方面', prefecture:'長野県茅野市', nearestIC:'諏訪南IC', drive:'約30〜40分', parking:'美濃戸口に有料駐車場等', transit:'茅野駅から季節バス',
+      roadNote:'美濃戸まで進む道路は未舗装・狭路区間があり、車種・路面状況に注意。', car:[['諏訪南IC','原村 → 美濃戸口','約20km前後','約30〜40分']], transitRows:[['茅野駅 → 美濃戸口','季節バス','約40分']], tips:['赤岳・横岳・硫黄岳の主要入口。','一般車は美濃戸口利用が無難。'], links:[['茅野観光ナビ','https://www.chinotabi.jp/']]
+    },
+    '天神平': {
+      area:'谷川岳', prefecture:'群馬県みなかみ町', nearestIC:'水上IC', drive:'ロープウェイ駅まで約25分', parking:'谷川岳ロープウェイ周辺', transit:'上毛高原駅・水上駅からバス＋ロープウェイ',
+      roadNote:'天神平へはロープウェイ利用。営業開始・終了、天候運休を確認。', car:[['水上IC','国道291号 → 谷川岳ロープウェイ','約15km','約25分']], transitRows:[['水上駅 → ロープウェイ駅 → 天神平','バス＋ロープウェイ','約40分〜']], tips:['日帰り谷川岳の定番。','最終ロープウェイ時刻に余裕を持つ。'], links:[['谷川岳ロープウェイ','https://www.tanigawadake-rw.com/']]
+    },
+    '千畳敷': {
+      area:'中央アルプス・木曽駒ヶ岳', prefecture:'長野県駒ヶ根市', nearestIC:'駒ヶ根IC', drive:'菅の台まで約5分', parking:'菅の台バスセンター周辺', transit:'駒ヶ根駅／菅の台→バス＋ロープウェイ',
+      roadNote:'しらび平方面はマイカー規制。バスと駒ヶ岳ロープウェイを利用。', car:[['駒ヶ根IC','菅の台バスセンター → バス → しらび平 → ロープウェイ','ICから数km','約5分＋乗継']], transitRows:[['駒ヶ根駅 → 千畳敷','バス＋ロープウェイ','約1時間〜']], tips:['木曽駒ヶ岳の日帰り定番。','繁忙期はバス・ロープウェイ待ち時間を見込む。'], links:[['中央アルプス駒ヶ岳ロープウェイ','https://www.chuo-alps.com/']]
+    }
+  };
+
+  const ACCESS_DB = Object.assign({}, window.TRATEN_TRAILHEAD_ACCESS_DB || {}, BASE_ACCESS_DB);
+
+  // V1.4.210: major trailhead public-transport enrichment.
+  // Keep variable timetables/fares on the transport operators' official pages,
+  // while making the operating company and the useful official link visible in-app.
+  const V14210_TRANSIT_ENRICH = Object.freeze({
+    '上高地': {
+      transit:'アルピコ交通（松本・新島々／沢渡方面）・濃飛バス（平湯方面）',
+      transitRows:[['松本駅 → 新島々 → 上高地','アルピコ交通（鉄道＋路線バス／予約優先便あり）','約1時間30分〜'],['沢渡 → 上高地','アルピコ交通 シャトルバス','約30分'],['高山 → 平湯温泉 → 上高地','濃飛バス＋上高地方面バス','約1時間30分〜']],
+      links:[['アルピコ交通｜松本・新島々〜上高地','https://www.alpico.co.jp/traffic/local/kamikochi/shinshimashima/'],['アルピコ交通｜沢渡〜上高地','https://visit-nagano.alpico.co.jp/timetable/kamikochi-sawando'],['濃飛バス｜路線バス','https://www.nouhibus.co.jp/routebus/'],['上高地公式','https://www.kamikochi.or.jp/']]
+    },
+    '上高地焼岳登山口': {
+      transit:'アルピコ交通（松本・新島々／沢渡方面）・濃飛バス（平湯方面）で上高地へ',
+      links:[['アルピコ交通｜上高地線','https://www.alpico.co.jp/traffic/local/kamikochi/shinshimashima/'],['濃飛バス｜路線バス','https://www.nouhibus.co.jp/routebus/'],['上高地公式 焼岳','https://www.kamikochi.or.jp/learn/spots/49/']]
+    },
+    '新中の湯登山口': {
+      transit:'松本〜平湯線（アルピコ交通／濃飛バス）で中の湯周辺まで＋徒歩等',
+      links:[['濃飛バス｜高山・新穂高・平湯温泉〜松本線','https://www.nouhibus.co.jp/highwaybus/matsumoto/'],['アルピコ交通','https://www.alpico.co.jp/traffic/'],['松本市 焼岳情報','https://www.city.matsumoto.nagano.jp/soshiki/7/165070.html']]
+    },
+    '猿倉': {
+      transit:'アルピコ交通 猿倉線（白馬駅・白馬八方BT〜猿倉、季節運行・予約制）',
+      transitRows:[['白馬駅／白馬八方BT → 猿倉','アルピコ交通 猿倉線（季節運行・予約制）','約20〜30分']],
+      links:[['アルピコ交通｜猿倉線','https://www.alpico.co.jp/traffic/local/hakuba/sarukura/'],['白馬村観光局','https://www.vill.hakuba.nagano.jp/']]
+    },
+    '扇沢': {
+      transit:'アルピコ交通・北アルプス交通（信濃大町駅〜扇沢）／アルピコ交通特急バス（長野〜扇沢）',
+      transitRows:[['信濃大町駅 → 扇沢','アルピコ交通・北アルプス交通 共同運行','約40分'],['長野駅 → 扇沢','アルピコ交通 特急バス（季節ダイヤ）','約1時間45分〜']],
+      links:[['アルピコ交通｜信濃大町駅〜扇沢','https://www.alpico.co.jp/traffic/local/hakuba/ogizawa/'],['アルピコ交通｜長野〜大町・扇沢','https://www.alpico.co.jp/traffic/express/nagano_omachi/'],['北アルプス交通','https://kitaalps-kotsu.k-amenix.co.jp/'],['立山黒部アルペンルート','https://www.alpen-route.com/']]
+    },
+    '新穂高温泉': {
+      transit:'濃飛バス（高山・平湯温泉〜新穂高温泉／新穂高ロープウェイ）',
+      transitRows:[['高山濃飛バスセンター → 平湯温泉 → 新穂高温泉','濃飛バス 平湯・新穂高線','約1時間30分〜'],['松本 → 平湯温泉 → 新穂高温泉','アルピコ交通／濃飛バス＋濃飛バス','約2時間〜']],
+      links:[['濃飛バス｜平湯・新穂高線','https://www.nouhibus.co.jp/route_bus/shinhotaka-line/'],['濃飛バス｜路線バス','https://www.nouhibus.co.jp/routebus/'],['新穂高ロープウェイ','https://shinhotaka-ropeway.jp/']]
+    },
+    '鳩待峠': {
+      transit:'関越交通（沼田・上毛高原〜尾瀬戸倉）＋戸倉〜鳩待峠 乗合バス・タクシー',
+      transitRows:[['上毛高原駅／沼田駅 → 尾瀬戸倉','関越交通 路線バス','運行日・時刻を公式確認'],['尾瀬戸倉 → 鳩待峠','関越交通系 乗合バス・タクシー','約35分']],
+      links:[['関越交通｜尾瀬号・尾瀬アクセス','https://kan-etsu.net/pages/17/'],['尾瀬保護財団','https://www.oze-fnd.or.jp/']]
+    },
+    '大清水': {
+      transit:'関越交通（沼田・上毛高原・新宿方面〜尾瀬戸倉／大清水、季節運行を含む）',
+      transitRows:[['上毛高原駅／沼田駅 → 大清水','関越交通 路線バス','運行日・時刻を公式確認'],['バスタ新宿 → 大清水','関越交通 高速乗合バス「尾瀬号」（季節運行）','運行日要確認']],
+      links:[['関越交通｜高速乗合バス尾瀬号','https://kan-etsu.net/pages/17/'],['尾瀬保護財団','https://www.oze-fnd.or.jp/']]
+    },
+    '土合口': {
+      transit:'関越交通（上毛高原駅・水上駅〜谷川岳ヨッホ／ロープウェイ駅）',
+      transitRows:[['上毛高原駅／水上駅 → 谷川岳ヨッホ','関越交通 路線バス','運行日・時刻を公式確認']],
+      links:[['関越交通｜谷川岳バスフリー乗車券・路線案内','https://kan-etsu.net/pages/105/'],['谷川岳ヨッホ（ロープウェイ）','https://www.tanigawadake-rw.com/']]
+    },
+    '天神平': {
+      transit:'関越交通（上毛高原駅・水上駅〜谷川岳ヨッホ）＋ロープウェイ',
+      links:[['関越交通｜谷川岳アクセス','https://kan-etsu.net/pages/105/'],['谷川岳ヨッホ（ロープウェイ）','https://www.tanigawadake-rw.com/']]
+    },
+    '富士スバルライン五合目': {
+      transit:'富士急バス（富士山駅・河口湖駅〜富士スバルライン五合目）',
+      transitRows:[['富士山駅／河口湖駅 → 富士山五合目','富士急バス ハイキングバス','約50分〜']],
+      links:[['富士急バス｜富士山駅・河口湖駅〜五合目','https://bus.fujikyu.co.jp/rosen/detail/id/14'],['富士登山オフィシャルサイト','https://www.fujisan-climb.jp/']]
+    },
+    '富士宮口五合目': {
+      transit:'富士急静岡バス（新富士駅・富士宮駅〜富士宮口五合目／水ヶ塚シャトル）',
+      transitRows:[['新富士駅／富士宮駅 → 富士宮口五合目','富士急静岡バス 富士登山路線バス','季節運行'],['水ヶ塚駐車場 → 富士宮口五合目','富士急静岡バス マイカー規制シャトル','登山期運行']],
+      links:[['富士急静岡バス｜2026富士登山バス','https://www.shizuokabus.co.jp/2026/06/01/14421/'],['富士急静岡バス','https://www.shizuokabus.co.jp/'],['富士登山オフィシャルサイト','https://www.fujisan-climb.jp/']]
+    },
+    '須走口五合目': {
+      transit:'富士急モビリティ（御殿場駅・新松田駅方面〜須走口五合目、季節運行）',
+      transitRows:[['御殿場駅 → 須走口五合目','富士急モビリティ 富士登山バス','季節運行']],
+      links:[['富士急モビリティ｜富士山五合目バス案内','https://www.fujikyumobility.com/news/copy_of_202206082.html'],['富士急モビリティ','https://www.fujikyumobility.com/'],['富士登山オフィシャルサイト','https://www.fujisan-climb.jp/']]
+    },
+    '御殿場口新五合目': {
+      transit:'富士急モビリティ（御殿場駅〜御殿場口新五合目、季節運行）',
+      transitRows:[['御殿場駅 → 御殿場口新五合目','富士急モビリティ 富士登山バス','季節運行']],
+      links:[['富士急モビリティ｜富士山五合目バス案内','https://www.fujikyumobility.com/news/copy_of_202206082.html'],['富士急モビリティ','https://www.fujikyumobility.com/'],['富士登山オフィシャルサイト','https://www.fujisan-climb.jp/']]
+    },
+    '広河原': {
+      transit:'山梨交通（甲府駅・芦安駐車場・夜叉神峠方面〜広河原）',
+      transitRows:[['甲府駅／芦安駐車場 → 夜叉神峠 → 広河原','山梨交通 南アルプス登山バス','季節運行']],
+      links:[['山梨交通｜広河原アクセス','https://ykbus.jp/route_bus/route_sp_info/hirogawara/'],['南アルプス市','https://www.city.minami-alps.yamanashi.jp/']]
+    },
+    '北沢峠': {
+      transit:'伊那市 南アルプス林道バス「クイーンライン」（戸台パーク〜北沢峠）',
+      transitRows:[['伊那BT → 高遠駅 → 戸台パーク → 北沢峠','路線バス接続＋伊那市 南アルプス林道バス','運行日・季節ダイヤを公式確認'],['戸台パーク → 北沢峠','伊那市 南アルプス林道バス「クイーンライン」','約50分']],
+      links:[['伊那市｜2026南アルプス林道バス','https://www.inacity.jp/kankojoho/sangaku_alps/minamialps/minamialps_jikokuhyo.html'],['伊那市｜伊那BT〜北沢峠 接続案内','https://www.inacity.jp/kurashi/kotsu_jikokuhyo/kotsu_news/setuzokukairyo.html']]
+    },
+    '千畳敷': {
+      transit:'伊那バス／中央アルプス観光（駒ヶ根駅・菅の台〜しらび平）＋駒ヶ岳ロープウェイ',
+      links:[['中央アルプス駒ヶ岳ロープウェイ','https://www.chuo-alps.com/'],['伊那バス','https://www.ibgr.jp/']]
+    },
+    '菅の台バスセンター': {
+      transit:'伊那バス／中央アルプス観光（菅の台〜しらび平）＋駒ヶ岳ロープウェイ',
+      links:[['中央アルプス駒ヶ岳ロープウェイ','https://www.chuo-alps.com/'],['伊那バス','https://www.ibgr.jp/']]
+    },
+    '大台ヶ原ビジターセンター': {
+      transit:'奈良交通 大台ヶ原直通バス「そらかぜ」（大和八木・橿原神宮前方面、季節運行・予約制）',
+      transitRows:[['大和八木駅／橿原神宮前駅 → 大台ヶ原','奈良交通「そらかぜ」（季節運行・予約制）','運行日要確認']],
+      links:[['奈良交通｜大台ヶ原直通バス「そらかぜ」','https://www.narakotsu.co.jp/temporary/spring_oodaigahara/']]
+    },
+    '大台ヶ原駐車場': {
+      transit:'奈良交通 大台ヶ原直通バス「そらかぜ」（大和八木・橿原神宮前方面、季節運行・予約制）',
+      links:[['奈良交通｜大台ヶ原直通バス「そらかぜ」','https://www.narakotsu.co.jp/temporary/spring_oodaigahara/']]
+    },
+    '洞川温泉': {
+      transit:'奈良交通（近鉄下市口駅〜洞川温泉）',
+      links:[['奈良交通｜路線バス','https://www.narakotsu.co.jp/route/'],['奈良交通｜乗車券・洞川温泉関連','https://www.narakotsu.co.jp/route/ticket/']]
+    },
+    '名頃': {
+      transit:'四国交通（JR大歩危駅〜久保）＋三好市営バス名頃線（久保〜名頃）',
+      transitRows:[['JR大歩危駅 → 久保','四国交通 路線バス','時刻を公式確認'],['久保 → 名頃','三好市営バス 名頃線','運行日・時刻を公式確認']],
+      links:[['四国交通','https://yonkoh.co.jp/'],['三好市公式観光・名頃','https://miyoshi-tourism.jp/spot/107/'],['三好市公式観光・バス時刻表','https://miyoshi-tourism.jp/download/?file=bus_timetable_jp']]
+    },
+    '長者原': {
+      transit:'亀の井バス（由布院方面〜くじゅう登山口・牧ノ戸峠、季節運行便あり）',
+      links:[['亀の井バス｜牧の戸峠線 運行案内','https://kamenoibus.com/archive/3500.html'],['亀の井バス','https://www.kamenoibus.com/']]
+    },
+    '牧ノ戸峠': {
+      transit:'亀の井バス 37番牧の戸峠線（由布院駅前BC〜くじゅう登山口〜牧ノ戸峠、季節運行）',
+      transitRows:[['由布院駅前BC → くじゅう登山口 → 牧ノ戸峠','亀の井バス 37番牧の戸峠線','季節運行・運行日要確認']],
+      links:[['亀の井バス｜牧の戸峠線 運行案内','https://kamenoibus.com/archive/3500.html'],['亀の井バス','https://www.kamenoibus.com/']]
+    },
+    '砂千里ヶ浜': {
+      transit:'産交バス（阿蘇駅〜草千里・阿蘇山上ターミナル）＋火口シャトル（規制時運休）',
+      links:[['産交バス｜阿蘇山交通アクセス','https://www.sankobus.jp/site/aso/access/'],['産交バス｜阿蘇山火口シャトル','https://www.sankobus.jp/site/aso/'],['阿蘇火山防災会議協議会','https://www.aso-volcano.jp/']]
+    },
+    '仙酔峡': {
+      transit:'阿蘇駅方面からタクシー等。阿蘇山周辺の路線バスは産交バス公式で最新運行を確認',
+      links:[['産交バス｜阿蘇山交通アクセス','https://www.sankobus.jp/site/aso/access/'],['阿蘇火山防災会議協議会','https://www.aso-volcano.jp/']]
+    }
+  });
+
+  // V1.4.211: expand operator names / official links for the remaining trailheads
+  // where public transport is practically usable. For car-only / taxi-only trailheads,
+  // keep the existing wording instead of inventing a bus service.
+  const V14211_TRANSIT_ENRICH = Object.freeze({
+    '銀泉台': {transit:'道北バス系統＋大雪レイクサイト発の季節シャトル（紅葉期等）', links:[['大雪山国立公園連絡協議会','https://www.daisetsuzan.or.jp/'],['道北バス','https://www.dohokubus.com/']]},
+    '十勝岳温泉': {transit:'上富良野町営バス「十勝岳線」（上富良野駅〜十勝岳温泉凌雲閣）', links:[['上富良野町｜町営バス','https://www.town.kamifurano.hokkaido.jp/'],['上富良野町観光協会','https://www.kamifurano.jp/']]},
+    '馬返し': {transit:'盛岡駅方面から岩手県交通の路線バス＋タクシー等（運行区間・季節を要確認）', links:[['岩手県交通','https://www.iwatekenkotsu.co.jp/'],['滝沢市観光協会','https://takizawa-kankou.jp/']]},
+    '網張温泉': {transit:'岩手県交通（盛岡駅〜網張温泉方面）', links:[['岩手県交通','https://www.iwatekenkotsu.co.jp/'],['休暇村岩手網張温泉','https://www.qkamura.or.jp/iwate/']]},
+    '八幡平頂上': {transit:'岩手県北バス（盛岡駅〜八幡平頂上、季節運行）', transitRows:[['盛岡駅 → 八幡平頂上','岩手県北バス 八幡平自然散策バス等','季節運行']], links:[['岩手県北バス｜2026八幡平頂上方面','https://www.iwate-kenpokubus.co.jp/archives/18702/'],['岩手県北バス','https://www.iwate-kenpokubus.co.jp/']]},
+    '秋田駒ヶ岳八合目': {transit:'羽後交通（田沢湖駅〜アルパこまくさ）＋規制日の八合目シャトル', links:[['羽後交通','https://ugokotsu.co.jp/'],['仙北市｜秋田駒ヶ岳','https://www.city.semboku.akita.jp/']]},
+    '河原の坊': {transit:'早池峰山の車両規制日は指定駐車場からシャトルバス（運行年度を要確認）', links:[['花巻市｜早池峰山','https://www.city.hanamaki.iwate.jp/kanko/midokoro/shizen/1003918.html'],['岩手県交通','https://www.iwatekenkotsu.co.jp/']]},
+    '小田越': {transit:'早池峰山の車両規制日は岳・河原の坊方面からシャトルバス', links:[['花巻市｜早池峰山','https://www.city.hanamaki.iwate.jp/kanko/midokoro/shizen/1003918.html'],['岩手県交通','https://www.iwatekenkotsu.co.jp/']]},
+    '姥沢': {transit:'山交バス（月山志津温泉・姥沢方面、季節運行）', links:[['山交バス','https://www.yamakobus.jp/'],['月山朝日観光協会','https://www.gassan-info.com/']]},
+    '月山八合目': {transit:'庄内交通／地域季節交通（鶴岡方面〜羽黒山・月山八合目）', links:[['庄内交通','https://www.shonaikotsu.jp/'],['月山ビジターセンター','https://gassan.jp/']]},
+    '鉾立': {transit:'象潟駅方面から季節乗合交通・登山バス（年度運行を確認）', links:[['にかほ市観光協会','https://www.nikaho-kanko.jp/'],['羽後交通','https://ugokotsu.co.jp/']]},
+    '峠の茶屋': {transit:'関東自動車（那須塩原駅・黒磯駅〜那須ロープウェイ方面）＋徒歩', links:[['関東自動車','https://www.kantobus.co.jp/'],['那須ロープウェイ','https://www.nasu-ropeway.jp/']]},
+    '筑波山神社': {transit:'関東鉄道 筑波山シャトル（TXつくば駅〜筑波山神社入口）', transitRows:[['TXつくば駅 → 筑波山神社入口','関東鉄道 筑波山シャトル','通年・時刻確認']], links:[['関東鉄道｜筑波山行きバス案内','https://www.kantetsu.co.jp/bus/tourist/mttsukuba']]},
+    '称名滝': {transit:'立山黒部貫光／富山地方鉄道系の称名滝探勝バス（立山駅〜称名滝、季節運行）', links:[['立山黒部アルペンルート','https://www.alpen-route.com/'],['富山地方鉄道','https://www.chitetsu.co.jp/']]},
+    '麦草峠': {transit:'アルピコ交通（茅野駅〜麦草峠）／千曲バス系統（佐久平方面、季節運行）', links:[['アルピコ交通','https://www.alpico.co.jp/traffic/'],['千曲バス','https://chikuma-bus.com/']]},
+    '奈良田': {transit:'早川町乗合バス（身延駅〜奈良田温泉）', links:[['早川町｜乗合バス','https://www.town.hayakawa.yamanashi.jp/'],['山梨交通','https://ykbus.jp/']]},
+    '夜叉神峠登山口': {transit:'山梨交通 南アルプス登山バス（甲府駅・芦安〜夜叉神峠・広河原）', links:[['山梨交通｜広河原アクセス','https://ykbus.jp/route_bus/route_sp_info/hirogawara/']]},
+    '青木鉱泉': {transit:'韮崎駅方面から季節運行の登山バス・乗合交通（年度運行を確認）', links:[['韮崎市観光協会','https://www.nirasaki-kankou.jp/'],['山梨交通','https://ykbus.jp/']]},
+    '畑薙第一ダム': {transit:'しずてつジャストライン系の南アルプス登山線・季節交通（静岡駅方面）', links:[['しずてつジャストライン','https://www.justline.co.jp/'],['静岡市｜南アルプス','https://www.city.shizuoka.lg.jp/']]},
+    '戸隠奥社入口': {transit:'アルピコ交通 観光特急戸隠線／戸隠線（長野駅〜戸隠奥社入口）', transitRows:[['長野駅 → 戸隠奥社入口','アルピコ交通 観光特急戸隠線／70戸隠線','約1時間〜']], links:[['アルピコ交通｜観光特急戸隠線','https://www.alpico.co.jp/traffic/express/express_togakushi/'],['アルピコ交通｜戸隠線','https://www.alpico.co.jp/traffic/local/nagano/togakushi/']]},
+    '雨飾高原キャンプ場': {transit:'小谷村営バス小谷線（南小谷駅〜雨飾高原、運行：アルピコ交通）', links:[['小谷村｜公共交通','https://www.vill.otari.nagano.jp/soshiki/kankochiikishinko-kankoshoko/gyomu/9/1/163.html'],['アルピコ交通','https://www.alpico.co.jp/traffic/']]},
+    '小谷温泉': {transit:'小谷村営バス小谷線（南小谷駅〜小谷温泉方面、運行：アルピコ交通）', links:[['小谷村｜公共交通','https://www.vill.otari.nagano.jp/soshiki/kankochiikishinko-kankoshoko/gyomu/9/1/163.html'],['アルピコ交通','https://www.alpico.co.jp/traffic/']]},
+    '金剛登山口': {transit:'南海バス（河内長野駅〜金剛山方面）／千早赤阪村方面の路線バス', links:[['南海バス','https://www.nankaibus.jp/'],['千早赤阪村','https://www.vill.chihayaakasaka.osaka.jp/']]},
+    '坊村': {transit:'江若交通（JR堅田駅〜坊村・朽木方面）', links:[['江若交通','https://www.kojak.co.jp/']]},
+    '葛川坊村': {transit:'江若交通（JR堅田駅〜坊村・朽木方面）', links:[['江若交通','https://www.kojak.co.jp/']]},
+    '南光河原': {transit:'日本交通／日ノ丸自動車（米子駅〜大山寺方面）', links:[['日本交通 鳥取','https://www.nihonkotsu.jp/'],['大山町観光案内','https://tourismdaisen.com/']]},
+    '下山キャンプ場': {transit:'日本交通／日ノ丸自動車（米子駅〜大山寺方面）', links:[['日本交通 鳥取','https://www.nihonkotsu.jp/'],['日ノ丸自動車','https://hinomarubus.co.jp/'],['大山町観光案内','https://tourismdaisen.com/']]},
+    '大神山神社奥宮': {transit:'日本交通／日ノ丸自動車（米子駅〜大山寺方面）＋徒歩', links:[['日本交通 鳥取','https://www.nihonkotsu.jp/'],['日ノ丸自動車','https://hinomarubus.co.jp/']]},
+    '三瓶山東の原': {transit:'石見交通・大田市地域交通（大田市駅〜三瓶山方面、運行日確認）', links:[['石見交通','https://iwamigroup.jp/'],['大田市観光協会','https://www.ginzan-wm.jp/']]},
+    '三瓶山西の原': {transit:'石見交通・大田市地域交通（大田市駅〜三瓶山方面、運行日確認）', links:[['石見交通','https://iwamigroup.jp/'],['大田市観光協会','https://www.ginzan-wm.jp/']]},
+    '土小屋': {transit:'久万高原町・伊予鉄系の石鎚山方面季節交通（運行年度を確認）', links:[['久万高原町観光協会','https://kuma-kanko.com/'],['伊予鉄バス','https://www.iyotetsu.co.jp/bus/']]},
+    '由布岳正面登山口': {transit:'亀の井バス（由布院駅前BC・別府方面〜由布登山口）', links:[['亀の井バス','https://www.kamenoibus.com/']]},
+    '高千穂河原': {transit:'鹿児島交通（霧島神宮駅・丸尾方面〜高千穂河原、季節・運行日確認）', links:[['鹿児島交通','https://www.iwasaki-corp.com/bus/'],['霧島市観光協会','https://kirishimakankou.com/']]},
+    '霧島神宮古宮址': {transit:'鹿児島交通で高千穂河原方面へ（古宮址は高千穂河原内）', links:[['鹿児島交通','https://www.iwasaki-corp.com/bus/'],['霧島市観光協会','https://kirishimakankou.com/']]},
+    '大浪池登山口': {transit:'鹿児島交通など霧島連山周遊系統（運行日・停留所を確認）', links:[['鹿児島交通','https://www.iwasaki-corp.com/bus/'],['霧島市観光協会','https://kirishimakankou.com/']]},
+    '韓国岳大浪池口': {transit:'鹿児島交通など霧島連山周遊系統（運行日・停留所を確認）', links:[['鹿児島交通','https://www.iwasaki-corp.com/bus/'],['霧島市観光協会','https://kirishimakankou.com/']]},
+    '酸ヶ湯温泉': {transit:'JRバス東北「みずうみ号」等（青森駅〜酸ヶ湯温泉）', links:[['JRバス東北','https://www.jrbustohoku.co.jp/'],['酸ヶ湯温泉','https://sukayu.jp/']]},
+    '二荒山神社中宮祠': {transit:'東武バス日光（JR日光駅・東武日光駅〜中禅寺温泉方面）', links:[['東武バス','https://www.tobu-bus.com/pc/area/nikko.html']]},
+    '黒檜山登山口': {transit:'関越交通（前橋駅〜富士見温泉）＋赤城山直通・乗継バス（季節ダイヤ）', links:[['関越交通','https://kan-etsu.net/'],['前橋まるごとガイド 赤城山アクセス','https://www.maebashi-cvb.com/']]},
+    '日向大谷口': {transit:'西武観光バス（西武秩父駅・三峰口駅方面〜小鹿野・日向大谷口）', links:[['西武バス／西武観光バス','https://www.seibubus.co.jp/']]},
+    '大倉': {transit:'神奈川中央交通（小田急渋沢駅〜大倉）', transitRows:[['渋沢駅北口 → 大倉','神奈川中央交通','約15分']], links:[['神奈川中央交通','https://www.kanachu.co.jp/']]},
+    'ヤビツ峠': {transit:'神奈川中央交通（小田急秦野駅〜ヤビツ峠、季節・本数注意）', links:[['神奈川中央交通','https://www.kanachu.co.jp/']]},
+    '鴨沢': {transit:'西東京バス（JR奥多摩駅〜鴨沢）', links:[['西東京バス','https://www.nisitokyobus.co.jp/']]},
+    '三峯神社': {transit:'西武観光バス（西武秩父駅〜三峯神社）', links:[['西武バス／西武観光バス','https://www.seibubus.co.jp/'],['三峯神社','https://www.mitsuminejinja.or.jp/']]},
+    '上日川峠': {transit:'栄和交通（甲斐大和駅〜上日川峠、季節運行）', links:[['甲州市観光協会','https://www.koshu-kankou.jp/']]},
+    '瑞牆山荘': {transit:'山梨峡北交通（韮崎駅〜瑞牆山荘、季節運行）', links:[['山梨峡北交通','https://kyohoku.jp/'],['北杜市観光協会','https://www.hokuto-kanko.jp/']]},
+    '西沢渓谷入口': {transit:'山梨市営バス／山梨交通系統（山梨市駅・塩山駅〜西沢渓谷、季節ダイヤ）', links:[['山梨市｜公共交通','https://www.city.yamanashi.yamanashi.jp/'],['山梨交通','https://ykbus.jp/']]},
+    '別当出合': {transit:'北陸鉄道系・白山市側の白山登山バス／市ノ瀬シャトル（季節運行）', links:[['北陸鉄道','https://www.hokutetsu.co.jp/'],['白山観光協会','https://www.urara-hakusanbito.com/']]},
+    '市ノ瀬': {transit:'北陸鉄道系・白山市側の白山登山バス（季節運行）', links:[['北陸鉄道','https://www.hokutetsu.co.jp/'],['白山観光協会','https://www.urara-hakusanbito.com/']]},
+    'ロープウェイ千畳敷駅': {transit:'伊那バス／中央アルプス観光（駒ヶ根駅・菅の台〜しらび平）＋駒ヶ岳ロープウェイ', links:[['中央アルプス駒ヶ岳ロープウェイ','https://www.chuo-alps.com/'],['伊那バス','https://www.ibgr.jp/']]},
+    '御在所ロープウエイ湯の山温泉駅': {transit:'三重交通（近鉄湯の山温泉駅〜湯の山温泉・御在所ロープウエイ）', links:[['三重交通','https://www.sanco.co.jp/'],['御在所ロープウエイ','https://www.gozaisho.co.jp/']]},
+    '葛城山ロープウェイ登山口駅': {transit:'奈良交通（近鉄御所駅〜葛城ロープウェイ前）', links:[['奈良交通','https://www.narakotsu.co.jp/'],['葛城山ロープウェイ','https://www.kintetsu.co.jp/senden/katsuragisan/']]},
+    '伊吹山登山口': {transit:'湖国バス（JR近江長岡駅〜伊吹登山口方面、季節・運行日確認）', links:[['近江鉄道・湖国バス','https://www.ohmitetudo.co.jp/bus/'],['米原市観光協会','https://kitabiwako.jp/']]},
+    '成就社': {transit:'せとうちバス（伊予西条駅〜西之川）＋石鎚登山ロープウェイ', links:[['せとうちバス','https://www.setouchibus.co.jp/'],['石鎚登山ロープウェイ','https://www.ishizuchi.com/']]},
+    '豊前坊高住神社': {transit:'添田町BRT・町内交通＋タクシー等。英彦山周辺は災害復旧に伴う運行変更を確認', links:[['添田町｜交通','https://www.town.soeda.fukuoka.jp/'],['JR九州BRTひこぼしライン','https://www.jrkyushu.co.jp/train/hikoboshi/']]},
+    '別所駐車場': {transit:'添田町BRT・町内交通＋タクシー等。英彦山周辺は災害復旧に伴う運行変更を確認', links:[['添田町｜交通','https://www.town.soeda.fukuoka.jp/'],['JR九州BRTひこぼしライン','https://www.jrkyushu.co.jp/train/hikoboshi/']]},
+    'いわかがみ平': {transit:'栗原市の紅葉期シャトル・臨時交通（運行年度を確認）', links:[['栗原市｜栗駒山交通対策','https://www.kuriharacity.jp/'],['栗原市観光ポータル','https://visit-kurihara.travel/']]},
+    'わかさ氷ノ山': {transit:'若桜鉄道若桜駅方面から町内交通・季節交通（運行日確認）', links:[['若桜町｜公共交通','https://www.town.wakasa.tottori.jp/'],['若桜鉄道','https://wakatetsu.co.jp/']]},
+    '三宮神社前': {transit:'全但バス（JR八鹿駅〜氷ノ山方面）＋徒歩等', links:[['全但バス','https://www.zentanbus.co.jp/'],['やぶ市観光協会','https://www.yabu-kankou.jp/']]},
+    '勝原登山口': {transit:'JR越美北線 勝原駅から徒歩でアクセス可能', links:[['JR西日本','https://www.jr-odekake.net/'],['大野市観光協会','https://www.ono-kankou.jp/']]},
+    '土樽駅': {transit:'JR上越線 土樽駅', links:[['JR東日本','https://www.jreast.co.jp/']]},
+    '大杉谷登山口': {transit:'大台町側の季節登山バス・予約交通（年度運行を公式確認）', links:[['大台町観光協会','https://web-odai.info/'],['大杉谷登山センター','https://www.oosugidani.jp/']]},
+    '岩木山八合目': {transit:'弘南バス（弘前〜嶽温泉方面）＋津軽岩木スカイライン・リフト等', links:[['弘南バス','https://www.konanbus.com/'],['津軽岩木スカイライン','https://www.iwaki-skyline.jp/']]},
+    '幌尻岳第二ゲート': {transit:'とよぬか山荘〜第二ゲートの予約制シャトルバス', links:[['平取町｜幌尻岳シャトル案内','https://www.town.biratori.hokkaido.jp/'],['とよぬか山荘','https://toyonuka.com/']]},
+    '志津温泉': {transit:'山交バス（月山・志津温泉方面、季節ダイヤ）', links:[['山交バス','https://www.yamakobus.jp/'],['月山朝日観光協会','https://www.gassan-info.com/']]},
+    '日光白根山ロープウェイ山頂駅': {transit:'関越交通で鎌田・丸沼高原方面＋日光白根山ロープウェイ', links:[['関越交通','https://kan-etsu.net/'],['丸沼高原 日光白根山ロープウェイ','https://www.marunuma.jp/green/']]},
+    '武奈ヶ岳イン谷口': {transit:'JR湖西線 比良駅から徒歩・タクシー等', links:[['JR西日本','https://www.jr-odekake.net/'],['びわ湖大津観光協会','https://otsu.or.jp/']]},
+    '沼平ゲート': {transit:'しずてつジャストライン系の南アルプス季節交通（静岡駅方面、年度運行を確認）', links:[['しずてつジャストライン','https://www.justline.co.jp/'],['静岡市｜南アルプス','https://www.city.shizuoka.lg.jp/']]},
+    '燕温泉': {transit:'頸南バス（関山駅〜燕温泉方面、季節ダイヤ）', links:[['頸南バス','https://keinanbus.com/'],['妙高観光局','https://myokotourism.jp/']]},
+    '白神岳登山口': {transit:'JR五能線 白神岳登山口駅から徒歩', links:[['JR東日本','https://www.jreast.co.jp/'],['深浦町観光サイト','https://fukadoko.jp/']]},
+    '笹ヶ峰': {transit:'妙高高原駅方面から笹ヶ峰直行バス等（季節運行）', links:[['妙高観光局','https://myokotourism.jp/'],['頸南バス','https://keinanbus.com/']]},
+    '美濃戸': {transit:'アルピコ交通の季節バスは美濃戸口まで。美濃戸へは徒歩等', links:[['アルピコ交通','https://www.alpico.co.jp/traffic/'],['茅野観光ナビ','https://www.chinotabi.jp/']]},
+    '蔵王刈田駐車場': {transit:'宮城交通／ミヤコーバス系統の蔵王方面季節交通（運行日確認）', links:[['宮城交通','https://www.miyakou.co.jp/'],['蔵王町観光物産協会','https://www.zao-machi.com/']]},
+    '谷川岳西黒尾根登山口': {transit:'関越交通（上毛高原駅・水上駅〜谷川岳ヨッホ）＋徒歩', links:[['関越交通｜谷川岳アクセス','https://kan-etsu.net/pages/105/']]},
+    '車山肩': {transit:'アルピコ交通（茅野駅〜車山高原・車山肩方面、季節ダイヤ）', links:[['アルピコ交通','https://www.alpico.co.jp/traffic/'],['車山高原','https://www.kurumayama.co.jp/']]},
+    '須川高原温泉': {transit:'岩手県交通（一関駅〜須川温泉、季節運行）', links:[['岩手県交通','https://www.iwatekenkotsu.co.jp/'],['須川高原温泉','https://sukawaonsen.jp/']]},
+  });
+
+  for (const [name, patch] of Object.entries(V14210_TRANSIT_ENRICH)) {
+    const row = ACCESS_DB[name];
+    if (!row) continue;
+    if (patch.transit) row.transit = patch.transit;
+    if (patch.transitRows) row.transitRows = patch.transitRows;
+    if (patch.links) row.links = patch.links;
+    if (!Array.isArray(row.tips)) row.tips = [];
+    if (!row.tips.some(t => /交通事業者/.test(String(t)))) {
+      row.tips.push('バスの運行日・時刻・予約要否は交通事業者の公式ページで直前確認。');
+    }
+  }
+
+  for (const [name, patch] of Object.entries(V14211_TRANSIT_ENRICH)) {
+    const row = ACCESS_DB[name];
+    if (!row) continue;
+    if (patch.transit) row.transit = patch.transit;
+    if (patch.transitRows) row.transitRows = patch.transitRows;
+    if (patch.links) row.links = patch.links;
+    if (!Array.isArray(row.tips)) row.tips = [];
+    if (!row.tips.some(t => /交通事業者/.test(String(t)))) row.tips.push('バス・鉄道の運行日、時刻、予約要否は交通事業者の公式ページで直前確認。');
+  }
+
+  function normalizeName(name){ return String(name||'').replace(/\s+/g,'').replace(/（.*?）/g,'').replace(/\(.*?\)/g,'').replace(/[・･]/g,'・').trim(); }
+  function looseName(name){ return normalizeName(name).replace(/^[●○・▶▷\-]+/,'').replace(/(?:登山口|駐車場|駐車スペース|バス停|駅前|停留所)$/,''); }
+  function findAccess(name){
+    const n=normalizeName(name), ln=looseName(name);
+    for(const [key,data] of Object.entries(ACCESS_DB)){
+      if(normalizeName(key)===n) return {key,data};
+      if((data.aliases||[]).some(a=>normalizeName(a)===n)) return {key,data};
+    }
+    if(ln.length>=2){
+      for(const [key,data] of Object.entries(ACCESS_DB)){
+        if(looseName(key)===ln) return {key,data};
+        if((data.aliases||[]).some(a=>looseName(a)===ln)) return {key,data};
+      }
+    }
+    return null;
+  }
+  function esc(s){return String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+
+  function selectedText(select){
+    if(!select || !select.value) return '';
+    return select.options[select.selectedIndex]?.textContent?.replace(/\s*\/\s*\d+m.*$/,'').trim() || '';
+  }
+
+  function makeButton(select){
+    if(!select || select.dataset.accessReady==='1') return;
+    select.dataset.accessReady='1';
+    const wrap=document.createElement('div'); wrap.className='trailhead-select-access';
+    select.parentNode.insertBefore(wrap,select); wrap.appendChild(select);
+    const btn=document.createElement('button');
+    btn.type='button'; btn.className='trailhead-access-btn hidden'; btn.textContent='アクセス';
+    btn.setAttribute('aria-label','登山口アクセス情報を表示');
+    wrap.appendChild(btn);
+    const update=()=>{
+      const selected=selectedText(select);
+      const hit=findAccess(selected);
+      const hasSelection=Boolean(selected);
+      btn.classList.toggle('hidden',!hasSelection);
+      btn.classList.toggle('is-unavailable',hasSelection&&!hit);
+      btn.disabled=hasSelection&&!hit;
+      btn.setAttribute('aria-disabled',hasSelection&&!hit?'true':'false');
+      btn.dataset.trailhead=hit?.key||'';
+      const nextText=hit?'アクセス':'アクセス情報なし';
+      if(btn.textContent!==nextText) btn.textContent=nextText;
+      btn.title=hit?`${hit.key}のアクセス情報を見る`:(hasSelection?`${selected}のアクセス情報は現在未登録です`:'');
+    };
+    select._tratenAccessUpdate=update;
+    select.addEventListener('change',update);
+    btn.addEventListener('click',()=>{ if(btn.dataset.trailhead) openModal(btn.dataset.trailhead); });
+    update();
+  }
+
+  function rowHtml(r){return `<div class="ta-route"><div class="ta-route-label">${esc(r[0])}</div><div><strong>${esc(r[1])}</strong><div class="ta-meta">${esc(r[2]||'')} ${r[3]?`｜ ${esc(r[3])}`:''}</div></div></div>`;}
+  function transitHtml(r){return `<div class="ta-transit"><div class="ta-transit-main"><strong>${esc(r[0])}</strong><span>${esc(r[1])}</span></div><b>${esc(r[2]||'')}</b></div>`;}
+  function detailRow(label,value){return `<div class="ta-detail-row"><dt>${esc(label)}</dt><dd>${esc(value||'要公式確認')}</dd></div>`;}
+  function infoStatus(data){return (data.links||[]).length ? '固定情報＋公式確認先あり' : '固定情報・最新状況は要公式確認';}
+  function facilityText(data,kind){
+    if(kind==='toilet') return data.toilet || '設置場所・利用可否は現地／公式情報で確認';
+    if(kind==='water') return data.water || '水場・飲用可否は現地／公式情報で確認';
+    if(kind==='fee') return data.parkingFee || (/無料/.test(data.parking||'')?'無料の記載あり':'料金・利用条件は現地／公式情報で確認');
+    return '要公式確認';
+  }
+  function ensureCarRows(data,key){
+    if((data.car||[]).length) return data.car;
+    return [[data.nearestIC||'最寄IC',`${data.nearestIC||'最寄IC'} → ${key}`, '距離は要確認', data.drive||'所要時間は要確認']];
+  }
+  function ensureTransitRows(data,key){
+    if((data.transitRows||[]).length) return data.transitRows;
+    return [[`主要駅・バス停 → ${key}`,data.transit||'公共交通情報は要確認','時刻・運行日を公式確認']];
+  }
+
+  const ACCESS_ORIGINS = Object.freeze({
+    tokyo:{label:'東京駅',lat:35.681236,lon:139.767125},
+    osaka:{label:'大阪駅',lat:34.702485,lon:135.495951}
+  });
+  const GAS_EFFICIENCY = Object.freeze({urban:10,mountain:12.5,highway:17.5});
+  const GAS_PRICE_KEY='traten_gas_price_yen_v1';
+  const NEXCO_DRIVE_COMPASS='https://dc.c-nexco.co.jp/dc/DriveCompass.html';
+  const NEXCO_ORIGIN_IC=Object.freeze({tokyo:'東京IC',osaka:'吹田IC'});
+  function getGasPrice(){try{const n=Number(localStorage.getItem(GAS_PRICE_KEY));return Number.isFinite(n)&&n>0?n:180;}catch(_){return 180;}}
+  function setGasPrice(v){const n=Number(v);if(!Number.isFinite(n)||n<=0)return;try{localStorage.setItem(GAS_PRICE_KEY,String(n));}catch(_){}}
+  function geoKm(a,b){const R=6371,r=Math.PI/180;const dlat=(b.lat-a.lat)*r,dlon=(b.lon-a.lon)*r;const x=Math.sin(dlat/2)**2+Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(dlon/2)**2;return 2*R*Math.asin(Math.sqrt(x));}
+  function lookupTrailheadPoint(key,data){
+    const names=[key,...(data.aliases||[])];
+    for(const n of names){const hit=window.TratenLookupFixedPoint?.(n);if(hit&&Number.isFinite(hit.lat)&&Number.isFinite(hit.lon))return hit;}
+    return null;
+  }
+  function estimateDrive(origin,point,prefecture){
+    if(!point)return null;
+    if(/北海道/.test(prefecture||''))return {unsupported:'北海道は本州との車移動にフェリー等が必要なため自動概算対象外'};
+    if(/利尻|屋久島/.test(prefecture||''))return {unsupported:'離島はフェリー等を含むため自動概算対象外'};
+    const air=geoKm(origin,point);
+    const factor=air<100?1.30:air<250?1.24:1.20;
+    const total=Math.max(air+8,air*factor);
+    const urban=Math.min(30,Math.max(12,total*0.07));
+    const mountain=Math.min(55,Math.max(18,total*0.11));
+    const highway=Math.max(0,total-urban-mountain);
+    const hours=urban/30+mountain/35+highway/85;
+    const toll=highway>30?Math.round((highway*25+150)/100)*100:0;
+    const liters=urban/GAS_EFFICIENCY.urban+mountain/GAS_EFFICIENCY.mountain+highway/GAS_EFFICIENCY.highway;
+    return {total,urban,mountain,highway,hours,toll,liters};
+  }
+  function fmtDuration(h){const m=Math.round(h*60/10)*10; return `${Math.floor(m/60)}時間${m%60?`${m%60}分`:''}`;}
+  function mapsUrl(origin,key,data){const dest=[key,data.prefecture].filter(Boolean).join(' ');return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin.label)}&destination=${encodeURIComponent(dest)}&travelmode=driving`;}
+  function nexcoUrl(vehicle){return `${NEXCO_DRIVE_COMPASS}?optCrTp=${vehicle==='kei'?1:2}&optSrt=ryokinetc`;}
+  function nexcoDestinationIC(data){
+    const raw=String(data.nearestIC||'').trim();
+    if(!raw||raw==='—'||/方面|網走|フェリー/.test(raw))return '最寄ICを現地情報で確認';
+    return raw.replace(/\s+/g,' ');
+  }
+  function etcEstimate(e){
+    const ordinary=Math.max(0,Math.round(e.toll/100)*100);
+    const kei=Math.max(0,Math.round((ordinary*0.8)/100)*100);
+    return {ordinary,kei};
+  }
+  function driveEstimateHtml(key,data){
+    const point=lookupTrailheadPoint(key,data), gas=getGasPrice();
+    const entries=Object.entries(ACCESS_ORIGINS);
+    const rows=entries.map(([originKey,o])=>{
+      const e=estimateDrive(o,point,data.prefecture);
+      if(!e)return `<div class="ta-origin-row"><b>${esc(o.label)}から</b><span>固定座標を取得できず概算不可</span><a href="${esc(mapsUrl(o,key,data))}" target="_blank" rel="noopener noreferrer">Google Maps ↗</a></div>`;
+      if(e.unsupported)return `<div class="ta-origin-row"><b>${esc(o.label)}から</b><span>${esc(e.unsupported)}</span><a href="${esc(mapsUrl(o,key,data))}" target="_blank" rel="noopener noreferrer">経路確認 ↗</a></div>`;
+      const gasCost=Math.round(e.liters*gas/100)*100, etc=etcEstimate(e), startIC=NEXCO_ORIGIN_IC[originKey]||'最寄IC', endIC=nexcoDestinationIC(data);
+      return `<div class="ta-origin-row"><b>${esc(o.label)}から</b><div><strong>約${Math.round(e.total)}km・${esc(fmtDuration(e.hours))}</strong><small>ETC目安：普通車 約${etc.ordinary.toLocaleString()}円 ／ 軽・二輪 約${etc.kei.toLocaleString()}円</small><small>燃料 約${e.liters.toFixed(1)}L・約${gasCost.toLocaleString()}円</small><small class="ta-nexco-ic">NEXCO検索目安：${esc(startIC)} → ${esc(endIC)}</small><span class="ta-nexco-links"><a href="${esc(nexcoUrl('ordinary'))}" target="_blank" rel="noopener noreferrer">NEXCO 普通車ETC ↗</a><a href="${esc(nexcoUrl('kei'))}" target="_blank" rel="noopener noreferrer">NEXCO 軽ETC ↗</a></span></div><a href="${esc(mapsUrl(o,key,data))}" target="_blank" rel="noopener noreferrer">実経路 ↗</a></div>`;
+    }).join('');
+    return `<article class="ta-card ta-origin-card"><header><h3>🗾 東京・大阪から車</h3><span>ETC対応</span></header><div class="ta-origin-controls"><label>ガソリン単価 <input id="taGasPrice" type="number" min="1" step="1" value="${gas}"> 円/L</label><small>燃費：都会10 / 山道12.5 / 高速17.5 km/L</small></div><div class="ta-card-body ta-origin-list">${rows}</div><p class="ta-estimate-note">※距離・所要時間・ETC金額は計画用の概算です。軽・二輪はNEXCOの車種区分比率（普通車1.0に対し軽自動車等0.8）を基準に表示しています。首都高・阪神高速などを含む実料金、ETC割引、経路差は一致しない場合があります。正確な料金は各行のNEXCO公式「ドライブコンパス」で車種別に確認してください。</p></article>`;
+  }
+
+  function ensureModal(){
+    if(document.getElementById('trailheadAccessModal')) return;
+    const modal=document.createElement('div');
+    modal.id='trailheadAccessModal'; modal.className='ta-modal hidden';
+    modal.innerHTML=`<div class="ta-backdrop" data-close="1"></div><section class="ta-sheet" role="dialog" aria-modal="true" aria-labelledby="taTitle"><div class="ta-sheet-head"><div><span class="ta-kicker">TRAILHEAD ACCESS</span><h2 id="taTitle"></h2><p id="taSub"></p></div><button type="button" class="ta-close" aria-label="閉じる">×</button></div><div id="taBody" class="ta-body"></div></section>`;
+    document.body.appendChild(modal);
+    modal.querySelector('.ta-close').addEventListener('click',closeModal);
+    modal.querySelector('.ta-backdrop').addEventListener('click',closeModal);
+    document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!modal.classList.contains('hidden')) closeModal();});
+  }
+
+  function openModal(name){
+    ensureModal();
+    const hit=findAccess(name); if(!hit) return;
+    const {key,data}=hit, modal=document.getElementById('trailheadAccessModal');
+    modal.querySelector('#taTitle').textContent=`${key} 登山口`;
+    modal.querySelector('#taSub').textContent=`${data.area||'山域情報'}｜${data.prefecture||'所在地要確認'}`;
+    const links=(data.links||[]).map(([label,url])=>`<a class="ta-source" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(label)} ↗</a>`).join('');
+    const tips=(data.tips||[]).length?data.tips:[`${key}を起点とする山行では、道路規制・駐車場・公共交通の当日情報を出発前に確認してください。`];
+    const carRows=ensureCarRows(data,key), transitRows=ensureTransitRows(data,key);
+    modal.querySelector('#taBody').innerHTML=`
+      <p class="ta-status-note"><b>アクセス情報：</b>${esc(infoStatus(data))}。固定情報を見やすく整理しています。運行時刻・料金・通行止め等の変動情報は出発前に公式情報で確認してください。</p>
+      <div class="ta-quick">
+        <div><span>最寄IC</span><b>${esc(data.nearestIC||'要確認')}</b></div>
+        <div><span>ICから</span><b>${esc(data.drive||'要確認')}</b></div>
+        <div><span>駐車場</span><b>${esc(data.parking||'要確認')}</b></div>
+        <div><span>公共交通</span><b>${esc(data.transit||'要確認')}</b></div>
+        <div><span>駐車料金</span><b>${esc(facilityText(data,'fee'))}</b></div>
+        <div><span>情報状態</span><b>${esc((data.links||[]).length?'公式リンクあり':'要公式確認')}</b></div>
+      </div>
+      <div class="ta-alert"><b>⚠ アクセス注意</b><span>${esc(data.roadNote||'道路・林道・交通機関の最新状況を出発前に確認してください。')}</span></div>
+      <div class="ta-grid">
+        <article class="ta-card"><header><h3>🚗 車で行く</h3><span>ルート目安</span></header><div class="ta-card-body">${carRows.map(rowHtml).join('')}</div></article>
+        <article class="ta-card"><header><h3>🚌 公共交通で行く</h3><span>運行日要確認</span></header><div class="ta-card-body">${transitRows.map(transitHtml).join('')}</div></article>
+      </div>
+      ${driveEstimateHtml(key,data)}
+      <div class="ta-detail-grid">
+        <article class="ta-card"><header><h3>🅿️ 駐車場・登山口設備</h3></header><div class="ta-card-body ta-detail-list">
+          ${detailRow('駐車場',data.parking||'要公式確認')}
+          ${detailRow('駐車料金',facilityText(data,'fee'))}
+          ${detailRow('トイレ',facilityText(data,'toilet'))}
+          ${detailRow('水場・飲料',facilityText(data,'water'))}
+        </div></article>
+        <article class="ta-card"><header><h3>✅ 出発前チェック</h3><span>当日確認</span></header><div class="ta-confirm">
+          <div class="ta-confirm-item"><i>01</i><span>道路・林道の通行止め／冬季閉鎖</span></div>
+          <div class="ta-confirm-item"><i>02</i><span>駐車場の満車・予約・マイカー規制</span></div>
+          <div class="ta-confirm-item"><i>03</i><span>バス・ロープウェイの運行日／最終便</span></div>
+          <div class="ta-confirm-item"><i>04</i><span>火山・登山道・工事等の入山規制</span></div>
+        </div></article>
+      </div>
+      <article class="ta-card ta-tips"><header><h3>📍 登山者向けポイント</h3><span>チャッピーまとめ</span></header><div class="ta-card-body"><ul>${tips.map(t=>`<li>${esc(t)}</li>`).join('')}</ul></div></article>
+      <div class="ta-sources"><b>公式確認先：</b>${links || '<span>公式リンク未登録。自治体・観光協会・道路管理者・交通事業者等で最新情報を確認してください。</span>'}</div>
+      <p class="ta-fineprint">※ この画面の所要時間・駐車場・交通情報は登山計画の目安です。道路規制、季節バス、料金、駐車場運用、トイレ・水場の利用可否は変わる場合があります。</p>`;
+    const gasInput=modal.querySelector('#taGasPrice'); if(gasInput) gasInput.addEventListener('change',()=>{setGasPrice(gasInput.value); openModal(key);});
+    modal.classList.remove('hidden'); document.body.classList.add('ta-modal-open');
+    modal.querySelector('.ta-close').focus();
+  }
+  function closeModal(){const m=document.getElementById('trailheadAccessModal');if(m){m.classList.add('hidden');document.body.classList.remove('ta-modal-open');}}
+
+  // V1.4.187: 山情報画面は動的に再描画されるため、個別イベントではなく
+  // access.js 側の委譲クリックで既存アクセスモーダルを確実に開く。
+  document.addEventListener('click',e=>{
+    const btn=e.target.closest?.('[data-national-trailhead-access]');
+    if(!btn)return;
+    e.preventDefault();
+    e.stopPropagation();
+    const trailhead=btn.dataset.nationalTrailheadAccess||'';
+    if(!trailhead)return;
+    const hit=findAccess(trailhead);
+    if(hit){
+      openModal(hit.key);
+      return;
+    }
+    // ボタンを押して無反応に見えないよう、未登録時は明示する。
+    if(typeof window.setStatus==='function') window.setStatus(`${trailhead}のアクセス情報は現在未登録です。`,true);
+    else window.alert(`${trailhead}のアクセス情報は現在未登録です。`);
+  });
+
+  function setButtonVisibility(select,isTrailhead){
+    if(!select) return;
+    if(isTrailhead) makeButton(select);
+    const wrap=select.closest('.trailhead-select-access');
+    const btn=wrap?.querySelector('.trailhead-access-btn');
+    if(!btn) return;
+    if(!isTrailhead){
+      btn.classList.add('hidden');
+      btn.dataset.trailhead='';
+      return;
+    }
+    if(typeof select._tratenAccessUpdate==='function') select._tratenAccessUpdate();
+  }
+
+  function scan(){
+    // Legacy / alternate layouts (harmless when absent)
+    makeButton(document.getElementById('startTrailhead'));
+    makeButton(document.getElementById('endTrailhead'));
+
+    // Traten V1.4.73 current planner rows
+    document.querySelectorAll('.point-row').forEach(row=>{
+      const typeSel=row.querySelector('.point-type');
+      const pointSel=row.querySelector('.point-select');
+      if(!typeSel || !pointSel) return;
+      setButtonVisibility(pointSel,typeSel.value==='trailhead');
+      if(typeSel.dataset.accessWatch!=='1'){
+        typeSel.dataset.accessWatch='1';
+        typeSel.addEventListener('change',()=>setTimeout(scan,0));
+      }
+    });
+
+    // Older wizard layout compatibility
+    document.querySelectorAll('.wizard-waypoint-select').forEach(sel=>{
+      const typeSel=sel.closest('.waypoint-main')?.querySelector('.wizard-waypoint-type');
+      setButtonVisibility(sel,typeSel?.value==='trailhead');
+      if(typeSel && typeSel.dataset.accessWatch!=='1'){
+        typeSel.dataset.accessWatch='1';
+        typeSel.addEventListener('change',()=>setTimeout(scan,0));
+      }
+    });
+  }
+
+  function attachRow(row){
+    if(!row)return;
+    const typeSel=row.querySelector('.point-type');
+    const pointSel=row.querySelector('.point-select');
+    if(!typeSel||!pointSel)return;
+    setButtonVisibility(pointSel,typeSel.value==='trailhead');
+    if(typeSel.dataset.accessWatch!=='1'){
+      typeSel.dataset.accessWatch='1';
+      typeSel.addEventListener('change',()=>setButtonVisibility(pointSel,typeSel.value==='trailhead'));
+    }
+  }
+
+  ensureModal();
+  scan();
+  window.TratenTrailheadAccess={open:openModal,data:ACCESS_DB,has:(name)=>Boolean(findAccess(name)),resolve:findAccess,refresh:scan,attachRow};
+})();

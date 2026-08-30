@@ -1,0 +1,17 @@
+OK 宝剣岳→宝剣山荘 20
+OK 宝剣山荘→宝剣岳 20
+OK 宝剣山荘→頂上山荘 40
+OK 頂上山荘→宝剣山荘 35
+OK 頂上山荘→木曽駒ヶ岳 20
+OK 木曽駒ヶ岳→頂上山荘 15
+OK 八方池山荘→八方池 100
+OK 八方池→唐松岳頂上山荘 150
+OK 唐松岳頂上山荘→八方池 120
+OK 八方池→八方池山荘 80
+OK 一ノ沢登山口→常念乗越 270
+OK 常念乗越→常念小屋 1
+OK 常念小屋→常念乗越 1
+OK 常念乗越→一ノ沢登山口 170
+REP courses=158 segments=236 verified=214 estimated=10 derived=12 missing=0 routeErrors=0 alignErrors=0
+OK route-context fallback 高妻山 first leg 164min parent=戸隠キャンプ場・高妻山登山者駐車場->高妻山 290min
+V1513 table=14

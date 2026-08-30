@@ -1,0 +1,11 @@
+V1.4.76 regression checks
+
+[OK] index.html contains #loadPoiBtn as dedicated .mountain-route-load-primary row
+[OK] #loadPoiBtn is forced visible by CSS and remains disabled only before mountain selection
+[OK] representative course UI remains separate
+[OK] national outlook click listener is registered before Leaflet availability check
+[OK] national outlook requests are split into batches of 50
+[OK] national outlook API accepts up to 300 points
+[OK] access feature does not use MutationObserver
+[OK] app.js syntax check passed
+[OK] server.py compile check passed

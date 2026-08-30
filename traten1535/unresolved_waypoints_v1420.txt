@@ -1,0 +1,235 @@
+Traten V1.4.20 unresolved waypoint audit
+========================================
+
+Unresolved points found in V1.4.19: 102
+Mountains affected: 60
+By type: trailhead=63, hut=39, peak=0
+
+Policy from V1.4.20:
+- Do not show unresolved fixed-name candidates to users.
+- Do not attempt one-click coordinate retry from the UI.
+- Keep names in internal curated hints so they can be promoted after public-source verification.
+- Do not guess or copy a nearby coordinate merely because the name looks similar.
+
+Pending verification list:
+[利尻山]
+- trailhead: 北麓野営場 利尻山登山口
+- trailhead: 沓形登山口
+- hut: 利尻山避難小屋
+
+[羅臼岳]
+- trailhead: 岩尾別温泉 羅臼岳登山口
+- hut: 羅臼平
+
+[斜里岳]
+- hut: 清岳荘
+
+[天塩岳]
+- hut: 天塩岳ヒュッテ
+
+[ニセイカウシュッペ山]
+- trailhead: 古川林道 ニセイカウシュッペ山登山口
+
+[大雪山（旭岳）]
+- trailhead: 旭岳ロープウェイ姿見駅
+- trailhead: 旭岳温泉
+- hut: 旭岳石室
+
+[石狩岳]
+- trailhead: シュナイダーコース登山口
+- trailhead: ユニ石狩岳登山口
+
+[トムラウシ山]
+- trailhead: トムラウシ温泉 短縮登山口
+- hut: ヒサゴ沼避難小屋
+
+[オプタテシケ山]
+- trailhead: 望岳台
+
+[十勝岳]
+- trailhead: 吹上温泉登山口
+- hut: 十勝岳避難小屋
+
+[ニペソツ山]
+- trailhead: 幌加温泉 ニペソツ山登山口
+
+[幌尻岳]
+- trailhead: とよぬか山荘
+- trailhead: 新冠ポロシリ山荘 登山口
+- hut: 幌尻山荘
+- hut: 新冠ポロシリ山荘
+
+[ペテガリ岳]
+- trailhead: 神威山荘 ペテガリ岳登山口
+- hut: ペテガリ山荘
+
+[芦別岳]
+- trailhead: 山部自然公園太陽の里 芦別岳登山口
+
+[夕張岳]
+- trailhead: 夕張岳登山口
+
+[余市岳]
+- trailhead: キロロ ゴンドラ山頂駅
+
+[樽前山]
+- trailhead: 樽前山七合目登山口
+
+[後方羊蹄山]
+- trailhead: 羊蹄山比羅夫登山口
+- trailhead: 真狩登山口
+- trailhead: 京極登山口
+- hut: 羊蹄山避難小屋
+
+[ニセコアンヌプリ]
+- trailhead: ニセコアンヌプリ五色温泉登山口
+
+[狩場山]
+- trailhead: 千走新道登山口
+
+[渡島駒ヶ岳]
+- trailhead: 赤井川登山口 駒ヶ岳
+
+[大千軒岳]
+- trailhead: 知内川コース登山口 大千軒岳
+
+[八甲田山]
+- trailhead: 酸ヶ湯温泉
+- trailhead: 八甲田ロープウェー山頂公園駅
+- hut: 仙人岱避難小屋
+
+[岩木山]
+- trailhead: 岩木山八合目
+- trailhead: 嶽温泉 岩木山登山口
+
+[白神岳]
+- hut: 白神岳避難小屋
+
+[八幡平]
+- trailhead: 八幡平山頂レストハウス
+
+[乳頭山（烏帽子岳）]
+- trailhead: 黒湯温泉
+- trailhead: 蟹場温泉
+
+[秋田駒ヶ岳]
+- trailhead: 八合目小屋 秋田駒ヶ岳
+- hut: 阿弥陀池避難小屋
+
+[早池峰山]
+- hut: 早池峰山避難小屋
+
+[五葉山]
+- hut: 石楠花荘
+
+[和賀岳]
+- trailhead: 甘露水登山口 和賀岳
+
+[焼石岳]
+- hut: 銀明水避難小屋
+
+[栗駒山]
+- trailhead: 須川高原温泉
+
+[神室山]
+- trailhead: 西ノ又登山口 神室山
+
+[森吉山]
+- trailhead: 阿仁ゴンドラ山頂駅
+
+[鳥海山]
+- trailhead: 鉾立 鳥海山登山口
+- hut: 御浜小屋
+- hut: 大物忌神社参籠所
+
+[月山]
+- trailhead: 姥沢 月山リフト
+- hut: 佛生池小屋
+
+[摩耶山]
+- trailhead: 越沢登山口 摩耶山 山形
+
+[以東岳]
+- trailhead: 泡滝ダム
+- hut: 以東岳避難小屋
+- hut: 大鳥小屋
+
+[大朝日岳]
+- trailhead: 古寺鉱泉 朝日岳登山口
+- trailhead: 日暮沢小屋
+- hut: 大朝日小屋
+- hut: 竜門小屋
+
+[祝瓶山]
+- trailhead: 祝瓶山荘 登山口
+- hut: 祝瓶山荘
+
+[船形山]
+- trailhead: 大滝キャンプ場 船形山登山口
+- trailhead: 旗坂キャンプ場
+- hut: 升沢避難小屋
+
+[蔵王山（熊野岳）]
+- trailhead: 蔵王ロープウェイ地蔵山頂駅
+- trailhead: 刈田峠
+
+[飯豊山]
+- trailhead: 御沢登山口 飯豊山
+- trailhead: 大日杉登山口
+- hut: 三国小屋
+- hut: 切合小屋
+- hut: 本山小屋
+
+[西吾妻山]
+- trailhead: 天元台高原リフト北望台
+- trailhead: グランデコ ゴンドラ山頂駅
+- hut: 西吾妻小屋
+
+[一切経山]
+- hut: 酸ヶ平避難小屋
+
+[安達太良山]
+- trailhead: あだたら山ロープウェイ山頂駅
+- trailhead: 奥岳登山口
+- hut: くろがね小屋
+
+[磐梯山]
+- trailhead: 猪苗代登山口
+- hut: 弘法清水小屋
+
+[七ヶ岳]
+- trailhead: たかつえスキー場 七ヶ岳登山口
+
+[荒海山]
+- trailhead: 八総鉱山跡 荒海山登山口
+
+[会津駒ヶ岳]
+- hut: 駒の小屋
+
+[燧ヶ岳]
+- trailhead: 長英新道 尾瀬沼
+- hut: 尾瀬沼ヒュッテ
+
+[大滝根山]
+- trailhead: 仙台平 大滝根山登山口
+
+[筑波山]
+- trailhead: つつじヶ丘駅 筑波山ロープウェイ
+
+[伊吹山]
+- trailhead: 伊吹山登山口 三之宮神社
+
+[比叡山]
+- trailhead: 修学院 比叡山登山口
+
+[那岐山]
+- hut: 那岐山避難小屋
+
+[三瓶山]
+- hut: 三瓶山頂避難小屋
+
+[久住山]
+- hut: 久住分かれ避難小屋
+
+[阿蘇山（高岳）]
+- hut: 月見小屋
