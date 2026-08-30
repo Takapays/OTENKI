@@ -1110,3 +1110,15 @@
 - 王道ルート5本のCT情報なし区間を公開標準CTで確定。
 - 逆方向CTも可能な範囲で同時登録。
 - 按分CT・新規推定CTは不使用。
+
+## V1.5.51
+- Fixed custom-route CT coverage for Ontake and Yatsugatake (Aka-dake).
+- Changed the acceptance test to actual route-builder selectable points: Ontake 42/42 and Yatsugatake 240/240 ordered pairs resolved with estimated 0 / missing 0.
+- Added verified CT connectors for the Minoto, Fujimi Kogen, Kannon-daira, Amigasa, Seinen-goya, Gongen and Aka-dake corridors.
+- Long custom traverses in these two audited groups now keep verified composed CT instead of being downgraded to `CT情報なし` solely because total CT exceeds 10 hours.
+
+## V1.5.53
+- 南八ヶ岳の美濃戸口/美濃戸→赤岳鉱泉・行者小屋の実ルートCTを補完。
+- 確認済みCTグラフでも、近距離地点を遠隔の山・登山口経由で大回りする不自然な合算経路はUIへ返さない安全ガードを追加。
+- 同種監査で見つかった空木平避難小屋→空木駒峰ヒュッテ、焼岳小屋↔焼岳も公開CTで補完。
+- 推定CTは引き続き無効。確認できない区間はCT情報なしを維持。

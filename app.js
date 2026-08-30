@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.49';
+const APP_VERSION = '1.5.53';
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
@@ -1236,6 +1236,7 @@ const SUPPLEMENTAL_COURSE_TIMES = Object.freeze({
   '空木岳→木曽殿山荘': {minutes:59, source:'ヤマレコ・山行計画（標準CT補完）', sourceType:'yamareco'},
   '空木岳→空木駒峰ヒュッテ': {minutes:8, source:'ヤマレコ・山行計画（標準CT補完）', sourceType:'yamareco'},
   '空木駒峰ヒュッテ→空木平避難小屋': {minutes:35, source:'ヤマレコ・山行計画（標準CT補完）', sourceType:'yamareco'},
+  '空木平避難小屋→空木駒峰ヒュッテ': {minutes:44, source:'ヤマレコ公開山行計画 p5662783・空木平避難小屋→空木駒峰ヒュッテ44分（2026-08-31確認）', sourceType:'yamareco'},
   '空木平避難小屋→池山口登山口': {minutes:224, source:'ヤマレコ・空木岳 池山尾根 山行計画（空木平避難小屋→林道終点の標準CT合算）', sourceType:'yamareco'},
 
   // 鳳凰三山：公式ページで直接分割されていなかった観音岳〜地蔵岳
@@ -2497,7 +2498,262 @@ const V1544_ESTIMATE_REPLACEMENT_COURSE_TIMES = Object.freeze({
   '医王山（奥医王山）→しがらくび駐車場': {minutes:58, source:'ヤマレコ公開山行計画 p5488109（奥医王山→夕霧峠→しがらくび 58分）', sourceType:'yamareco'}
 });
 
+
+
+// V1.5.50: custom-route CT repair for Kuju and Ontake.
+// Goal: the points actually offered by "コースを自分で設計" must resolve through verified public CTs.
+// These entries are published model-course subtotals between selectable endpoints; no coordinate/elevation estimates.
+const V1550_CUSTOM_ROUTE_COURSE_TIMES = Object.freeze({
+  // Kuju selectable-point links.
+  '牧ノ戸峠→星生山': {minutes:154, source:'YAMAPモデルコース・牧ノ戸峠→沓掛山→扇ヶ鼻分岐→星生山 2時間34分（2026-08-31確認）', sourceType:'yamap'},
+  '星生山→牧ノ戸峠': {minutes:102, source:'YAMAPモデルコース・星生山→扇ヶ鼻分岐→沓掛山→牧ノ戸峠 1時間42分（2026-08-31確認）', sourceType:'yamap'},
+  '星生山→久住分かれ避難小屋': {minutes:60, source:'YAMAPモデルコース・星生山→久住分れ周辺 1時間（避難小屋は久住分れ隣接、2026-08-31確認）', sourceType:'yamap'},
+  '久住分かれ避難小屋→星生山': {minutes:38, source:'YAMAPモデルコース・久住分れ周辺→星生山 約38分（避難小屋隣接区間を含む、2026-08-31確認）', sourceType:'yamap'},
+  '久住山→中岳(くじゅう)': {minutes:61, source:'YAMAPモデルコース・久住山→天狗ヶ城→中岳 1時間01分（2026-08-31確認）', sourceType:'yamap'},
+  '中岳(くじゅう)→久住山': {minutes:45, source:'YAMAPモデルコース・中岳→天狗ヶ城→久住山 45分（2026-08-31確認）', sourceType:'yamap'},
+  '諏蛾守越→三俣山': {minutes:47, source:'YAMAPモデルコース・諏蛾守越→三俣山西峰→三俣山本峰 47分（2026-08-31確認）', sourceType:'yamap'},
+  '三俣山→諏蛾守越': {minutes:72, source:'YAMAPモデルコース・三俣山本峰→IV峰側周回→諏蛾守越 1時間12分（公開モデル代表経路、2026-08-31確認）', sourceType:'yamap'},
+
+  // Ontake Kurozawa-route selectable-point links.
+  '中の湯登山口（黒沢口）→女人堂': {minutes:148, source:'ヤマレコ公開山行計画 p5776496・中の湯→女人堂 2時間28分（2026-08-31確認）', sourceType:'yamareco'},
+  '女人堂→中の湯登山口（黒沢口）': {minutes:84, source:'ヤマレコ公開山行計画 p5776496・女人堂→中の湯 1時間24分（2026-08-31確認）', sourceType:'yamareco'},
+  '女人堂→石室山荘': {minutes:80, source:'YAMAPモデルコース・女人堂→石室山荘 1時間20分（2026-08-31確認）', sourceType:'yamap'},
+  '石室山荘→女人堂': {minutes:45, source:'YAMAPモデルコース・石室山荘→女人堂 45分（2026-08-31確認）', sourceType:'yamap'},
+  '二の池ヒュッテ→五の池小屋': {minutes:45, source:'好日山荘・御嶽山登山レポート コースタイム（二の池ヒュッテ→五の池小屋 45分、2026-08-31確認）', sourceType:'guide'},
+  '五の池小屋→二の池ヒュッテ': {minutes:45, source:'好日山荘・御嶽山登山レポート コースタイム（五の池小屋→二の池ヒュッテ 45分、2026-08-31確認）', sourceType:'guide'}
+});
+
+
+
+// V1.5.52: Japanese Alps custom-route CT repair (North/Central/South Alps).
+// Publicly published walking CTs only; no coordinate/elevation estimation and no reverse mirroring.
+const V1552_ALPS_CUSTOM_ROUTE_COURSE_TIMES = Object.freeze({
+  '涸沢ヒュッテ→涸沢小屋': {minutes:10, source:'ヤマレコ公開山行記録 8122877・涸沢ヒュッテ→涸沢→涸沢小屋 10分（2026-08-31確認）', sourceType:'yamareco'},
+  '涸沢小屋→涸沢ヒュッテ': {minutes:10, source:'ヤマレコ公開山行計画 p5563560・涸沢小屋→涸沢ヒュッテ 10分（2026-08-31確認）', sourceType:'yamareco'},
+  '新穂高ロープウェイ 西穂高口駅→西穂山荘': {minutes:79, source:'ヤマレコ公開山行計画 p5640259・西穂高口→西穂山荘 79分（2026-08-31確認）', sourceType:'yamareco'},
+  '西穂山荘→新穂高ロープウェイ 西穂高口駅': {minutes:58, source:'ヤマレコ公開山行計画 p5659809・西穂山荘→西穂高口 58分（2026-08-31確認）', sourceType:'yamareco'},
+  '西穂山荘→西穂高岳': {minutes:142, source:'ヤマレコ公開山行計画 p5640259・西穂山荘→丸山→独標→西穂高岳 142分（2026-08-31確認）', sourceType:'yamareco'},
+  '西穂高岳→西穂山荘': {minutes:86, source:'ヤマレコ公開山行計画 p5659809・西穂高岳→独標→丸山→西穂山荘 86分（2026-08-31確認）', sourceType:'yamareco'},
+  '西穂高岳→ジャンダルム': {minutes:213, source:'ヤマレコ公開山行計画 p5640259・西穂高岳→間ノ岳→天狗ノ頭→天狗のコル→ジャンダルム 213分（2026-08-31確認）', sourceType:'yamareco'},
+  'ジャンダルム→西穂高岳': {minutes:177, source:'ヤマレコ公開山行計画 p5544202・ジャンダルム→天狗のコル→天狗ノ頭→間ノ岳→西穂高岳 177分（2026-08-31確認）', sourceType:'yamareco'},
+  'ジャンダルム→奥穂高岳': {minutes:45, source:'ヤマレコ公開山行計画 p5640259・ジャンダルム→奥穂高岳 45分（2026-08-31確認）', sourceType:'yamareco'},
+  '奥穂高岳→ジャンダルム': {minutes:40, source:'ヤマレコ公開山行計画 p5659809・奥穂高岳→ジャンダルム 40分（2026-08-31確認）', sourceType:'yamareco'},
+  '焼岳→西穂山荘': {minutes:178, source:'ヤマレコ公開山行計画 p5843002・焼岳→中尾峠→割谷山→西穂山荘 178分（2026-08-31確認）', sourceType:'yamareco'},
+  '焼岳小屋→焼岳': {minutes:59, source:'松本市上高地公式（焼岳小屋は新中尾峠）＋YAMAPモデル・新中尾峠→中尾峠55分→分岐2分→焼岳2分（合算59分、2026-08-31確認）', sourceType:'derived-verified'},
+  '焼岳→焼岳小屋': {minutes:160, source:'松本市上高地公式（焼岳小屋は新中尾峠）＋YAMAPモデル・焼岳→分岐45分→中尾峠20分→新中尾峠95分（合算160分、2026-08-31確認）', sourceType:'derived-verified'},
+  '西穂山荘→焼岳': {minutes:280, source:'ヤマレコ公開山行計画 p5525008・西穂山荘→割谷山→焼岳小屋→中尾峠→焼岳 280分（2026-08-31確認）', sourceType:'yamareco'},
+  '七倉→船窪小屋': {minutes:360, source:'船窪小屋公式・七倉登山口ルート 往路6時間（2026-08-31確認）', sourceType:'official'},
+  '船窪小屋→七倉': {minutes:240, source:'船窪小屋公式・七倉登山口ルート 復路4時間（2026-08-31確認）', sourceType:'official'},
+  '船窪小屋→針ノ木小屋': {minutes:476, source:'ヤマレコ公開山行計画 p5528756・船窪小屋→七倉岳→北葛岳→蓮華岳→針ノ木小屋 7時間56分（2026-08-31確認）', sourceType:'yamareco'},
+  '針ノ木小屋→船窪小屋': {minutes:360, source:'神戸山岳会公開山行記録・針ノ木小屋→蓮華岳→北葛岳→七倉岳→船窪小屋 6時間（2026-08-31確認）', sourceType:'guide'},
+  '高瀬ダム→船窪小屋': {minutes:780, source:'船窪小屋公式・高瀬ダム→烏帽子小屋→不動岳→船窪小屋 約13時間（2026-08-31確認）', sourceType:'official'},
+  '船窪小屋→高瀬ダム': {minutes:720, source:'船窪小屋公式・船窪小屋→不動岳→烏帽子小屋→高瀬ダム 約12時間（2026-08-31確認）', sourceType:'official'},
+  '室堂→雷鳥荘': {minutes:30, source:'雷鳥荘公式・室堂ターミナル→雷鳥荘 徒歩30分（2026-08-31確認）', sourceType:'official'},
+  '雷鳥荘→室堂': {minutes:43, source:'ヤマレコ公開山行計画 p5670760・雷鳥荘→みくりが池→室堂 43分（2026-08-31確認）', sourceType:'yamareco'},
+  '天狗荘→頂上山荘': {minutes:22, source:'ヤマレコ公開山行記録 7993125・天狗荘→中岳→木曽駒ヶ岳頂上山荘 22分（2026-08-31確認）', sourceType:'yamareco'},
+  '頂上山荘→天狗荘': {minutes:12, source:'ヤマレコ公開山行記録 7993125・木曽駒ヶ岳頂上山荘→中岳→天狗荘 12分（2026-08-31確認）', sourceType:'yamareco'},
+  '南御室小屋→鳳凰山': {minutes:130, source:'南アルプス市芦安山岳館・夜叉神コース 南御室小屋→薬師岳→観音岳 2時間10分（2026-08-31確認）', sourceType:'official'},
+  '鳳凰山→南御室小屋': {minutes:100, source:'南アルプス市芦安山岳館・夜叉神コース 観音岳→薬師岳→南御室小屋 1時間40分（2026-08-31確認）', sourceType:'official'},
+  '三伏峠小屋→荒川小屋': {minutes:615, source:'山旅GOGO・山と高原地図CT 高山裏避難小屋経由 5時間35分+4時間40分=10時間15分（2026-08-31確認）', sourceType:'guide'},
+  '荒川小屋→三伏峠小屋': {minutes:580, source:'山旅GOGO・山と高原地図CT 高山裏避難小屋経由 4時間00分+5時間40分=9時間40分（2026-08-31確認）', sourceType:'guide'}
+});
+
+const V1552_ALPS_ROUTE_ENDPOINTS = new Set([
+  "わさび平小屋",
+  "アルプス平",
+  "ジャンダルム",
+  "一の越山荘",
+  "一ノ沢登山口",
+  "七倉",
+  "三伏峠小屋",
+  "三俣山荘",
+  "三俣蓮華岳",
+  "三股登山口",
+  "上河内岳",
+  "上高地",
+  "中岳",
+  "中房温泉登山口",
+  "中白根山",
+  "五竜山荘",
+  "五竜岳",
+  "仙丈ヶ岳",
+  "仙丈小屋",
+  "仙水小屋",
+  "光岳",
+  "光岳小屋",
+  "八方池山荘",
+  "冷池山荘",
+  "前穂高岳",
+  "剣山荘",
+  "剱岳",
+  "剱澤小屋",
+  "北岳",
+  "北岳山荘",
+  "北岳肩の小屋",
+  "北沢峠",
+  "北穂高小屋",
+  "北穂高岳",
+  "千枚小屋",
+  "千畳敷",
+  "南岳",
+  "南岳小屋",
+  "南御室小屋",
+  "双六小屋",
+  "双六岳",
+  "唐松岳",
+  "唐松岳頂上山荘",
+  "塩見小屋",
+  "塩見岳",
+  "夜叉神峠登山口",
+  "大喰岳",
+  "大天井岳",
+  "大天荘",
+  "大谷原登山口",
+  "大門沢小屋",
+  "天狗荘",
+  "太郎平小屋",
+  "奈良田",
+  "奥大日岳",
+  "奥穂高岳",
+  "宝剣山荘",
+  "宝剣岳",
+  "室堂",
+  "常念小屋",
+  "常念岳",
+  "広河原",
+  "戸台パーク（仙流荘）",
+  "扇沢登山口",
+  "折立登山口",
+  "新中の湯登山口",
+  "新穂高ロープウェイ 西穂高口駅",
+  "新穂高温泉",
+  "早月小屋",
+  "朝日小屋",
+  "木曽殿山荘",
+  "木曽駒ヶ岳",
+  "東川岳",
+  "栂池自然園",
+  "椹島",
+  "槍ヶ岳",
+  "槍ヶ岳山荘",
+  "槍沢ロッヂ",
+  "横尾山荘",
+  "檜尾小屋",
+  "檜尾岳",
+  "水晶小屋",
+  "水晶岳",
+  "池山口登山口",
+  "沼平ゲート",
+  "涸沢ヒュッテ",
+  "涸沢小屋",
+  "涸沢岳",
+  "烏帽子小屋",
+  "烏帽子岳",
+  "焼岳",
+  "焼岳小屋",
+  "熊沢岳",
+  "燕山荘",
+  "燕岳",
+  "爺ヶ岳",
+  "猿倉",
+  "甲斐駒ヶ岳",
+  "白根御池小屋",
+  "白馬大池山荘",
+  "白馬山荘",
+  "白馬岳",
+  "種池山荘",
+  "穂高岳山荘",
+  "空木岳",
+  "空木平避難小屋",
+  "空木駒峰ヒュッテ",
+  "立山（雄山）",
+  "笠ヶ岳",
+  "笠ヶ岳山荘",
+  "笠新道登山口",
+  "聖岳",
+  "聖平小屋",
+  "船窪小屋",
+  "茶臼小屋",
+  "茶臼岳",
+  "荒川小屋",
+  "荒川岳",
+  "蓮華岳",
+  "蓮華温泉",
+  "薬師岳",
+  "薬師岳山荘",
+  "薬師沢小屋",
+  "蝶ヶ岳",
+  "蝶ヶ岳ヒュッテ",
+  "西穂山荘",
+  "西穂高岳",
+  "赤石小屋",
+  "赤石岳",
+  "農鳥小屋",
+  "農鳥岳",
+  "野口五郎小屋",
+  "野口五郎岳",
+  "針ノ木小屋",
+  "針ノ木岳",
+  "鏡平山荘",
+  "長衛小屋",
+  "間ノ岳",
+  "雲ノ平山荘",
+  "雷鳥荘",
+  "頂上山荘",
+  "馬の背ヒュッテ",
+  "高瀬ダム",
+  "鳥倉登山口",
+  "鳳凰山",
+  "鷲羽岳",
+  "鹿島槍ヶ岳",
+  "黒部五郎小舎",
+  "黒部五郎岳",
+
+]);
+function v1552AllowLongVerifiedAlpsRoute(fromName,toName){
+  return V1552_ALPS_ROUTE_ENDPOINTS.has(fromName)&&V1552_ALPS_ROUTE_ENDPOINTS.has(toName);
+}
+
+// V1.5.51: custom-route CT repair for Ontake and South Yatsugatake.
+// Public standard/planned CTs only. Long links are published endpoint-to-endpoint subtotals
+// across named intermediate checkpoints; no distance/elevation estimation or reverse mirroring.
+const V1551_ONTAKE_YATSUGATAKE_COURSE_TIMES = Object.freeze({
+  // Yatsugatake: connect the actual UI-selectable southern-area points into one bidirectional verified graph.
+  '美濃戸口→美濃戸': {minutes:52, source:'YAMAPモデルコース・八ヶ岳山荘（美濃戸口）→美濃戸登山口 52分（2026-08-31確認）', sourceType:'yamap'},
+  '美濃戸→美濃戸口': {minutes:42, source:'YAMAPモデルコース・美濃戸登山口→八ヶ岳山荘（美濃戸口）42分（2026-08-31確認）', sourceType:'yamap'},
+  // V1.5.53: 南八ヶ岳の二大アプローチを実登山道の隣接CTで接続。
+  // 北沢（赤岳鉱泉）と南沢（行者小屋）を、美濃戸口から赤岳経由の遠回りで誤合算しない。
+  '美濃戸→赤岳鉱泉': {minutes:135, source:'YAMAPモデルコース・美濃戸登山口→堰堤広場55分→赤岳鉱泉80分（合算135分、2026-08-31確認）', sourceType:'yamap'},
+  '赤岳鉱泉→美濃戸': {minutes:45, source:'YAMAPモデルコース・赤岳鉱泉→堰堤広場40分→美濃戸登山口5分（合算45分、2026-08-31確認）', sourceType:'yamap'},
+  '美濃戸→行者小屋': {minutes:171, source:'YAMAPモデルコース・美濃戸登山口→行者小屋テント場170分→行者小屋1分（合算171分、2026-08-31確認）', sourceType:'yamap'},
+  '行者小屋→美濃戸': {minutes:145, source:'YAMAPモデルコース・行者小屋→行者小屋テント場140分→美濃戸登山口5分（合算145分、2026-08-31確認）', sourceType:'yamap'},
+  '美濃戸口→赤岳鉱泉': {minutes:187, source:'YAMAPモデルコース・八ヶ岳山荘（美濃戸口）→美濃戸52分＋美濃戸→赤岳鉱泉135分（確認済み区間合算187分）', sourceType:'derived-verified'},
+  '赤岳鉱泉→美濃戸口': {minutes:87, source:'YAMAPモデルコース・赤岳鉱泉→美濃戸45分＋美濃戸→八ヶ岳山荘（美濃戸口）42分（確認済み区間合算87分）', sourceType:'derived-verified'},
+  '美濃戸口→行者小屋': {minutes:223, source:'YAMAPモデルコース・八ヶ岳山荘（美濃戸口）→美濃戸52分＋美濃戸→行者小屋171分（確認済み区間合算223分）', sourceType:'derived-verified'},
+  '行者小屋→美濃戸口': {minutes:187, source:'YAMAPモデルコース・行者小屋→美濃戸145分＋美濃戸→八ヶ岳山荘（美濃戸口）42分（確認済み区間合算187分）', sourceType:'derived-verified'},
+  '富士見高原登山口→編笠山': {minutes:268, source:'YAMAPモデルコース・富士見高原登山口→編笠山 4時間28分（2026-08-31確認）', sourceType:'yamap'},
+  '編笠山→富士見高原登山口': {minutes:136, source:'YAMAPモデルコース・編笠山→富士見高原登山口 2時間16分（2026-08-31確認）', sourceType:'yamap'},
+  '編笠山→観音平': {minutes:171, source:'YAMAPモデルコース・編笠山→観音平 2時間51分（2026-08-31確認）', sourceType:'yamap'},
+  '青年小屋→編笠山': {minutes:31, source:'ヤマレコ公開山行計画 p5548450・青年小屋→編笠山 31分（2026-08-31確認）', sourceType:'yamareco'},
+  '権現岳→青年小屋': {minutes:50, source:'ヤマレコ公開山行計画 p5551030・権現岳→権現小屋→ギボシ→青年小屋 50分（2026-08-31確認）', sourceType:'yamareco'},
+  '権現小屋→権現岳': {minutes:6, source:'ヤマレコ公開山行計画 p5551030・権現小屋→権現岳 6分（2026-08-31確認）', sourceType:'yamareco'},
+  '権現岳→権現小屋': {minutes:4, source:'ヤマレコ公開山行計画 p5551030・権現岳→権現小屋 4分（2026-08-31確認）', sourceType:'yamareco'},
+  '権現岳→赤岳': {minutes:172, source:'ヤマレコ公開山行計画 p5527748・権現岳→旭岳→ツルネ→キレット小屋→赤岳 2時間52分（2026-08-31確認）', sourceType:'yamareco'},
+  '赤岳→権現岳': {minutes:123, source:'ヤマレコ公開山行計画 p5547010・赤岳→キレット小屋→ツルネ→旭岳→権現岳 2時間03分（2026-08-31確認）', sourceType:'yamareco'}
+});
+
+const V1551_LONG_VERIFIED_CUSTOM_ROUTE_GROUPS = Object.freeze([
+  new Set(['中の湯登山口（黒沢口）','田の原登山口','女人堂','石室山荘','二の池ヒュッテ','五の池小屋','御嶽山（剣ヶ峰）']),
+  new Set(['美濃戸口','美濃戸','富士見高原登山口','観音平','赤岳鉱泉','行者小屋','赤岳','赤岳天望荘','横岳（八ヶ岳）','硫黄岳（八ヶ岳）','硫黄岳山荘','阿弥陀岳','権現岳','権現小屋','編笠山','青年小屋'])
+]);
+function v1551AllowLongVerifiedCustomRoute(fromName,toName){
+  return V1551_LONG_VERIFIED_CUSTOM_ROUTE_GROUPS.some(group=>group.has(fromName)&&group.has(toName));
+}
+
 const COURSE_TIME_TABLES = Object.freeze([
+  V1552_ALPS_CUSTOM_ROUTE_COURSE_TIMES,
+  V1551_ONTAKE_YATSUGATAKE_COURSE_TIMES,
+  V1550_CUSTOM_ROUTE_COURSE_TIMES,
   V1548_DEEP_NETWORK_COURSE_TIMES,
   V1547_NATIONAL_NETWORK_COURSE_TIMES,
   V1546_ALPS_NETWORK_COURSE_TIMES,
@@ -2679,6 +2935,56 @@ function composedCourseTimeInfo(fromName,toName){
   COMPOSED_COURSE_TIME_CACHE.set(cacheKey,info);
   return info;
 }
+
+// V1.5.50: route-builder fallback using only already verified direct CT edges.
+// Earlier composition intentionally refused to mix Yamareco plans with other public sources,
+// which left real connected trails unresolved when adjacent sections came from different sources.
+// This fallback never estimates: it finds the shortest known verified path (max 8 edges).
+const VERIFIED_SHORTEST_COURSE_TIME_CACHE=new Map();
+function shortestVerifiedCourseTimeInfo(fromName,toName){
+  if(!fromName||!toName||fromName===toName)return null;
+  const cacheKey=`${fromName}→${toName}`;
+  if(VERIFIED_SHORTEST_COURSE_TIME_CACHE.has(cacheKey))return VERIFIED_SHORTEST_COURSE_TIME_CACHE.get(cacheKey);
+  const graph=courseTimeGraph();
+  const maxEdges=40,maxMinutes=72*60;
+  const queue=[{name:fromName,minutes:0,path:[fromName],sources:[],prioritySum:0}];
+  const best=new Map([[fromName,{minutes:0,edges:0,prioritySum:0}]]);
+  let result=null;
+  const better=(a,b)=>!b||a.minutes<b.minutes||(a.minutes===b.minutes&&(a.edges<b.edges||(a.edges===b.edges&&a.prioritySum<b.prioritySum)));
+  while(queue.length){
+    queue.sort((a,b)=>a.minutes-b.minutes||(a.path.length-b.path.length)||a.prioritySum-b.prioritySum);
+    const cur=queue.shift();
+    const edgesUsed=cur.path.length-1;
+    if(edgesUsed>maxEdges)continue;
+    if(cur.name===toName){result=cur;break;}
+    for(const edge of graph.get(cur.name)||[]){
+      if(cur.path.includes(edge.to))continue;
+      const minutes=cur.minutes+Number(edge.info?.minutes);
+      if(!Number.isFinite(minutes)||minutes>maxMinutes)continue;
+      const nextEdges=edgesUsed+1;
+      if(nextEdges>maxEdges)continue;
+      const prioritySum=cur.prioritySum+courseTimeSourcePriority(edge.info?.source||'');
+      const score={minutes,edges:nextEdges,prioritySum};
+      if(!better(score,best.get(edge.to)))continue;
+      best.set(edge.to,score);
+      queue.push({name:edge.to,minutes,path:[...cur.path,edge.to],sources:[...cur.sources,normalizedCourseTimeSource(edge.info?.source||'')].filter(Boolean),prioritySum});
+    }
+  }
+  if(!result){VERIFIED_SHORTEST_COURSE_TIME_CACHE.set(cacheKey,null);return null;}
+  const uniqueSources=[...new Set(result.sources)];
+  const info={
+    minutes:result.minutes,
+    source:uniqueSources.length===1
+      ? `${uniqueSources[0]}（確認済みCT区間合算・最短既知経路）`
+      : '確認済みCT（複数公開資料・区間合算・最短既知経路）',
+    composed:true,
+    verifiedMixedSources:true,
+    representativePath:true,
+    via:result.path.slice(1,-1)
+  };
+  VERIFIED_SHORTEST_COURSE_TIME_CACHE.set(cacheKey,info);
+  return info;
+}
 // V1.4.122: 確認済みCTがない固定登山口↔山頂区間の推定CT。
 // 代表コースの「CT情報なし」を減らすための最後のフォールバックであり、
 // 公式/公的資料 → ヤマケイ → ヤマレコ → その他の確認済みCTより常に優先度を下げる。
@@ -2750,6 +3056,56 @@ function estimatedGeneratedCourseTimeInfo(fromName,toName){
   };
 }
 
+// V1.5.53: verified composition must also be geographically plausible.
+// This never estimates CT. It only refuses a verified-edge graph path when nearby endpoints
+// would be connected by an obvious excursion through a remote peak/hut/trailhead.
+let COURSE_TIME_COORD_INDEX_CACHE=null;
+function courseTimeCoordinateIndex(){
+  if(COURSE_TIME_COORD_INDEX_CACHE)return COURSE_TIME_COORD_INDEX_CACHE;
+  const idx=new Map();
+  const addName=(name,c)=>{if(!idx.has(name))idx.set(name,[]);if(!idx.get(name).some(x=>Math.abs(x.lat-c.lat)<1e-7&&Math.abs(x.lon-c.lon)<1e-7))idx.get(name).push(c);};
+  const add=(p)=>{
+    const name=String(p?.name||'').trim(),lat=Number(p?.lat),lon=Number(p?.lon);
+    if(!name||!Number.isFinite(lat)||!Number.isFinite(lon))return;
+    const c={lat,lon}; addName(name,c);
+    const normalized=canonicalCourseTimeEndpointName(normalizeCourseTimePointName(name));
+    if(normalized)addName(normalized,c);
+  };
+  for(const catalog of Object.values(REGIONAL_CATALOG||{}))for(const p of catalog||[])add(p);
+  for(const catalog of Object.values(BUILTIN_ROUTE_CATALOG||{}))for(const p of catalog||[])add(p);
+  for(const catalog of Object.values(TRAVERSE_CATALOG||{}))for(const p of catalog||[])add(p);
+  COURSE_TIME_COORD_INDEX_CACHE=idx;
+  return idx;
+}
+function verifiedComposedPathIsImplausible(fromPoint,toPoint,info){
+  if(!info?.composed||!Array.isArray(info.via)||!info.via.length)return false;
+  const a={lat:Number(fromPoint?.lat),lon:Number(fromPoint?.lon)},b={lat:Number(toPoint?.lat),lon:Number(toPoint?.lon)};
+  if(![a.lat,a.lon,b.lat,b.lon].every(Number.isFinite))return false;
+  const direct=haversineKm(a.lat,a.lon,b.lat,b.lon);
+  if(!Number.isFinite(direct)||direct<=0)return false;
+  const idx=courseTimeCoordinateIndex(),coords=[a];
+  for(const raw of info.via){
+    const key=canonicalCourseTimeEndpointName(normalizeCourseTimePointName(String(raw||'').trim()));
+    const choices=idx.get(key)||idx.get(String(raw||'').trim())||[];
+    if(!choices.length)return false;
+    // Same-named points can exist in several catalogs. Use the coordinate that is geographically
+    // closest to this endpoint pair, never an arbitrary first occurrence.
+    const c=[...choices].sort((x,y)=>(haversineKm(a.lat,a.lon,x.lat,x.lon)+haversineKm(b.lat,b.lon,x.lat,x.lon))-(haversineKm(a.lat,a.lon,y.lat,y.lon)+haversineKm(b.lat,b.lon,y.lat,y.lon)))[0];
+    coords.push(c);
+  }
+  coords.push(b);
+  let poly=0,maxRemote=0;
+  for(let i=1;i<coords.length;i++)poly+=haversineKm(coords[i-1].lat,coords[i-1].lon,coords[i].lat,coords[i].lon);
+  for(const c of coords.slice(1,-1))maxRemote=Math.max(maxRemote,Math.min(haversineKm(a.lat,a.lon,c.lat,c.lon),haversineKm(b.lat,b.lon,c.lat,c.lon)));
+  const minutes=Number(info.minutes)||0,edges=info.via.length+1,ratio=poly/Math.max(0.05,direct);
+  // Nearby endpoints must not be "connected" by a remote mountain/trailhead excursion.
+  // We only reject strong outliers; plausible hut/peak chains remain valid.
+  if(direct<=3&&minutes>=300&&ratio>=4)return true;
+  if(direct<=5&&minutes>=300&&maxRemote>=Math.max(3.5,direct*1.8))return true;
+  if(direct<=2&&edges>=6&&minutes>=240)return true;
+  return false;
+}
+
 function courseTimeInfo(fromPoint,toPoint){
   if(!fromPoint||!toPoint)return null;
   const rawFrom=String(fromPoint.name||'').trim();
@@ -2785,6 +3141,12 @@ function courseTimeInfo(fromPoint,toPoint){
   if(normalizedComposed&&!localComposedIsImplausible(normalizedComposed))return normalizedComposed;
   const rawComposed=composedCourseTimeInfo(rawFrom,rawTo);
   if(rawComposed&&!localComposedIsImplausible(rawComposed))return rawComposed;
+  // V1.5.50: if the legacy source-isolated composer cannot form a sensible path,
+  // allow composition across independently verified public CT edges. No estimated edge is used.
+  const verifiedShortest=shortestVerifiedCourseTimeInfo(fromName,toName);
+  if(verifiedShortest&&!verifiedComposedPathIsImplausible(fromPoint,toPoint,verifiedShortest)&&(Number(verifiedShortest.minutes)<600||v1551AllowLongVerifiedCustomRoute(fromName,toName)||v1552AllowLongVerifiedAlpsRoute(fromName,toName)||v1552AllowLongVerifiedAlpsRoute(rawFrom,rawTo)))return verifiedShortest;
+  const rawVerifiedShortest=(rawFrom===fromName&&rawTo===toName)?null:shortestVerifiedCourseTimeInfo(rawFrom,rawTo);
+  if(rawVerifiedShortest&&!verifiedComposedPathIsImplausible(fromPoint,toPoint,rawVerifiedShortest)&&(Number(rawVerifiedShortest.minutes)<600||v1551AllowLongVerifiedCustomRoute(rawFrom,rawTo)||v1552AllowLongVerifiedAlpsRoute(rawFrom,rawTo)||v1552AllowLongVerifiedAlpsRoute(fromName,toName)))return rawVerifiedShortest;
   // V1.5.44: coordinate/elevation regression fallback disabled.
   // If no verified direct/composed CT exists, return null rather than inventing a walking time.
   return null;
@@ -5354,6 +5716,17 @@ function regionalCandidates(mountain){
   // V1.12.56 木曽駒ヶ岳〜宝剣岳〜檜尾岳〜熊沢岳〜東川岳〜空木岳を同一回廊として提示。
   if(['木曽駒ヶ岳','宝剣岳','檜尾岳','熊沢岳','東川岳','空木岳'].includes(mountain)){
     return mergeRegionalCatalogs('central_kisokoma_utsugi');
+  }
+
+  // V1.5.52: 南アルプス北部は、実際に徒歩で連続する登山系統ごとに候補を分ける。
+  // 戸台パークは北沢峠への交通拠点で登山CTの端点ではないため、ルート設計候補から外す。
+  if(['甲斐駒ヶ岳','仙丈ヶ岳','アサヨ峰','鋸岳'].includes(mountain)){
+    const keep=new Set(['北沢峠','長衛小屋','仙水小屋','甲斐駒ヶ岳','仙丈ヶ岳','仙丈小屋','馬の背ヒュッテ']);
+    return (REGIONAL_CATALOG.southalps_north||[]).filter(p=>keep.has(p.name));
+  }
+  if(['鳳凰山','地蔵ヶ岳'].includes(mountain)){
+    const keep=new Set(['夜叉神峠登山口','南御室小屋','鳳凰山']);
+    return (REGIONAL_CATALOG.southalps_north||[]).filter(p=>keep.has(p.name));
   }
 
   // V1.4.16 剣山〜次郎笈〜白髪避難小屋〜三嶺を同一回廊として提示。

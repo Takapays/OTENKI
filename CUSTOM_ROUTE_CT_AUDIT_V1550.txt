@@ -1,0 +1,17 @@
+TRATEN V1.5.50 CUSTOM-ROUTE SELECTABLE-POINT CT AUDIT
+
+Scope: all ordered pairs among the listed UI-selectable focus points for Kuju and Ontake. This is a route-builder resolution audit, not a claim that every pair is a direct adjacent trail section. Composed results use only verified CT edges; estimated CT is prohibited.
+
+くじゅう連山	points=10	found=10	pairs=90	resolved=90	direct=18	composed=72	estimated=0	missing=0	missingPointDefs=0
+御嶽山	points=7	found=7	pairs=42	resolved=42	direct=19	composed=23	estimated=0	missing=0	missingPointDefs=0
+
+TOTAL areas=2 points=17 pairs=132 resolved=132 direct=37 composed=95 estimated=0 missing=0 missingPointDefs=0 exampleRoutes=5/5
+
+EXAMPLE ROUTES:
+PASS	くじゅう連山	牧ノ戸峠→星生山→久住山→中岳	312 min
+PASS	くじゅう連山	長者原→法華院→三俣山	501 min
+PASS	くじゅう連山	坊ガツル→大船山→長者原	324 min
+PASS	御嶽山	中の湯→女人堂→石室→剣ヶ峰→二の池→五の池	328 min
+PASS	御嶽山	田の原→剣ヶ峰→二の池	217 min
+
+NON-RESOLVED:

@@ -1,0 +1,26 @@
+TRATEN V1.5.52 JAPANESE ALPS CUSTOM-ROUTE CT AUDIT
+
+mountains=60 uniqueCandidateSets=18 uniqueSetPairs=3614 resolved=3614 estimated=0 missing=0
+mountainBindingPairs=13570 missing=0 estimated=0
+
+UNIQUE CANDIDATE SETS:
+甲斐駒ヶ岳	region=southalps_north	points=7	pairs=42	resolved=42	direct=12	composed=30	estimated=0	missing=0	max=510min
+地蔵ヶ岳	region=southalps_north	points=3	pairs=6	resolved=6	direct=4	composed=2	estimated=0	missing=0	max=470min
+北岳	region=southalps_shirane	points=11	pairs=110	resolved=110	direct=24	composed=86	estimated=0	missing=0	max=1131min
+塩見岳	region=southalps_central	points=10	pairs=90	resolved=90	direct=25	composed=65	estimated=0	missing=0	max=1342min
+聖岳	region=southalps_south	points=9	pairs=72	resolved=72	direct=20	composed=52	estimated=0	missing=0	max=1047min
+燕岳	region=omoteginza	points=12	pairs=132	resolved=132	direct=14	composed=118	estimated=0	missing=0	max=1402min
+常念岳	region=jonen_chou	points=10	pairs=90	resolved=90	direct=22	composed=68	estimated=0	missing=0	max=1030min
+槍ヶ岳	region=yarihotaka	points=29	pairs=812	resolved=812	direct=68	composed=744	estimated=0	missing=0	max=1592min
+南岳	region=yarihotaka	points=25	pairs=600	resolved=600	direct=59	composed=541	estimated=0	missing=0	max=1750min
+焼岳	region=nishiho_yake	points=8	pairs=56	resolved=56	direct=13	composed=43	estimated=0	missing=0	max=1222min
+笠ヶ岳（岐阜）	region=kasa_sugoroku	points=11	pairs=110	resolved=110	direct=25	composed=85	estimated=0	missing=0	max=1527min
+鷲羽岳	region=ushiroginza	points=19	pairs=342	resolved=342	direct=49	composed=293	estimated=0	missing=0	max=2543min
+烏帽子岳	region=ushiroginza	points=10	pairs=90	resolved=90	direct=22	composed=68	estimated=0	missing=0	max=1963min
+朝日岳（新潟・富山）	region=hakuba_asahi	points=10	pairs=90	resolved=90	direct=10	composed=80	estimated=0	missing=0	max=1515min
+白馬岳	region=hakuba_asahi	points=25	pairs=600	resolved=600	direct=43	composed=557	estimated=0	missing=0	max=3715min
+立山	region=tateyama_tsurugi	points=9	pairs=72	resolved=72	direct=17	composed=55	estimated=0	missing=0	max=756min
+薬師岳	region=yakushi_kurobe	points=10	pairs=90	resolved=90	direct=22	composed=68	estimated=0	missing=0	max=775min
+木曽駒ヶ岳	region=central_kisokoma_utsugi	points=15	pairs=210	resolved=210	direct=32	composed=178	estimated=0	missing=0	max=1146min
+
+NONZERO:

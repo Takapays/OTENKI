@@ -1,0 +1,1684 @@
+{
+  "summary": {
+    "areas": 2,
+    "selectablePoints": 17,
+    "orderedPairs": 132,
+    "resolved": 132,
+    "direct": 37,
+    "composed": 95,
+    "estimated": 0,
+    "missing": 0,
+    "missingPointDefinitions": 0,
+    "exampleRoutes": 5,
+    "exampleRoutesPassed": 5
+  },
+  "areas": {
+    "くじゅう連山": {
+      "selectablePoints": 10,
+      "foundPoints": 10,
+      "missingPointDefinitions": [],
+      "pairs": 90,
+      "resolved": 90,
+      "direct": 18,
+      "composed": 72,
+      "estimated": 0,
+      "missing": 0
+    },
+    "御嶽山": {
+      "selectablePoints": 7,
+      "foundPoints": 7,
+      "missingPointDefinitions": [],
+      "pairs": 42,
+      "resolved": 42,
+      "direct": 19,
+      "composed": 23,
+      "estimated": 0,
+      "missing": 0
+    }
+  },
+  "exampleRoutes": [
+    {
+      "area": "くじゅう連山",
+      "name": "牧ノ戸峠→星生山→久住山→中岳",
+      "points": [
+        "牧ノ戸峠",
+        "星生山",
+        "久住山",
+        "中岳(くじゅう)"
+      ],
+      "ok": true,
+      "totalMinutes": 312,
+      "segments": [
+        {
+          "from": "牧ノ戸峠",
+          "to": "星生山",
+          "status": "direct",
+          "minutes": 154,
+          "via": [],
+          "source": "YAMAPモデルコース・牧ノ戸峠→沓掛山→扇ヶ鼻分岐→星生山 2時間34分（2026-08-31確認）"
+        },
+        {
+          "from": "星生山",
+          "to": "久住山",
+          "status": "composed",
+          "minutes": 97,
+          "via": [
+            "久住分かれ避難小屋"
+          ],
+          "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）"
+        },
+        {
+          "from": "久住山",
+          "to": "中岳(くじゅう)",
+          "status": "direct",
+          "minutes": 61,
+          "via": [],
+          "source": "YAMAPモデルコース・久住山→天狗ヶ城→中岳 1時間01分（2026-08-31確認）"
+        }
+      ]
+    },
+    {
+      "area": "くじゅう連山",
+      "name": "長者原→法華院→三俣山",
+      "points": [
+        "長者原",
+        "法華院温泉山荘",
+        "三俣山"
+      ],
+      "ok": true,
+      "totalMinutes": 501,
+      "segments": [
+        {
+          "from": "長者原",
+          "to": "法華院温泉山荘",
+          "status": "composed",
+          "minutes": 404,
+          "via": [
+            "大船山",
+            "段原",
+            "坊ガツル"
+          ],
+          "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）"
+        },
+        {
+          "from": "法華院温泉山荘",
+          "to": "三俣山",
+          "status": "composed",
+          "minutes": 97,
+          "via": [
+            "諏蛾守越"
+          ],
+          "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）"
+        }
+      ]
+    },
+    {
+      "area": "くじゅう連山",
+      "name": "坊ガツル→大船山→長者原",
+      "points": [
+        "坊ガツル",
+        "大船山",
+        "長者原"
+      ],
+      "ok": true,
+      "totalMinutes": 324,
+      "segments": [
+        {
+          "from": "坊ガツル",
+          "to": "大船山",
+          "status": "direct",
+          "minutes": 95,
+          "via": [],
+          "source": "V1.5.45確認済み隣接CT合算（坊ガツル→段原75＋大船山20）"
+        },
+        {
+          "from": "大船山",
+          "to": "長者原",
+          "status": "direct",
+          "minutes": 229,
+          "via": [],
+          "source": "YAMAP標準モデル・長者原-大船山往復（大船山13:09→長者原16:58、3時間49分）"
+        }
+      ]
+    },
+    {
+      "area": "御嶽山",
+      "name": "中の湯→女人堂→石室→剣ヶ峰→二の池→五の池",
+      "points": [
+        "中の湯登山口（黒沢口）",
+        "女人堂",
+        "石室山荘",
+        "御嶽山（剣ヶ峰）",
+        "二の池ヒュッテ",
+        "五の池小屋"
+      ],
+      "ok": true,
+      "totalMinutes": 328,
+      "segments": [
+        {
+          "from": "中の湯登山口（黒沢口）",
+          "to": "女人堂",
+          "status": "direct",
+          "minutes": 148,
+          "via": [],
+          "source": "ヤマレコ公開山行計画 p5776496・中の湯→女人堂 2時間28分（2026-08-31確認）"
+        },
+        {
+          "from": "女人堂",
+          "to": "石室山荘",
+          "status": "direct",
+          "minutes": 80,
+          "via": [],
+          "source": "YAMAPモデルコース・女人堂→石室山荘 1時間20分（2026-08-31確認）"
+        },
+        {
+          "from": "石室山荘",
+          "to": "御嶽山（剣ヶ峰）",
+          "status": "direct",
+          "minutes": 40,
+          "via": [],
+          "source": "御嶽山トレッキング黒沢口・石室山荘上部から剣ヶ峰 約40分"
+        },
+        {
+          "from": "御嶽山（剣ヶ峰）",
+          "to": "二の池ヒュッテ",
+          "status": "direct",
+          "minutes": 15,
+          "via": [],
+          "source": "長野県山小屋情報ポータル・二の池ヒュッテは剣ヶ峰より15分程度"
+        },
+        {
+          "from": "二の池ヒュッテ",
+          "to": "五の池小屋",
+          "status": "direct",
+          "minutes": 45,
+          "via": [],
+          "source": "好日山荘・御嶽山登山レポート コースタイム（二の池ヒュッテ→五の池小屋 45分、2026-08-31確認）"
+        }
+      ]
+    },
+    {
+      "area": "御嶽山",
+      "name": "田の原→剣ヶ峰→二の池",
+      "points": [
+        "田の原登山口",
+        "御嶽山（剣ヶ峰）",
+        "二の池ヒュッテ"
+      ],
+      "ok": true,
+      "totalMinutes": 217,
+      "segments": [
+        {
+          "from": "田の原登山口",
+          "to": "御嶽山（剣ヶ峰）",
+          "status": "direct",
+          "minutes": 202,
+          "via": [],
+          "source": "ヤマレコ・御嶽山 田の原ルート山行計画（標準CT複数照合）"
+        },
+        {
+          "from": "御嶽山（剣ヶ峰）",
+          "to": "二の池ヒュッテ",
+          "status": "direct",
+          "minutes": 15,
+          "via": [],
+          "source": "長野県山小屋情報ポータル・二の池ヒュッテは剣ヶ峰より15分程度"
+        }
+      ]
+    }
+  ],
+  "rows": [
+    {
+      "area": "くじゅう連山",
+      "from": "牧ノ戸峠",
+      "to": "長者原",
+      "status": "composed",
+      "minutes": 238,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "牧ノ戸峠",
+      "to": "久住分かれ避難小屋",
+      "status": "direct",
+      "minutes": 113,
+      "source": "ヤマレコ・牧ノ戸峠〜久住山 山行計画（標準CT補完）",
+      "sourceType": "yamareco",
+      "composed": false,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "牧ノ戸峠",
+      "to": "法華院温泉山荘",
+      "status": "composed",
+      "minutes": 299,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "牧ノ戸峠",
+      "to": "坊ガツル",
+      "status": "composed",
+      "minutes": 213,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "牧ノ戸峠",
+      "to": "久住山",
+      "status": "composed",
+      "minutes": 150,
+      "source": "ヤマレコ・牧ノ戸峠〜久住山 山行計画（標準CT補完）（確認済み区間合算・代表経路採用）",
+      "sourceType": "yamareco",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "牧ノ戸峠",
+      "to": "中岳(くじゅう)",
+      "status": "composed",
+      "minutes": 211,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "牧ノ戸峠",
+      "to": "三俣山",
+      "status": "composed",
+      "minutes": 205,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "牧ノ戸峠",
+      "to": "大船山",
+      "status": "composed",
+      "minutes": 409,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "牧ノ戸峠",
+      "to": "星生山",
+      "status": "direct",
+      "minutes": 154,
+      "source": "YAMAPモデルコース・牧ノ戸峠→沓掛山→扇ヶ鼻分岐→星生山 2時間34分（2026-08-31確認）",
+      "sourceType": "yamap",
+      "composed": false,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "長者原",
+      "to": "牧ノ戸峠",
+      "status": "composed",
+      "minutes": 232,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "長者原",
+      "to": "久住分かれ避難小屋",
+      "status": "composed",
+      "minutes": 514,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "長者原",
+      "to": "法華院温泉山荘",
+      "status": "composed",
+      "minutes": 404,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "長者原",
+      "to": "坊ガツル",
+      "status": "composed",
+      "minutes": 384,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "長者原",
+      "to": "久住山",
+      "status": "direct",
+      "minutes": 187,
+      "source": "V1.5.45確認済み隣接CT合算（長者原→砂防ダム30＋諏蛾守越60＋久住分れ60＋久住山37）",
+      "sourceType": "composed-verified",
+      "composed": false,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "長者原",
+      "to": "中岳(くじゅう)",
+      "status": "composed",
+      "minutes": 248,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "長者原",
+      "to": "三俣山",
+      "status": "composed",
+      "minutes": 137,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "長者原",
+      "to": "大船山",
+      "status": "direct",
+      "minutes": 309,
+      "source": "YAMAP標準モデル・長者原-大船山往復（長者原08:00→大船山13:09、5時間09分）",
+      "sourceType": "yamap",
+      "composed": false,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "長者原",
+      "to": "星生山",
+      "status": "composed",
+      "minutes": 552,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "久住分かれ避難小屋",
+      "to": "牧ノ戸峠",
+      "status": "direct",
+      "minutes": 82,
+      "source": "YAMAP・牧ノ戸峠〜久住山モデルコース（下山方向区間合算）",
+      "sourceType": "yamap",
+      "composed": false,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "久住分かれ避難小屋",
+      "to": "長者原",
+      "status": "composed",
+      "minutes": 424,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "久住分かれ避難小屋",
+      "to": "法華院温泉山荘",
+      "status": "direct",
+      "minutes": 85,
+      "source": "V1.5.45確認済み隣接CT合算（久住分れ→諏蛾守越45＋法華院温泉40）",
+      "sourceType": "composed-verified",
+      "composed": false,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "久住分かれ避難小屋",
+      "to": "坊ガツル",
+      "status": "composed",
+      "minutes": 100,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "久住分かれ避難小屋",
+      "to": "久住山",
+      "status": "direct",
+      "minutes": 37,
+      "source": "ヤマレコ・牧ノ戸峠〜久住山 山行計画（標準CT補完）",
+      "sourceType": "yamareco",
+      "composed": false,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "久住分かれ避難小屋",
+      "to": "中岳(くじゅう)",
+      "status": "composed",
+      "minutes": 98,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "久住分かれ避難小屋",
+      "to": "三俣山",
+      "status": "composed",
+      "minutes": 92,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "久住分かれ避難小屋",
+      "to": "大船山",
+      "status": "composed",
+      "minutes": 195,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "久住分かれ避難小屋",
+      "to": "星生山",
+      "status": "direct",
+      "minutes": 38,
+      "source": "YAMAPモデルコース・久住分れ周辺→星生山 約38分（避難小屋隣接区間を含む、2026-08-31確認）",
+      "sourceType": "yamap",
+      "composed": false,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "法華院温泉山荘",
+      "to": "牧ノ戸峠",
+      "status": "composed",
+      "minutes": 192,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "法華院温泉山荘",
+      "to": "長者原",
+      "status": "composed",
+      "minutes": 339,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "法華院温泉山荘",
+      "to": "久住分かれ避難小屋",
+      "status": "composed",
+      "minutes": 110,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "法華院温泉山荘",
+      "to": "坊ガツル",
+      "status": "direct",
+      "minutes": 15,
+      "source": "日本山岳会・親子で楽しむ山登り 東九州「長者原～坊ガツル」逆コース（法華院温泉→坊ガツル 15分）",
+      "sourceType": "other",
+      "composed": false,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "法華院温泉山荘",
+      "to": "久住山",
+      "status": "composed",
+      "minutes": 147,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "法華院温泉山荘",
+      "to": "中岳(くじゅう)",
+      "status": "composed",
+      "minutes": 208,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "法華院温泉山荘",
+      "to": "三俣山",
+      "status": "composed",
+      "minutes": 97,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "法華院温泉山荘",
+      "to": "大船山",
+      "status": "composed",
+      "minutes": 110,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "法華院温泉山荘",
+      "to": "星生山",
+      "status": "composed",
+      "minutes": 148,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "坊ガツル",
+      "to": "牧ノ戸峠",
+      "status": "composed",
+      "minutes": 212,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "坊ガツル",
+      "to": "長者原",
+      "status": "composed",
+      "minutes": 324,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "坊ガツル",
+      "to": "久住分かれ避難小屋",
+      "status": "composed",
+      "minutes": 130,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "坊ガツル",
+      "to": "法華院温泉山荘",
+      "status": "direct",
+      "minutes": 20,
+      "source": "日本山岳会・親子で楽しむ山登り 東九州「長者原～坊ガツル」（坊ガツル→法華院温泉 20分）",
+      "sourceType": "other",
+      "composed": false,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "坊ガツル",
+      "to": "久住山",
+      "status": "composed",
+      "minutes": 167,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "坊ガツル",
+      "to": "中岳(くじゅう)",
+      "status": "composed",
+      "minutes": 228,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "坊ガツル",
+      "to": "三俣山",
+      "status": "composed",
+      "minutes": 117,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "坊ガツル",
+      "to": "大船山",
+      "status": "direct",
+      "minutes": 95,
+      "source": "V1.5.45確認済み隣接CT合算（坊ガツル→段原75＋大船山20）",
+      "sourceType": "composed-verified",
+      "composed": false,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "坊ガツル",
+      "to": "星生山",
+      "status": "composed",
+      "minutes": 168,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "久住山",
+      "to": "牧ノ戸峠",
+      "status": "composed",
+      "minutes": 129,
+      "source": "YAMAP・牧ノ戸峠〜久住山モデルコース（確認済みCT区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "久住山",
+      "to": "長者原",
+      "status": "direct",
+      "minutes": 172,
+      "source": "V1.5.45確認済み隣接CT合算（久住山→久住分れ47＋諏蛾守越45＋砂防ダム50＋長者原30）",
+      "sourceType": "composed-verified",
+      "composed": false,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "久住山",
+      "to": "久住分かれ避難小屋",
+      "status": "direct",
+      "minutes": 47,
+      "source": "YAMAP・牧ノ戸峠〜久住山モデルコース（下山方向区間合算）",
+      "sourceType": "yamap",
+      "composed": false,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "久住山",
+      "to": "法華院温泉山荘",
+      "status": "composed",
+      "minutes": 132,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "久住山",
+      "to": "坊ガツル",
+      "status": "composed",
+      "minutes": 147,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "久住山",
+      "to": "中岳(くじゅう)",
+      "status": "direct",
+      "minutes": 61,
+      "source": "YAMAPモデルコース・久住山→天狗ヶ城→中岳 1時間01分（2026-08-31確認）",
+      "sourceType": "yamap",
+      "composed": false,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "久住山",
+      "to": "三俣山",
+      "status": "composed",
+      "minutes": 139,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "久住山",
+      "to": "大船山",
+      "status": "composed",
+      "minutes": 412,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "久住山",
+      "to": "星生山",
+      "status": "composed",
+      "minutes": 85,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "中岳(くじゅう)",
+      "to": "牧ノ戸峠",
+      "status": "composed",
+      "minutes": 174,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "中岳(くじゅう)",
+      "to": "長者原",
+      "status": "composed",
+      "minutes": 516,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "中岳(くじゅう)",
+      "to": "久住分かれ避難小屋",
+      "status": "composed",
+      "minutes": 92,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "中岳(くじゅう)",
+      "to": "法華院温泉山荘",
+      "status": "composed",
+      "minutes": 177,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "中岳(くじゅう)",
+      "to": "坊ガツル",
+      "status": "composed",
+      "minutes": 192,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "中岳(くじゅう)",
+      "to": "久住山",
+      "status": "direct",
+      "minutes": 45,
+      "source": "YAMAPモデルコース・中岳→天狗ヶ城→久住山 45分（2026-08-31確認）",
+      "sourceType": "yamap",
+      "composed": false,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "中岳(くじゅう)",
+      "to": "三俣山",
+      "status": "composed",
+      "minutes": 184,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "中岳(くじゅう)",
+      "to": "大船山",
+      "status": "composed",
+      "minutes": 457,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "中岳(くじゅう)",
+      "to": "星生山",
+      "status": "composed",
+      "minutes": 130,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "三俣山",
+      "to": "牧ノ戸峠",
+      "status": "composed",
+      "minutes": 214,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "三俣山",
+      "to": "長者原",
+      "status": "composed",
+      "minutes": 152,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "三俣山",
+      "to": "久住分かれ避難小屋",
+      "status": "composed",
+      "minutes": 132,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "三俣山",
+      "to": "法華院温泉山荘",
+      "status": "composed",
+      "minutes": 112,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "三俣山",
+      "to": "坊ガツル",
+      "status": "composed",
+      "minutes": 127,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "三俣山",
+      "to": "久住山",
+      "status": "composed",
+      "minutes": 169,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "三俣山",
+      "to": "中岳(くじゅう)",
+      "status": "composed",
+      "minutes": 230,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "三俣山",
+      "to": "大船山",
+      "status": "composed",
+      "minutes": 222,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "三俣山",
+      "to": "星生山",
+      "status": "composed",
+      "minutes": 170,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "大船山",
+      "to": "牧ノ戸峠",
+      "status": "composed",
+      "minutes": 525,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "大船山",
+      "to": "長者原",
+      "status": "direct",
+      "minutes": 229,
+      "source": "YAMAP標準モデル・長者原-大船山往復（大船山13:09→長者原16:58、3時間49分）",
+      "sourceType": "yamap",
+      "composed": false,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "大船山",
+      "to": "久住分かれ避難小屋",
+      "status": "composed",
+      "minutes": 205,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "大船山",
+      "to": "法華院温泉山荘",
+      "status": "composed",
+      "minutes": 95,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "大船山",
+      "to": "坊ガツル",
+      "status": "composed",
+      "minutes": 75,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "大船山",
+      "to": "久住山",
+      "status": "composed",
+      "minutes": 422,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "大船山",
+      "to": "中岳(くじゅう)",
+      "status": "composed",
+      "minutes": 483,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "大船山",
+      "to": "三俣山",
+      "status": "composed",
+      "minutes": 192,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "大船山",
+      "to": "星生山",
+      "status": "composed",
+      "minutes": 243,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "星生山",
+      "to": "牧ノ戸峠",
+      "status": "direct",
+      "minutes": 102,
+      "source": "YAMAPモデルコース・星生山→扇ヶ鼻分岐→沓掛山→牧ノ戸峠 1時間42分（2026-08-31確認）",
+      "sourceType": "yamap",
+      "composed": false,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "星生山",
+      "to": "長者原",
+      "status": "composed",
+      "minutes": 484,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "星生山",
+      "to": "久住分かれ避難小屋",
+      "status": "direct",
+      "minutes": 60,
+      "source": "YAMAPモデルコース・星生山→久住分れ周辺 1時間（避難小屋は久住分れ隣接、2026-08-31確認）",
+      "sourceType": "yamap",
+      "composed": false,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "星生山",
+      "to": "法華院温泉山荘",
+      "status": "composed",
+      "minutes": 145,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "星生山",
+      "to": "坊ガツル",
+      "status": "composed",
+      "minutes": 160,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "星生山",
+      "to": "久住山",
+      "status": "composed",
+      "minutes": 97,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "星生山",
+      "to": "中岳(くじゅう)",
+      "status": "composed",
+      "minutes": 158,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "星生山",
+      "to": "三俣山",
+      "status": "composed",
+      "minutes": 152,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "くじゅう連山",
+      "from": "星生山",
+      "to": "大船山",
+      "status": "composed",
+      "minutes": 255,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "中の湯登山口（黒沢口）",
+      "to": "田の原登山口",
+      "status": "composed",
+      "minutes": 361,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "中の湯登山口（黒沢口）",
+      "to": "女人堂",
+      "status": "direct",
+      "minutes": 148,
+      "source": "ヤマレコ公開山行計画 p5776496・中の湯→女人堂 2時間28分（2026-08-31確認）",
+      "sourceType": "yamareco",
+      "composed": false,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "中の湯登山口（黒沢口）",
+      "to": "石室山荘",
+      "status": "composed",
+      "minutes": 290,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "中の湯登山口（黒沢口）",
+      "to": "二の池ヒュッテ",
+      "status": "composed",
+      "minutes": 380,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "中の湯登山口（黒沢口）",
+      "to": "五の池小屋",
+      "status": "composed",
+      "minutes": 305,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "中の湯登山口（黒沢口）",
+      "to": "御嶽山（剣ヶ峰）",
+      "status": "direct",
+      "minutes": 245,
+      "source": "登山口ナビ・御嶽山 黒沢口登山道（登り4時間05分）",
+      "sourceType": "",
+      "composed": false,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "田の原登山口",
+      "to": "中の湯登山口（黒沢口）",
+      "status": "composed",
+      "minutes": 372,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "田の原登山口",
+      "to": "女人堂",
+      "status": "composed",
+      "minutes": 292,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "田の原登山口",
+      "to": "石室山荘",
+      "status": "composed",
+      "minutes": 280,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "田の原登山口",
+      "to": "二の池ヒュッテ",
+      "status": "direct",
+      "minutes": 220,
+      "source": "二の池ヒュッテ公式・田ノ原口から剣ヶ峰経由 約3時間40分",
+      "sourceType": "official",
+      "composed": false,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "田の原登山口",
+      "to": "五の池小屋",
+      "status": "composed",
+      "minutes": 265,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "田の原登山口",
+      "to": "御嶽山（剣ヶ峰）",
+      "status": "direct",
+      "minutes": 202,
+      "source": "ヤマレコ・御嶽山 田の原ルート山行計画（標準CT複数照合）",
+      "sourceType": "yamareco",
+      "composed": false,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "女人堂",
+      "to": "中の湯登山口（黒沢口）",
+      "status": "direct",
+      "minutes": 84,
+      "source": "ヤマレコ公開山行計画 p5776496・女人堂→中の湯 1時間24分（2026-08-31確認）",
+      "sourceType": "yamareco",
+      "composed": false,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "女人堂",
+      "to": "田の原登山口",
+      "status": "composed",
+      "minutes": 236,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "女人堂",
+      "to": "石室山荘",
+      "status": "direct",
+      "minutes": 80,
+      "source": "YAMAPモデルコース・女人堂→石室山荘 1時間20分（2026-08-31確認）",
+      "sourceType": "yamap",
+      "composed": false,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "女人堂",
+      "to": "二の池ヒュッテ",
+      "status": "composed",
+      "minutes": 165,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "女人堂",
+      "to": "五の池小屋",
+      "status": "composed",
+      "minutes": 240,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "女人堂",
+      "to": "御嶽山（剣ヶ峰）",
+      "status": "direct",
+      "minutes": 150,
+      "source": "長野県山小屋情報ポータル・女人堂から剣ヶ峰頂上まで約2時間30分",
+      "sourceType": "official",
+      "composed": false,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "石室山荘",
+      "to": "中の湯登山口（黒沢口）",
+      "status": "composed",
+      "minutes": 365,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "石室山荘",
+      "to": "田の原登山口",
+      "status": "composed",
+      "minutes": 156,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "石室山荘",
+      "to": "女人堂",
+      "status": "direct",
+      "minutes": 45,
+      "source": "YAMAPモデルコース・石室山荘→女人堂 45分（2026-08-31確認）",
+      "sourceType": "yamap",
+      "composed": false,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "石室山荘",
+      "to": "二の池ヒュッテ",
+      "status": "composed",
+      "minutes": 55,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "石室山荘",
+      "to": "五の池小屋",
+      "status": "composed",
+      "minutes": 130,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "石室山荘",
+      "to": "御嶽山（剣ヶ峰）",
+      "status": "direct",
+      "minutes": 40,
+      "source": "御嶽山トレッキング黒沢口・石室山荘上部から剣ヶ峰 約40分",
+      "sourceType": "other",
+      "composed": false,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "二の池ヒュッテ",
+      "to": "中の湯登山口（黒沢口）",
+      "status": "composed",
+      "minutes": 335,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "二の池ヒュッテ",
+      "to": "田の原登山口",
+      "status": "composed",
+      "minutes": 131,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "二の池ヒュッテ",
+      "to": "女人堂",
+      "status": "composed",
+      "minutes": 105,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "二の池ヒュッテ",
+      "to": "石室山荘",
+      "status": "composed",
+      "minutes": 60,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "二の池ヒュッテ",
+      "to": "五の池小屋",
+      "status": "direct",
+      "minutes": 45,
+      "source": "好日山荘・御嶽山登山レポート コースタイム（二の池ヒュッテ→五の池小屋 45分、2026-08-31確認）",
+      "sourceType": "guide",
+      "composed": false,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "二の池ヒュッテ",
+      "to": "御嶽山（剣ヶ峰）",
+      "status": "direct",
+      "minutes": 15,
+      "source": "長野県山小屋情報ポータル・二の池ヒュッテは剣ヶ峰より15分程度",
+      "sourceType": "official",
+      "composed": false,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "五の池小屋",
+      "to": "中の湯登山口（黒沢口）",
+      "status": "composed",
+      "minutes": 230,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "五の池小屋",
+      "to": "田の原登山口",
+      "status": "composed",
+      "minutes": 176,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "五の池小屋",
+      "to": "女人堂",
+      "status": "composed",
+      "minutes": 210,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "五の池小屋",
+      "to": "石室山荘",
+      "status": "composed",
+      "minutes": 165,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "sourceType": "",
+      "composed": true,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "五の池小屋",
+      "to": "二の池ヒュッテ",
+      "status": "direct",
+      "minutes": 45,
+      "source": "好日山荘・御嶽山登山レポート コースタイム（五の池小屋→二の池ヒュッテ 45分、2026-08-31確認）",
+      "sourceType": "guide",
+      "composed": false,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "五の池小屋",
+      "to": "御嶽山（剣ヶ峰）",
+      "status": "direct",
+      "minutes": 120,
+      "source": "御嶽山トレッキング飛騨頂上・五の池小屋→剣ヶ峰 約2時間",
+      "sourceType": "other",
+      "composed": false,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "御嶽山（剣ヶ峰）",
+      "to": "中の湯登山口（黒沢口）",
+      "status": "direct",
+      "minutes": 170,
+      "source": "公開登山ガイド・黒沢口 中の湯〜剣ヶ峰 復路2時間50分",
+      "sourceType": "other",
+      "composed": false,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "御嶽山（剣ヶ峰）",
+      "to": "田の原登山口",
+      "status": "direct",
+      "minutes": 116,
+      "source": "ヤマレコ・御嶽山 田の原ルート山行計画（標準CT複数照合）",
+      "sourceType": "yamareco",
+      "composed": false,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "御嶽山（剣ヶ峰）",
+      "to": "女人堂",
+      "status": "direct",
+      "minutes": 90,
+      "source": "御嶽山トレッキング黒沢口・剣ヶ峰→女人堂 約1時間30分",
+      "sourceType": "other",
+      "composed": false,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "御嶽山（剣ヶ峰）",
+      "to": "石室山荘",
+      "status": "direct",
+      "minutes": 45,
+      "source": "公開山行記録・剣ヶ峰→石室山荘 約45分（複数記録照合）",
+      "sourceType": "other",
+      "composed": false,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "御嶽山（剣ヶ峰）",
+      "to": "二の池ヒュッテ",
+      "status": "direct",
+      "minutes": 15,
+      "source": "長野県山小屋情報ポータル・二の池ヒュッテは剣ヶ峰より15分程度",
+      "sourceType": "official",
+      "composed": false,
+      "estimated": false
+    },
+    {
+      "area": "御嶽山",
+      "from": "御嶽山（剣ヶ峰）",
+      "to": "五の池小屋",
+      "status": "direct",
+      "minutes": 90,
+      "source": "御嶽山トレッキング飛騨頂上・剣ヶ峰→五の池小屋 約1時間30分",
+      "sourceType": "other",
+      "composed": false,
+      "estimated": false
+    }
+  ]
+}

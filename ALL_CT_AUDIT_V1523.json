@@ -1,13 +1,13 @@
 {
   "summary": {
     "mountains": 300,
-    "courses": 376,
-    "segments": 963,
-    "direct": 952,
-    "composed": 11,
+    "courses": 379,
+    "segments": 974,
+    "direct": 958,
+    "composed": 16,
     "estimated": 0,
-    "missing": 81,
-    "flags": 120,
+    "missing": 80,
+    "flags": 123,
     "conflicts": 0,
     "reverseFlags": 1
   },
@@ -767,6 +767,40 @@
       "reason": "CLOSE_5KM_GT300"
     },
     {
+      "mountain": "三俣蓮華岳",
+      "course": "折立登山口ルート",
+      "from": "折立登山口",
+      "to": "三俣蓮華岳",
+      "minutes": 745,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "composed": true,
+      "estimated": false,
+      "via": [
+        "太郎平小屋",
+        "黒部五郎岳",
+        "黒部五郎小舎"
+      ],
+      "km": 13.908785330466358,
+      "reason": "COMPOSED_4PLUS_EDGES"
+    },
+    {
+      "mountain": "三俣蓮華岳",
+      "course": "折立登山口ルート",
+      "from": "三俣蓮華岳",
+      "to": "折立登山口",
+      "minutes": 648,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "composed": true,
+      "estimated": false,
+      "via": [
+        "三俣山荘",
+        "雲ノ平山荘",
+        "薬師沢小屋"
+      ],
+      "km": 13.908785330466358,
+      "reason": "COMPOSED_4PLUS_EDGES"
+    },
+    {
       "mountain": "笠ヶ岳（岐阜）",
       "course": "笠新道ルート",
       "from": "笠新道登山口",
@@ -1200,13 +1234,16 @@
       "course": "沼平ゲートルート",
       "from": "茶臼岳",
       "to": "沼平ゲート",
-      "minutes": null,
-      "source": "",
-      "composed": false,
+      "minutes": 755,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "composed": true,
       "estimated": false,
-      "via": [],
+      "via": [
+        "光岳",
+        "茶臼小屋"
+      ],
       "km": 7.40244809545541,
-      "reason": "MISSING"
+      "reason": "CLOSE_10KM_GT600"
     },
     {
       "mountain": "大無間山",
@@ -1470,6 +1507,28 @@
       ],
       "km": 3.7506135101428817,
       "reason": "CLOSE_5KM_GT300"
+    },
+    {
+      "mountain": "大船山",
+      "course": "牧ノ戸峠ルート",
+      "from": "大船山",
+      "to": "牧ノ戸峠",
+      "minutes": 525,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "composed": true,
+      "estimated": false,
+      "via": [
+        "段原",
+        "坊ガツル",
+        "雨ヶ池越",
+        "長者原",
+        "砂防ダム",
+        "諏蛾守越",
+        "久住分かれ避難小屋",
+        "星生山"
+      ],
+      "km": 6.773013432688696,
+      "reason": "COMPOSED_4PLUS_EDGES"
     },
     {
       "mountain": "湧蓋山",
@@ -6998,6 +7057,38 @@
       "km": 6.064387712609737
     },
     {
+      "mountain": "三俣蓮華岳",
+      "course": "折立登山口ルート",
+      "from": "折立登山口",
+      "to": "三俣蓮華岳",
+      "minutes": 745,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "composed": true,
+      "estimated": false,
+      "via": [
+        "太郎平小屋",
+        "黒部五郎岳",
+        "黒部五郎小舎"
+      ],
+      "km": 13.908785330466358
+    },
+    {
+      "mountain": "三俣蓮華岳",
+      "course": "折立登山口ルート",
+      "from": "三俣蓮華岳",
+      "to": "折立登山口",
+      "minutes": 648,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "composed": true,
+      "estimated": false,
+      "via": [
+        "三俣山荘",
+        "雲ノ平山荘",
+        "薬師沢小屋"
+      ],
+      "km": 13.908785330466358
+    },
+    {
       "mountain": "赤牛岳",
       "course": "折立登山口ルート",
       "from": "折立登山口",
@@ -10148,11 +10239,14 @@
       "course": "沼平ゲートルート",
       "from": "茶臼岳",
       "to": "沼平ゲート",
-      "minutes": null,
-      "source": "",
-      "composed": false,
+      "minutes": 755,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "composed": true,
       "estimated": false,
-      "via": [],
+      "via": [
+        "光岳",
+        "茶臼小屋"
+      ],
       "km": 7.40244809545541
     },
     {
@@ -12214,6 +12308,44 @@
       "km": 4.162890848184687
     },
     {
+      "mountain": "三嶺",
+      "course": "名頃登山口 三嶺ルート",
+      "from": "名頃登山口 三嶺",
+      "to": "三嶺ヒュッテ",
+      "minutes": 223,
+      "source": "ヤマレコ・三嶺 山行計画（標準CT補完）",
+      "composed": false,
+      "estimated": false,
+      "via": [],
+      "km": 3.2878779644004084
+    },
+    {
+      "mountain": "三嶺",
+      "course": "名頃登山口 三嶺ルート",
+      "from": "三嶺ヒュッテ",
+      "to": "三嶺",
+      "minutes": 14,
+      "source": "ヤマレコ・三嶺 山行計画（標準CT補完）",
+      "composed": false,
+      "estimated": false,
+      "via": [],
+      "km": 0.3556888335850823
+    },
+    {
+      "mountain": "三嶺",
+      "course": "名頃登山口 三嶺ルート",
+      "from": "三嶺",
+      "to": "名頃登山口 三嶺",
+      "minutes": 140,
+      "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）",
+      "composed": true,
+      "estimated": false,
+      "via": [
+        "三嶺ヒュッテ"
+      ],
+      "km": 3.642990748371862
+    },
+    {
       "mountain": "東赤石山",
       "course": "瀬場登山口 東赤石山ルート",
       "from": "瀬場登山口 東赤石山",
@@ -12685,6 +12817,87 @@
         "大船山"
       ],
       "km": 3.7506135101428817
+    },
+    {
+      "mountain": "大船山",
+      "course": "牧ノ戸峠ルート",
+      "from": "牧ノ戸峠",
+      "to": "星生山",
+      "minutes": 154,
+      "source": "YAMAPモデルコース・牧ノ戸峠→沓掛山→扇ヶ鼻分岐→星生山 2時間34分（2026-08-31確認）",
+      "composed": false,
+      "estimated": false,
+      "via": [],
+      "km": 2.3691381363545654
+    },
+    {
+      "mountain": "大船山",
+      "course": "牧ノ戸峠ルート",
+      "from": "星生山",
+      "to": "久住分かれ避難小屋",
+      "minutes": 60,
+      "source": "YAMAPモデルコース・星生山→久住分れ周辺 1時間（避難小屋は久住分れ隣接、2026-08-31確認）",
+      "composed": false,
+      "estimated": false,
+      "via": [],
+      "km": 0.7941046767669723
+    },
+    {
+      "mountain": "大船山",
+      "course": "牧ノ戸峠ルート",
+      "from": "久住分かれ避難小屋",
+      "to": "法華院温泉山荘",
+      "minutes": 85,
+      "source": "V1.5.45確認済み隣接CT合算（久住分れ→諏蛾守越45＋法華院温泉40）",
+      "composed": false,
+      "estimated": false,
+      "via": [],
+      "km": 1.9280525792160703
+    },
+    {
+      "mountain": "大船山",
+      "course": "牧ノ戸峠ルート",
+      "from": "法華院温泉山荘",
+      "to": "坊ガツル",
+      "minutes": 15,
+      "source": "日本山岳会・親子で楽しむ山登り 東九州「長者原～坊ガツル」逆コース（法華院温泉→坊ガツル 15分）",
+      "composed": false,
+      "estimated": false,
+      "via": [],
+      "km": 0.7816410676494813
+    },
+    {
+      "mountain": "大船山",
+      "course": "牧ノ戸峠ルート",
+      "from": "坊ガツル",
+      "to": "大船山",
+      "minutes": 95,
+      "source": "V1.5.45確認済み隣接CT合算（坊ガツル→段原75＋大船山20）",
+      "composed": false,
+      "estimated": false,
+      "via": [],
+      "km": 1.7305888074107574
+    },
+    {
+      "mountain": "大船山",
+      "course": "牧ノ戸峠ルート",
+      "from": "大船山",
+      "to": "牧ノ戸峠",
+      "minutes": 525,
+      "source": "確認済み固定CT（複数公開資料・区間合算・代表経路採用）",
+      "composed": true,
+      "estimated": false,
+      "via": [
+        "段原",
+        "坊ガツル",
+        "雨ヶ池越",
+        "長者原",
+        "砂防ダム",
+        "諏蛾守越",
+        "久住分かれ避難小屋",
+        "星生山"
+      ],
+      "km": 6.773013432688696
     },
     {
       "mountain": "久住山",
