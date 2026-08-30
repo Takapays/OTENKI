@@ -1,3 +1,23 @@
+## V1.5.48
+
+- Deepened five previously incomplete mountain-area networks: Daisetsu, Iide, Asahi, Okuchichibu main ridge, and Tanigawa main ridge.
+- Added publicly checked direct CT for the Daisetsu Kurodake/Asahidake–Hokkai–Hakuun–Chubetsu–Goshiki–Hisago–Tomuraushi chain, Iide Onogawa/Mikuni–Iide–Onishi–Dainichi chain, Asahi Dai-Asahi–Ryumon–Kitsuneana–Ito–Otorii chain, Okuchichibu Kinpu/Kokushi–Kobushi–Kasatori main-ridge sections, and Tanigawa Hira–Sennokura–Mantaro–Ojikasawa–Toma-no-mimi main ridge.
+- Restored Daisetsu graph connectivity by explicitly adding Kurodake <-> Kurodake Ishimuro CT from a public YAMAP model.
+- Rejected three newly found values that conflicted with existing verified direct CT; existing values were retained and release-wide CT conflict count remains 0.
+- Explicit-area audit: 36 areas / 264 nodes / 424 directed edges / direct verified 424 / missing 0 / estimated 0 / composed-only 0 / disconnected 0.
+- Hyakumeizan union audit: 700/700 direct verified / missing 0 / estimated 0 / composed-only 0.
+- No fixed-coordinate edits and no weather/forecast/model/progressive-rendering logic edits.
+
+## V1.5.47
+
+- 全国第二陣の山域CTネットワーク監査を追加。明示山域を16→31、地点141→225、方向別隣接区間264→367へ拡張。
+- 尾瀬、富士山、丹沢、妙高・火打、霧島、大山、剣山〜三嶺、宮之浦岳、谷川岳、大朝日、飯豊大日杉、奥秩父雲取、阿蘇、祖母山、石鎚山を追加。
+- 明示ネットワーク 367/367 direct verified、missing 0、estimated 0、composed-only 0、非連結0。百名山統合監査 645/645 direct verified。
+- 富士山は4登山ルートの各山頂と剣ヶ峰を分離。尾瀬は尾瀬ヶ原主経路と燧・至仏枝を接続。石鎚山は弥山と天狗岳を分離。
+- 韓国岳登山口→韓国岳、大山山頂→六合目避難小屋は環境省公式値を優先し旧値を置換。CT conflict 0。
+- 公開情報に逆方向CTが明記されない候補は推測せず削除。固定座標・気象ロジック・progressive renderingは変更なし。
+- 全国未完部分（大雪山核心縦走、飯豊/朝日追加枝、奥秩父主脈、谷川主脈等）は `NATIONWIDE_NETWORK_GAP_AUDIT_V1547.md` に明示し、監査済み扱いしない。
+
 ## V1.5.46
 
 - Expanded mountain-area CT auditing beyond representative routes, with 16 explicit Alps/Yatsugatake/Kuju major trail graphs.

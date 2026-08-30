@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.46';
+const APP_VERSION = '1.5.48';
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
@@ -736,7 +736,7 @@ const WEST_JAPAN_COURSE_TIMES = Object.freeze({
   // 九州：くじゅう・霧島
   '牧ノ戸峠→久住分かれ避難小屋': {minutes:113, source:'ヤマレコ・牧ノ戸峠〜久住山 山行計画（標準CT補完）', sourceType:'yamareco'},
   '久住分かれ避難小屋→久住山': {minutes:37, source:'ヤマレコ・牧ノ戸峠〜久住山 山行計画（標準CT補完）', sourceType:'yamareco'},
-  '韓国岳登山口→霧島山（韓国岳）': {minutes:123, source:'ヤマレコ・韓国岳 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '韓国岳登山口→霧島山（韓国岳）': {minutes:90, source:'環境省・韓国岳大浪池登山コース 韓国岳登山口→韓国岳山頂90分（V1.5.47公式値優先）', sourceType:'official'},
   '霧島山（韓国岳）→韓国岳登山口': {minutes:74, source:'ヤマレコ・韓国岳 山行計画（標準CT補完）', sourceType:'yamareco'},
   '高千穂河原→高千穂峰': {minutes:145, source:'ヤマレコ・高千穂峰 山行計画（標準CT補完）', sourceType:'yamareco'},
   '高千穂峰→高千穂河原': {minutes:85, source:'ヤマレコ・高千穂峰 山行計画（標準CT補完）', sourceType:'yamareco'},
@@ -788,7 +788,7 @@ const WEST_JAPAN_COURSE_TIMES = Object.freeze({
   '夏山登山口→六合目避難小屋': {minutes:128, source:'ヤマレコ・大山弥山 山行計画（標準CT補完）', sourceType:'yamareco'},
   '六合目避難小屋→大山頂上避難小屋': {minutes:73, source:'ヤマレコ・大山弥山 山行計画（標準CT補完）', sourceType:'yamareco'},
   '大山頂上避難小屋→大山（弥山）': {minutes:3, source:'ヤマレコ・大山弥山 山行計画（標準CT補完）', sourceType:'yamareco'},
-  '大山（弥山）→六合目避難小屋': {minutes:53, source:'ヤマレコ・大山弥山 山行計画（標準CT補完）', sourceType:'yamareco'},
+  '大山（弥山）→六合目避難小屋': {minutes:60, source:'環境省・大山登山コース 大山山頂→六合目避難小屋60分（V1.5.47公式値優先）', sourceType:'official'},
   '福定親水公園→氷ノ山': {minutes:221, source:'ヤマレコ・氷ノ山 山行計画（標準CT補完）', sourceType:'yamareco'},
   '氷ノ山→福定親水公園': {minutes:133, source:'ヤマレコ・氷ノ山 山行計画（標準CT補完）', sourceType:'yamareco'},
   '氷ノ山→氷ノ山山頂避難小屋': {minutes:1, source:'ヤマレコ・氷ノ山 山行計画（標準CT補完）', sourceType:'yamareco'},
@@ -2165,6 +2165,308 @@ const MAJOR_TRAIL_NETWORKS_V1546 = Object.freeze({
 });
 
 
+
+
+
+// V1.5.47: nationwide second-wave explicit mountain-area trail graphs.
+// V1.5.46 Alps/Yatsugatake/Kuju networks are retained unchanged and extended here.
+const MAJOR_TRAIL_NETWORKS_V1547 = Object.freeze({
+  ...MAJOR_TRAIL_NETWORKS_V1546,
+  '尾瀬・尾瀬ヶ原至仏燧': Object.freeze({
+    anchors:['至仏山','燧ヶ岳'],
+    nodes:Object.freeze(['鳩待峠','山ノ鼻（至仏山東面登山道入口・登り専用）','竜宮十字路','見晴（尾瀬小屋・見晴地区）','燧ヶ岳（柴安嵓）','御池登山口','至仏山']),
+    edges:Object.freeze([
+      ['鳩待峠','山ノ鼻（至仏山東面登山道入口・登り専用）'],['山ノ鼻（至仏山東面登山道入口・登り専用）','鳩待峠'],
+      ['山ノ鼻（至仏山東面登山道入口・登り専用）','竜宮十字路'],
+      ['竜宮十字路','見晴（尾瀬小屋・見晴地区）'],['見晴（尾瀬小屋・見晴地区）','竜宮十字路'],
+      ['見晴（尾瀬小屋・見晴地区）','燧ヶ岳（柴安嵓）'],['燧ヶ岳（柴安嵓）','見晴（尾瀬小屋・見晴地区）'],
+      ['御池登山口','燧ヶ岳（柴安嵓）'],['燧ヶ岳（柴安嵓）','御池登山口'],
+      ['山ノ鼻（至仏山東面登山道入口・登り専用）','至仏山'],['至仏山','鳩待峠']
+    ])
+  }),
+  '富士山・四登山ルート山頂': Object.freeze({
+    anchors:['富士山'],
+    nodes:Object.freeze(['富士スバルライン五合目（吉田口）','須走口五合目','吉田・須走ルート山頂','富士宮口五合目','富士宮ルート山頂','御殿場口新五合目','御殿場ルート山頂','富士山（剣ヶ峰）']),
+    edges:Object.freeze([
+      ['富士スバルライン五合目（吉田口）','吉田・須走ルート山頂'],['吉田・須走ルート山頂','富士スバルライン五合目（吉田口）'],
+      ['須走口五合目','吉田・須走ルート山頂'],['吉田・須走ルート山頂','須走口五合目'],
+      ['吉田・須走ルート山頂','富士山（剣ヶ峰）'],['富士山（剣ヶ峰）','吉田・須走ルート山頂'],
+      ['富士宮口五合目','富士宮ルート山頂'],['富士宮ルート山頂','富士宮口五合目'],['富士宮ルート山頂','富士山（剣ヶ峰）'],
+      ['御殿場口新五合目','御殿場ルート山頂'],['御殿場ルート山頂','御殿場口新五合目'],['御殿場ルート山頂','富士山（剣ヶ峰）']
+    ])
+  }),
+  '丹沢・主脈': Object.freeze({
+    anchors:['丹沢山'],
+    nodes:Object.freeze(['大倉登山口','塔ノ岳','丹沢山','蛭ヶ岳']),
+    edges:Object.freeze([['大倉登山口','塔ノ岳'],['塔ノ岳','大倉登山口'],['塔ノ岳','丹沢山'],['丹沢山','塔ノ岳'],['丹沢山','蛭ヶ岳'],['蛭ヶ岳','丹沢山']])
+  }),
+  '妙高・火打': Object.freeze({
+    anchors:['火打山','妙高山'],
+    nodes:Object.freeze(['笹ヶ峰登山口','高谷池ヒュッテ','火打山','黒沢池ヒュッテ','妙高山']),
+    edges:Object.freeze([
+      ['笹ヶ峰登山口','高谷池ヒュッテ'],['高谷池ヒュッテ','笹ヶ峰登山口'],['高谷池ヒュッテ','火打山'],['火打山','高谷池ヒュッテ'],
+      ['高谷池ヒュッテ','黒沢池ヒュッテ'],['黒沢池ヒュッテ','高谷池ヒュッテ'],['黒沢池ヒュッテ','妙高山'],['妙高山','黒沢池ヒュッテ'],['笹ヶ峰登山口','黒沢池ヒュッテ'],['黒沢池ヒュッテ','笹ヶ峰登山口']
+    ])
+  }),
+  '霧島・韓国岳大浪池': Object.freeze({
+    anchors:['霧島山'],
+    nodes:Object.freeze(['韓国岳登山口','霧島山（韓国岳）','韓国岳避難小屋','大浪池休憩所','県境登山口','えびのエコミュージアムセンター']),
+    edges:Object.freeze([['韓国岳登山口','霧島山（韓国岳）'],['霧島山（韓国岳）','韓国岳避難小屋'],['韓国岳避難小屋','大浪池休憩所'],['大浪池休憩所','県境登山口'],['県境登山口','えびのエコミュージアムセンター']])
+  }),
+  '大山・夏山行者': Object.freeze({
+    anchors:['大山'],
+    nodes:Object.freeze(['博労座駐車場','夏山登山口','行者谷分かれ','六合目避難小屋','大山（弥山）','大神山神社奥宮','大山火の神岳温泉 豪円湯院']),
+    edges:Object.freeze([['博労座駐車場','夏山登山口'],['夏山登山口','行者谷分かれ'],['行者谷分かれ','六合目避難小屋'],['六合目避難小屋','大山（弥山）'],['大山（弥山）','六合目避難小屋'],['六合目避難小屋','行者谷分かれ'],['行者谷分かれ','大神山神社奥宮'],['大神山神社奥宮','大山火の神岳温泉 豪円湯院'],['大山火の神岳温泉 豪円湯院','博労座駐車場']])
+  }),
+  '四国・剣山三嶺': Object.freeze({
+    anchors:['剣山','三嶺'],
+    nodes:Object.freeze(['剣山','次郎笈','丸石','丸石避難小屋','高ノ瀬','白髪避難小屋','三嶺','三嶺ヒュッテ','名頃登山口 三嶺']),
+    edges:Object.freeze([['剣山','次郎笈'],['次郎笈','丸石'],['丸石','丸石避難小屋'],['丸石避難小屋','高ノ瀬'],['高ノ瀬','白髪避難小屋'],['白髪避難小屋','三嶺'],['三嶺','三嶺ヒュッテ'],['名頃登山口 三嶺','三嶺ヒュッテ']])
+  }),
+  '屋久島・宮之浦岳': Object.freeze({
+    anchors:['宮之浦岳'],
+    nodes:Object.freeze(['淀川登山口','淀川小屋','宮之浦岳']),
+    edges:Object.freeze([['淀川登山口','淀川小屋'],['淀川小屋','淀川登山口'],['淀川小屋','宮之浦岳'],['宮之浦岳','淀川小屋']])
+  }),
+  '谷川岳・天神尾根': Object.freeze({
+    anchors:['谷川岳'],
+    nodes:Object.freeze(['天神平','熊穴沢避難小屋','谷川岳（オキノ耳）']),
+    edges:Object.freeze([['天神平','熊穴沢避難小屋'],['熊穴沢避難小屋','天神平'],['熊穴沢避難小屋','谷川岳（オキノ耳）'],['谷川岳（オキノ耳）','天神平']])
+  }),
+  '朝日連峰・大朝日': Object.freeze({
+    anchors:['大朝日岳'],
+    nodes:Object.freeze(['古寺案内センター（古寺コース）','大朝日岳','日暮沢登山口駐車場（日暮沢小屋）','竜門小屋']),
+    edges:Object.freeze([['古寺案内センター（古寺コース）','大朝日岳'],['大朝日岳','古寺案内センター（古寺コース）'],['日暮沢登山口駐車場（日暮沢小屋）','竜門小屋'],['竜門小屋','大朝日岳']])
+  }),
+  '飯豊連峰・大日杉': Object.freeze({
+    anchors:['飯豊山'],
+    nodes:Object.freeze(['大日杉登山口','切合小屋','飯豊山']),
+    edges:Object.freeze([['大日杉登山口','切合小屋'],['切合小屋','飯豊山'],['飯豊山','大日杉登山口']])
+  }),
+  '奥秩父・雲取': Object.freeze({
+    anchors:['雲取山'],
+    nodes:Object.freeze(['鴨沢登山口','七ツ石小屋','雲取山','雲取山荘']),
+    edges:Object.freeze([['鴨沢登山口','七ツ石小屋'],['七ツ石小屋','雲取山'],['雲取山','雲取山荘'],['雲取山荘','雲取山']])
+  }),
+  '阿蘇・高岳中岳仙酔峡': Object.freeze({
+    anchors:['阿蘇山（高岳）'],
+    nodes:Object.freeze(['仙酔峡駐車場','仙酔分かれ','阿蘇山（高岳）','高岳・中岳・月見小屋分岐','阿蘇山（中岳）','馬の背（阿蘇）','火口東展望所','すずめ岩分岐']),
+    edges:Object.freeze([['仙酔峡駐車場','仙酔分かれ'],['仙酔分かれ','阿蘇山（高岳）'],['阿蘇山（高岳）','高岳・中岳・月見小屋分岐'],['高岳・中岳・月見小屋分岐','阿蘇山（中岳）'],['阿蘇山（中岳）','馬の背（阿蘇）'],['馬の背（阿蘇）','火口東展望所'],['火口東展望所','すずめ岩分岐'],['すずめ岩分岐','仙酔峡駐車場']])
+  }),
+  '祖母山・神原北谷': Object.freeze({
+    anchors:['祖母山'],
+    nodes:Object.freeze(['神原登山口','五合目避難小屋（祖母山）','国観峠','祖母山九合目小屋','祖母山','三県境（祖母山）','四辻（祖母山）','一の鳥居分岐（祖母山）','北谷登山口']),
+    edges:Object.freeze([['神原登山口','五合目避難小屋（祖母山）'],['五合目避難小屋（祖母山）','国観峠'],['国観峠','祖母山九合目小屋'],['祖母山九合目小屋','祖母山'],['祖母山','国観峠'],['国観峠','三県境（祖母山）'],['三県境（祖母山）','四辻（祖母山）'],['四辻（祖母山）','一の鳥居分岐（祖母山）'],['一の鳥居分岐（祖母山）','北谷登山口']])
+  }),
+  '石鎚山・弥山天狗岳': Object.freeze({
+    anchors:['石鎚山'],
+    nodes:Object.freeze(['土小屋登山口','石鎚山（弥山）','石鎚山（天狗岳）','石鎚ロープウェイ山頂成就駅']),
+    edges:Object.freeze([['土小屋登山口','石鎚山（弥山）'],['石鎚山（弥山）','土小屋登山口'],['石鎚ロープウェイ山頂成就駅','石鎚山（弥山）'],['石鎚山（弥山）','石鎚ロープウェイ山頂成就駅'],['石鎚山（弥山）','石鎚山（天狗岳）'],['石鎚山（天狗岳）','石鎚山（弥山）']])
+  })
+});
+
+// V1.5.47: nationwide second-wave mountain-area network CT additions.
+// Register only public, endpoint-specific course times. No coordinate/elevation estimates.
+const V1547_NATIONAL_NETWORK_COURSE_TIMES = Object.freeze({
+  // 尾瀬: main marsh corridor + two mountain branches.
+  '鳩待峠→山ノ鼻（至仏山東面登山道入口・登り専用）': {minutes:60, source:'公開尾瀬標準コース案内・鳩待峠→山ノ鼻 約1時間（2026-08-30確認）', sourceType:'other'},
+  '山ノ鼻（至仏山東面登山道入口・登り専用）→鳩待峠': {minutes:80, source:'公開尾瀬標準コース案内・山ノ鼻→鳩待峠 約1時間20分（2026-08-30確認）', sourceType:'other'},
+  '山ノ鼻（至仏山東面登山道入口・登り専用）→竜宮十字路': {minutes:80, source:'尾瀬保護財団・山ノ鼻〜竜宮十字路 4.4km / CT80分（2026-08-30確認）', sourceType:'official'},
+  '竜宮十字路→見晴（尾瀬小屋・見晴地区）': {minutes:30, source:'公開尾瀬コース案内・竜宮→見晴 30分（2026-08-30確認）', sourceType:'other'},
+  '見晴（尾瀬小屋・見晴地区）→竜宮十字路': {minutes:30, source:'公開尾瀬コース案内・見晴→竜宮 30分（2026-08-30確認）', sourceType:'other'},
+  '見晴（尾瀬小屋・見晴地区）→燧ヶ岳（柴安嵓）': {minutes:210, source:'環境省関東地方環境事務所・見晴地区→柴安嵓 コースタイム3時間30分（2026-08-30確認）', sourceType:'official'},
+  '燧ヶ岳（柴安嵓）→見晴（尾瀬小屋・見晴地区）': {minutes:140, source:'公開尾瀬登山ガイド・燧ヶ岳→見晴 約2時間20分（2026-08-30確認）', sourceType:'other'},
+
+  // 富士山: distinguish each route summit from 剣ヶ峰 and the summit crater walk.
+  '富士スバルライン五合目（吉田口）→吉田・須走ルート山頂': {minutes:360, source:'富士登山オフィシャルサイト・吉田ルート登り約6時間（2026-08-30確認）', sourceType:'official'},
+  '吉田・須走ルート山頂→富士スバルライン五合目（吉田口）': {minutes:240, source:'富士登山オフィシャルサイト・吉田ルート下り約4時間（2026-08-30確認）', sourceType:'official'},
+  '須走口五合目→吉田・須走ルート山頂': {minutes:420, source:'富士登山オフィシャルサイト・須走ルート登り約7時間（2026-08-30確認）', sourceType:'official'},
+  '吉田・須走ルート山頂→須走口五合目': {minutes:240, source:'富士登山オフィシャルサイト・須走ルート下り約4時間（2026-08-30確認）', sourceType:'official'},
+  '吉田・須走ルート山頂→富士山（剣ヶ峰）': {minutes:60, source:'富士登山オフィシャルサイト吉田モデル・山頂5:10→剣ヶ峰6:10（2026-08-30確認）', sourceType:'official'},
+  '富士山（剣ヶ峰）→吉田・須走ルート山頂': {minutes:60, source:'富士登山オフィシャルサイト吉田モデル・剣ヶ峰6:10→吉田須走山頂7:10（2026-08-30確認）', sourceType:'official'},
+  '富士宮口五合目→富士宮ルート山頂': {minutes:300, source:'富士登山オフィシャルサイト・富士宮ルート登り約5時間（2026-08-30確認）', sourceType:'official'},
+  '富士宮ルート山頂→富士宮口五合目': {minutes:180, source:'富士登山オフィシャルサイト・富士宮ルート下り約3時間（2026-08-30確認）', sourceType:'official'},
+  '富士宮ルート山頂→富士山（剣ヶ峰）': {minutes:20, source:'富士登山オフィシャルサイト富士宮モデル・山頂5:10→剣ヶ峰5:30（2026-08-30確認）', sourceType:'official'},
+  '御殿場口新五合目→御殿場ルート山頂': {minutes:540, source:'富士登山オフィシャルサイト・御殿場ルート登り約9時間（2026-08-30確認）', sourceType:'official'},
+  '御殿場ルート山頂→御殿場口新五合目': {minutes:240, source:'富士登山オフィシャルサイト・御殿場ルート下り約4時間（2026-08-30確認）', sourceType:'official'},
+  '御殿場ルート山頂→富士山（剣ヶ峰）': {minutes:25, source:'富士登山オフィシャルサイト御殿場モデル・山頂5:10→剣ヶ峰5:35（2026-08-30確認）', sourceType:'official'},
+
+  // 丹沢主脈.
+  '丹沢山→蛭ヶ岳': {minutes:120, source:'公開丹沢主脈モデル・丹沢山→蛭ヶ岳 120分（2026-08-30確認）', sourceType:'other'},
+  '蛭ヶ岳→丹沢山': {minutes:100, source:'公開丹沢主脈モデル・蛭ヶ岳→丹沢山 100分（2026-08-30確認）', sourceType:'other'},
+
+  // 妙高・火打: connect the two hut branches across 茶臼山 ridge.
+  '高谷池ヒュッテ→黒沢池ヒュッテ': {minutes:50, source:'公開火打山・妙高山縦走標準CT・高谷池ヒュッテ→黒沢池ヒュッテ 50分（2026-08-30確認）', sourceType:'other'},
+  '黒沢池ヒュッテ→高谷池ヒュッテ': {minutes:50, source:'公開火打山・妙高山縦走標準CT・黒沢池ヒュッテ↔高谷池ヒュッテ 約50分（2026-08-30確認）', sourceType:'other'},
+
+  // 霧島: Environment Ministry official loop, direction as published.
+  '韓国岳登山口→霧島山（韓国岳）': {minutes:90, source:'環境省・韓国岳大浪池登山コース 韓国岳登山口→韓国岳山頂90分（2026-08-30確認）', sourceType:'official'},
+  '霧島山（韓国岳）→韓国岳避難小屋': {minutes:50, source:'環境省・韓国岳大浪池登山コース 韓国岳山頂→韓国岳避難小屋50分（2026-08-30確認）', sourceType:'official'},
+  '韓国岳避難小屋→大浪池休憩所': {minutes:50, source:'環境省・韓国岳大浪池登山コース 韓国岳避難小屋→大浪池休憩所50分（2026-08-30確認）', sourceType:'official'},
+  '大浪池休憩所→県境登山口': {minutes:90, source:'環境省・韓国岳大浪池登山コース 大浪池休憩所→県境登山口90分（2026-08-30確認）', sourceType:'official'},
+  '県境登山口→えびのエコミュージアムセンター': {minutes:10, source:'環境省・韓国岳大浪池登山コース 県境登山口→えびのエコミュージアムセンター10分（2026-08-30確認）', sourceType:'official'},
+
+  // 大山: Environment Ministry official loop.
+  '博労座駐車場→夏山登山口': {minutes:15, source:'環境省・大山登山コース 博労座駐車場→夏山登山口15分（2026-08-30確認）', sourceType:'official'},
+  '夏山登山口→行者谷分かれ': {minutes:80, source:'環境省・大山登山コース 夏山登山口→行者谷分かれ80分（2026-08-30確認）', sourceType:'official'},
+  '行者谷分かれ→六合目避難小屋': {minutes:20, source:'環境省・大山登山コース 行者谷分かれ→六合目避難小屋20分（2026-08-30確認）', sourceType:'official'},
+  '六合目避難小屋→大山（弥山）': {minutes:80, source:'環境省・大山登山コース 六合目避難小屋→大山山頂80分（2026-08-30確認）', sourceType:'official'},
+  '大山（弥山）→六合目避難小屋': {minutes:60, source:'環境省・大山登山コース 大山山頂→六合目避難小屋60分（2026-08-30確認）', sourceType:'official'},
+  '六合目避難小屋→行者谷分かれ': {minutes:10, source:'環境省・大山登山コース 六合目避難小屋→行者谷分かれ10分（2026-08-30確認）', sourceType:'official'},
+  '行者谷分かれ→大神山神社奥宮': {minutes:70, source:'環境省・大山登山コース 行者谷分かれ→大神山神社奥宮70分（2026-08-30確認）', sourceType:'official'},
+  '大神山神社奥宮→大山火の神岳温泉 豪円湯院': {minutes:20, source:'環境省・大山登山コース 大神山神社奥宮→豪円湯院20分（2026-08-30確認）', sourceType:'official'},
+  '大山火の神岳温泉 豪円湯院→博労座駐車場': {minutes:5, source:'環境省・大山登山コース 豪円湯院→博労座駐車場5分（2026-08-30確認）', sourceType:'official'},
+
+  // 剣山〜三嶺: YAMAP public model-course adjacent ridge sections.
+  '次郎笈→丸石': {minutes:110, source:'YAMAPモデルコース・次郎笈→丸石 隣接チェックポイント合算110分（2026-08-30確認）', sourceType:'yamap'},
+  '丸石→丸石避難小屋': {minutes:2, source:'YAMAPモデルコース・丸石→丸石避難小屋2分（2026-08-30確認）', sourceType:'yamap'},
+  '丸石避難小屋→高ノ瀬': {minutes:95, source:'YAMAPモデルコース・丸石避難小屋→高ノ瀬 隣接チェックポイント合算95分（2026-08-30確認）', sourceType:'yamap'},
+  '高ノ瀬→白髪避難小屋': {minutes:185, source:'YAMAPモデルコース・高ノ瀬→白髪避難小屋 隣接チェックポイント合算185分（2026-08-30確認）', sourceType:'yamap'},
+  '三嶺→三嶺ヒュッテ': {minutes:9, source:'ヤマレコ標準CT・三嶺→三嶺ヒュッテ9分（既存確認済み）', sourceType:'yamareco'},
+
+  // 阿蘇: current YAMAP public model loop from 仙酔峡 through 高岳・中岳.
+  '仙酔峡駐車場→仙酔分かれ': {minutes:135, source:'YAMAP仙酔峡ルート周回モデル・仙酔峡駐車場→仙酔分かれ135分（2026-08-30確認）', sourceType:'yamap'},
+  '仙酔分かれ→阿蘇山（高岳）': {minutes:8, source:'YAMAP仙酔峡ルート周回モデル・仙酔分かれ→高岳8分（2026-08-30確認）', sourceType:'yamap'},
+  '阿蘇山（高岳）→高岳・中岳・月見小屋分岐': {minutes:15, source:'YAMAP仙酔峡ルート周回モデル・高岳→高岳中岳月見小屋分岐15分（2026-08-30確認）', sourceType:'yamap'},
+  '高岳・中岳・月見小屋分岐→阿蘇山（中岳）': {minutes:25, source:'YAMAP仙酔峡ルート周回モデル・分岐→中岳25分（2026-08-30確認）', sourceType:'yamap'},
+  '阿蘇山（中岳）→馬の背（阿蘇）': {minutes:6, source:'YAMAP仙酔峡ルート周回モデル・中岳→馬の背6分（2026-08-30確認）', sourceType:'yamap'},
+  '馬の背（阿蘇）→火口東展望所': {minutes:23, source:'YAMAP仙酔峡ルート周回モデル・馬の背→火口東展望所23分（2026-08-30確認）', sourceType:'yamap'},
+  '火口東展望所→すずめ岩分岐': {minutes:40, source:'YAMAP仙酔峡ルート周回モデル・火口東展望所→すずめ岩分岐40分（2026-08-30確認）', sourceType:'yamap'},
+  'すずめ岩分岐→仙酔峡駐車場': {minutes:40, source:'YAMAP仙酔峡ルート周回モデル・すずめ岩分岐→仙酔峡駐車場40分（2026-08-30確認）', sourceType:'yamap'},
+
+  // 祖母山: public Yamareco standard-plan traverse 神原→国観峠→祖母山→北谷.
+  '神原登山口→五合目避難小屋（祖母山）': {minutes:46, source:'ヤマレコ公開山行計画 p5423550・神原登山口→滝見分岐2分→五合目避難小屋44分（2026-08-30確認）', sourceType:'yamareco'},
+  '五合目避難小屋（祖母山）→国観峠': {minutes:140, source:'ヤマレコ公開山行計画 p5423550・五合目避難小屋→国観峠140分（2026-08-30確認）', sourceType:'yamareco'},
+  '国観峠→祖母山九合目小屋': {minutes:45, source:'ヤマレコ公開山行計画 p5423550・国観峠→祖母山九合目小屋45分（2026-08-30確認）', sourceType:'yamareco'},
+  '祖母山九合目小屋→祖母山': {minutes:22, source:'ヤマレコ公開山行計画 p5423550・祖母山九合目小屋→祖母山22分（2026-08-30確認）', sourceType:'yamareco'},
+  '祖母山→国観峠': {minutes:35, source:'ヤマレコ公開山行計画 p5423550・祖母山→国観峠35分（2026-08-30確認）', sourceType:'yamareco'},
+  '国観峠→三県境（祖母山）': {minutes:24, source:'ヤマレコ公開山行計画 p5423550・国観峠→三県境24分（2026-08-30確認）', sourceType:'yamareco'},
+  '三県境（祖母山）→四辻（祖母山）': {minutes:18, source:'ヤマレコ公開山行計画 p5423550・三県境→四辻18分（2026-08-30確認）', sourceType:'yamareco'},
+  '四辻（祖母山）→一の鳥居分岐（祖母山）': {minutes:15, source:'ヤマレコ公開山行計画 p5423550・四辻→一の鳥居分岐15分（2026-08-30確認）', sourceType:'yamareco'},
+  '一の鳥居分岐（祖母山）→北谷登山口': {minutes:35, source:'ヤマレコ公開山行計画 p5423550・一の鳥居分岐→北谷登山口35分（2026-08-30確認）', sourceType:'yamareco'},
+
+  // 石鎚山: distinguish 弥山 from the true high point 天狗岳.
+  '石鎚山（弥山）→石鎚山（天狗岳）': {minutes:20, source:'YAMAP堂ヶ森・石鎚山モデル・石鎚山（弥山）→天狗岳20分（2026-08-30確認）', sourceType:'yamap'},
+  '石鎚山（天狗岳）→石鎚山（弥山）': {minutes:7, source:'YAMAP堂ヶ森・石鎚山モデル・天狗岳→石鎚山（弥山）7分（2026-08-30確認）', sourceType:'yamap'}
+});
+
+
+
+// V1.5.48: deep network pass for the five remaining major traverse areas.
+// Published endpoint-specific CT only. No regression, elevation, or mirrored-direction estimates.
+const V1548_DEEP_NETWORK_COURSE_TIMES = Object.freeze({
+  // 大雪山核心縦走: YAMAP public model courses, checked 2026-08-30.
+  '七合目リフト駅→黒岳': {minutes:85, source:'YAMAPモデルコース・七合目リフト駅→黒岳 1時間25分（2026-08-30確認）', sourceType:'yamap'},
+  '黒岳→七合目リフト駅': {minutes:55, source:'YAMAPモデルコース・黒岳→七合目リフト駅 55分（2026-08-30確認）', sourceType:'yamap'},
+  '黒岳→黒岳石室': {minutes:26, source:'YAMAP大雪山モデル・黒岳→分岐25分→黒岳石室1分（2026-08-30確認）', sourceType:'yamap'},
+  '黒岳石室→黒岳': {minutes:80, source:'YAMAP大雪山モデル・黒岳石室→分岐25分→黒岳55分（2026-08-30確認）', sourceType:'yamap'},
+  '黒岳石室→北海岳': {minutes:170, source:'YAMAP大雪山縦走モデル・黒岳石室テント場→北海岳 2時間50分（2026-08-30確認）', sourceType:'yamap'},
+  '北海岳→白雲岳避難小屋': {minutes:26, source:'YAMAP大雪山縦走モデル・北海岳→白雲岳分岐25分→白雲岳避難小屋1分（2026-08-30確認）', sourceType:'yamap'},
+  '白雲岳避難小屋→忠別岳': {minutes:260, source:'YAMAP大雪山縦走モデル・白雲岳避難小屋→高根ヶ原方面→忠別岳 4時間20分（2026-08-30確認）', sourceType:'yamap'},
+  '忠別岳→五色岳': {minutes:110, source:'YAMAP大雪山縦走モデル・忠別岳→五色岳 1時間50分（2026-08-30確認）', sourceType:'yamap'},
+  '五色岳→ヒサゴ沼避難小屋': {minutes:74, source:'YAMAP大雪山縦走モデル・五色岳→ヒサゴ沼避難小屋 1時間14分（2026-08-30確認）', sourceType:'yamap'},
+  'ヒサゴ沼避難小屋→トムラウシ山': {minutes:225, source:'YAMAP大雪山縦走モデル・ヒサゴ沼避難小屋→トムラウシ山 3時間45分（2026-08-30確認）', sourceType:'yamap'},
+  '大雪山（旭岳）→北海岳': {minutes:184, source:'YAMAP旭岳→黒岳縦走モデル・旭岳→北海岳 3時間04分（2026-08-30確認）', sourceType:'yamap'},
+  '北海岳→黒岳石室': {minutes:2, source:'YAMAP旭岳→黒岳縦走モデル・北海岳→黒岳石室 2分（2026-08-30確認）', sourceType:'yamap'},
+
+  // 飯豊連峰主稜: YAMAP public model course, checked 2026-08-30.
+  '御沢登山口→横峰': {minutes:150, source:'YAMAP飯豊山モデル・御沢登山口→横峰 2時間30分（2026-08-30確認）', sourceType:'yamap'},
+  '横峰→御沢登山口': {minutes:120, source:'YAMAP飯豊山モデル・横峰→御沢登山口 2時間（2026-08-30確認）', sourceType:'yamap'},
+  '横峰→剣ヶ峰（飯豊）': {minutes:80, source:'YAMAP飯豊山モデル・横峰→分岐→剣ヶ峰 1時間20分（2026-08-30確認）', sourceType:'yamap'},
+  '剣ヶ峰（飯豊）→横峰': {minutes:50, source:'YAMAP飯豊山モデル・剣ヶ峰→分岐→横峰 50分（2026-08-30確認）', sourceType:'yamap'},
+  '剣ヶ峰（飯豊）→三国岳': {minutes:70, source:'YAMAP飯豊山モデル・剣ヶ峰→三国岳 1時間10分（2026-08-30確認）', sourceType:'yamap'},
+  '三国岳→剣ヶ峰（飯豊）': {minutes:10, source:'YAMAP飯豊山モデル・三国岳→剣ヶ峰 10分（2026-08-30確認）', sourceType:'yamap'},
+  '三国岳→切合小屋': {minutes:40, source:'YAMAP飯豊山モデル・三国岳→切合種蒔山分岐5分→切合小屋35分（2026-08-30確認）', sourceType:'yamap'},
+  '切合小屋→三国岳': {minutes:70, source:'YAMAP飯豊山モデル・切合小屋→切合種蒔山分岐5分→三国岳65分（2026-08-30確認）', sourceType:'yamap'},
+  '飯豊山→御西岳': {minutes:56, source:'YAMAP飯豊山・大日岳モデル・飯豊山→駒形山→御西岳 56分（2026-08-30確認）', sourceType:'yamap'},
+  '御西岳→飯豊山': {minutes:45, source:'YAMAP飯豊山・大日岳モデル・御西岳→駒形山→飯豊山 45分（2026-08-30確認）', sourceType:'yamap'},
+  '御西岳→大日岳（飯豊）': {minutes:87, source:'YAMAP飯豊山・大日岳モデル・御西岳→大日岳 1時間27分（2026-08-30確認）', sourceType:'yamap'},
+  '大日岳（飯豊）→御西岳': {minutes:56, source:'YAMAP飯豊山・大日岳モデル・大日岳→御西岳 56分（2026-08-30確認）', sourceType:'yamap'},
+
+  // 朝日連峰主稜: 朝日鉱泉 / 鶴岡市 public route data.
+  '大朝日岳→大朝日岳山頂避難小屋': {minutes:10, source:'朝日鉱泉公式・大朝日岳山頂→大朝日岳山頂避難小屋 約10分（2026-08-30確認）', sourceType:'official'},
+  '大朝日岳山頂避難小屋→大朝日岳': {minutes:20, source:'朝日鉱泉公式・大朝日岳山頂避難小屋→大朝日岳山頂 約20分（2026-08-30確認）', sourceType:'official'},
+  '大朝日岳山頂避難小屋→竜門小屋': {minutes:180, source:'朝日鉱泉公式・大朝日岳山頂避難小屋→竜門山避難小屋 3時間（2026-08-30確認）', sourceType:'official'},
+  '竜門小屋→大朝日岳山頂避難小屋': {minutes:180, source:'朝日鉱泉公式・竜門山避難小屋→大朝日岳山頂避難小屋 3時間（2026-08-30確認）', sourceType:'official'},
+  '竜門小屋→狐穴避難小屋': {minutes:170, source:'朝日鉱泉公式・竜門山避難小屋→狐穴避難小屋 約2時間50分（2026-08-30確認）', sourceType:'official'},
+  '狐穴避難小屋→竜門小屋': {minutes:180, source:'朝日鉱泉公式・狐穴避難小屋→竜門山避難小屋 約3時間（2026-08-30確認）', sourceType:'official'},
+  '狐穴避難小屋→以東岳': {minutes:180, source:'朝日鉱泉公式・狐穴避難小屋→以東岳 約3時間（2026-08-30確認）', sourceType:'official'},
+  '以東岳→狐穴避難小屋': {minutes:150, source:'朝日鉱泉公式・以東岳→狐穴避難小屋 約2時間30分（2026-08-30確認）', sourceType:'official'},
+  '大鳥池タキタロウ山荘→オツボ峰': {minutes:170, source:'鶴岡市公式・大鳥池小屋→オツボ峰 170分（2026-08-30確認）', sourceType:'official'},
+  'オツボ峰→大鳥池タキタロウ山荘': {minutes:120, source:'鶴岡市公式・オツボ峰→大鳥池小屋 120分（2026-08-30確認）', sourceType:'official'},
+  'オツボ峰→以東岳': {minutes:50, source:'鶴岡市公式・オツボ峰→以東岳 50分（2026-08-30確認）', sourceType:'official'},
+  '以東岳→オツボ峰': {minutes:40, source:'鶴岡市公式・以東岳→オツボ峰 40分（2026-08-30確認）', sourceType:'official'},
+  '泡滝ダム→大鳥池タキタロウ山荘': {minutes:150, source:'鶴岡市公式・泡滝ダム→大鳥池小屋 150分（2026-08-30確認）', sourceType:'official'},
+  '大鳥池タキタロウ山荘→泡滝ダム': {minutes:120, source:'鶴岡市公式・大鳥池小屋→泡滝ダム 120分（2026-08-30確認）', sourceType:'official'},
+
+  // 奥秩父主脈: named public model sections. Long ridge sections are kept coarse where public adjacent CT is not exposed.
+  '大弛峠→朝日峠（奥秩父）': {minutes:45, source:'YAMAP金峰山モデル・大弛峠→朝日峠 45分（2026-08-30確認）', sourceType:'yamap'},
+  '朝日峠（奥秩父）→大弛峠': {minutes:40, source:'YAMAP金峰山モデル・朝日峠→大弛峠 40分（2026-08-30確認）', sourceType:'yamap'},
+  '朝日峠（奥秩父）→朝日岳（奥秩父）': {minutes:35, source:'YAMAP金峰山モデル・朝日峠→朝日岳 35分（2026-08-30確認）', sourceType:'yamap'},
+  '朝日岳（奥秩父）→朝日峠（奥秩父）': {minutes:35, source:'YAMAP金峰山モデル・朝日岳→朝日峠 35分（2026-08-30確認）', sourceType:'yamap'},
+  '朝日岳（奥秩父）→金峰山': {minutes:44, source:'YAMAP金峰山モデル・朝日岳→金峰山（途中分岐含む）44分（2026-08-30確認）', sourceType:'yamap'},
+  '甲武信ヶ岳→大弛峠': {minutes:342, source:'YAMAP JAPAN TRAIL 奥秩父連山登山道③・甲武信ヶ岳→大弛峠 5時間42分（2026-08-30確認）', sourceType:'yamap'},
+  '笠取山→甲武信ヶ岳': {minutes:460, source:'YAMAP JAPAN TRAIL 奥秩父連山登山道②・笠取山→甲武信ヶ岳 7時間40分（2026-08-30確認）', sourceType:'yamap'},
+
+  // 谷川主脈: YAMAP/JAPAN TRAIL public model, checked 2026-08-30.
+  '平標山→仙ノ倉山': {minutes:50, source:'YAMAP谷川主脈JAPAN TRAIL・平標山→前仙ノ倉山40分→仙ノ倉山10分（2026-08-30確認）', sourceType:'yamap'},
+  '仙ノ倉山→エビス大黒ノ頭': {minutes:95, source:'YAMAP谷川主脈JAPAN TRAIL・仙ノ倉山→エビス大黒避難小屋30分→エビス大黒ノ頭65分（2026-08-30確認）', sourceType:'yamap'},
+  'エビス大黒ノ頭→毛渡乗越': {minutes:30, source:'YAMAP谷川主脈JAPAN TRAIL・エビス大黒ノ頭→毛渡乗越30分（2026-08-30確認）', sourceType:'yamap'},
+  '毛渡乗越→万太郎山': {minutes:53, source:'YAMAP谷川主脈JAPAN TRAIL・毛渡乗越→越路避難小屋50分→万太郎山3分（2026-08-30確認）', sourceType:'yamap'},
+  '万太郎山→大障子ノ頭': {minutes:70, source:'YAMAP谷川主脈JAPAN TRAIL・万太郎山→分岐45分→大障子ノ頭25分（2026-08-30確認）', sourceType:'yamap'},
+  '大障子ノ頭→小障子ノ頭': {minutes:71, source:'YAMAP谷川主脈JAPAN TRAIL・大障子ノ頭→大障子避難小屋1分→分岐20分→小障子ノ頭50分（2026-08-30確認）', sourceType:'yamap'},
+  '小障子ノ頭→オジカ沢ノ頭': {minutes:35, source:'YAMAP谷川主脈JAPAN TRAIL・小障子ノ頭→オジカ沢避難小屋5分→オジカ沢ノ頭30分（2026-08-30確認）', sourceType:'yamap'},
+  'オジカ沢ノ頭→谷川岳（トマノ耳）': {minutes:42, source:'YAMAP谷川主脈JAPAN TRAIL・オジカ沢ノ頭→谷川岳トマノ耳42分（2026-08-30確認）', sourceType:'yamap'}
+});
+
+const MAJOR_TRAIL_NETWORKS_V1548 = Object.freeze({
+  ...MAJOR_TRAIL_NETWORKS_V1547,
+  '大雪山・表大雪トムラウシ主縦走': Object.freeze({
+    anchors:['大雪山（旭岳）','トムラウシ山'],
+    nodes:Object.freeze(['七合目リフト駅','黒岳','黒岳石室','大雪山（旭岳）','北海岳','白雲岳避難小屋','忠別岳','五色岳','ヒサゴ沼避難小屋','トムラウシ山','トムラウシ短縮コース登山口']),
+    edges:Object.freeze([
+      ['七合目リフト駅','黒岳'],['黒岳','七合目リフト駅'],['黒岳','黒岳石室'],['黒岳石室','黒岳'],['黒岳石室','北海岳'],['大雪山（旭岳）','北海岳'],['北海岳','黒岳石室'],
+      ['北海岳','白雲岳避難小屋'],['白雲岳避難小屋','忠別岳'],['忠別岳','五色岳'],['五色岳','ヒサゴ沼避難小屋'],
+      ['ヒサゴ沼避難小屋','トムラウシ山'],['トムラウシ山','トムラウシ短縮コース登山口']
+    ])
+  }),
+  '飯豊連峰・御沢飯豊大日主稜': Object.freeze({
+    anchors:['飯豊山','大日岳（飯豊）'],
+    nodes:Object.freeze(['御沢登山口','横峰','剣ヶ峰（飯豊）','三国岳','切合小屋','飯豊山','御西岳','大日岳（飯豊）']),
+    edges:Object.freeze([
+      ['御沢登山口','横峰'],['横峰','御沢登山口'],['横峰','剣ヶ峰（飯豊）'],['剣ヶ峰（飯豊）','横峰'],
+      ['剣ヶ峰（飯豊）','三国岳'],['三国岳','剣ヶ峰（飯豊）'],['三国岳','切合小屋'],['切合小屋','三国岳'],
+      ['切合小屋','飯豊山'],['飯豊山','御西岳'],['御西岳','飯豊山'],['御西岳','大日岳（飯豊）'],['大日岳（飯豊）','御西岳']
+    ])
+  }),
+  '朝日連峰・大朝日以東大鳥池主稜': Object.freeze({
+    anchors:['大朝日岳','以東岳'],
+    nodes:Object.freeze(['大朝日岳','大朝日岳山頂避難小屋','竜門小屋','狐穴避難小屋','以東岳','オツボ峰','大鳥池タキタロウ山荘','泡滝ダム']),
+    edges:Object.freeze([
+      ['大朝日岳','大朝日岳山頂避難小屋'],['大朝日岳山頂避難小屋','大朝日岳'],
+      ['大朝日岳山頂避難小屋','竜門小屋'],['竜門小屋','大朝日岳山頂避難小屋'],['竜門小屋','狐穴避難小屋'],['狐穴避難小屋','竜門小屋'],
+      ['狐穴避難小屋','以東岳'],['以東岳','狐穴避難小屋'],['以東岳','オツボ峰'],['オツボ峰','以東岳'],
+      ['オツボ峰','大鳥池タキタロウ山荘'],['大鳥池タキタロウ山荘','オツボ峰'],['泡滝ダム','大鳥池タキタロウ山荘'],['大鳥池タキタロウ山荘','泡滝ダム']
+    ])
+  }),
+  '奥秩父・金峰国師甲武信主脈': Object.freeze({
+    anchors:['金峰山','甲武信ヶ岳'],
+    nodes:Object.freeze(['金峰山','朝日岳（奥秩父）','朝日峠（奥秩父）','大弛峠','国師ヶ岳','甲武信ヶ岳','笠取山']),
+    edges:Object.freeze([
+      ['大弛峠','朝日峠（奥秩父）'],['朝日峠（奥秩父）','大弛峠'],['朝日峠（奥秩父）','朝日岳（奥秩父）'],['朝日岳（奥秩父）','朝日峠（奥秩父）'],
+      ['朝日岳（奥秩父）','金峰山'],['大弛峠','国師ヶ岳'],['国師ヶ岳','大弛峠'],['甲武信ヶ岳','大弛峠'],['笠取山','甲武信ヶ岳']
+    ])
+  }),
+  '谷川連峰・平標谷川主脈': Object.freeze({
+    anchors:['谷川岳','仙ノ倉山','平標山'],
+    nodes:Object.freeze(['平標山','仙ノ倉山','エビス大黒ノ頭','毛渡乗越','万太郎山','大障子ノ頭','小障子ノ頭','オジカ沢ノ頭','谷川岳（トマノ耳）']),
+    edges:Object.freeze([
+      ['平標山','仙ノ倉山'],['仙ノ倉山','エビス大黒ノ頭'],['エビス大黒ノ頭','毛渡乗越'],['毛渡乗越','万太郎山'],
+      ['万太郎山','大障子ノ頭'],['大障子ノ頭','小障子ノ頭'],['小障子ノ頭','オジカ沢ノ頭'],['オジカ沢ノ頭','谷川岳（トマノ耳）']
+    ])
+  })
+});
+
 // V1.5.44: replace coordinate-regression CT with publicly checked standard route times.
 // Only exact endpoint pairs with a usable public source are registered here.
 // Unresolved pairs intentionally return CT unavailable instead of a synthetic regression value.
@@ -2196,6 +2498,8 @@ const V1544_ESTIMATE_REPLACEMENT_COURSE_TIMES = Object.freeze({
 });
 
 const COURSE_TIME_TABLES = Object.freeze([
+  V1548_DEEP_NETWORK_COURSE_TIMES,
+  V1547_NATIONAL_NETWORK_COURSE_TIMES,
   V1546_ALPS_NETWORK_COURSE_TIMES,
   V1545_AREA_NETWORK_COURSE_TIMES,
   V1544_ESTIMATE_REPLACEMENT_COURSE_TIMES,

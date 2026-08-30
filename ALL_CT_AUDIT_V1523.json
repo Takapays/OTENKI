@@ -1,10 +1,10 @@
 {
   "summary": {
     "mountains": 300,
-    "courses": 377,
-    "segments": 967,
-    "direct": 955,
-    "composed": 12,
+    "courses": 376,
+    "segments": 963,
+    "direct": 952,
+    "composed": 11,
     "estimated": 0,
     "missing": 81,
     "flags": 120,
@@ -11939,25 +11939,13 @@
       "mountain": "大山（鳥取）",
       "course": "夏山登山口 大山ルート",
       "from": "六合目避難小屋",
-      "to": "大山頂上避難小屋",
-      "minutes": 73,
-      "source": "ヤマレコ・大山弥山 山行計画（標準CT補完）",
-      "composed": false,
-      "estimated": false,
-      "via": [],
-      "km": 1.135708663403918
-    },
-    {
-      "mountain": "大山（鳥取）",
-      "course": "夏山登山口 大山ルート",
-      "from": "大山頂上避難小屋",
       "to": "大山（弥山）",
-      "minutes": 3,
-      "source": "ヤマレコ・大山弥山 山行計画（標準CT補完）",
+      "minutes": 80,
+      "source": "環境省・大山登山コース 六合目避難小屋→大山山頂80分（2026-08-30確認）",
       "composed": false,
       "estimated": false,
       "via": [],
-      "km": 0.03796883992967365
+      "km": 1.1733945908303118
     },
     {
       "mountain": "大山（鳥取）",
@@ -12224,44 +12212,6 @@
       "estimated": false,
       "via": [],
       "km": 4.162890848184687
-    },
-    {
-      "mountain": "三嶺",
-      "course": "名頃登山口 三嶺ルート",
-      "from": "名頃登山口 三嶺",
-      "to": "三嶺ヒュッテ",
-      "minutes": 223,
-      "source": "ヤマレコ・三嶺 山行計画（標準CT補完）",
-      "composed": false,
-      "estimated": false,
-      "via": [],
-      "km": 3.2878779644004084
-    },
-    {
-      "mountain": "三嶺",
-      "course": "名頃登山口 三嶺ルート",
-      "from": "三嶺ヒュッテ",
-      "to": "三嶺",
-      "minutes": 14,
-      "source": "ヤマレコ・三嶺 山行計画（標準CT補完）",
-      "composed": false,
-      "estimated": false,
-      "via": [],
-      "km": 0.3556888335850823
-    },
-    {
-      "mountain": "三嶺",
-      "course": "名頃登山口 三嶺ルート",
-      "from": "三嶺",
-      "to": "名頃登山口 三嶺",
-      "minutes": 140,
-      "source": "ヤマレコ・三嶺 山行計画（標準CT補完）（確認済み区間合算・代表経路採用）",
-      "composed": true,
-      "estimated": false,
-      "via": [
-        "三嶺ヒュッテ"
-      ],
-      "km": 3.642990748371862
     },
     {
       "mountain": "東赤石山",
@@ -13029,8 +12979,8 @@
       "course": "えびの高原・韓国岳登山口ルート",
       "from": "えびの高原・韓国岳登山口",
       "to": "霧島山（韓国岳）",
-      "minutes": 123,
-      "source": "ヤマレコ・韓国岳 山行計画（標準CT補完）",
+      "minutes": 90,
+      "source": "環境省・韓国岳大浪池登山コース 韓国岳登山口→韓国岳山頂90分（2026-08-30確認）",
       "composed": false,
       "estimated": false,
       "via": [],

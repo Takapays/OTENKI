@@ -1,3 +1,19 @@
+# V1.5.48 Deep traverse CT network completion
+
+V1.5.48 deepens the five major networks left intentionally incomplete in V1.5.47: Daisetsu, Iide, Asahi, Okuchichibu main ridge, and Tanigawa main ridge. The explicit mountain-area audit now covers **36 areas / 264 named nodes / 424 directed adjacent audit edges**, with direct verified 424 / missing 0 / estimated 0 / composed-only 0 / disconnected 0. The Hyakumeizan route union + explicit networks covers **700/700** unique adjacent audit edges.
+
+No CT is generated from coordinates/elevation or mirrored to an unsupported reverse direction. Where a public source exposes only a whole ridge-section CT (not every intermediate named peak), V1.5.48 keeps that section coarse and documents the limitation rather than inventing subsegment values. Weather logic, progressive rendering, and existing fixed coordinates are unchanged.
+
+# V1.5.47 Nationwide mountain-area CT network expansion
+
+V1.5.47 extends the explicit mountain-area CT audit to 31 major areas / 225 nodes / 367 directed adjacent edges. All declared edges are direct verified CT with missing 0 / estimated 0 / composed-only 0 / disconnected 0.
+
+The release deliberately does not claim every real-world trail nationwide is cataloged. Remaining major structural gaps are listed in `NATIONWIDE_NETWORK_GAP_AUDIT_V1547.md`.
+
+See `RELEASE_AUDIT_V1547.md`, `AREA_NETWORK_CT_AUDIT_V1547.json`, `HYAKUMEIZAN_NETWORK_CT_AUDIT_V1547.json`, and `GITHUB_DESKTOP_V1547.md`.
+
+---
+
 # V1.5.46 Alps-centered mountain-area CT network audit
 
 - Expanded the V1.5.45 mountain-area audit from Kuju into **16 explicit major mountain-area graphs** centered on the North/Central/South Alps and Yatsugatake.
