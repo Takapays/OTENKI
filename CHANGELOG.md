@@ -1,3 +1,13 @@
+## V1.5.46
+
+- Expanded mountain-area CT auditing beyond representative routes, with 16 explicit Alps/Yatsugatake/Kuju major trail graphs.
+- Added graph-connectivity acceptance: an area now fails audit if its declared major-trail graph is disconnected even when every individual declared edge has CT.
+- Explicit area result: 141 named points / 264 directed adjacent edges / direct verified 264 / missing 0 / estimated 0 / composed-only 0 / disconnected 0.
+- Hyakumeizan route-union + explicit-area result: 574/574 unique adjacent audit edges direct verified; missing 0 / estimated 0 / composed-only 0.
+- Added verified reverse/branch CTs needed to connect Yari-Hotaka, Omote Ginza, Hakuba-Kaerazu-Goryu-Kashimayari, Kiso-Komagatake-Utsugi, and the Hijiri Sawarajima approach.
+- Added explicit networks for Kumonodaira-Yakushizawa, Yakushidake, Kitazawa-toge Kai-Komagatake/Senjo, Arakawa-Akaishi, and Hijiridake.
+- No change to weather logic, progressive rendering, or existing fixed coordinates.
+
 ## V1.5.45
 
 - Added Hyakumeizan mountain-area CT network audit: all currently declared route options are unioned; known composed edges are expanded to underlying verified direct CT edges. Result: 100 mountains / 140 route definitions / 419 unique adjacent edges, verified direct 419, missing 0, estimated 0, composed-only 0.

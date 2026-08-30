@@ -1,3 +1,15 @@
+# V1.5.46 Alps-centered mountain-area CT network audit
+
+- Expanded the V1.5.45 mountain-area audit from Kuju into **16 explicit major mountain-area graphs** centered on the North/Central/South Alps and Yatsugatake.
+- Explicit area audit: **141 named trail points / 264 directed adjacent sections / 264 direct verified / missing 0 / estimated 0 / composed-only 0 / disconnected areas 0**.
+- Hyakumeizan union audit (all currently declared 100-mountain route options + explicit area graphs): **574 unique adjacent sections / 574 direct verified / missing 0 / estimated 0 / composed-only 0**.
+- Added major branches such as Kamikochi-Yari-Hotaka, Omote Ginza-Jonen, Ura Ginza-Futamata, Kumonodaira-Yakushizawa, Hakuba-Kaerazu-Goryu-Kashimayari, Tateyama-Tsurugi, Yakushidake, Kiso-Komagatake-Utsugi, Kitazawa-toge/Kai-Komagatake/Senjo, Shirane-Shiomi, Arakawa-Akaishi, Hijiri, Ho-o, and Yatsugatake.
+- Hijiri's Sawarajima approach is split into named adjacent checkpoints instead of one summit total: Sawarajima / Hijirisawa trailhead / suspension bridge / forestry-hut ruins / Nokkoshi / Iwagashira waterfall viewpoint / Seseragi / Hijiridaira Hut / Hijiridake.
+- Only publicly checked CTs are added. No coordinate/elevation regression estimate is re-enabled.
+- Current route restrictions/invalid generated endpoints introduced in V1.5.45 remain excluded rather than receiving synthetic CT.
+- Existing weather analysis, progressive rendering, and fixed-coordinate records are unchanged.
+- See `RELEASE_AUDIT_V1546.md`, `AREA_NETWORK_CT_AUDIT_V1546.json`, and `HYAKUMEIZAN_NETWORK_CT_AUDIT_V1546.json`.
+
 # V1.5.45 mountain-area CT network audit
 
 - Hyakumeizan: all currently declared route options are unioned into a network and known composed edges are expanded to verified adjacent direct CT edges for audit: **419/419 verified, missing 0, estimated 0, composed-only 0**.
