@@ -34,7 +34,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.5.38"
+APP_VERSION = "1.5.40"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -276,7 +276,7 @@ def _fetch_tenkura_index(region: str) -> list[dict[str, str]]:
             return [dict(x) for x in cached[1]]
     url = TENKURA_INDEX_URLS[region]
     req = urllib.request.Request(url, headers={
-        "User-Agent": "TRATEN/1.5.38 https://otenki.onrender.com",
+        "User-Agent": "TRATEN/1.5.40 https://otenki.onrender.com",
         "Accept": "text/html,application/xhtml+xml",
         "Accept-Language": "ja,en;q=0.5",
     })
@@ -442,7 +442,7 @@ def _fetch_external_mountain_index(provider: str) -> list[dict[str, str]]:
     else:
         raise ValueError("unknown provider")
     req = urllib.request.Request(url, headers={
-        "User-Agent": "TRATEN/1.5.38 https://otenki.onrender.com",
+        "User-Agent": "TRATEN/1.5.40 https://otenki.onrender.com",
         "Accept": "text/html,application/xhtml+xml",
         "Accept-Language": "ja,en;q=0.5",
     })
@@ -2716,7 +2716,7 @@ def _water_mountain_cache_remote_load() -> dict[str, Any] | None:
         try:
             req = urllib.request.Request(
                 url,
-                headers={"User-Agent": "Traten/1.5.38", "Cache-Control": "no-cache"},
+                headers={"User-Agent": "Traten/1.5.40", "Cache-Control": "no-cache"},
             )
             with urllib.request.urlopen(req, timeout=WATER_MOUNTAIN_CACHE_REMOTE_TIMEOUT) as resp:
                 data = json.loads(resp.read().decode("utf-8"))

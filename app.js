@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.38';
+const APP_VERSION = '1.5.40';
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
@@ -1734,7 +1734,71 @@ const V14188_PRIORITY_VERIFIED_COURSE_TIMES = Object.freeze({
   '笊ヶ岳→老平・笊ヶ岳登山口': {minutes:353, source:'YAMAP標準モデル・笊ヶ岳（老平） 山頂→老平登山口 5時間53分', sourceType:'yamap'}
 });
 
+
+
+// V1.5.40: split verified 10h+ representative routes into practical sections.
+// Long totals are not displayed as one opaque segment; confirmed huts/waypoints become route points.
+const V1540_LONG_ROUTE_SPLIT_COURSE_TIMES = Object.freeze({
+  // 幌尻岳 新冠陽希コース: existing YAMAP model total 11:15 = 6:57 + 4:18.
+  'イドンナップ山荘駐車場（新冠陽希コース）→新冠ポロシリ山荘': {minutes:417, source:'YAMAP標準モデル・イドンナップ山荘登山口→奥新冠ダム/新冠ポロシリ山荘 6時間57分', sourceType:'yamap'},
+  '新冠ポロシリ山荘→幌尻岳': {minutes:258, source:'YAMAP標準モデル・新冠ポロシリ山荘→幌尻岳 4時間18分', sourceType:'yamap'},
+
+  // ペテガリ岳: 新ひだか町公式の一般ルート案内。
+  '神威山荘（ペテガリ岳アプローチ起点）→ペテガリ山荘': {minutes:300, source:'新ひだか町公式・神威山荘→ペテガリ山荘 約5時間', sourceType:'official'},
+  'ペテガリ山荘→ペテガリ岳': {minutes:390, source:'新ひだか町公式・ペテガリ山荘→ペテガリ岳 約6時間30分', sourceType:'official'},
+  'ペテガリ岳→ペテガリ山荘': {minutes:300, source:'新ひだか町公式・ペテガリ岳→ペテガリ山荘 約5時間', sourceType:'official'},
+  'ペテガリ山荘→神威山荘（ペテガリ岳アプローチ起点）': {minutes:300, source:'新ひだか町公式・ペテガリ山荘→神威山荘 約5時間', sourceType:'official'},
+
+  // 飯豊山 大日杉: existing verified total source explicitly provides 445 + 163 minutes.
+  '大日杉登山口→切合小屋': {minutes:445, source:'ヤマレコ・飯豊連峰縦走 p5526848（大日杉登山小屋→切合小屋 445分）', sourceType:'yamareco'},
+  '切合小屋→飯豊山': {minutes:163, source:'ヤマレコ・飯豊連峰縦走 p5526848（切合小屋→飯豊山 163分）', sourceType:'yamareco'},
+
+  // 折立〜水晶岳: verified total 12:30, split at 薬師沢・雲ノ平.
+  '折立登山口→薬師沢小屋': {minutes:410, source:'確認済み区間合算・折立→太郎平小屋 270分 + 太郎平小屋→薬師沢小屋 140分', sourceType:'composed-verified'},
+  '雲ノ平山荘→水晶岳': {minutes:145, source:'公開登山ガイド・折立→水晶岳 12時間30分から確認済み折立→雲ノ平区間を差し引いた区間CT', sourceType:'derived-verified'},
+  '水晶岳→雲ノ平山荘': {minutes:232, source:'公開登山ガイド・水晶岳→折立 11時間20分から確認済み雲ノ平→折立区間を差し引いた区間CT', sourceType:'derived-verified'},
+  '薬師沢小屋→折立登山口': {minutes:351, source:'確認済み区間合算・薬師沢小屋→太郎平小屋 141分 + 太郎平小屋→折立 210分', sourceType:'composed-verified'},
+
+  // 折立〜鷲羽岳: same corridor; preserve verified 14:40 outbound total while exposing useful sections.
+  '雲ノ平山荘→鷲羽岳': {minutes:275, source:'公開登山ガイド・折立→鷲羽岳 14時間40分から確認済み折立→雲ノ平区間を差し引いた区間CT', sourceType:'derived-verified'},
+  '鷲羽岳→雲ノ平山荘': {minutes:211, source:'確認済み区間合算・鷲羽岳→三俣山荘 51分 + 三俣山荘→雲ノ平山荘 160分', sourceType:'composed-verified'},
+
+  // 折立〜赤牛岳: 水晶岳を通過点にして長大な直結CTを分割。
+  // 折立→薬師沢、雲ノ平→水晶は上の水晶岳ルートと同じ確認済み区間を共用する。
+  '水晶岳→赤牛岳': {minutes:170, source:'山旅旅・水晶岳→温泉沢ノ頭 50分 + 温泉沢ノ頭→赤牛岳 2時間', sourceType:'other'},
+  '赤牛岳→水晶岳': {minutes:201, source:'ヤマレコ公開山行計画・赤牛岳→温泉沢ノ頭→水晶岳 201分', sourceType:'yamareco'},
+
+  // 南駒ヶ岳: existing YAMAP total 10:27; 越百山で分割。
+  '越百山→南駒ヶ岳': {minutes:230, source:'YAMAP標準モデル・伊奈川ダム上→南駒ヶ岳 627分から伊奈川ダム上→越百山 397分を差し引いた区間CT', sourceType:'derived-verified'},
+
+  // 光岳: existing YAMAP total 11:25; 茶臼岳で分割。
+  '茶臼岳→光岳': {minutes:245, source:'YAMAP・沼平ゲート→光岳 685分から沼平ゲート→茶臼岳 440分を差し引いた区間CT', sourceType:'derived-verified'}
+});
+
+// V1.5.39: mountain-hut CT corrections and verified Ontake hut links.
+// Direct verified CT must win over graph composition. Do not infer missing local hut times.
+const V1539_HUT_CT_CORRECTIONS = Object.freeze({
+  '朝日岳（新潟・富山）→朝日小屋': {minutes:50, source:'朝日小屋公式・北又コース（朝日岳→朝日小屋 50分）', sourceType:'official'},
+  '朝日小屋→朝日岳（新潟・富山）': {minutes:60, source:'朝日小屋公式・北又コース（朝日小屋→朝日岳 1時間）', sourceType:'official'},
+
+  '女人堂→御嶽山（剣ヶ峰）': {minutes:150, source:'長野県山小屋情報ポータル・女人堂から剣ヶ峰頂上まで約2時間30分', sourceType:'official'},
+  '御嶽山（剣ヶ峰）→女人堂': {minutes:90, source:'御嶽山トレッキング黒沢口・剣ヶ峰→女人堂 約1時間30分', sourceType:'other'},
+  '石室山荘→御嶽山（剣ヶ峰）': {minutes:40, source:'御嶽山トレッキング黒沢口・石室山荘上部から剣ヶ峰 約40分', sourceType:'other'},
+  '御嶽山（剣ヶ峰）→石室山荘': {minutes:45, source:'公開山行記録・剣ヶ峰→石室山荘 約45分（複数記録照合）', sourceType:'other'},
+  '二の池ヒュッテ→御嶽山（剣ヶ峰）': {minutes:15, source:'長野県山小屋情報ポータル・二の池ヒュッテは剣ヶ峰より15分程度', sourceType:'official'},
+  '御嶽山（剣ヶ峰）→二の池ヒュッテ': {minutes:15, source:'長野県山小屋情報ポータル・二の池ヒュッテは剣ヶ峰より15分程度', sourceType:'official'},
+  '五の池小屋→御嶽山（剣ヶ峰）': {minutes:120, source:'御嶽山トレッキング飛騨頂上・五の池小屋→剣ヶ峰 約2時間', sourceType:'other'},
+  '御嶽山（剣ヶ峰）→五の池小屋': {minutes:90, source:'御嶽山トレッキング飛騨頂上・剣ヶ峰→五の池小屋 約1時間30分', sourceType:'other'},
+  '田の原登山口→二の池ヒュッテ': {minutes:220, source:'二の池ヒュッテ公式・田ノ原口から剣ヶ峰経由 約3時間40分', sourceType:'official'},
+  '笠ヶ岳山荘→笠ヶ岳（岐阜）': {minutes:20, source:'飛騨高山旅ガイド・笠ヶ岳山荘→笠ヶ岳 20分', sourceType:'official'},
+  '笠ヶ岳（岐阜）→笠ヶ岳山荘': {minutes:15, source:'公開コース案内・笠ヶ岳→笠ヶ岳山荘 15分', sourceType:'other'},
+  '笠ヶ岳山荘→笠ヶ岳': {minutes:20, source:'飛騨高山旅ガイド・笠ヶ岳山荘→笠ヶ岳 20分', sourceType:'official'},
+  '笠ヶ岳→笠ヶ岳山荘': {minutes:15, source:'公開コース案内・笠ヶ岳→笠ヶ岳山荘 15分', sourceType:'other'}
+});
+
 const COURSE_TIME_TABLES = Object.freeze([
+  V1540_LONG_ROUTE_SPLIT_COURSE_TIMES,
+  V1539_HUT_CT_CORRECTIONS,
   V1522_OMOTE_GINZA_VERIFIED_COURSE_TIMES,
   V1520_CLASSIC_ROUTE_VERIFIED_COURSE_TIMES,
   V1518_CLASSIC_ROUTE_VERIFIED_COURSE_TIMES,
@@ -1993,10 +2057,25 @@ function courseTimeInfo(fromPoint,toPoint){
   if(normalizedDirect)return normalizedDirect;
   // Compose with canonical endpoints first. Raw-name composition is only a final compatibility fallback.
   // This prevents paths that pass through an alias-equivalent endpoint (e.g. 扇沢 vs 扇沢登山口) and continue on a detour.
+  // V1.5.39: reject obviously local detours created by graph composition.
+  // When nearby mountain/hut/trailhead endpoints are connected only by a 4+ edge detour,
+  // returning no CT is safer than showing an implausible 10-20 hour value.
+  const localComposedIsImplausible=(info)=>{
+    if(!info?.composed||!Number.isFinite(Number(info.minutes)))return false;
+    // V1.5.40: a composed single section of 10h or more is not useful as a route segment.
+    // Such long travel must be represented by verified intermediate points instead of an opaque graph detour.
+    if(Number(info.minutes)>=600)return true;
+    const lat1=Number(fromPoint.lat),lon1=Number(fromPoint.lon),lat2=Number(toPoint.lat),lon2=Number(toPoint.lon);
+    if(![lat1,lon1,lat2,lon2].every(Number.isFinite))return false;
+    const km=haversineKm(lat1,lon1,lat2,lon2);
+    const edges=(info.via?.length||0)+1;
+    if(km<=0.15 && Number(info.minutes)>60)return true;
+    return km<=3 && edges>=4 && Number(info.minutes)>300;
+  };
   const normalizedComposed=composedCourseTimeInfo(fromName,toName);
-  if(normalizedComposed)return normalizedComposed;
+  if(normalizedComposed&&!localComposedIsImplausible(normalizedComposed))return normalizedComposed;
   const rawComposed=composedCourseTimeInfo(rawFrom,rawTo);
-  if(rawComposed)return rawComposed;
+  if(rawComposed&&!localComposedIsImplausible(rawComposed))return rawComposed;
   return estimatedGeneratedCourseTimeInfo(rawFrom,rawTo)
     ||estimatedGeneratedCourseTimeInfo(fromName,toName)
     ||null;
@@ -4544,6 +4623,9 @@ function mergeRegionalCatalogs(...keys){
 }
 
 function regionalCandidates(mountain){
+  // V1.5.40: 折立〜雲ノ平〜水晶・鷲羽・赤牛の実ルート通過点を同一回廊として解決。
+  // 赤牛岳は旧MOUNTAIN_REGION未設定でも、この回廊を優先して返す。
+  if(['水晶岳（黒岳）','鷲羽岳','赤牛岳'].includes(mountain))return mergeRegionalCatalogs('yakushi_kurobe','ushiroginza');
   const key=MOUNTAIN_REGION[mountain];
   if(!key)return [];
   // 槍ヶ岳は表銀座側からも選べるよう両グループを統合。
@@ -7226,6 +7308,38 @@ const EXTRA_REPRESENTATIVE_COURSES_V14201 = Object.freeze({
 });
 
 
+// V1.5.40: resolved intermediate points for long representative routes.
+// Coordinates are public-source values; no guessed coordinates are introduced.
+Object.assign(BUILTIN_ROUTE_CATALOG, {
+  '幌尻岳': [
+    ...(BUILTIN_ROUTE_CATALOG['幌尻岳']||[]),
+    {id:'v1540-poroshiri-niikappu-hut',type:'hut',name:'新冠ポロシリ山荘',lat:42.690167,lon:142.685083,elevation:787,source:'YAMAP公開ランドマーク / ヤマレコ公開地名座標'}
+  ],
+  'ペテガリ岳': [
+    ...(BUILTIN_ROUTE_CATALOG['ペテガリ岳']||[]),
+    {id:'v1540-petegari-hut',type:'hut',name:'ペテガリ山荘',lat:42.477722,lon:142.814972,elevation:399,source:'YAMAP公開ランドマーク / 新ひだか町公式山荘案内'}
+  ],
+  '飯豊山': [
+    ...(BUILTIN_ROUTE_CATALOG['飯豊山']||[]),
+    {id:'v1540-iide-kiriawase',type:'hut',name:'切合小屋',lat:37.834575,lon:139.727442,elevation:1740,source:'コンパス公開地点座標 / 切合小屋管理人公式HP'}
+  ],
+  '南駒ヶ岳': [
+    ...(BUILTIN_ROUTE_CATALOG['南駒ヶ岳']||[]),
+    {id:'v1540-minamikoma-kosumo',type:'peak',name:'越百山',lat:35.679444,lon:137.803333,elevation:2614,source:'国土地理院・日本の主な山岳'}
+  ]
+});
+
+const EXTRA_REPRESENTATIVE_COURSES_V1540 = Object.freeze({
+  '幌尻岳': [{label:'イドンナップ山荘駐車場（新冠陽希コース）ルート',points:[['trailhead','イドンナップ山荘駐車場（新冠陽希コース）','登山口'],['hut','新冠ポロシリ山荘','山小屋'],['peak','幌尻岳','山頂']]}],
+  'ペテガリ岳': [{label:'神威山荘（ペテガリ岳アプローチ起点）ルート',points:[['trailhead','神威山荘（ペテガリ岳アプローチ起点）','登山口'],['hut','ペテガリ山荘','山小屋'],['peak','ペテガリ岳','山頂']]}],
+  '飯豊山': [{label:'大日杉登山口ルート',points:[['trailhead','大日杉登山口','登山口'],['hut','切合小屋','山小屋'],['peak','飯豊山','山頂']]}],
+  '水晶岳（黒岳）': [{label:'折立登山口ルート',points:[['trailhead','折立登山口','登山口'],['hut','薬師沢小屋','山小屋'],['hut','雲ノ平山荘','山小屋'],['peak','水晶岳','山頂']]}],
+  '鷲羽岳': [{label:'折立登山口ルート',points:[['trailhead','折立登山口','登山口'],['hut','薬師沢小屋','山小屋'],['hut','雲ノ平山荘','山小屋'],['peak','鷲羽岳','山頂']]}],
+  '赤牛岳': [{label:'折立登山口ルート',points:[['trailhead','折立登山口','登山口'],['hut','薬師沢小屋','山小屋'],['hut','雲ノ平山荘','山小屋'],['peak','水晶岳','通過ピーク'],['peak','赤牛岳','山頂']]}],
+  '南駒ヶ岳': [{label:'伊奈川ダム上登山口ルート',points:[['trailhead','伊奈川ダム上登山口','登山口'],['peak','越百山','通過ピーク'],['peak','南駒ヶ岳','山頂']]}],
+  '光岳': [{label:'沼平ゲートルート',points:[['trailhead','沼平ゲート','登山口'],['peak','茶臼岳','通過ピーク'],['peak','光岳','山頂']]}]
+});
+
 function generatedRepresentativeCourseOptions(mountain){
   // V1.4.77: 未対応山は固定候補の代表登山口→山頂から代表コースを自動生成する。
   // CTが確認済みなら自動加算、未登録なら読み込み自体は許可してCT情報なしを明示する。
@@ -7248,6 +7362,25 @@ function generatedRepresentativeCourseOptions(mountain){
 // 縦走コースは実際の出口へつなぎ、往復コースは往路を逆順にたどって登山口まで戻す。
 // これにより「山頂→登山口」の不自然な直結を避け、既存の区間CTをできるだけそのまま利用する。
 const REPRESENTATIVE_DESCENT_PATHS_V14166 = Object.freeze({
+  // V1.5.40: 10h+往路を分割した代表コース。復路も不自然な遠回り合算を避ける。
+  '幌尻岳|イドンナップ山荘駐車場（新冠陽希コース）ルート': [
+    ['trailhead','イドンナップ山荘駐車場（新冠陽希コース）','下山口']
+  ],
+  'ペテガリ岳|神威山荘（ペテガリ岳アプローチ起点）ルート': [
+    ['hut','ペテガリ山荘','山小屋'],['trailhead','神威山荘（ペテガリ岳アプローチ起点）','下山口']
+  ],
+  '飯豊山|大日杉登山口ルート': [['trailhead','大日杉登山口','下山口']],
+  '水晶岳（黒岳）|折立登山口ルート': [
+    ['hut','雲ノ平山荘','山小屋'],['hut','薬師沢小屋','山小屋'],['trailhead','折立登山口','下山口']
+  ],
+  '鷲羽岳|折立登山口ルート': [
+    ['hut','雲ノ平山荘','山小屋'],['hut','薬師沢小屋','山小屋'],['trailhead','折立登山口','下山口']
+  ],
+  '赤牛岳|折立登山口ルート': [
+    ['peak','水晶岳','通過ピーク'],['hut','雲ノ平山荘','山小屋'],['hut','薬師沢小屋','山小屋'],['trailhead','折立登山口','下山口']
+  ],
+  '南駒ヶ岳|伊奈川ダム上登山口ルート': [['trailhead','伊奈川ダム上登山口','下山口']],
+  '光岳|沼平ゲートルート': [['trailhead','沼平ゲート','下山口']],
   // V1.4.201: 代表コース増 第2弾の実用縦走ルート。
   // V1.4.200: 至仏山東面登山道は上り専用。山頂からは鳩待峠側へ下山する。
   '至仏山|山ノ鼻・東面登山道ルート': [
@@ -7364,7 +7497,8 @@ function representativeCourseOptions(mountain){
   const extra=EXTRA_REPRESENTATIVE_COURSES_V1466[key]||[];
   const extra199=EXTRA_REPRESENTATIVE_COURSES_V14199[key]||[];
   const extra201=EXTRA_REPRESENTATIVE_COURSES_V14201[key]||[];
-  const primary=[...base,...extra,...extra199,...extra201];
+  const extra1540=EXTRA_REPRESENTATIVE_COURSES_V1540[key]||[];
+  const primary=[...extra1540,...base,...extra,...extra199,...extra201];
   const generated=primary.length
     ? confirmedGeneratedRepresentativeCourseOptions(key,primary)
     : generatedRepresentativeCourseOptions(key);
