@@ -1,0 +1,29 @@
+{
+  "areas": 1,
+  "nodes": 10,
+  "directedEdges": 20,
+  "verifiedDirect": 20,
+  "composedOnly": 0,
+  "estimated": 0,
+  "missing": 0
+}
+verified-direct くじゅう連山 長者原->雨ヶ池越 108
+verified-direct くじゅう連山 雨ヶ池越->長者原 80
+verified-direct くじゅう連山 雨ヶ池越->坊ガツル 60
+verified-direct くじゅう連山 坊ガツル->雨ヶ池越 80
+verified-direct くじゅう連山 坊ガツル->法華院温泉山荘 20
+verified-direct くじゅう連山 法華院温泉山荘->坊ガツル 15
+verified-direct くじゅう連山 長者原->砂防ダム 30
+verified-direct くじゅう連山 砂防ダム->長者原 30
+verified-direct くじゅう連山 砂防ダム->諏蛾守越 60
+verified-direct くじゅう連山 諏蛾守越->砂防ダム 50
+verified-direct くじゅう連山 法華院温泉山荘->諏蛾守越 50
+verified-direct くじゅう連山 諏蛾守越->法華院温泉山荘 40
+verified-direct くじゅう連山 諏蛾守越->久住分かれ避難小屋 60
+verified-direct くじゅう連山 久住分かれ避難小屋->諏蛾守越 45
+verified-direct くじゅう連山 久住分かれ避難小屋->久住山 37
+verified-direct くじゅう連山 久住山->久住分かれ避難小屋 47
+verified-direct くじゅう連山 坊ガツル->段原 75
+verified-direct くじゅう連山 段原->坊ガツル 55
+verified-direct くじゅう連山 段原->大船山 20
+verified-direct くじゅう連山 大船山->段原 20

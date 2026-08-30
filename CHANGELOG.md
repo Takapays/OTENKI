@@ -1,3 +1,39 @@
+## V1.5.45
+
+- Added Hyakumeizan mountain-area CT network audit: all currently declared route options are unioned; known composed edges are expanded to underlying verified direct CT edges. Result: 100 mountains / 140 route definitions / 419 unique adjacent edges, verified direct 419, missing 0, estimated 0, composed-only 0.
+- Added `MAJOR_TRAIL_NETWORKS_V1545` with an explicit Kuju branch graph: 10 nodes / 20 directed adjacent edges, all direct verified.
+- Added publicly checked CTs for Rausu Onsen descent, Tomuraushi Onsen route, Higure-sawa descent, Dainichisugi descent, Amakazari Oami route, Hijiri Sawarajima descent, plus Kuju verified-edge compatibility sums.
+- Removed four invalid auto-generated endpoint pairs rather than fabricating CT: two Oze catalog/old-route cases, Kusatsu-Shirane restricted summit endpoint, and Asama crater-summit endpoint.
+- Added reproducible audit scripts and release audit artifacts.
+- Coordinate/elevation CT estimation remains disabled. Weather analysis, progressive rendering, and existing fixed-coordinate records are unchanged.
+
+## V1.5.44
+- 固定座標・標高差回帰による推定CTフォールバックを停止し、代表コースの estimated CT を0件化。
+- V1.5.43の推定120区間を全抽出し、公開標準CTを端点まで確認できた24方向を直接CTへ置換。
+- 確認不能な方向は数値を捏造せず `CT情報なし` とし、継続監査リストを出力。
+- 座標・気象分析・雷判定・全国A/B/C・progressive renderingは変更なし。
+
+## V1.5.43
+- 代表コース単一区間CT 5:00〜5:59を全監査。
+- 宮之浦岳の淀川登山口ルートを淀川小屋で50分＋4時間30分に分割（屋久島町公式、合計5時間20分を維持）。
+- 笠ヶ岳の笠新道ルートに残っていた旧5時間20分直結を廃止し、笠ヶ岳山荘まで7時間＋山頂20分へ修正。
+- 羅臼岳岩尾別コースは知床羅臼ビジターセンター公式の登り5時間／下り4時間を優先し、5:47の composed 値を解消。
+- 気象分析・雷判定・全国A/B/C・progressive renderingは変更なし。
+
+## V1.5.42
+- 代表コースの単一区間CT 6:00〜7:59を全監査し、70区間から55区間へ削減・再構成。
+- 常念岳（三股）、爺ヶ岳（扇沢）、鹿島槍（大谷原）、針ノ木岳、雲取山、中ノ岳、折立回廊、白山市ノ瀬、以東岳、八海山などを確認済み通過ポイントで分割。
+- 6:00〜7:59帯の composed（遠回り自動合算）を0件化。
+- 残存55区間は direct 34 / estimated 21。推定21件は未確認値を捏造せず継続監査対象として明示。
+- 8:00〜9:59は3件、10:00以上は0件を維持。
+
+## V1.5.41
+
+- 8:00-9:59 representative CT segments audited: 16 -> 3.
+- Split long routes through verified intermediate points on Optateshike, Daisahi, Sukai, Kashimayari, Kasa, Kasumizawa, Anpeiji, Fuji Gotemba, Notori, Hijiri, Kamikochi-dake and Zaru.
+- Added a safety-preserving route catalog cleanup so obsolete opaque direct alternatives are replaced by split routes.
+- No weather-analysis or progressive-rendering changes.
+
 ## V1.5.40
 - CT 10時間以上の異常値を全監査し、長距離代表ルートを実用的な通過ポイントで分割。
 - 遠回りグラフ合算による10時間以上の単一区間CTを拒否する安全ガードを追加。

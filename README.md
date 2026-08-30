@@ -1,3 +1,32 @@
+# V1.5.45 mountain-area CT network audit
+
+- Hyakumeizan: all currently declared route options are unioned into a network and known composed edges are expanded to verified adjacent direct CT edges for audit: **419/419 verified, missing 0, estimated 0, composed-only 0**.
+- Kuju: added an explicit branch network beyond representative routes: 10 nodes / 20 directed adjacent edges, all direct verified.
+- Invalid generated endpoint pairs are removed instead of receiving synthetic CT (Oze cross-area/old-route cases, Kusatsu-Shirane restricted summit endpoint, Asama crater summit endpoint).
+- Estimated/regression CT remains disabled; missing values are never synthesized.
+- Existing weather logic, progressive rendering, and fixed-coordinate records are unchanged.
+- See `RELEASE_AUDIT_V1545.md` and `HYAKUMEIZAN_NETWORK_CT_AUDIT_V1545.json` for scope and actual results.
+
+# V1.5.44 estimated CT removal
+
+固定座標・標高差の回帰式による推定CTフォールバックを停止。V1.5.43で推定扱いだった代表コース120区間を全抽出し、公開標準CTを端点まで照合できた24方向を直接CT化。確認できない区間は推測せずCT情報なしとして明示し、推定CTを0件化。詳細は `ESTIMATED_CT_REVIEW_V1544.md` と `UNRESOLVED_CT_V1544.csv`。
+
+# V1.5.43 5:00-5:59 CT review
+
+代表コースの単一区間CT 5:00〜5:59を追加監査。宮之浦岳は淀川小屋で分割、笠ヶ岳笠新道の旧5:20直結値は現行公開ルートに合わせて笠ヶ岳山荘経由へ修正。羅臼岳岩尾別コースは知床羅臼ビジターセンターの公式5:00/4:00を優先。詳細は `CT_5H_TO_559_V1543.md` と `LONG_CT_SPLIT_AUDIT_V1543.md`。
+
+# V1.5.42 6:00-7:59 CT split audit
+
+代表コースの長時間単一区間CTを6:00〜7:59まで拡張監査。確認できた実ルート上の山小屋・通過点で分割し、遠回りグラフ合算をこの帯から除去。詳細は `CT_6H_TO_759_V1542.md` と `LONG_CT_SPLIT_AUDIT_V1542.md`。
+
+# V1.5.41 8-9:59 CT split audit
+
+- Audited all representative-route segments in the 8:00-9:59 range.
+- Reduced representative segments in that band from 16 to 3 by inserting verified intermediate waypoints and direct sub-segment CTs.
+- Added verified route points for Ryumon-goya, Tokugo-toge-goya, Waraji-kan, and Nunobiki-yama.
+- Kept Kamueku and the Obira-to-Nunobiki Zaru segment unresolved rather than guessing coordinates or CTs.
+- Preserved >=10:00 representative-segment count at zero.
+
 # V1.5.40 long CT split audit
 
 - CT 10:00以上の不自然な直結・遠回り合算を排除。
