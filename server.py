@@ -34,7 +34,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.5.35"
+APP_VERSION = "1.5.38"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -119,7 +119,7 @@ NOAA_GFS_CACHE_TTL = int(os.environ.get("NOAA_GFS_CACHE_TTL", "1800"))
 app = Flask(__name__, static_folder=None)
 
 
-# V1.5.35: resolve the selected mountain to an actual "てんきとくらす" mountain page.
+# V1.5.36: resolve the selected mountain to an actual "てんきとくらす" mountain page.
 # URLs are not guessed from mountain names. The resolver reads Tenkura's own regional
 # mountain indexes, extracts the links that are actually published there, and returns
 # a direct link only when the name match is unambiguous. Regional index results are
@@ -276,7 +276,7 @@ def _fetch_tenkura_index(region: str) -> list[dict[str, str]]:
             return [dict(x) for x in cached[1]]
     url = TENKURA_INDEX_URLS[region]
     req = urllib.request.Request(url, headers={
-        "User-Agent": "TRATEN/1.5.35 https://otenki.onrender.com",
+        "User-Agent": "TRATEN/1.5.38 https://otenki.onrender.com",
         "Accept": "text/html,application/xhtml+xml",
         "Accept-Language": "ja,en;q=0.5",
     })
@@ -325,6 +325,160 @@ def _resolve_tenkura_link(mountain: str, area: str = "") -> dict[str, Any] | Non
         row = next(iter(unique.values()))
         return {"name": row["name"], "url": row["url"], "region": row["region"], "matchedBy": "official-index"}
     return None
+
+
+
+# V1.5.38: additional external mountain-weather cross checks.
+# Like Tenkura, targets are resolved only from URLs actually published by the
+# provider (or a tiny set of manually verified direct URLs). Unknown or
+# ambiguous matches stay unavailable rather than guessing an ID.
+WEATHERNEWS_BASE = "https://weathernews.jp"
+WEATHERNEWS_INDEX_URL = f"{WEATHERNEWS_BASE}/mountain/"
+TENKIJP_BASE = "https://tenki.jp"
+TENKIJP_INDEX_URL = f"{TENKIJP_BASE}/mountain/"
+EXTERNAL_INDEX_TTL = max(3600, int(os.environ.get("EXTERNAL_MOUNTAIN_INDEX_TTL", "21600")))
+EXTERNAL_INDEX_TIMEOUT = max(3, min(20, int(os.environ.get("EXTERNAL_MOUNTAIN_INDEX_TIMEOUT", "8"))))
+_external_mountain_index_cache: dict[str, tuple[float, list[dict[str, str]]]] = {}
+_external_mountain_index_lock = threading.Lock()
+
+EXTERNAL_NAME_ALIASES = {
+    **TENKURA_NAME_ALIASES,
+    "大雪山（旭岳）": ["大雪山", "旭岳"],
+    "蔵王山（熊野岳）": ["蔵王山", "熊野岳"],
+    "茶臼岳（那須岳）": ["那須岳", "茶臼岳"],
+    "八ヶ岳（赤岳）": ["八ヶ岳", "赤岳"],
+    "霧ヶ峰（車山）": ["霧ヶ峰", "車山"],
+    "水晶岳（黒岳）": ["水晶岳", "黒岳"],
+    "阿蘇山（高岳）": ["阿蘇山", "高岳"],
+    "雲仙岳（普賢岳）": ["雲仙岳", "普賢岳"],
+    "霧島山（韓国岳）": ["霧島山", "韓国岳"],
+}
+
+WEATHERNEWS_VERIFIED_LINKS = {
+    "富士山": {"name": "富士山", "url": f"{WEATHERNEWS_BASE}/mountain/fuji/40504/"},
+    "槍ヶ岳": {"name": "槍ヶ岳", "url": f"{WEATHERNEWS_BASE}/mountain/northernalps/40350/"},
+    "御嶽": {"name": "御嶽山", "url": f"{WEATHERNEWS_BASE}/mountain/northernalps/41001/"},
+    "御嶽山": {"name": "御嶽山", "url": f"{WEATHERNEWS_BASE}/mountain/northernalps/41001/"},
+}
+
+TENKIJP_VERIFIED_LINKS = {
+    "富士山": {"name": "富士山", "url": f"{TENKIJP_BASE}/mountain/famous100/5/25/150.html"},
+    "槍ヶ岳": {"name": "槍ヶ岳", "url": f"{TENKIJP_BASE}/mountain/famous100/3/23/161.html"},
+    "御嶽": {"name": "御嶽", "url": f"{TENKIJP_BASE}/mountain/normal/3/23/1049.html"},
+    "御嶽山": {"name": "御嶽", "url": f"{TENKIJP_BASE}/mountain/normal/3/23/1049.html"},
+}
+
+class _ExternalMountainIndexParser(HTMLParser):
+    def __init__(self, provider: str) -> None:
+        super().__init__(convert_charrefs=True)
+        self.provider = provider
+        self._href: str | None = None
+        self._parts: list[str] = []
+        self.links: list[dict[str, str]] = []
+
+    def _accepted(self, href: str) -> bool:
+        parsed = urllib.parse.urlparse(urllib.parse.urljoin(
+            WEATHERNEWS_INDEX_URL if self.provider == "weathernews" else TENKIJP_INDEX_URL, href
+        ))
+        if self.provider == "weathernews":
+            if parsed.hostname != "weathernews.jp":
+                return False
+            return bool(re.fullmatch(r"/mountain/[a-z0-9_-]+/\d+/?", parsed.path, re.I))
+        if parsed.hostname != "tenki.jp":
+            return False
+        return bool(re.fullmatch(r"/mountain/(?:famous100|normal)/\d+/\d+/\d+\.html", parsed.path, re.I)
+                    or re.fullmatch(r"/mountain/\d+/\d+/\d+\.html", parsed.path, re.I))
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag.lower() != "a":
+            return
+        href = dict(attrs).get("href") or ""
+        if not self._accepted(href):
+            return
+        self._href = href
+        self._parts = []
+
+    def handle_data(self, data: str) -> None:
+        if self._href is not None:
+            self._parts.append(data)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag.lower() != "a" or self._href is None:
+            return
+        href = self._href
+        name = re.sub(r"\s+", " ", "".join(self._parts)).strip()
+        self._href = None
+        self._parts = []
+        if not name:
+            return
+        base = WEATHERNEWS_INDEX_URL if self.provider == "weathernews" else TENKIJP_INDEX_URL
+        url = urllib.parse.urljoin(base, href)
+        self.links.append({"name": name, "url": url})
+
+def _external_name_candidates(mountain: str) -> list[str]:
+    values = [mountain, *EXTERNAL_NAME_ALIASES.get(mountain, [])]
+    stripped = re.sub(r"[（(［\[].*?[）)］\]]", "", mountain).strip()
+    if stripped and stripped != mountain:
+        values.append(stripped)
+    out: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        key = _tenkura_norm(value)
+        if key and key not in seen:
+            seen.add(key)
+            out.append(value)
+    return out
+
+def _fetch_external_mountain_index(provider: str) -> list[dict[str, str]]:
+    now = time.time()
+    with _external_mountain_index_lock:
+        cached = _external_mountain_index_cache.get(provider)
+        if cached and cached[0] > now:
+            return [dict(x) for x in cached[1]]
+    if provider == "weathernews":
+        url = WEATHERNEWS_INDEX_URL
+    elif provider == "tenkijp":
+        url = TENKIJP_INDEX_URL
+    else:
+        raise ValueError("unknown provider")
+    req = urllib.request.Request(url, headers={
+        "User-Agent": "TRATEN/1.5.38 https://otenki.onrender.com",
+        "Accept": "text/html,application/xhtml+xml",
+        "Accept-Language": "ja,en;q=0.5",
+    })
+    with urllib.request.urlopen(req, timeout=EXTERNAL_INDEX_TIMEOUT) as resp:
+        body = resp.read(4 * 1024 * 1024)
+        text = _tenkura_decode(body, resp.headers.get("Content-Type", ""))
+    parser = _ExternalMountainIndexParser(provider)
+    parser.feed(text)
+    rows: list[dict[str, str]] = []
+    seen_urls: set[str] = set()
+    for row in parser.links:
+        if row["url"] in seen_urls:
+            continue
+        seen_urls.add(row["url"])
+        rows.append(row)
+    with _external_mountain_index_lock:
+        _external_mountain_index_cache[provider] = (now + EXTERNAL_INDEX_TTL, rows)
+    return [dict(x) for x in rows]
+
+def _resolve_external_mountain_link(provider: str, mountain: str) -> dict[str, Any] | None:
+    verified_map = WEATHERNEWS_VERIFIED_LINKS if provider == "weathernews" else TENKIJP_VERIFIED_LINKS
+    verified = verified_map.get(mountain)
+    if verified:
+        return {**verified, "matchedBy": "verified-direct"}
+    candidate_keys = {_tenkura_norm(x) for x in _external_name_candidates(mountain)}
+    try:
+        rows = _fetch_external_mountain_index(provider)
+    except Exception:
+        return None
+    matches = [row for row in rows if _tenkura_norm(row.get("name", "")) in candidate_keys]
+    unique = {row["url"]: row for row in matches}
+    if len(unique) != 1:
+        return None
+    row = next(iter(unique.values()))
+    return {"name": row["name"], "url": row["url"], "matchedBy": "official-index"}
+
 
 app.config["MAX_CONTENT_LENGTH"] = MAX_OVERPASS_BYTES
 
@@ -2562,7 +2716,7 @@ def _water_mountain_cache_remote_load() -> dict[str, Any] | None:
         try:
             req = urllib.request.Request(
                 url,
-                headers={"User-Agent": "Traten/1.5.35", "Cache-Control": "no-cache"},
+                headers={"User-Agent": "Traten/1.5.38", "Cache-Control": "no-cache"},
             )
             with urllib.request.urlopen(req, timeout=WATER_MOUNTAIN_CACHE_REMOTE_TIMEOUT) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
@@ -2973,6 +3127,28 @@ def tenkura_link():
         result = _resolve_tenkura_link(mountain, area)
     except Exception as exc:
         return jsonify(ok=False, available=False, error=str(exc)[:300]), 502
+    response = jsonify(ok=True, available=bool(result), mountain=mountain, result=result)
+    response.headers["Cache-Control"] = "public, max-age=21600"
+    return response
+
+
+@app.get("/api/weathernews-link")
+def weathernews_link():
+    mountain = (request.args.get("mountain") or "").strip()
+    if not mountain or len(mountain) > 80:
+        return jsonify(ok=False, error="mountain is required"), 400
+    result = _resolve_external_mountain_link("weathernews", mountain)
+    response = jsonify(ok=True, available=bool(result), mountain=mountain, result=result)
+    response.headers["Cache-Control"] = "public, max-age=21600"
+    return response
+
+
+@app.get("/api/tenkijp-link")
+def tenkijp_link():
+    mountain = (request.args.get("mountain") or "").strip()
+    if not mountain or len(mountain) > 80:
+        return jsonify(ok=False, error="mountain is required"), 400
+    result = _resolve_external_mountain_link("tenkijp", mountain)
     response = jsonify(ok=True, available=bool(result), mountain=mountain, result=result)
     response.headers["Cache-Control"] = "public, max-age=21600"
     return response

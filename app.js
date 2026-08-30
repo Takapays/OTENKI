@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.35';
+const APP_VERSION = '1.5.38';
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
@@ -3343,7 +3343,7 @@ REGIONAL_CATALOG.southalps_north = [
   {id:'area-san-senjo',type:'peak',name:'仙丈ヶ岳',lat:35.7201,lon:138.1836,elevation:3033},
   {id:'area-san-senjogoya',type:'hut',name:'仙丈小屋',lat:35.7206,lon:138.1883,elevation:2900},
   {id:'area-san-umanose',type:'hut',name:'馬の背ヒュッテ',lat:35.7277,lon:138.1900,elevation:2640},
-  {id:'area-san-yashajin',type:'trailhead',name:'夜叉神峠登山口',lat:35.6528,lon:138.3310,elevation:1380},
+  {id:'area-san-yashajin',type:'trailhead',name:'夜叉神峠登山口',lat:35.635523,lon:138.345424,elevation:1400},
   {id:'area-san-aoki',type:'hut',name:'南御室小屋',lat:35.6849,lon:138.3092,elevation:2420},
   {id:'area-san-houou',type:'peak',name:'鳳凰山',lat:35.7017,lon:138.3047,elevation:2841}
 ];
@@ -3806,7 +3806,7 @@ Object.assign(BUILTIN_ROUTE_CATALOG, {
     {id:'fixed8-southalps-asayo-kitasawa',type:'trailhead',name:'北沢峠',lat:35.7353,lon:138.2110,elevation:2032,source:'固定候補'}
   ],
   '地蔵ヶ岳': [
-    {id:'fixed8-southalps-jizo-yashajin',type:'trailhead',name:'夜叉神峠登山口',lat:35.6528,lon:138.3310,elevation:1380,source:'固定候補'}
+    {id:'fixed8-southalps-jizo-yashajin',type:'trailhead',name:'夜叉神峠登山口',lat:35.635523,lon:138.345424,elevation:1400,source:'固定候補'}
   ],
   '農鳥岳': [
     {id:'fixed8-southalps-notori-hirokawara',type:'trailhead',name:'広河原',lat:35.6867,lon:138.2705,elevation:1520,source:'固定候補'},
@@ -5277,7 +5277,7 @@ for (const mountainName of ['久住山','大船山','中岳(くじゅう)','三�
 }
 
 const V1423_HOUOU_COMMON = [
-  {id:'v1423-houou-yashajin',type:'trailhead',name:'夜叉神峠登山口',lat:35.652800,lon:138.331000,elevation:1380,source:'固定候補'},
+  {id:'v1423-houou-yashajin',type:'trailhead',name:'夜叉神峠登山口',lat:35.635523,lon:138.345424,elevation:1400,source:'固定候補'},
   {id:'v1423-houou-minamiomuro',type:'hut',name:'南御室小屋',lat:35.684900,lon:138.309200,elevation:2420,source:'固定候補'},
   {id:'v1423-houou-yakushi',type:'peak',name:'薬師岳(鳳凰)',lat:35.696111,lon:138.311667,elevation:2780,source:'固定候補'},
   {id:'v1423-houou-kannon',type:'peak',name:'観音岳(鳳凰)',lat:35.701667,lon:138.304722,elevation:2841,source:'固定候補'},
@@ -5285,9 +5285,17 @@ const V1423_HOUOU_COMMON = [
 ];
 Object.assign(BUILTIN_ROUTE_CATALOG, {
   '薬師岳(鳳凰)': [...V1423_HOUOU_COMMON],
-  '観音岳(鳳凰)': [...V1423_HOUOU_COMMON],
+  '観音岳(鳳凰)': [
+    // V1.5.36: 夜叉神峠登山口は公開登山口情報で位置を再確認。
+    // 35.635523, 138.345424 / 約1400m（夜叉神峠登山口駐車場）。
+    {id:'v1536-houou-kannon-th',type:'trailhead',name:'夜叉神峠登山口',lat:35.635523,lon:138.345424,elevation:1400,source:'公開登山口情報確認済み'},
+    {id:'v1536-houou-kannon-hut',type:'hut',name:'南御室小屋',lat:35.684900,lon:138.309200,elevation:2420,source:'固定候補'},
+    {id:'v1536-houou-kannon-yakushi',type:'peak',name:'薬師岳(鳳凰)',lat:35.696111,lon:138.311667,elevation:2780,source:'固定候補'},
+    {id:'v1536-houou-kannon-peak',type:'peak',name:'観音岳(鳳凰)',lat:35.701667,lon:138.304722,elevation:2841,source:'国土地理院 日本の主な山岳'},
+    {id:'v1536-houou-kannon-jizo',type:'peak',name:'地蔵岳(鳳凰)',lat:35.712222,lon:138.298611,elevation:2764,source:'固定候補'}
+  ],
   '地蔵岳(鳳凰)': [
-    {id:'v1423-houou-jizo-th',type:'trailhead',name:'夜叉神峠登山口',lat:35.652800,lon:138.331000,elevation:1380,source:'固定候補'},
+    {id:'v1423-houou-jizo-th',type:'trailhead',name:'夜叉神峠登山口',lat:35.635523,lon:138.345424,elevation:1400,source:'固定候補'},
     {id:'v1423-houou-jizo-hut',type:'hut',name:'南御室小屋',lat:35.684900,lon:138.309200,elevation:2420,source:'固定候補'},
     {id:'v1423-houou-jizo-yakushi',type:'peak',name:'薬師岳(鳳凰)',lat:35.696111,lon:138.311667,elevation:2780,source:'固定候補'},
     {id:'v1423-houou-jizo-kannon',type:'peak',name:'観音岳(鳳凰)',lat:35.701667,lon:138.304722,elevation:2841,source:'固定候補'},
@@ -5414,52 +5422,58 @@ function setupInstallApp(){
 
 function currentMountainLabel(){return $('mountainPreset')?.value?.trim()||$('mountainSearch')?.value?.trim()||'';}
 
-// V1.5.35: Tenkura external cross-check link. Resolution happens asynchronously
-// after results are visible, so it never blocks progressive weather rendering.
-const tenkuraLinkMemory=new Map();
-let tenkuraLinkRequestToken=0;
-let tenkuraLinkPendingKey='';
-function setTenkuraLinkState(state,data={}){
-  const link=$('tenkuraLink'),status=$('tenkuraLinkStatus');
-  if(!link||!status)return;
+// V1.5.38: external mountain-weather cross-check links. Resolution happens
+// after results are visible, so these network lookups never block progressive rendering.
+const externalWeatherLinkConfig={
+  tenkura:{linkId:'tenkuraLink',statusId:'tenkuraLinkStatus',endpoint:'/api/tenkura-link',includeArea:true},
+  weathernews:{linkId:'weathernewsLink',statusId:'weathernewsLinkStatus',endpoint:'/api/weathernews-link'},
+  tenkijp:{linkId:'tenkijpLink',statusId:'tenkijpLinkStatus',endpoint:'/api/tenkijp-link'}
+};
+const externalWeatherLinkMemory=new Map();
+const externalWeatherLinkTokens={tenkura:0,weathernews:0,tenkijp:0};
+const externalWeatherLinkPending={tenkura:'',weathernews:'',tenkijp:''};
+function setExternalWeatherLinkState(service,state,data={}){
+  const cfg=externalWeatherLinkConfig[service];if(!cfg)return;
+  const link=$(cfg.linkId),status=$(cfg.statusId);if(!link||!status)return;
   link.classList.toggle('is-loading',state==='loading');
   link.classList.toggle('is-unavailable',state==='unavailable');
   link.classList.toggle('is-ready',state==='ready');
   if(state==='ready'&&data.url){
-    link.href=data.url;
-    link.setAttribute('aria-disabled','false');
+    link.href=data.url;link.setAttribute('aria-disabled','false');
     status.textContent=`${data.name||currentMountainLabel()}のページを開く`;
   }else{
-    link.removeAttribute('href');
-    link.setAttribute('aria-disabled','true');
+    link.removeAttribute('href');link.setAttribute('aria-disabled','true');
     status.textContent=state==='loading'?'選択した山を確認中…':'対応ページを確認できませんでした';
   }
 }
-async function updateTenkuraLink(){
-  const mountain=currentMountainLabel();
-  if(!mountain){setTenkuraLinkState('unavailable');return;}
-  const area=mountainUiArea(mountain);
-  const key=`${mountain}|${area}`;
-  const cached=tenkuraLinkMemory.get(key);
-  if(cached){setTenkuraLinkState(cached.available?'ready':'unavailable',cached.result||{});return;}
-  if(tenkuraLinkPendingKey===key)return;
-  tenkuraLinkPendingKey=key;
-  const token=++tenkuraLinkRequestToken;
-  setTenkuraLinkState('loading');
+async function updateExternalWeatherLink(service){
+  const cfg=externalWeatherLinkConfig[service],mountain=currentMountainLabel();
+  if(!cfg||!mountain){setExternalWeatherLinkState(service,'unavailable');return;}
+  const area=cfg.includeArea?mountainUiArea(mountain):'';
+  const key=`${service}|${mountain}|${area}`;
+  const cached=externalWeatherLinkMemory.get(key);
+  if(cached){setExternalWeatherLinkState(service,cached.available?'ready':'unavailable',cached.result||{});return;}
+  if(externalWeatherLinkPending[service]===key)return;
+  externalWeatherLinkPending[service]=key;
+  const token=++externalWeatherLinkTokens[service];
+  setExternalWeatherLinkState(service,'loading');
   try{
-    const res=await fetch(`/api/tenkura-link?mountain=${encodeURIComponent(mountain)}&area=${encodeURIComponent(area)}`,{cache:'force-cache'});
+    const params=new URLSearchParams({mountain});if(cfg.includeArea)params.set('area',area);
+    const res=await fetch(`${cfg.endpoint}?${params}`,{cache:'force-cache'});
     const data=await res.json().catch(()=>null);
-    if(token!==tenkuraLinkRequestToken)return;
+    if(token!==externalWeatherLinkTokens[service])return;
     const normalized={available:!!(res.ok&&data?.available&&data?.result?.url),result:data?.result||null};
-    tenkuraLinkMemory.set(key,normalized);
-    tenkuraLinkPendingKey='';
-    setTenkuraLinkState(normalized.available?'ready':'unavailable',normalized.result||{});
+    externalWeatherLinkMemory.set(key,normalized);externalWeatherLinkPending[service]='';
+    setExternalWeatherLinkState(service,normalized.available?'ready':'unavailable',normalized.result||{});
   }catch(_){
-    if(token!==tenkuraLinkRequestToken)return;
-    tenkuraLinkPendingKey='';
-    setTenkuraLinkState('unavailable');
+    if(token!==externalWeatherLinkTokens[service])return;
+    externalWeatherLinkPending[service]='';setExternalWeatherLinkState(service,'unavailable');
   }
 }
+function updateExternalWeatherLinks(){
+  Object.keys(externalWeatherLinkConfig).forEach(service=>{void updateExternalWeatherLink(service);});
+}
+function updateTenkuraLink(){return updateExternalWeatherLink('tenkura');}
 // V1.5.8: anonymous analysis history for the admin dashboard.
 // Store only route point names/types/roles and planned passage date/time; never coordinates or identity data.
 function analysisCtReviewSegments(points){
@@ -9682,6 +9696,7 @@ function renderOvernights(items){
 function nearestTimeIndex(times,target){const t=new Date(target).getTime();let best=-1,d=Infinity;times.forEach((s,i)=>{const x=Math.abs(new Date(s).getTime()-t);if(x<d){d=x;best=i;}});return best;}
 function numberOrNaN(v){if(v===null||v===undefined||(typeof v==='string'&&v.trim()===''))return NaN;const n=Number(v);return Number.isFinite(n)?n:NaN;}
 function mean(v){const x=v.filter(Number.isFinite);return x.length?x.reduce((a,b)=>a+b,0)/x.length:NaN;} function max(v){const x=v.filter(Number.isFinite);return x.length?Math.max(...x):NaN;}
+function median(v){const x=v.filter(Number.isFinite).sort((a,b)=>a-b);if(!x.length)return NaN;const m=Math.floor(x.length/2);return x.length%2?x[m]:(x[m-1]+x[m])/2;}
 function averageRows(rows){return {temp:mean(rows.map(x=>x.temp)),rain:mean(rows.map(x=>x.rain)),cloud:mean(rows.map(x=>x.cloud)),wind:mean(rows.map(x=>x.wind)),gust:max(rows.map(x=>x.gust)),cape:max(rows.map(x=>x.cape)),visibility:mean(rows.map(x=>x.visibility)),freezing:mean(rows.map(x=>x.freezing))};}
 function rowForProvider(providerRows,id){return (providerRows||[]).find(x=>x?.provider?.id===id)?.row||null;}
 function blendProviderRows(providerRows){
@@ -9695,17 +9710,42 @@ function blendProviderRows(providerRows){
   if(Number.isFinite(ecmwf?.wind))out.wind=ecmwf.wind;
   if(Number.isFinite(ecmwf?.gust))out.gust=ecmwf.gust;
   if(Number.isFinite(icon?.visibility))out.visibility=icon.visibility;
-  out.cape=max(rows.map(x=>x.cape));
+  const capeValues=rows.map(x=>x.cape).filter(Number.isFinite);
+  out.cape=max(capeValues);
+  out.capeMedian=median(capeValues);
+  out.capeModelCount=capeValues.length;
+  out.capeSupport500=capeValues.filter(v=>v>=500).length;
+  out.capeSupport1000=capeValues.filter(v=>v>=1000).length;
   out.gfsAdverse=!!gfs && (
     (Number.isFinite(gfs.wind)&&Number.isFinite(out.wind)&&gfs.wind>=10&&gfs.wind>=out.wind+4) ||
     (Number.isFinite(gfs.rain)&&Number.isFinite(out.rain)&&gfs.rain>=2&&gfs.rain>=out.rain+1.5) ||
     (Number.isFinite(gfs.visibility)&&Number.isFinite(out.visibility)&&gfs.visibility<1000&&out.visibility>=3000)
   );
-  out.modelBasis={wind:Number.isFinite(ecmwf?.wind)?'ecmwf':'multi',rain:Number.isFinite(jma?.rain)?'jma':'multi',visibility:Number.isFinite(icon?.visibility)?'icon':'multi',gfsGuard:!!out.gfsAdverse};
+  out.modelBasis={wind:Number.isFinite(ecmwf?.wind)?'ecmwf':'multi',rain:Number.isFinite(jma?.rain)?'jma':'multi',visibility:Number.isFinite(icon?.visibility)?'icon':'multi',gfsGuard:!!out.gfsAdverse,capeModels:out.capeModelCount,capeSupport500:out.capeSupport500,capeSupport1000:out.capeSupport1000};
   return out;
 }
-function assessGrade(x){let s=0;if(x.wind>=20||x.gust>=25)s+=4;else if(x.wind>=15||x.gust>=20)s+=3;else if(x.wind>=10||x.gust>=15)s+=2;else if(x.wind>=7)s+=1;if(x.rain>=8)s+=4;else if(x.rain>=4)s+=3;else if(x.rain>=1.5)s+=2;else if(x.rain>=.3)s+=1;if(x.cape>=1000)s+=3;else if(x.cape>=500)s+=2;else if(x.cape>=200)s+=1;if(x.cloud>=95)s+=1;if(Number.isFinite(x.visibility)&&x.visibility<500)s+=2;if(x.temp<=-5)s+=2;else if(x.temp<=0)s+=1;if(x.gfsAdverse)s+=1;return s>=8?'E':s>=6?'D':s>=4?'C':s>=2?'B':'A';}
-function thunderLevel(x){if(x.cape>=1000&&x.rain>=1)return'EXTREME';if(x.cape>=500||(x.cape>=200&&x.rain>=1))return'HIGH';if(x.cape>=100||x.rain>=2)return'MEDIUM';return'LOW';}
+function thunderEvidence(x){
+  const cape=Number.isFinite(x.cape)?x.cape:0;
+  const rain=Number.isFinite(x.rain)?x.rain:0;
+  const models=Number.isFinite(x.capeModelCount)?x.capeModelCount:0;
+  const support500=Number.isFinite(x.capeSupport500)?x.capeSupport500:0;
+  const support1000=Number.isFinite(x.capeSupport1000)?x.capeSupport1000:0;
+  const consensus500=support500>=2;
+  const consensus1000=support1000>=2;
+  // V1.5.37: CAPE is potential energy, not a thunder occurrence forecast.
+  // Keep CAPE-only signals as a warning, and affect the route grade only when
+  // precipitation and/or multi-model agreement provide additional evidence.
+  let gradePoints=0;
+  if(rain>=1&&cape>=1000&&(consensus500||models<=1&&cape>=1800))gradePoints=2;
+  else if(rain>=0.5&&cape>=500&&(consensus500||cape>=1200))gradePoints=1;
+  let level='LOW';
+  if(rain>=2&&cape>=1200&&(consensus1000||support500>=2))level='EXTREME';
+  else if(rain>=1&&cape>=800&&(consensus500||cape>=1500))level='HIGH';
+  else if((consensus500&&cape>=500)||(rain>=0.5&&cape>=500)||cape>=1000)level='MEDIUM';
+  return {level,gradePoints,cape,rain,models,support500,support1000};
+}
+function assessGrade(x){let s=0;if(x.wind>=20||x.gust>=25)s+=4;else if(x.wind>=15||x.gust>=20)s+=3;else if(x.wind>=10||x.gust>=15)s+=2;else if(x.wind>=7)s+=1;if(x.rain>=8)s+=4;else if(x.rain>=4)s+=3;else if(x.rain>=1.5)s+=2;else if(x.rain>=.3)s+=1;s+=thunderEvidence(x).gradePoints;if(x.cloud>=95)s+=1;if(Number.isFinite(x.visibility)&&x.visibility<500)s+=2;if(x.temp<=-5)s+=2;else if(x.temp<=0)s+=1;if(x.gfsAdverse)s+=1;return s>=8?'E':s>=6?'D':s>=4?'C':s>=2?'B':'A';}
+function thunderLevel(x){return thunderEvidence(x).level;}
 const HAZARD_RANK={NONE:0,CAUTION:1,WARNING:2,DANGER:3};
 const HAZARD_LABEL={NONE:'平常',CAUTION:'注意',WARNING:'警戒',DANGER:'危険'};
 function hazardItem(type,icon,label,level,value,detail){return {type,icon,label,level,value,detail,rank:HAZARD_RANK[level]||0};}
@@ -10382,7 +10422,7 @@ function renderSummaryCore(points){
   $('confidence').textContent=forecastConfidence.label; $('confidenceLabel').textContent=({LOW:'慎重に確認',MEDIUM:'まずまず',HIGH:'比較的安定'})[confidenceLevel]||'–'; const confidenceReason=$('confidenceReason'); if(confidenceReason)confidenceReason.textContent=forecastConfidence.reason;
   const setMarker=(id,pct)=>{const el=$(id);if(el)el.style.left=`${Math.max(2,Math.min(98,pct))}%`;}; setMarker('maxWindMarker',(maxWindValue/20)*100); setMarker('maxRainMarker',(maxRainValue/20)*100); setMarker('thunderMarker',({LOW:8,MEDIUM:38,HIGH:68,EXTREME:94})[thunderLevel]||8); setMarker('confidenceMarker',({LOW:8,MEDIUM:50,HIGH:94})[confidenceLevel]||8);
   $('updatedAt').textContent=new Date().toLocaleString('ja-JP');
-  updateTenkuraLink();
+  updateExternalWeatherLinks();
 }
 function renderAll(points,overnight=[]){
   renderSummaryCore(points);

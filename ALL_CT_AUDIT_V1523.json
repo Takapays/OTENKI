@@ -7,7 +7,7 @@
     "composed": 12,
     "estimated": 132,
     "missing": 0,
-    "flags": 48,
+    "flags": 47,
     "conflicts": 0,
     "reverseFlags": 1
   },
@@ -493,19 +493,6 @@
       "estimated": false,
       "via": [],
       "km": 4.530505335578926,
-      "reason": "CLOSE_5KM_GT300"
-    },
-    {
-      "mountain": "観音岳(鳳凰)",
-      "course": "夜叉神・鳳凰三山ルート",
-      "from": "夜叉神峠登山口",
-      "to": "南御室小屋",
-      "minutes": 340,
-      "source": "南アルプス市芦安山岳館・鳳凰山 夜叉神コース（公式区間合算）",
-      "composed": false,
-      "estimated": false,
-      "via": [],
-      "km": 4.076573319232199,
       "reason": "CLOSE_5KM_GT300"
     },
     {
@@ -7888,7 +7875,7 @@
       "composed": false,
       "estimated": false,
       "via": [],
-      "km": 4.076573319232199
+      "km": 6.391828546062295
     },
     {
       "mountain": "観音岳(鳳凰)",
@@ -7948,7 +7935,7 @@
       "composed": false,
       "estimated": false,
       "via": [],
-      "km": 4.076573319232199
+      "km": 6.391828546062295
     },
     {
       "mountain": "北岳",
