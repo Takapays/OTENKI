@@ -34,7 +34,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.5.57"
+APP_VERSION = "1.5.58"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -3154,11 +3154,19 @@ def tenkijp_link():
     return response
 
 
+def _index_response():
+    response = send_from_directory(BASE, "index.html")
+    # HTML must always revalidate. Versioned JS/CSS assets can remain immutable,
+    # but the document itself carries the cache-buster query strings.
+    response.headers["Cache-Control"] = "no-store, no-cache, max-age=0, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
+
+
 @app.get("/")
 def index():
-    response = send_from_directory(BASE, "index.html")
-    response.headers["Cache-Control"] = "no-cache, max-age=0, must-revalidate"
-    return response
+    return _index_response()
 
 
 @app.get("/robots.txt")
@@ -3202,7 +3210,7 @@ def static_files(path: str):
             else:
                 response.headers["Cache-Control"] = "public, max-age=3600"
         return response
-    return send_from_directory(BASE, "index.html")
+    return _index_response()
 
 
 @app.after_request

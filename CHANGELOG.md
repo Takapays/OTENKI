@@ -1,3 +1,9 @@
+## V1.5.58
+- Fixed stale release shell: index.html was still V1.5.52 while runtime had advanced.
+- Unified visible version and JS/CSS cache-busters at 1.5.58.
+- Added no-store/no-cache HTML response policy for root and SPA fallback.
+- Added automated version-consistency audit.
+
 # V1.5.57
 - 御嶽山の2登山口（中の湯・田の原）のアクセス情報を2026年公式情報で詳細化。
 - 田の原は駐車場（標高2180m・普通車100台以上・24時間）、2026年バス運行日・時刻・運賃を反映。
