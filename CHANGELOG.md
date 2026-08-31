@@ -1,3 +1,19 @@
+## V1.5.61
+- 地点別予報の気温・平均風速・雨の数値表示を視界と同じ視認性へ統一。
+- 風カードを「平均風速」と明示し、風向の角度表記を削除。
+- 風向は方位のみ表示し、利用可能な場合は最大瞬間風速（突風）を併記。
+
+## V1.5.60
+- Removed historical version-up notes from the user guide so the page focuses only on current usage.
+- Planner Clear now also clears/hides the current analysis results and screenshot state.
+- Added a mobile-only "↑ 上に戻る" button at the bottom of analysis results.
+- Merged per-point A/B/C/D/E risk grades into the point/arrival legends under both weather charts and removed the standalone risk ribbon.
+
+## V1.5.59
+- Fixed stale optional-access asset caching: `TRATEN_OPTIONAL_ASSET_VERSION` now follows `APP_VERSION` instead of remaining fixed at `1.4.242`.
+- This forces the browser to fetch the current `access-data.js`, including the registered Ontake access entries for `田の原登山口` and `中の湯登山口（黒沢口）`.
+- Bumped access-data metadata to 6.0.10.
+- Added release checks for optional asset cache-buster linkage and Ontake access DB presence.
 ## V1.5.58
 - Fixed stale release shell: index.html was still V1.5.52 while runtime had advanced.
 - Unified visible version and JS/CSS cache-busters at 1.5.58.

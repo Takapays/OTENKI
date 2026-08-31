@@ -1,0 +1,26 @@
+V1.5.59 OPTIONAL ASSET CACHE AUDIT
+
+ROOT CAUSE
+TRATEN_OPTIONAL_ASSET_VERSION was fixed at 1.4.242 while access-data.js changed later.
+Versioned static assets are served immutable for 31536000 seconds.
+
+RESULT
+APP_VERSION: 1.5.59
+SERVER_VERSION: 1.5.59
+INDEX_VISIBLE_VERSION: 1.5.59
+TRATEN_OPTIONAL_ASSET_VERSION: APP_VERSION
+EXPECTED_ACCESS_DATA_URL: access-data.js?v=1.5.59
+EXPECTED_ACCESS_UI_URL: access.js?v=1.5.59
+EXPECTED_ACCESS_CSS_URL: access.css?v=1.5.59
+STALE_OPTIONAL_VERSION_1.4.242: NOT USED
+
+ONTake DB
+田の原登山口: PRESENT
+中の湯登山口（黒沢口）: PRESENT
+access-data meta version: 6.0.10
+access-data record count: 330
+
+SYNTAX
+app.js: PASS
+access-data.js: PASS
+server.py: PASS

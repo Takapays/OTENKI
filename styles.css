@@ -4675,3 +4675,36 @@ body.install-guide-open{overflow:hidden}
 .top-value-copy{min-width:0}.top-value-kicker{font-size:10px;font-weight:950;letter-spacing:.14em;color:#3f7962}.top-value h2{margin:5px 0 8px;font-size:clamp(24px,2.4vw,36px);line-height:1.28;letter-spacing:-.035em;color:#153c31}.top-value h2 strong{color:#087b70}.top-value-copy p{margin:0;max-width:760px;font-size:12px;line-height:1.75;color:#5b7268}.top-value-copy p strong{color:#275f4c}.top-value-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}.top-value-action{display:grid;grid-template-columns:30px 1fr;grid-template-rows:auto auto;column-gap:9px;align-items:center;padding:14px;border:1px solid #d7e6df;border-radius:16px;background:#fff;text-decoration:none;box-shadow:0 5px 15px rgba(25,65,49,.04);transition:transform .15s ease,box-shadow .15s ease}.top-value-action:hover,.top-value-action:focus-visible{transform:translateY(-1px);box-shadow:0 8px 20px rgba(25,65,49,.08);outline:none}.top-value-action>span{grid-row:1/3;display:grid;place-items:center;width:30px;height:30px;border-radius:10px;background:#eaf7f1;color:#147b55;font-size:12px;font-weight:950}.top-value-action.personal>span{background:#eaf4fb;color:#156d9b}.top-value-action b{font-size:12px;line-height:1.35;color:#234a3b}.top-value-action small{margin-top:2px;font-size:9px;font-weight:800;color:#71837b}.top-value-flow{grid-column:1/-1;display:flex;align-items:center;justify-content:center;gap:9px;padding-top:3px;color:#61786d;font-size:10px;font-weight:850}.top-value-flow span,.top-value-flow strong{padding:5px 9px;border-radius:999px;background:rgba(255,255,255,.8);border:1px solid #d8e7e0}.top-value-flow strong{color:#087b70}.top-value-flow i{font-style:normal;color:#8aa096}
 @media(max-width:900px){.top-value{order:-4;grid-template-columns:1fr;padding:16px 15px;gap:12px}.top-value h2{font-size:26px}.top-value-copy p{font-size:11px}.top-value-actions{grid-template-columns:1fr 1fr}.top-value-flow{justify-content:flex-start;overflow-x:auto;white-space:nowrap;padding-bottom:2px}}
 @media(max-width:520px){.top-value{padding:15px 13px;border-radius:17px}.top-value h2{font-size:22px;line-height:1.32}.top-value-actions{grid-template-columns:1fr}.top-value-action{padding:12px}.top-value-flow{font-size:9px;gap:5px}.top-value-flow span,.top-value-flow strong{padding:4px 7px}}
+
+/* V1.5.60: merge point risk into chart legends and add mobile result return control */
+.point-risk-grade{display:inline-flex!important;align-items:center;justify-content:center;min-width:20px;height:18px;margin-left:4px;padding:0 5px;border-radius:999px;font-style:normal;font-size:10px;font-weight:950;line-height:1;vertical-align:middle}
+.point-risk-grade.g-A{background:#eaf8ef;color:#246b3b;border:1px solid #bfe4cb}
+.point-risk-grade.g-B{background:#f1f8df;color:#637620;border:1px solid #d5e7a8}
+.point-risk-grade.g-C{background:#fff7d8;color:#8a6500;border:1px solid #edd88a}
+.point-risk-grade.g-D{background:#fff0df;color:#a45210;border:1px solid #efc59b}
+.point-risk-grade.g-E{background:#fde9e8;color:#a62d27;border:1px solid #efb6b2}
+.result-back-to-top{display:none;width:100%;margin:14px 0 4px;padding:13px 16px;border:1px solid #cbded5;border-radius:14px;background:#f7fbf9;color:#24594a;font:inherit;font-weight:900;cursor:pointer}
+@media(max-width:900px){.result-back-to-top{display:block}.point-key-copy small{display:flex;align-items:center;justify-content:flex-start;gap:2px}.point-risk-grade{min-width:19px;height:17px;padding:0 4px;font-size:9px}}
+
+
+/* V1.5.61: point forecast numeric hierarchy + wind semantics */
+#forecastCards .rf-metrics-grid .rf-value-wrap strong{
+  font-size:34px!important;
+  line-height:.95!important;
+  font-weight:950!important;
+  letter-spacing:-.025em!important;
+  font-variant-numeric:tabular-nums!important;
+}
+#forecastCards .rf-metric.vis .rf-value-wrap strong{font-size:34px!important}
+#forecastCards .rf-wind-direction-inline{justify-content:flex-start!important}
+#forecastCards .rf-wind-direction-inline b{flex:0 0 auto!important}
+#forecastCards .rf-wind-direction-inline small{margin-left:auto!important}
+@media(max-width:900px){
+  #forecastCards .rf-metrics-grid .rf-value-wrap strong,
+  #forecastCards .rf-metric.vis .rf-value-wrap strong{font-size:30px!important}
+}
+@media(max-width:430px){
+  #forecastCards .rf-metrics-grid .rf-value-wrap strong,
+  #forecastCards .rf-metric.vis .rf-value-wrap strong{font-size:27px!important}
+  #forecastCards .rf-wind-direction-inline small{font-size:8px!important}
+}

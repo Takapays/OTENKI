@@ -1,0 +1,28 @@
+TRATEN V1.5.61 UI WIND AUDIT
+
+Requested changes
+1. Numeric display for temperature / mean wind / rain matches visibility typography: PASS
+   - Desktop: 34px / weight 950 / tabular numerals
+   - Mobile <=900px: 30px
+   - Small mobile <=430px: 27px
+2. Wind direction degree text removed: PASS
+   - No windDegLabel rendering remains
+   - Cardinal/intercardinal direction label remains (e.g. 南)
+3. Wind meaning clarified: PASS
+   - Card title changed from 風 to 平均風速
+   - Main value uses existing r.wind field
+   - r.wind source behavior is unchanged: ECMWF wind_speed_10m when available, otherwise multi-model mean
+4. Gust shown separately when available: PASS
+   - 最大瞬間 XXm/s displayed in wind-direction row
+   - Uses existing r.gust field; ECMWF wind_gusts_10m when available
+5. Weather calculation logic changed: NO
+6. CT / route / coordinates / access data changed: NO
+
+Syntax
+- node --check app.js: PASS
+- python3 -m py_compile server.py: PASS
+
+Version
+- app.js: 1.5.61
+- server.py: 1.5.61
+- index display/cache busters: 1.5.61

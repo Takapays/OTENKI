@@ -1,0 +1,32 @@
+V1.5.60 UI REQUEST AUDIT
+
+1. Guide version-up information
+- Hero version badge: REMOVED
+- Historical V1.x update paragraphs: REMOVED
+- Remaining version-history markers in guide.html: 0
+
+2. Planner clear behavior
+- plannerClearBtn calls clearCurrentAnalysisResults(): PASS
+- #results becomes hidden: PASS
+- current chart / point forecast / model / overnight / commentary containers cleared: PASS
+- desktop screenshot toolbar hidden and screenshot status cleared: PASS
+
+3. Mobile analysis bottom return button
+- #resultBackToTopBtn exists after the final analysis section: PASS
+- desktop default display:none: PASS
+- max-width 900px display:block: PASS
+- smooth scroll to page top handler: PASS
+
+4. Point risk merge
+- standalone #riskRibbon removed from index.html: PASS
+- standalone riskRibbon render removed from app.js: PASS
+- point legend title is 地点・到着・リスク: PASS
+- A/B/C/D/E grade badge is rendered beside each point arrival time: PASS
+- same merged legend is used below both 風・降水 and 気温・雲量 charts: PASS
+
+Version consistency: PASS (1.5.60)
+JS syntax: PASS
+Python syntax: PASS
+Nationwide custom-route displayed pairs: 11,560 / missing 0 / estimated 0
+Explicit area network: 424/424 / missing 0 / estimated 0
+Hyakumeizan union network: 700/700 / missing 0 / estimated 0

@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.58';
+const APP_VERSION = '1.5.61';
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
@@ -7581,7 +7581,7 @@ async function captureAnalysisResultsScreenshot(sourceBtn=null,sourceStatus=null
 
 // V1.4.237: keep non-essential resource catalogs off the critical first-paint path.
 // Access and fixed-camera data are loaded only when needed, or during browser idle time.
-const TRATEN_OPTIONAL_ASSET_VERSION='1.4.242';
+const TRATEN_OPTIONAL_ASSET_VERSION=APP_VERSION;
 const tratenOptionalLoads=new Map();
 function loadOptionalScriptOnce(src,key){
   if(tratenOptionalLoads.has(key))return tratenOptionalLoads.get(key);
@@ -7919,12 +7919,23 @@ function init(){
     updateForecastHorizon();
     renderRouteMaps();
   };
+  const clearCurrentAnalysisResults=()=>{
+    $('results')?.classList.add('hidden');
+    $('resultScreenshotToolbarDesktop')?.classList.add('hidden');
+    ['weatherCharts','forecastCards','modelDetails','overnightCards','decisionCommentary'].forEach(id=>{const el=$(id);if(el)el.innerHTML='';});
+    $('overnightSection')?.classList.add('hidden');
+    const mobileShot=$('resultScreenshotStatus'); if(mobileShot)mobileShot.textContent='';
+    const desktopShot=$('resultScreenshotStatusDesktop'); if(desktopShot)desktopShot.textContent='';
+  };
+  $('resultBackToTopBtn')?.addEventListener('click',()=>window.scrollTo({top:0,behavior:'smooth'}));
+
   $('plannerClearBtn')?.addEventListener('click',()=>{
     area.value='';
     select.value='';
     search.value='';
     populateMountainSelect('');
     resetForMountainChange();
+    clearCurrentAnalysisResults();
     const pace=$('walkingPaceRange');
     if(pace&&pace.value!=='100'){
       pace.value='100';
@@ -11423,7 +11434,7 @@ function niceMax(v){
 }
 
 function pointLegend(points){
-  return `<div class="point-key-wrap"><div class="point-key-head"><b>地点・到着</b><small>番号はグラフ内のポイントと対応</small></div><div class="point-key">${points.map((p,i)=>`<span class="point-key-item"><b>${String(i+1).padStart(2,'0')}</b><span class="point-key-copy"><strong title="${esc(p.point.name)}">${esc(p.point.name)}</strong><small>${esc(p.point.time||'--:--')}</small></span></span>`).join('')}</div></div>`;
+  return `<div class="point-key-wrap"><div class="point-key-head"><b>地点・到着・リスク</b><small>ABCは各地点の到着時判定</small></div><div class="point-key">${points.map((p,i)=>`<span class="point-key-item"><b>${String(i+1).padStart(2,'0')}</b><span class="point-key-copy"><strong title="${esc(p.point.name)}">${esc(p.point.name)}</strong><small>${esc(p.point.time||'--:--')} <em class="point-risk-grade g-${esc(p.grade)}">${esc(p.grade)}</em></small></span></span>`).join('')}</div></div>`;
 }
 function chartPointDate(point){
   return String(point?.point?.date||'').slice(0,10);
@@ -11509,7 +11520,6 @@ function renderTempCloudChart(points){
 function renderWeatherCharts(points){
   const el=$('weatherCharts'); if(!el)return;
   el.innerHTML=[renderImpactChart(points),renderTempCloudChart(points)].join('');
-  const ribbon=$('riskRibbon'); if(ribbon)ribbon.innerHTML=`<div class="risk-ribbon-head"><b>地点別リスク</b><small>番号はグラフのポイント番号と対応しています</small></div><div class="risk-ribbon-track">${points.map((p,i)=>`<div class="risk-stop g-${p.grade}"><span>${String(i+1).padStart(2,'0')}</span><b>${p.grade}</b><small>${esc(p.point.name)}</small><em>${esc(p.point.time||'')}</em></div>`).join('')}</div>`;
 }
 
 function routeTypeBadgeLabel(type){return TYPE_LABEL[type]||'地点';}
@@ -11871,7 +11881,6 @@ function pointForecastRow(r,i,total){
   const msg=pointForecastMessage(r);
   const windDeg=r.providerRows?.[0]?.row?.windDir ?? NaN;
   const visEval=visibilityEvaluation(r.visibility);
-  const windDegLabel=Number.isFinite(windDeg)?`${Math.round((((windDeg%360)+360)%360))}°`:'データなし';
   const conf=pointForecastConfidence(r);
   return `<article class="route-forecast-row point-dashboard-card">
     <div class="rf-point-head">
@@ -11887,13 +11896,13 @@ function pointForecastRow(r,i,total){
         <div class="rf-value-wrap"><strong>${num(r.temp,0)}</strong><small>℃</small></div>
         ${metricGauge('temp',r.temp)}
       </div>
-      <div class="rf-metric wind${hazardMetricClass(hz.wind)}" data-label="風">
-        <div class="rf-metric-title"><span class="rf-metric-symbol wind">${pointMetricIcon('wind')}</span><b>風</b></div>
+      <div class="rf-metric wind${hazardMetricClass(hz.wind)}" data-label="平均風速">
+        <div class="rf-metric-title"><span class="rf-metric-symbol wind">${pointMetricIcon('wind')}</span><b>平均風速</b></div>
         <div class="rf-value-wrap"><strong>${num(r.wind,0)}</strong><small>m/s</small></div>
-        <div class="rf-wind-direction-inline" aria-label="風向">
+        <div class="rf-wind-direction-inline" aria-label="風向と最大瞬間風速">
           <span class="rf-wind-dir-arrow">${windDirectionArrow(windDeg)}</span>
           <b>${windDirectionLabel(windDeg)}</b>
-          <small>${windDegLabel}</small>
+          ${Number.isFinite(r.gust)?`<small>最大瞬間 ${num(r.gust,0)}m/s</small>`:''}
         </div>
         ${metricGauge('wind',r.wind)}
       </div>

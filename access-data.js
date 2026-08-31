@@ -392,5 +392,5 @@
   add("ケーブル延暦寺駅","比叡山","滋賀県大津市","京都東IC方面","ケーブル坂本駅まで車＋坂本ケーブル","ケーブル坂本駅周辺の観光駐車場","JR比叡山坂本駅／京阪坂本比叡山口駅→江若交通または徒歩→ケーブル坂本駅→坂本ケーブル","ケーブル・比叡山内シャトルバスの運行時刻を確認。",["坂本ケーブル延暦寺駅"],[["坂本ケーブル｜アクセス","https://sakamoto-cable.jp/access/"],["坂本ケーブル","https://sakamoto-cable.jp/"]]);
 
   window.TRATEN_TRAILHEAD_ACCESS_DB = DB;
-  window.TRATEN_TRAILHEAD_ACCESS_META = {version:'6.0.9', count:Object.keys(DB).length, scope:'全国主要登山口'};
+  window.TRATEN_TRAILHEAD_ACCESS_META = {version:'6.0.10', count:Object.keys(DB).length, scope:'全国主要登山口'};
 })();
