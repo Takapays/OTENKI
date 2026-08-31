@@ -1,0 +1,30 @@
+Traten V1.5.54 custom-route integrity audit
+mountains: 299
+rawCandidates: 1720
+shownCandidates: 1189
+hiddenDisconnectedOrDuplicate: 263
+shownOrderedPairs: 11680
+missingShownPairs: 0
+estimatedShownPairs: 0
+longVerifiedShownPairs: 5277
+mountainsWithLessThan2SafePoints: 51
+
+Priority areas
+大雪山（旭岳）: raw 5, shown 3, pairs 6, missing 0, estimated 0, hidden 1 [黒岳石室]
+大朝日岳: raw 5, shown 3, pairs 6, missing 0, estimated 0, hidden 0
+飯豊山: raw 6, shown 3, pairs 6, missing 0, estimated 0, hidden 0
+燧ヶ岳: raw 16, shown 3, pairs 6, missing 0, estimated 0, hidden 5 [小沢平登山口 / 龍宮小屋 / 山ノ鼻（至仏山東面登山道入口・登り専用） / 至仏山 / 鳩待峠]
+至仏山: raw 12, shown 3, pairs 6, missing 0, estimated 0, hidden 3 [龍宮小屋 / 見晴（尾瀬小屋・見晴地区） / 燧ヶ岳（柴安嵓）]
+谷川岳: raw 6, shown 3, pairs 6, missing 0, estimated 0, hidden 2 [トマノ耳 / 谷川岳肩ノ小屋]
+八ヶ岳（赤岳）: raw 22, shown 16, pairs 240, missing 0, estimated 0, hidden 1 [赤岳]
+雲取山: raw 5, shown 4, pairs 12, missing 0, estimated 0, hidden 1 [小袖乗越・丹波山村村営駐車場]
+甲武信ヶ岳: raw 3, shown 3, pairs 6, missing 0, estimated 0, hidden 0
+金峰山: raw 5, shown 4, pairs 12, missing 0, estimated 0, hidden 1 [大日小屋]
+丹沢山: raw 4, shown 4, pairs 12, missing 0, estimated 0, hidden 0
+八経ヶ岳: raw 3, shown 3, pairs 6, missing 0, estimated 0, hidden 0
+石鎚山: raw 5, shown 4, pairs 12, missing 0, estimated 0, hidden 1 [石鎚神社頂上山荘]
+久住山: raw 10, shown 10, pairs 90, missing 0, estimated 0, hidden 0
+霧島山（韓国岳）: raw 3, shown 3, pairs 6, missing 0, estimated 0, hidden 0
+宮ノ浦岳: raw 3, shown 3, pairs 6, missing 0, estimated 0, hidden 0
+
+Policy: only displayed fixed candidates are required to be mutually resolvable using verified CT; disconnected/duplicate candidates stay in data but are hidden until verified linkage exists.

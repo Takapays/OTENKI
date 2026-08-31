@@ -1,0 +1,17 @@
+Traten V1.5.56 Custom Route Integrity Audit
+
+mountains: 299
+raw candidates: 1720
+displayed safe candidates: 1192
+withheld/disconnected/duplicate: 259
+ordered displayed pairs: 11560
+CT missing among displayed pairs: 0
+estimated CT among displayed pairs: 0
+verified routes >=600 min: 5242
+mountains with fewer than 2 safe points: 51
+
+V1.5.56 focused corrections:
+- corrected Kurodake Ishimuro -> Hokkaidake from mistranscribed 170 min to publicly rechecked 100 min
+- corrected Hokkaidake -> Kurodake Ishimuro from impossible 2 min to publicly rechecked 70 min
+- excluded closed Asahimata trailhead <-> Taiheizan from CT routing and custom-route candidates
+- direct CT geographic sanity audit: 0 suspicious candidate direct pairs

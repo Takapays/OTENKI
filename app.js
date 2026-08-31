@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.53';
+const APP_VERSION = '1.5.57';
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
@@ -1366,6 +1366,8 @@ function normalizeCourseTimePointName(name){
     ,'赤坂峠登山口':'赤坂峠 五葉山登山口'
     ,'谷川岳（オキノ耳）':'谷川岳オキノ耳'
     ,'谷川岳(オキノ耳)':'谷川岳オキノ耳'
+    ,'トマノ耳':'谷川岳（トマノ耳）'
+    ,'谷川岳トマノ耳':'谷川岳（トマノ耳）'
     ,'宮ノ浦岳':'宮之浦岳'
     ,'二分登山口':'二口登山口'
     // V1.4.123 bulk: 固定候補の説明付き名称を既存の確認済みCT端点へ接続
@@ -2361,14 +2363,14 @@ const V1548_DEEP_NETWORK_COURSE_TIMES = Object.freeze({
   '黒岳→七合目リフト駅': {minutes:55, source:'YAMAPモデルコース・黒岳→七合目リフト駅 55分（2026-08-30確認）', sourceType:'yamap'},
   '黒岳→黒岳石室': {minutes:26, source:'YAMAP大雪山モデル・黒岳→分岐25分→黒岳石室1分（2026-08-30確認）', sourceType:'yamap'},
   '黒岳石室→黒岳': {minutes:80, source:'YAMAP大雪山モデル・黒岳石室→分岐25分→黒岳55分（2026-08-30確認）', sourceType:'yamap'},
-  '黒岳石室→北海岳': {minutes:170, source:'YAMAP大雪山縦走モデル・黒岳石室テント場→北海岳 2時間50分（2026-08-30確認）', sourceType:'yamap'},
+  '黒岳石室→北海岳': {minutes:100, source:'YAMA HACK大雪山登山ガイド・黒岳石室→北海岳 100分（2026-08-31再確認）', sourceType:'guide'},
   '北海岳→白雲岳避難小屋': {minutes:26, source:'YAMAP大雪山縦走モデル・北海岳→白雲岳分岐25分→白雲岳避難小屋1分（2026-08-30確認）', sourceType:'yamap'},
   '白雲岳避難小屋→忠別岳': {minutes:260, source:'YAMAP大雪山縦走モデル・白雲岳避難小屋→高根ヶ原方面→忠別岳 4時間20分（2026-08-30確認）', sourceType:'yamap'},
   '忠別岳→五色岳': {minutes:110, source:'YAMAP大雪山縦走モデル・忠別岳→五色岳 1時間50分（2026-08-30確認）', sourceType:'yamap'},
   '五色岳→ヒサゴ沼避難小屋': {minutes:74, source:'YAMAP大雪山縦走モデル・五色岳→ヒサゴ沼避難小屋 1時間14分（2026-08-30確認）', sourceType:'yamap'},
   'ヒサゴ沼避難小屋→トムラウシ山': {minutes:225, source:'YAMAP大雪山縦走モデル・ヒサゴ沼避難小屋→トムラウシ山 3時間45分（2026-08-30確認）', sourceType:'yamap'},
   '大雪山（旭岳）→北海岳': {minutes:184, source:'YAMAP旭岳→黒岳縦走モデル・旭岳→北海岳 3時間04分（2026-08-30確認）', sourceType:'yamap'},
-  '北海岳→黒岳石室': {minutes:2, source:'YAMAP旭岳→黒岳縦走モデル・北海岳→黒岳石室 2分（2026-08-30確認）', sourceType:'yamap'},
+  '北海岳→黒岳石室': {minutes:70, source:'好日山荘登山レポート（一般的コースタイム）・北海岳→黒岳石室 1時間10分（2026-08-31再確認）', sourceType:'guide'},
 
   // 飯豊連峰主稜: YAMAP public model course, checked 2026-08-30.
   '御沢登山口→横峰': {minutes:150, source:'YAMAP飯豊山モデル・御沢登山口→横峰 2時間30分（2026-08-30確認）', sourceType:'yamap'},
@@ -2742,6 +2744,49 @@ const V1551_ONTAKE_YATSUGATAKE_COURSE_TIMES = Object.freeze({
   '赤岳→権現岳': {minutes:123, source:'ヤマレコ公開山行計画 p5547010・赤岳→キレット小屋→ツルネ→旭岳→権現岳 2時間03分（2026-08-31確認）', sourceType:'yamareco'}
 });
 
+
+// V1.5.55: restore high-value hidden corridor points with public checkpoint CTs.
+// Oze uses the YAMAP Hatomachitoge-Miharashi public model-course checkpoint times.
+// No reverse mirroring: each direction below is independently visible in the published checkpoint sequence.
+const V1555_ROUTE_RESTORE_COURSE_TIMES = Object.freeze({
+  // Tanigawa candidate labels: exact raw-name bridge for the public Tenjin-ridge checkpoint CT.
+  'トマノ耳→谷川岳（オキノ耳）': {minutes:15, source:'YAMAP天神尾根モデルコース・谷川岳（トマノ耳）10:42→谷川岳（オキノ耳）10:57、15分（2026-08-31確認）', sourceType:'yamap'},
+  '谷川岳（オキノ耳）→トマノ耳': {minutes:7, source:'YAMAP天神尾根モデルコース・谷川岳（オキノ耳）10:57→谷川岳（トマノ耳）11:04、7分（2026-08-31確認）', sourceType:'yamap'},
+  '熊穴沢避難小屋→谷川岳（オキノ耳）': {minutes:127, source:'YAMAP天神尾根モデルコース・熊穴沢ノ頭08:50→谷川岳（オキノ耳）10:57、2時間07分（2026-08-31確認）', sourceType:'yamap'},
+  '谷川岳（オキノ耳）→熊穴沢避難小屋': {minutes:92, source:'YAMAP天神尾根モデルコース・谷川岳（オキノ耳）10:57→熊穴沢ノ頭12:29、1時間32分（2026-08-31確認）', sourceType:'yamap'},
+  '竜宮十字路→龍宮小屋': {minutes:3, source:'YAMAPモデルコース・鳩待峠-見晴 往復（竜宮十字路09:28→龍宮小屋09:31、3分、2026-08-31確認）', sourceType:'yamap'},
+  '龍宮小屋→竜宮十字路': {minutes:4, source:'YAMAPモデルコース・鳩待峠-見晴 往復（龍宮小屋10:26→竜宮十字路10:30、4分、2026-08-31確認）', sourceType:'yamap'},
+  '龍宮小屋→見晴（尾瀬小屋・見晴地区）': {minutes:30, source:'YAMAPモデルコース・鳩待峠-見晴 往復（龍宮小屋09:31→見晴10:01、30分、2026-08-31確認）', sourceType:'yamap'},
+  '見晴（尾瀬小屋・見晴地区）→龍宮小屋': {minutes:25, source:'YAMAPモデルコース・鳩待峠-見晴 往復（見晴10:01→龍宮小屋10:26、25分、2026-08-31確認）', sourceType:'yamap'},
+  '鳩待峠→龍宮小屋': {minutes:151, source:'YAMAPモデルコース・鳩待峠-見晴 往復（鳩待峠07:00→龍宮小屋09:31、2時間31分、2026-08-31確認）', sourceType:'yamap'},
+  '龍宮小屋→鳩待峠': {minutes:187, source:'YAMAPモデルコース・鳩待峠-見晴 往復（龍宮小屋10:26→鳩待峠13:33、3時間07分、2026-08-31確認）', sourceType:'yamap'},
+  '鳩待峠→見晴（尾瀬小屋・見晴地区）': {minutes:181, source:'YAMAPモデルコース・鳩待峠-見晴 往復（鳩待峠07:00→見晴10:01、3時間01分、2026-08-31確認）', sourceType:'yamap'},
+  '見晴（尾瀬小屋・見晴地区）→鳩待峠': {minutes:212, source:'YAMAPモデルコース・鳩待峠-見晴 往復（見晴10:01→鳩待峠13:33、3時間32分、2026-08-31確認）', sourceType:'yamap'}
+});
+
+// V1.5.54: nationwide custom-route integrity pass.
+// Add only publicly verified / already-verified-composite links for high-use selectable points.
+// No coordinate/elevation estimation and no reverse mirroring.
+const V1554_ROUTE_INTEGRITY_COURSE_TIMES = Object.freeze({
+  // Kuju: keep Mt. Mimata connected to the selectable Chojabaru-side network using already verified adjacent CTs.
+  '長者原→三俣山': {minutes:137, source:'確認済みCT区間合算・長者原→砂防ダム30分＋砂防ダム→諏蛾守越60分＋諏蛾守越→三俣山47分（公開CTのみ、2026-08-31確認）', sourceType:'composed-verified'},
+  '三俣山→長者原': {minutes:152, source:'確認済みCT区間合算・三俣山→諏蛾守越72分＋諏蛾守越→砂防ダム50分＋砂防ダム→長者原30分（公開CTのみ、2026-08-31確認）', sourceType:'composed-verified'},
+
+  // Kobotoke/Kobushigatake: YAMAP model course exposes the hut immediately below the summit.
+  '甲武信小屋→甲武信ヶ岳': {minutes:15, source:'YAMAPモデルコース・甲武信小屋→甲武信ヶ岳 15分（2026-08-31確認）', sourceType:'yamap'},
+  '甲武信ヶ岳→甲武信小屋': {minutes:20, source:'YAMAPモデルコース・甲武信ヶ岳→甲武信小屋 20分（2026-08-31確認）', sourceType:'yamap'},
+
+  // Tanigawa: standard Tenjin-ridge model course between the two summits.
+  '谷川岳（トマノ耳）→谷川岳（オキノ耳）': {minutes:15, source:'YAMAP天神尾根モデルコース・谷川岳（トマノ耳）→谷川岳（オキノ耳）15分（2026-08-31確認）', sourceType:'yamap'},
+  '谷川岳（オキノ耳）→谷川岳（トマノ耳）': {minutes:7, source:'YAMAP天神尾根モデルコース・谷川岳（オキノ耳）→谷川岳（トマノ耳）7分（2026-08-31確認）', sourceType:'yamap'},
+  'トマノ耳→谷川岳 オキノ耳': {minutes:15, source:'YAMAP天神尾根モデルコース・トマノ耳→オキノ耳15分（2026-08-31確認）', sourceType:'yamap'},
+  '谷川岳 オキノ耳→トマノ耳': {minutes:7, source:'YAMAP天神尾根モデルコース・オキノ耳→トマノ耳7分（2026-08-31確認）', sourceType:'yamap'},
+
+  // Ishizuchi: ridge section between Misen and Tengu-dake.
+  '石鎚山（弥山）→石鎚山（天狗岳）': {minutes:20, source:'YAMAP公開モデルコース・石鎚山（弥山）→天狗岳20分（2026-08-31確認）', sourceType:'yamap'},
+  '石鎚山（天狗岳）→石鎚山（弥山）': {minutes:7, source:'YAMAP公開モデルコース・天狗岳→石鎚山（弥山）7分（2026-08-31確認）', sourceType:'yamap'}
+});
+
 const V1551_LONG_VERIFIED_CUSTOM_ROUTE_GROUPS = Object.freeze([
   new Set(['中の湯登山口（黒沢口）','田の原登山口','女人堂','石室山荘','二の池ヒュッテ','五の池小屋','御嶽山（剣ヶ峰）']),
   new Set(['美濃戸口','美濃戸','富士見高原登山口','観音平','赤岳鉱泉','行者小屋','赤岳','赤岳天望荘','横岳（八ヶ岳）','硫黄岳（八ヶ岳）','硫黄岳山荘','阿弥陀岳','権現岳','権現小屋','編笠山','青年小屋'])
@@ -2751,6 +2796,8 @@ function v1551AllowLongVerifiedCustomRoute(fromName,toName){
 }
 
 const COURSE_TIME_TABLES = Object.freeze([
+  V1555_ROUTE_RESTORE_COURSE_TIMES,
+  V1554_ROUTE_INTEGRITY_COURSE_TIMES,
   V1552_ALPS_CUSTOM_ROUTE_COURSE_TIMES,
   V1551_ONTAKE_YATSUGATAKE_COURSE_TIMES,
   V1550_CUSTOM_ROUTE_COURSE_TIMES,
@@ -2831,7 +2878,20 @@ function normalizedCourseTimeSource(source=''){
   }
   return raw;
 }
+// V1.5.56: routes confirmed closed by a current public authority are excluded from CT routing.
+// Historical CT is kept in the catalog for traceability, but must not become selectable or composable.
+const CLOSED_COURSE_TIME_PAIRS = new Set([
+  '旭又登山口→太平山',
+  '太平山→旭又登山口'
+]);
+const CLOSED_CUSTOM_ROUTE_POINTS = new Set([
+  '太平山|旭又登山口'
+]);
+function isClosedCourseTimePair(fromName,toName){
+  return CLOSED_COURSE_TIME_PAIRS.has(`${fromName}→${toName}`);
+}
 function directCourseTimeInfoByNames(fromName,toName){
+  if(isClosedCourseTimePair(fromName,toName))return null;
   const key=`${fromName}→${toName}`;
   for(const table of COURSE_TIME_TABLES){
     if(table[key])return table[key];
@@ -2850,6 +2910,7 @@ function courseTimeGraph(){
       if(sep<1)continue;
       const from=key.slice(0,sep),to=key.slice(sep+1);
       if(!from||!to||!Number.isFinite(Number(info?.minutes)))continue;
+      if(isClosedCourseTimePair(from,to))continue;
       if(!graph.has(from))graph.set(from,[]);
       graph.get(from).push({from,to,info,sourceKey:normalizedCourseTimeSource(info?.source||'')});
     }
@@ -3144,9 +3205,11 @@ function courseTimeInfo(fromPoint,toPoint){
   // V1.5.50: if the legacy source-isolated composer cannot form a sensible path,
   // allow composition across independently verified public CT edges. No estimated edge is used.
   const verifiedShortest=shortestVerifiedCourseTimeInfo(fromName,toName);
-  if(verifiedShortest&&!verifiedComposedPathIsImplausible(fromPoint,toPoint,verifiedShortest)&&(Number(verifiedShortest.minutes)<600||v1551AllowLongVerifiedCustomRoute(fromName,toName)||v1552AllowLongVerifiedAlpsRoute(fromName,toName)||v1552AllowLongVerifiedAlpsRoute(rawFrom,rawTo)))return verifiedShortest;
+  // V1.5.54: do not reject a real multi-hour/multi-day traverse merely because it exceeds 10h.
+  // The path is still accepted only when every edge is a published/verified CT and the geographic detour guard passes.
+  if(verifiedShortest&&!verifiedComposedPathIsImplausible(fromPoint,toPoint,verifiedShortest))return verifiedShortest;
   const rawVerifiedShortest=(rawFrom===fromName&&rawTo===toName)?null:shortestVerifiedCourseTimeInfo(rawFrom,rawTo);
-  if(rawVerifiedShortest&&!verifiedComposedPathIsImplausible(fromPoint,toPoint,rawVerifiedShortest)&&(Number(rawVerifiedShortest.minutes)<600||v1551AllowLongVerifiedCustomRoute(rawFrom,rawTo)||v1552AllowLongVerifiedAlpsRoute(rawFrom,rawTo)||v1552AllowLongVerifiedAlpsRoute(fromName,toName)))return rawVerifiedShortest;
+  if(rawVerifiedShortest&&!verifiedComposedPathIsImplausible(fromPoint,toPoint,rawVerifiedShortest))return rawVerifiedShortest;
   // V1.5.44: coordinate/elevation regression fallback disabled.
   // If no verified direct/composed CT exists, return null rather than inventing a walking time.
   return null;
@@ -9388,6 +9451,108 @@ function accessNameKey(name,mountain=''){
   return x;
 }
 
+
+// V1.5.54: never expose a fixed custom-route point that is disconnected from the
+// verified CT network shown for that mountain.  This is a UI integrity guard, not
+// a CT estimator: disconnected points stay in the data catalog and reappear
+// automatically once verified links are added.
+function usableVerifiedCustomRouteInfo(a,b){
+  const info=courseTimeInfo(a,b);
+  return !!(info&&!info.estimated&&Number.isFinite(Number(info.minutes))&&Number(info.minutes)>=0);
+}
+function sanitizeFixedCustomRouteCandidates(mountain,list){
+  const canonicalMountain=canonicalMountainName(mountain);
+  const src=(list||[]).filter(p=>p&&hasResolvedCoord(p)&&!CLOSED_CUSTOM_ROUTE_POINTS.has(`${canonicalMountain}|${p.name}`));
+  if(src.length<2)return {points:src,hidden:[]};
+  let unique=[];const seen=new Set();
+  for(const p of src){const k=`${p.type}|${accessNameKey(p.name,mountain)}`;if(seen.has(k))continue;seen.add(k);unique.push(p);}
+  if(unique.length<2)return {points:unique,hidden:[]};
+
+  // Same physical summit sometimes arrives from both a generic 300-mountain catalog and
+  // a detailed regional catalog under slightly different labels (e.g. 赤岳 vs
+  // 赤岳（八ヶ岳最高峰）).  Showing both creates a fake CT gap.  Collapse only
+  // same-type points within a very small radius (80 m for peaks, 30 m otherwise),
+  // keeping the label with the strongest verified CT degree.
+  const preHidden=[];
+  const scorePoint=(p,pool)=>pool.reduce((n,q)=>n+(p!==q&&(usableVerifiedCustomRouteInfo(p,q)||usableVerifiedCustomRouteInfo(q,p))?1:0),0);
+  const alive=new Array(unique.length).fill(true);
+  for(let i=0;i<unique.length;i++){
+    if(!alive[i])continue;
+    for(let j=i+1;j<unique.length;j++){
+      if(!alive[j]||unique[i].type!==unique[j].type)continue;
+      const km=haversineKm(unique[i].lat,unique[i].lon,unique[j].lat,unique[j].lon);
+      const duplicateRadiusKm=(unique[i].type==='peak')?0.08:0.03;
+      if(!Number.isFinite(km)||km>duplicateRadiusKm)continue;
+      // V1.5.55: proximity alone is not a duplicate test. Neighboring real summits can be
+      // less than 80m apart (e.g. Tanigawa Tomano/Oki). Collapse only alias-equivalent labels.
+      const ni=courseTimePointMatchKey(normalizeCourseTimePointName(unique[i].name));
+      const nj=courseTimePointMatchKey(normalizeCourseTimePointName(unique[j].name));
+      if(ni!==nj)continue;
+      const si=scorePoint(unique[i],unique),sj=scorePoint(unique[j],unique);
+      const drop=(sj>si)?i:j;
+      preHidden.push(unique[drop]);alive[drop]=false;
+      if(drop===i)break;
+    }
+  }
+  unique=unique.filter((_,i)=>alive[i]);
+  if(unique.length<2)return {points:unique,hidden:preHidden};
+  const adj=unique.map(()=>new Set());
+  for(let i=0;i<unique.length;i++)for(let j=i+1;j<unique.length;j++){
+    // Route builder is reversible by design; keep points in the main selectable
+    // graph only when the verified CT graph can resolve both directions.
+    if(usableVerifiedCustomRouteInfo(unique[i],unique[j])&&usableVerifiedCustomRouteInfo(unique[j],unique[i])){
+      adj[i].add(j);adj[j].add(i);
+    }
+  }
+  const components=[];const visited=new Set();
+  for(let i=0;i<unique.length;i++){
+    if(visited.has(i))continue;
+    const stack=[i],comp=[];visited.add(i);
+    while(stack.length){const x=stack.pop();comp.push(x);for(const y of adj[x])if(!visited.has(y)){visited.add(y);stack.push(y);}}
+    components.push(comp);
+  }
+  const mkey=canonicalCourseTimeEndpointName(normalizeCourseTimePointName(canonicalMountainName(mountain)));
+  const primaryIndices=unique.map((p,i)=>({p,i})).filter(({p})=>p.type==='peak'&&canonicalCourseTimeEndpointName(normalizeCourseTimePointName(p.name))===mkey).map(x=>x.i);
+  let keepComp=null;
+  for(const idx of primaryIndices){const c=components.find(comp=>comp.includes(idx));if(c&&(!keepComp||c.length>keepComp.length))keepComp=c;}
+  if(!keepComp)keepComp=[...components].sort((a,b)=>b.length-a.length)[0]||[];
+  // Integrity takes precedence over candidate count.  If the selected mountain
+  // summit is isolated, do not re-expose the other disconnected points: that was the
+  // exact failure mode that made a route look selectable while every CT was missing.
+  // A single safe point is preferable to a broken multi-point builder; the UI explains
+  // that verified CT-linked points are insufficient until a public CT is added.
+  if(keepComp.length<2){
+    const keep=new Set(keepComp);
+    return {points:unique.filter((_,i)=>keep.has(i)),hidden:[...preHidden,...unique.filter((_,i)=>!keep.has(i))]};
+  }
+
+  // A connected graph can still contain a branch pair that resolves only through a
+  // geographically rejected detour.  Remove the smallest number of such optional
+  // points greedily until every displayed pair is resolvable in both directions.
+  // The selected mountain summit is protected whenever possible.
+  let active=[...keepComp];
+  const primarySet=new Set(primaryIndices);
+  while(active.length>2){
+    const failCount=new Map(active.map(i=>[i,0]));
+    let failures=0;
+    for(let ai=0;ai<active.length;ai++)for(let bi=ai+1;bi<active.length;bi++){
+      const i=active[ai],j=active[bi];
+      if(!(usableVerifiedCustomRouteInfo(unique[i],unique[j])&&usableVerifiedCustomRouteInfo(unique[j],unique[i]))){
+        failCount.set(i,failCount.get(i)+1);failCount.set(j,failCount.get(j)+1);failures++;
+      }
+    }
+    if(!failures)break;
+    const droppable=active.filter(i=>!primarySet.has(i));
+    if(!droppable.length)break;
+    droppable.sort((a,b)=>failCount.get(b)-failCount.get(a)||((unique[a].type==='trailhead')?1:0)-((unique[b].type==='trailhead')?1:0));
+    const drop=droppable[0];
+    if((failCount.get(drop)||0)===0)break;
+    active=active.filter(i=>i!==drop);
+  }
+  const keep=new Set(active);
+  return {points:unique.filter((_,i)=>keep.has(i)),hidden:[...preHidden,...unique.filter((_,i)=>!keep.has(i))]};
+}
+
 async function loadCandidates(){
   const label=$('mountainPreset').value.trim();
   if(!label){
@@ -9413,12 +9578,13 @@ async function loadCandidates(){
     // 確定済み固定候補が1件でもあれば、それを即時出力して外部の追加候補探索は行わない。
     // 日本三百名山は固定登山口300/300を整備済みのため、通常はこちらを通る。
     if(resolvedStaticBase.length){
-      candidates=[...resolvedStaticBase];
+      const sanitized=sanitizeFixedCustomRouteCandidates(mountain,resolvedStaticBase);
+      candidates=[...sanitized.points];
       renderCandidateRows(label,center,{resetPoints:true});
       setLoadedRouteStartToTomorrow();
-      $('candidateState').textContent='';
-      updateLoadButtonAppearance(true);
-      logEvent('route_candidates_loaded',{success:true,mountain:label,metadata:{candidate_count:candidates.length,hidden_unresolved_count:staticBase.length-resolvedStaticBase.length,source:'fixed',external_search:false}});
+      $('candidateState').textContent=(candidates.length<2&&sanitized.hidden.length)?'確認済みCTで接続できる設計ポイントがまだ不足しています。未確認のポイントは表示していません。':'';
+      updateLoadButtonAppearance(!!candidates.length);
+      logEvent('route_candidates_loaded',{success:!!candidates.length,mountain:label,metadata:{candidate_count:candidates.length,hidden_unresolved_count:staticBase.length-resolvedStaticBase.length,hidden_ct_disconnected_count:sanitized.hidden.length,source:'fixed',external_search:false}});
       return;
     }
 

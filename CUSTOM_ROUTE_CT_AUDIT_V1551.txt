@@ -1,15 +1,15 @@
 TRATEN V1.5.51 ONTAKE + YATSUGATAKE CUSTOM-ROUTE CT AUDIT
 
 御嶽山	points=7	pairs=42	resolved=42	direct=19	composed=23	estimated=0	missing=0	longVerified=0
-八ヶ岳（赤岳）	points=16	pairs=240	resolved=240	direct=34	composed=206	estimated=0	missing=0	longVerified=12
+八ヶ岳（赤岳）	points=16	pairs=240	resolved=240	direct=42	composed=198	estimated=0	missing=0	longVerified=11
 
-TOTAL points=23 pairs=282 resolved=282 direct=53 composed=229 estimated=0 missing=0 longVerified=12 examples=5/5
+TOTAL points=23 pairs=282 resolved=282 direct=61 composed=221 estimated=0 missing=0 longVerified=11 examples=5/5
 
 EXAMPLES:
 PASS	御嶽山	中の湯→女人堂→石室→剣ヶ峰→二の池→五の池	328 min
 PASS	御嶽山	田の原→剣ヶ峰→二の池	217 min
-PASS	八ヶ岳（赤岳）	美濃戸口→美濃戸→行者→赤岳→天望荘→横岳→硫黄岳山荘→硫黄岳→赤岳鉱泉→美濃戸→美濃戸口	1255 min
-PASS	八ヶ岳（赤岳）	観音平→編笠→青年→権現→赤岳→行者→美濃戸口	783 min
+PASS	八ヶ岳（赤岳）	美濃戸口→美濃戸→行者→赤岳→天望荘→横岳→硫黄岳山荘→硫黄岳→赤岳鉱泉→美濃戸→美濃戸口	627 min
+PASS	八ヶ岳（赤岳）	観音平→編笠→青年→権現→赤岳→行者→美濃戸口	678 min
 PASS	八ヶ岳（赤岳）	富士見高原→編笠→青年→権現→赤岳	520 min
 
 NON-RESOLVED:

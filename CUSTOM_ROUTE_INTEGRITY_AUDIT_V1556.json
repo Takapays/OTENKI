@@ -1,0 +1,1892 @@
+{
+  "version": "1.5.56",
+  "summary": {
+    "mountains": 299,
+    "rawCandidates": 1720,
+    "shownCandidates": 1192,
+    "hiddenDisconnectedOrDuplicate": 259,
+    "shownOrderedPairs": 11560,
+    "missingShownPairs": 0,
+    "estimatedShownPairs": 0,
+    "longVerifiedShownPairs": 5242,
+    "mountainsWithLessThan2SafePoints": 51
+  },
+  "priority": [
+    {
+      "mountain": "大雪山（旭岳）",
+      "raw": 5,
+      "shown": 3,
+      "hidden": [
+        "黒岳石室"
+      ],
+      "pairs": 6,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "大朝日岳",
+      "raw": 5,
+      "shown": 3,
+      "hidden": [],
+      "pairs": 6,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "飯豊山",
+      "raw": 6,
+      "shown": 3,
+      "hidden": [],
+      "pairs": 6,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 2
+    },
+    {
+      "mountain": "燧ヶ岳",
+      "raw": 16,
+      "shown": 7,
+      "hidden": [
+        "小沢平登山口"
+      ],
+      "pairs": 42,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 3
+    },
+    {
+      "mountain": "至仏山",
+      "raw": 12,
+      "shown": 6,
+      "hidden": [],
+      "pairs": 30,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "谷川岳",
+      "raw": 6,
+      "shown": 4,
+      "hidden": [
+        "谷川岳肩ノ小屋"
+      ],
+      "pairs": 12,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "八ヶ岳（赤岳）",
+      "raw": 22,
+      "shown": 16,
+      "hidden": [
+        "赤岳"
+      ],
+      "pairs": 240,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 11
+    },
+    {
+      "mountain": "雲取山",
+      "raw": 5,
+      "shown": 4,
+      "hidden": [
+        "小袖乗越・丹波山村村営駐車場"
+      ],
+      "pairs": 12,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "甲武信ヶ岳",
+      "raw": 3,
+      "shown": 3,
+      "hidden": [],
+      "pairs": 6,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "金峰山",
+      "raw": 5,
+      "shown": 4,
+      "hidden": [
+        "大日小屋"
+      ],
+      "pairs": 12,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "丹沢山",
+      "raw": 4,
+      "shown": 4,
+      "hidden": [],
+      "pairs": 12,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "八経ヶ岳",
+      "raw": 3,
+      "shown": 3,
+      "hidden": [],
+      "pairs": 6,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "石鎚山",
+      "raw": 5,
+      "shown": 4,
+      "hidden": [
+        "石鎚神社頂上山荘"
+      ],
+      "pairs": 12,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "久住山",
+      "raw": 10,
+      "shown": 10,
+      "hidden": [],
+      "pairs": 90,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "霧島山（韓国岳）",
+      "raw": 3,
+      "shown": 3,
+      "hidden": [],
+      "pairs": 6,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "宮ノ浦岳",
+      "raw": 3,
+      "shown": 3,
+      "hidden": [],
+      "pairs": 6,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    }
+  ],
+  "affected": [
+    {
+      "mountain": "大雪山（旭岳）",
+      "raw": 5,
+      "shown": 3,
+      "hidden": [
+        "黒岳石室"
+      ],
+      "pairs": 6,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "トムラウシ山",
+      "raw": 5,
+      "shown": 2,
+      "hidden": [
+        "トムラウシ温泉登山口（東大雪荘）",
+        "ヒサゴ沼避難小屋",
+        "三川台分岐"
+      ],
+      "pairs": 2,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "オプタテシケ山",
+      "raw": 4,
+      "shown": 3,
+      "hidden": [
+        "望岳台"
+      ],
+      "pairs": 6,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "十勝岳",
+      "raw": 5,
+      "shown": 3,
+      "hidden": [
+        "上ホロカメットク避難小屋"
+      ],
+      "pairs": 6,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "カムイエクウチカウシ山",
+      "raw": 4,
+      "shown": 1,
+      "hidden": [
+        "札内川ヒュッテ駐車場",
+        "札内川ヒュッテ"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "ペテガリ岳",
+      "raw": 4,
+      "shown": 3,
+      "hidden": [
+        "神威山荘"
+      ],
+      "pairs": 6,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 2
+    },
+    {
+      "mountain": "神威岳",
+      "raw": 4,
+      "shown": 2,
+      "hidden": [
+        "神威山荘"
+      ],
+      "pairs": 2,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "芦別岳",
+      "raw": 3,
+      "shown": 1,
+      "hidden": [
+        "新道登山口",
+        "山部自然公園太陽の里 芦別岳登山口"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "夕張岳",
+      "raw": 3,
+      "shown": 2,
+      "hidden": [
+        "夕張岳ヒュッテ"
+      ],
+      "pairs": 2,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "余市岳",
+      "raw": 3,
+      "shown": 1,
+      "hidden": [
+        "キロロリゾート・赤井川コース入口"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "渡島駒ヶ岳",
+      "raw": 2,
+      "shown": 1,
+      "hidden": [
+        "赤井川登山口・6合目駐車場"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "大千軒岳",
+      "raw": 2,
+      "shown": 1,
+      "hidden": [
+        "奥二股登山口駐車場"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "乳頭山（烏帽子岳）",
+      "raw": 4,
+      "shown": 1,
+      "hidden": [
+        "滝ノ上温泉・乳頭山登山口",
+        "黒湯温泉",
+        "蟹場温泉"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "秋田駒ヶ岳",
+      "raw": 3,
+      "shown": 2,
+      "hidden": [
+        "阿弥陀池避難小屋"
+      ],
+      "pairs": 2,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "岩手山",
+      "raw": 7,
+      "shown": 5,
+      "hidden": [
+        "不動平避難小屋"
+      ],
+      "pairs": 20,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "鳥海山",
+      "raw": 6,
+      "shown": 3,
+      "hidden": [
+        "御浜小屋"
+      ],
+      "pairs": 6,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "摩耶山",
+      "raw": 2,
+      "shown": 1,
+      "hidden": [
+        "越沢口"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "船形山",
+      "raw": 4,
+      "shown": 1,
+      "hidden": [
+        "大滝キャンプ場・船形山登山口"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "泉ヶ岳",
+      "raw": 2,
+      "shown": 1,
+      "hidden": [
+        "泉ヶ岳大駐車場"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "七ヶ岳",
+      "raw": 2,
+      "shown": 1,
+      "hidden": [
+        "会津高原たかつえスキー場・七ヶ岳登山口"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "荒海山",
+      "raw": 2,
+      "shown": 1,
+      "hidden": [
+        "八総鉱山跡・荒海山登山駐車場"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "会津朝日岳",
+      "raw": 3,
+      "shown": 1,
+      "hidden": [
+        "赤倉沢登山口"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "燧ヶ岳",
+      "raw": 16,
+      "shown": 7,
+      "hidden": [
+        "小沢平登山口"
+      ],
+      "pairs": 42,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 3
+    },
+    {
+      "mountain": "大滝根山",
+      "raw": 3,
+      "shown": 1,
+      "hidden": [
+        "高塚高原キャンプ場駐車場"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "杁差岳",
+      "raw": 3,
+      "shown": 1,
+      "hidden": [
+        "奥胎内ヒュッテ（足ノ松尾根ルート起点）",
+        "奥胎内ヒュッテ"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "中ノ岳",
+      "raw": 3,
+      "shown": 2,
+      "hidden": [
+        "日向山"
+      ],
+      "pairs": 2,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "苗場山",
+      "raw": 4,
+      "shown": 2,
+      "hidden": [
+        "苗場山頂ヒュッテ"
+      ],
+      "pairs": 2,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "鳥甲山",
+      "raw": 3,
+      "shown": 1,
+      "hidden": [
+        "ムジナ平登山口",
+        "屋敷口"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "米山",
+      "raw": 3,
+      "shown": 2,
+      "hidden": [
+        "米山山頂避難小屋"
+      ],
+      "pairs": 2,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "筑波山",
+      "raw": 6,
+      "shown": 3,
+      "hidden": [
+        "筑波山（男体山）"
+      ],
+      "pairs": 6,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "男鹿岳",
+      "raw": 2,
+      "shown": 1,
+      "hidden": [
+        "深山園地・塩那道路ゲート"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "景鶴山",
+      "raw": 2,
+      "shown": 1,
+      "hidden": [
+        "鳩待峠（尾瀬側起点）"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "釈迦ヶ岳（栃木）",
+      "raw": 2,
+      "shown": 1,
+      "hidden": [
+        "八方ヶ原・大間々台登山口"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "女峰山",
+      "raw": 2,
+      "shown": 1,
+      "hidden": [
+        "滝尾神社登山口"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "草津白根山",
+      "raw": 2,
+      "shown": 1,
+      "hidden": [
+        "白根火山・湯釜側起点"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "諏訪山",
+      "raw": 4,
+      "shown": 1,
+      "hidden": [
+        "楢原・樽原登山口",
+        "浜平登山口",
+        "樽原登山口"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "朝日岳（群馬）",
+      "raw": 2,
+      "shown": 1,
+      "hidden": [
+        "湯檜曽公園・白毛門登山口側"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "谷川岳",
+      "raw": 6,
+      "shown": 4,
+      "hidden": [
+        "谷川岳肩ノ小屋"
+      ],
+      "pairs": 12,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "仙ノ倉山",
+      "raw": 3,
+      "shown": 2,
+      "hidden": [
+        "平標山の家"
+      ],
+      "pairs": 2,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "浅間山",
+      "raw": 2,
+      "shown": 1,
+      "hidden": [
+        "高峰高原・車坂峠"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "蓼科山",
+      "raw": 19,
+      "shown": 4,
+      "hidden": [
+        "渋の湯",
+        "唐沢鉱泉",
+        "白駒池入口",
+        "北八ヶ岳ロープウェイ山頂駅",
+        "天狗岳",
+        "黒百合ヒュッテ",
+        "高見石小屋",
+        "北横岳",
+        "北横岳ヒュッテ"
+      ],
+      "pairs": 12,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "天狗岳",
+      "raw": 22,
+      "shown": 3,
+      "hidden": [
+        "天狗岳",
+        "唐沢鉱泉",
+        "夏沢峠",
+        "本沢温泉",
+        "根石岳山荘",
+        "白駒池入口",
+        "北八ヶ岳ロープウェイ山頂駅",
+        "高見石小屋",
+        "北横岳",
+        "北横岳ヒュッテ",
+        "蓼科山七合目登山口",
+        "女乃神茶屋（蓼科山登山口）",
+        "蓼科山",
+        "蓼科山頂ヒュッテ"
+      ],
+      "pairs": 6,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "八ヶ岳（赤岳）",
+      "raw": 22,
+      "shown": 16,
+      "hidden": [
+        "赤岳"
+      ],
+      "pairs": 240,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 11
+    },
+    {
+      "mountain": "入笠山",
+      "raw": 3,
+      "shown": 2,
+      "hidden": [
+        "御所平 登山者用臨時駐車場"
+      ],
+      "pairs": 2,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "鉢伏山",
+      "raw": 4,
+      "shown": 2,
+      "hidden": [
+        "鉢伏山荘駐車場",
+        "鉢伏山荘"
+      ],
+      "pairs": 2,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "美ヶ原",
+      "raw": 4,
+      "shown": 2,
+      "hidden": [
+        "三城いこいの広場"
+      ],
+      "pairs": 2,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "戸隠山",
+      "raw": 4,
+      "shown": 3,
+      "hidden": [
+        "一不動避難小屋"
+      ],
+      "pairs": 6,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "斑尾山",
+      "raw": 3,
+      "shown": 1,
+      "hidden": [
+        "斑尾高原ビジターセンター（山の家）",
+        "斑尾高原スキー場"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "焼山",
+      "raw": 3,
+      "shown": 1,
+      "hidden": [
+        "金山登山口（小谷側）",
+        "新潟焼山"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "雨飾山",
+      "raw": 4,
+      "shown": 3,
+      "hidden": [
+        "雨飾山荘（雨飾温泉）"
+      ],
+      "pairs": 6,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "青海黒姫山",
+      "raw": 2,
+      "shown": 1,
+      "hidden": [
+        "清水倉登山口"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "朝日岳（新潟・富山）",
+      "raw": 12,
+      "shown": 10,
+      "hidden": [
+        "八方池山荘"
+      ],
+      "pairs": 90,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 43
+    },
+    {
+      "mountain": "雪倉岳",
+      "raw": 12,
+      "shown": 10,
+      "hidden": [
+        "八方池山荘"
+      ],
+      "pairs": 90,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 41
+    },
+    {
+      "mountain": "白馬岳",
+      "raw": 44,
+      "shown": 29,
+      "hidden": [
+        "白馬大池テント場",
+        "アルプス平",
+        "八方池山荘"
+      ],
+      "pairs": 812,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 566
+    },
+    {
+      "mountain": "唐松岳",
+      "raw": 44,
+      "shown": 30,
+      "hidden": [
+        "白馬大池テント場",
+        "猿倉"
+      ],
+      "pairs": 870,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 616
+    },
+    {
+      "mountain": "五竜岳",
+      "raw": 42,
+      "shown": 29,
+      "hidden": [
+        "白馬大池テント場",
+        "猿倉"
+      ],
+      "pairs": 812,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 577
+    },
+    {
+      "mountain": "鹿島槍ヶ岳",
+      "raw": 32,
+      "shown": 25,
+      "hidden": [
+        "高千穂平",
+        "猿倉"
+      ],
+      "pairs": 600,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 447
+    },
+    {
+      "mountain": "爺ヶ岳",
+      "raw": 27,
+      "shown": 24,
+      "hidden": [
+        "猿倉"
+      ],
+      "pairs": 552,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 418
+    },
+    {
+      "mountain": "針ノ木岳",
+      "raw": 28,
+      "shown": 25,
+      "hidden": [
+        "猿倉"
+      ],
+      "pairs": 600,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 449
+    },
+    {
+      "mountain": "蓮華岳",
+      "raw": 27,
+      "shown": 24,
+      "hidden": [
+        "猿倉"
+      ],
+      "pairs": 552,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 418
+    },
+    {
+      "mountain": "毛勝山",
+      "raw": 2,
+      "shown": 1,
+      "hidden": [
+        "片貝登山口（東又第五発電所登山口）"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "立山",
+      "raw": 13,
+      "shown": 8,
+      "hidden": [
+        "立山（大汝山）",
+        "雄山"
+      ],
+      "pairs": 56,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 6
+    },
+    {
+      "mountain": "水晶岳（黒岳）",
+      "raw": 21,
+      "shown": 12,
+      "hidden": [
+        "雲ノ平山荘",
+        "三俣蓮華岳",
+        "三俣山荘",
+        "野口五郎岳",
+        "野口五郎小屋",
+        "水晶岳",
+        "水晶小屋",
+        "鷲羽岳"
+      ],
+      "pairs": 132,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 85
+    },
+    {
+      "mountain": "三俣蓮華岳",
+      "raw": 13,
+      "shown": 11,
+      "hidden": [
+        "笠新道登山口"
+      ],
+      "pairs": 110,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 36
+    },
+    {
+      "mountain": "笠ヶ岳（岐阜）",
+      "raw": 17,
+      "shown": 11,
+      "hidden": [
+        "笠新道登山口"
+      ],
+      "pairs": 110,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 23
+    },
+    {
+      "mountain": "餓鬼岳",
+      "raw": 3,
+      "shown": 1,
+      "hidden": [
+        "餓鬼岳小屋",
+        "中房登山口"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "有明山",
+      "raw": 2,
+      "shown": 1,
+      "hidden": [
+        "中房登山口"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "大天井岳",
+      "raw": 15,
+      "shown": 13,
+      "hidden": [
+        "中房登山口（燕岳・大天井岳 表銀座ルート）"
+      ],
+      "pairs": 156,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 70
+    },
+    {
+      "mountain": "常念岳",
+      "raw": 16,
+      "shown": 12,
+      "hidden": [
+        "前常念岳"
+      ],
+      "pairs": 132,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 37
+    },
+    {
+      "mountain": "槍ヶ岳",
+      "raw": 53,
+      "shown": 35,
+      "hidden": [
+        "槍平小屋テント場",
+        "槍ヶ岳山荘テント場",
+        "千丈乗越",
+        "飛騨乗越",
+        "ババ平（槍沢キャンプ場）",
+        "大曲（水俣乗越分岐）"
+      ],
+      "pairs": 1190,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 523
+    },
+    {
+      "mountain": "奥穂高岳",
+      "raw": 30,
+      "shown": 22,
+      "hidden": [
+        "西穂山荘",
+        "焼岳小屋",
+        "新穂高温泉"
+      ],
+      "pairs": 462,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 105
+    },
+    {
+      "mountain": "焼岳",
+      "raw": 10,
+      "shown": 7,
+      "hidden": [
+        "上高地"
+      ],
+      "pairs": 42,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 2
+    },
+    {
+      "mountain": "鉢盛山",
+      "raw": 2,
+      "shown": 1,
+      "hidden": [
+        "鉢盛坂新道口"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "奥三界岳",
+      "raw": 3,
+      "shown": 2,
+      "hidden": [
+        "夕森渓谷駐車場"
+      ],
+      "pairs": 2,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "経ヶ岳（長野）",
+      "raw": 3,
+      "shown": 2,
+      "hidden": [
+        "仲仙寺登山口"
+      ],
+      "pairs": 2,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "木曽駒ヶ岳",
+      "raw": 22,
+      "shown": 16,
+      "hidden": [
+        "玉乃窪山荘"
+      ],
+      "pairs": 240,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 21
+    },
+    {
+      "mountain": "空木岳",
+      "raw": 19,
+      "shown": 15,
+      "hidden": [
+        "伊奈川ダム上登山口"
+      ],
+      "pairs": 210,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 17
+    },
+    {
+      "mountain": "南駒ヶ岳",
+      "raw": 3,
+      "shown": 1,
+      "hidden": [
+        "伊奈川ダム上登山口",
+        "越百山"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "越百山",
+      "raw": 3,
+      "shown": 1,
+      "hidden": [
+        "伊奈川ダム上登山口",
+        "越百小屋・越百避難小屋"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "南木曽岳",
+      "raw": 2,
+      "shown": 1,
+      "hidden": [
+        "蘭登山口"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "両神山",
+      "raw": 3,
+      "shown": 2,
+      "hidden": [
+        "尾ノ内渓谷登山口"
+      ],
+      "pairs": 2,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "雲取山",
+      "raw": 5,
+      "shown": 4,
+      "hidden": [
+        "小袖乗越・丹波山村村営駐車場"
+      ],
+      "pairs": 12,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "金峰山",
+      "raw": 5,
+      "shown": 4,
+      "hidden": [
+        "大日小屋"
+      ],
+      "pairs": 12,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "大菩薩嶺",
+      "raw": 3,
+      "shown": 2,
+      "hidden": [
+        "介山荘"
+      ],
+      "pairs": 2,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "大岳山",
+      "raw": 3,
+      "shown": 1,
+      "hidden": [
+        "白倉・大嶽神社里宮登山口",
+        "大岳山荘"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "三頭山",
+      "raw": 2,
+      "shown": 1,
+      "hidden": [
+        "山のふるさと村登山口"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "大山（神奈川）",
+      "raw": 3,
+      "shown": 2,
+      "hidden": [
+        "大山ケーブル口・市営第二駐車場"
+      ],
+      "pairs": 2,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "箱根山",
+      "raw": 2,
+      "shown": 1,
+      "hidden": [
+        "大涌谷登山口"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "三ッ峠山",
+      "raw": 3,
+      "shown": 2,
+      "hidden": [
+        "西桂口"
+      ],
+      "pairs": 2,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "黒岳",
+      "raw": 2,
+      "shown": 1,
+      "hidden": [
+        "黒岳（御坂黒岳）"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "富士山",
+      "raw": 14,
+      "shown": 6,
+      "hidden": [
+        "富士一館",
+        "東洋館",
+        "富士山ホテル",
+        "御来光山荘",
+        "頂上山口屋",
+        "頂上富士館",
+        "吉田口七合目",
+        "八合目"
+      ],
+      "pairs": 30,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 8
+    },
+    {
+      "mountain": "甲斐駒ヶ岳",
+      "raw": 14,
+      "shown": 7,
+      "hidden": [
+        "北沢峠こもれび山荘",
+        "摩利支天"
+      ],
+      "pairs": 42,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "鋸岳",
+      "raw": 9,
+      "shown": 1,
+      "hidden": [
+        "北沢峠",
+        "長衛小屋",
+        "仙水小屋",
+        "甲斐駒ヶ岳",
+        "仙丈ヶ岳",
+        "仙丈小屋",
+        "馬の背ヒュッテ"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "アサヨ峰",
+      "raw": 9,
+      "shown": 1,
+      "hidden": [
+        "北沢峠",
+        "長衛小屋",
+        "仙水小屋",
+        "甲斐駒ヶ岳",
+        "仙丈ヶ岳",
+        "仙丈小屋",
+        "馬の背ヒュッテ"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "聖岳",
+      "raw": 11,
+      "shown": 8,
+      "hidden": [
+        "茶臼岳"
+      ],
+      "pairs": 56,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 13
+    },
+    {
+      "mountain": "上河内岳",
+      "raw": 11,
+      "shown": 8,
+      "hidden": [
+        "茶臼岳"
+      ],
+      "pairs": 56,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 13
+    },
+    {
+      "mountain": "茶臼岳",
+      "raw": 11,
+      "shown": 7,
+      "hidden": [
+        "上河内岳",
+        "茶臼小屋"
+      ],
+      "pairs": 42,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 17
+    },
+    {
+      "mountain": "光岳",
+      "raw": 11,
+      "shown": 8,
+      "hidden": [
+        "茶臼岳"
+      ],
+      "pairs": 56,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 13
+    },
+    {
+      "mountain": "池口岳",
+      "raw": 11,
+      "shown": 2,
+      "hidden": [
+        "椹島",
+        "聖岳",
+        "聖平小屋",
+        "上河内岳",
+        "茶臼岳",
+        "茶臼小屋",
+        "光岳",
+        "光岳小屋",
+        "沼平ゲート"
+      ],
+      "pairs": 2,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "奥茶臼山",
+      "raw": 11,
+      "shown": 2,
+      "hidden": [
+        "椹島",
+        "聖岳",
+        "聖平小屋",
+        "上河内岳",
+        "茶臼岳",
+        "茶臼小屋",
+        "光岳",
+        "光岳小屋",
+        "沼平ゲート"
+      ],
+      "pairs": 2,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "大無間山",
+      "raw": 11,
+      "shown": 1,
+      "hidden": [
+        "田代・大無間山登山口",
+        "椹島",
+        "聖岳",
+        "聖平小屋",
+        "上河内岳",
+        "茶臼岳",
+        "茶臼小屋",
+        "光岳",
+        "光岳小屋",
+        "沼平ゲート"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "黒法師岳",
+      "raw": 11,
+      "shown": 1,
+      "hidden": [
+        "戸中山林道ゲート",
+        "椹島",
+        "聖岳",
+        "聖平小屋",
+        "上河内岳",
+        "茶臼岳",
+        "茶臼小屋",
+        "光岳",
+        "光岳小屋",
+        "沼平ゲート"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "笊ヶ岳",
+      "raw": 12,
+      "shown": 2,
+      "hidden": [
+        "布引山（千挺木山）",
+        "椹島",
+        "聖岳",
+        "聖平小屋",
+        "上河内岳",
+        "茶臼岳",
+        "茶臼小屋",
+        "光岳",
+        "光岳小屋",
+        "沼平ゲート"
+      ],
+      "pairs": 2,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "高塚山",
+      "raw": 2,
+      "shown": 1,
+      "hidden": [
+        "山犬段・高塚山登山口"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "医王山",
+      "raw": 4,
+      "shown": 3,
+      "hidden": [
+        "医王の里登山者用駐車場"
+      ],
+      "pairs": 6,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "大笠山",
+      "raw": 3,
+      "shown": 1,
+      "hidden": [
+        "桂湖森林公園駐車場（大笠山ルート起点）",
+        "ブナオ峠（大笠山ルート）"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "経ヶ岳（福井）",
+      "raw": 3,
+      "shown": 2,
+      "hidden": [
+        "経ヶ岳登山口展望台駐車場"
+      ],
+      "pairs": 2,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "大日ヶ岳",
+      "raw": 3,
+      "shown": 2,
+      "hidden": [
+        "高鷲スノーパーク"
+      ],
+      "pairs": 2,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "御在所岳",
+      "raw": 4,
+      "shown": 3,
+      "hidden": [
+        "御在所ロープウエイ山上公園駅"
+      ],
+      "pairs": 6,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "山上ヶ岳",
+      "raw": 3,
+      "shown": 2,
+      "hidden": [
+        "大峯山寺宿坊"
+      ],
+      "pairs": 2,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "伯母子岳",
+      "raw": 3,
+      "shown": 2,
+      "hidden": [
+        "伯母子岳避難小屋"
+      ],
+      "pairs": 2,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "大和葛城山",
+      "raw": 3,
+      "shown": 2,
+      "hidden": [
+        "葛城山ロープウェイ山上駅"
+      ],
+      "pairs": 2,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "扇ノ山",
+      "raw": 4,
+      "shown": 3,
+      "hidden": [
+        "扇ノ山山頂避難小屋"
+      ],
+      "pairs": 6,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "氷ノ山",
+      "raw": 5,
+      "shown": 3,
+      "hidden": [
+        "氷ノ山越避難小屋",
+        "氷ノ山山頂避難小屋"
+      ],
+      "pairs": 6,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "那岐山",
+      "raw": 4,
+      "shown": 2,
+      "hidden": [
+        "馬ノ背小屋（那岐山）"
+      ],
+      "pairs": 2,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "大山（鳥取）",
+      "raw": 8,
+      "shown": 1,
+      "hidden": [
+        "夏山登山道・下山駐車場",
+        "元谷避難小屋",
+        "大休峠避難小屋"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "吾妻山",
+      "raw": 3,
+      "shown": 2,
+      "hidden": [
+        "大膳原野営場避難小屋"
+      ],
+      "pairs": 2,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "剣山",
+      "raw": 16,
+      "shown": 9,
+      "hidden": [
+        "名頃登山口 三嶺"
+      ],
+      "pairs": 72,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "三嶺",
+      "raw": 15,
+      "shown": 8,
+      "hidden": [
+        "名頃登山口 三嶺"
+      ],
+      "pairs": 56,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 8
+    },
+    {
+      "mountain": "東赤石山",
+      "raw": 3,
+      "shown": 1,
+      "hidden": [
+        "瀬場登山口 東赤石山",
+        "赤石山荘"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "笹ヶ峰",
+      "raw": 3,
+      "shown": 2,
+      "hidden": [
+        "丸山荘"
+      ],
+      "pairs": 2,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "瓶ヶ森",
+      "raw": 3,
+      "shown": 2,
+      "hidden": [
+        "瓶ヶ森避難小屋"
+      ],
+      "pairs": 2,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "石鎚山",
+      "raw": 5,
+      "shown": 4,
+      "hidden": [
+        "石鎚神社頂上山荘"
+      ],
+      "pairs": 12,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "脊振山",
+      "raw": 3,
+      "shown": 2,
+      "hidden": [
+        "椎原峠登山口"
+      ],
+      "pairs": 2,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "大船山",
+      "raw": 12,
+      "shown": 10,
+      "hidden": [
+        "男池駐車場・男池登山口",
+        "吉部（坊ガツル）登山口駐車場"
+      ],
+      "pairs": 90,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "湧蓋山",
+      "raw": 2,
+      "shown": 1,
+      "hidden": [
+        "涌蓋山"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "大崩山",
+      "raw": 3,
+      "shown": 2,
+      "hidden": [
+        "大崩山荘"
+      ],
+      "pairs": 2,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "国見岳",
+      "raw": 2,
+      "shown": 1,
+      "hidden": [
+        "国見岳新登山口（五勇谷橋ルート）"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "尾鈴山",
+      "raw": 2,
+      "shown": 1,
+      "hidden": [
+        "尾鈴山第1駐車場（尾鈴山登山口アクセス起点）"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "桜島（御岳）",
+      "raw": 2,
+      "shown": 1,
+      "hidden": [
+        "桜島（御岳・北岳）"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    },
+    {
+      "mountain": "高隈山",
+      "raw": 2,
+      "shown": 1,
+      "hidden": [
+        "高隈山（大箆柄岳）"
+      ],
+      "pairs": 0,
+      "missing": 0,
+      "estimated": 0,
+      "longVerified": 0
+    }
+  ]
+}

@@ -1,3 +1,32 @@
+# V1.5.57
+- 御嶽山の2登山口（中の湯・田の原）のアクセス情報を2026年公式情報で詳細化。
+- 田の原は駐車場（標高2180m・普通車100台以上・24時間）、2026年バス運行日・時刻・運賃を反映。
+- 中の湯は御岳ロープウェイ線が六合目中の湯を経由すること、2026年黒沢口規制緩和期間、冬季道路閉鎖・登山計画書注意を反映。
+- CT・気象・座標ロジックは変更なし。
+
+# V1.5.56
+- Corrected mistranscribed Daisetsu CT for 黒岳石室↔北海岳 after public recheck (100 min / 70 min).
+- Excluded the currently closed 太平山・旭又 route from CT routing and fixed custom-route selection.
+- Added direct CT geographic sanity auditing to catch impossible short-time / long-distance data before release.
+- Kept displayed custom-route pairs at CT missing 0 / estimated 0.
+
+# V1.5.55
+
+- Restored high-value custom-route points in Oze using public verified checkpoint CT.
+- Restored Tanigawa Tomano-ear as a distinct summit and added verified CT links.
+- Improved duplicate-point filtering so nearby real summits are not collapsed by distance alone.
+- Nationwide displayed custom-route audit remains CT missing 0 / estimated 0.
+- No weather-model or coordinate changes.
+
+## V1.5.54
+- Changed custom-route CT integrity from “some CT can be returned” to “every displayed fixed-point pair must resolve in both directions using verified CT only”.
+- Added nationwide fixed-candidate sanitizing: disconnected or duplicate points are not shown until verified linkage exists; no CT estimation is introduced.
+- Removed the old 10-hour ceiling for verified composed routes. Long traverses are accepted only when all component CTs are verified and the geographic detour guard passes.
+- Added verified/composed links for Kuju (Chojabaru–Mimata), Kobushigatake hut/summit, Tanigawa Toma/Oki ears, and Ishizuchi Misen/Tengudake.
+- Nationwide UI-level audit: 299 mountains / 1,189 displayed fixed candidates / 11,680 ordered displayed pairs / CT missing 0 / estimated 0. 263 disconnected-or-duplicate candidates are withheld from display; 51 mountains currently have fewer than two verified-connected safe points and are explicitly shown as insufficient rather than emitting false CT.
+- Priority-area audit (Kuju, Daisetsu, Iide, Asahi, Tanigawa, Okuchichibu, Oze, Tanzawa, Omine, Ishizuchi, Kirishima, Yakushima, Yatsugatake, Ontake): displayed-pair CT missing 0 / estimated 0.
+- Regression: area network 424/424, Hyakumeizan+area network 700/700, Ontake+Yatsugatake 282/282, classic routes 109/109; fixed coordinate literals unchanged.
+
 ## V1.5.49
 - TOP value proposition: 全国分析の日本地図と「自分専用の登山天気予報」を最上段で明示。
 - 「全国から登山日和を探す」「自分専用予報をつくる」の2導線を追加。

@@ -1,0 +1,26 @@
+Traten V1.5.55 Custom Route Integrity Audit
+
+Nationwide
+- mountains: 299
+- raw candidates: 1720
+- displayed safe candidates: 1192
+- withheld/disconnected/duplicate: 260
+- ordered displayed pairs: 11560
+- CT missing among displayed pairs: 0
+- estimated CT among displayed pairs: 0
+- long verified routes >= 600 min: 5242
+- mountains with fewer than 2 safe points: 51
+
+Priority restoration
+- 燧ヶ岳: displayed 7; remaining hidden: 小沢平登山口
+- 至仏山: displayed 6; no hidden candidates in this builder
+- 谷川岳: displayed 4; remaining hidden: 谷川岳肩ノ小屋
+
+V1.5.55 restoration highlights
+- 尾瀬: restored 龍宮小屋 and 見晴 corridor connectivity using public YAMAP checkpoint times.
+- 谷川岳: restored トマノ耳 as a distinct selectable summit and added verified checkpoint CT toward オキノ耳 / 熊穴沢避難小屋.
+- Duplicate filtering now requires semantic alias equivalence in addition to proximity, preventing nearby real summits from being collapsed just because they are close.
+
+Safety policy retained
+- No estimated CT is introduced.
+- A candidate without a safe verified CT connection remains withheld rather than showing a misleading detour.
