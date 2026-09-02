@@ -1,0 +1,9 @@
+calm: A expected=A
+wind5: B expected=B
+gust12: B expected=B
+rain01: B expected=B
+vis4999: B expected=B
+mixed_mild: C expected=C
+strong_model_guard: C expected=C
+two_model_guard: C expected=C
+extreme: E expected=E

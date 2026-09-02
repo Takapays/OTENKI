@@ -1,0 +1,5 @@
+GUIDE CHECK
+logic section: PASS
+Open-Meteo congestion explanation: PASS
+fallback model explanation: PASS
+A guard explanation: PASS

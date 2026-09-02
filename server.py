@@ -34,7 +34,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.5.63"
+APP_VERSION = "1.5.64"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -535,7 +535,7 @@ _national_refresh_runtime: dict[str, Any] = {
 _national_refresh_worker_thread: threading.Thread | None = None
 _national_refresh_worker_lock_handle = None
 NATIONAL_OUTLOOK_CHUNK_SIZE = int(os.environ.get("NATIONAL_OUTLOOK_CHUNK_SIZE", "50"))
-NATIONAL_OUTLOOK_ENGINE = "metno-gfs-v2-stricter"
+NATIONAL_OUTLOOK_ENGINE = "metno-gfs-v3-conservative"
 NATIONAL_GFS_MIN_INTERVAL = float(os.environ.get("NATIONAL_GFS_MIN_INTERVAL", "0.35"))
 _national_gfs_lock = threading.Lock()
 _national_gfs_last_request = 0.0
@@ -1414,14 +1414,14 @@ def _bytes_response(status: int, ctype: str, body: bytes, *, cache_control: str 
 
 
 def _national_grade(max_wind: float, max_gust: float, max_rain: float, max_cape: float, min_temp: float, min_visibility: float | None, *, caution_hours: int = 0, severe_hours: int = 0, extreme_hours: int = 0):
-    # V1.4.227: 全国簡易判定を少し安全側へ調整。風・雨を主判定にし、Aをやや取りにくくする。
-    # 雷(CAPE)・視界・低温は詳細注意情報として残すが、それだけでABCをCへ落とさない。
-    # 6〜15時の10時間のうち、強い風雨の継続時間を重視する。
-    if extreme_hours >= 1 or severe_hours >= 4:
-        return "C", "6〜15時に強い風または雨が見込まれ、登山には厳しめの条件です。時間帯別の詳細を確認してください。"
-    if severe_hours >= 1 or caution_hours >= 2:
-        return "B", "6〜15時の一部で風または雨の影響が見込まれます。比較的よい時間帯を確認してください。"
-    return "A", "6〜15時は風雨の大きな影響が比較的少なく、登山候補にしやすい条件です。詳細分析で最終確認してください。"
+    # V1.5.64: nationwide A/B/C is intentionally conservative. A is reserved
+    # for a day with no caution hour during 06-15. Strong conditions sustained
+    # for two hours, or any extreme hour, are C.
+    if extreme_hours >= 1 or severe_hours >= 2:
+        return "C", "6〜15時に強い風・突風・雨・低視程などが見込まれ、登山には厳しめの条件です。時間帯別の詳細を確認してください。"
+    if severe_hours >= 1 or caution_hours >= 1:
+        return "B", "6〜15時の一部に風・突風・雨・低視程などの注意要素があります。詳細分析で通過時刻を確認してください。"
+    return "A", "6〜15時に主要な注意条件が見当たらない日です。詳細分析でルートと到着時刻を最終確認してください。"
 
 
 NATIONAL_SUPABASE_CACHE_TABLE = os.environ.get("NATIONAL_SUPABASE_CACHE_TABLE", "national_outlook_cache")
@@ -1850,10 +1850,10 @@ def _national_result_from_forecast(p: dict[str, Any], forecast: dict[str, Any]) 
             try:
                 v=float(a[i]); return v if math.isfinite(v) else default
             except (TypeError,ValueError,IndexError): return default
-        w=hv("wind_speed_10m",0); r=hv("precipitation",0)
-        extreme = w>=18 or r>=8
-        severe = w>=13 or r>=3
-        caution = w>=7 or r>=0.8
+        w=hv("wind_speed_10m",0); g=hv("wind_gusts_10m",w); r=hv("precipitation",0); v=hv("visibility",None); c=hv("cape",0)
+        extreme = w>=15 or g>=25 or r>=6 or (v is not None and v<1000)
+        severe = w>=9 or g>=18 or r>=1.5 or (v is not None and v<3000) or c>=1000
+        caution = w>=5 or g>=12 or r>=0.1 or (v is not None and v<5000) or c>=500
         if extreme: extreme_hours+=1
         if severe: severe_hours+=1
         if caution: caution_hours+=1
@@ -1929,10 +1929,10 @@ def _national_result_from_metno(p: dict[str, Any], date_text: str, payload: dict
     if not rows: return None
     winds=[x[0] for x in rows]; gusts=[x[1] for x in rows]; rains=[x[2] for x in rows]; temps=[x[3] for x in rows]
     caution_hours=severe_hours=extreme_hours=0
-    for w,_,r,_ in rows:
-        if w>=18 or r>=8: extreme_hours+=1
-        if w>=13 or r>=3: severe_hours+=1
-        if w>=7 or r>=0.8: caution_hours+=1
+    for w,g,r,_ in rows:
+        if w>=15 or g>=25 or r>=6: extreme_hours+=1
+        if w>=9 or g>=18 or r>=1.5: severe_hours+=1
+        if w>=5 or g>=12 or r>=0.1: caution_hours+=1
     max_w=max(winds); max_g=max(gusts); max_r=max(rains); min_t=min(temps)
     grade,summary=_national_grade(max_w,max_g,max_r,0,min_t,None,caution_hours=caution_hours,severe_hours=severe_hours,extreme_hours=extreme_hours)
     return {"name":p["name"],"grade":grade,"summary":summary,"maxWind":round(max_w,1),"maxGust":round(max_g,1),"maxRain":round(max_r,1),"maxCape":0,"minTemp":round(min_t,1),"minVisibility":None,"thunder":"–","cautionHours":caution_hours,"severeHours":severe_hours,"source":"metno"}
@@ -2073,9 +2073,9 @@ def _national_gfs_results(date_text: str, points: list[dict[str, Any]]) -> dict[
         rr=rows.get(p["name"]) or []
         if len(rr)<4: continue
         winds=[x["wind"] for x in rr]; gusts=[x["gust"] for x in rr]; rains=[x["rain"] for x in rr]; temps=[x["temp"] for x in rr]
-        caution=sum(1 for x in rr if x["wind"]>=7 or x["rain"]>=0.8)
-        severe=sum(1 for x in rr if x["wind"]>=13 or x["rain"]>=3)
-        extreme=sum(1 for x in rr if x["wind"]>=18 or x["rain"]>=8)
+        caution=sum(1 for x in rr if x["wind"]>=5 or x.get("gust",x["wind"])>=12 or x["rain"]>=0.1)
+        severe=sum(1 for x in rr if x["wind"]>=9 or x.get("gust",x["wind"])>=18 or x["rain"]>=1.5)
+        extreme=sum(1 for x in rr if x["wind"]>=15 or x.get("gust",x["wind"])>=25 or x["rain"]>=6)
         grade,summary=_national_grade(max(winds),max(gusts),max(rains),0,min(temps),None,caution_hours=caution,severe_hours=severe,extreme_hours=extreme)
         results[p["name"]]={"name":p["name"],"grade":grade,"summary":summary,"maxWind":round(max(winds),1),"maxGust":round(max(gusts),1),"maxRain":round(max(rains),1),"maxCape":0,"minTemp":round(min(temps),1),"minVisibility":None,"thunder":"–","cautionHours":caution,"severeHours":severe,"source":"gfs"}
     return results

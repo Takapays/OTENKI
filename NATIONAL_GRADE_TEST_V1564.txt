@@ -1,0 +1,6 @@
+calm: A expected=A
+one_caution: B expected=B
+one_severe: B expected=B
+two_severe: C expected=C
+one_extreme: C expected=C
+NATIONAL_GRADE_TEST PASS

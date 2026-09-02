@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.63';
+const APP_VERSION = '1.5.64';
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
@@ -11256,13 +11256,30 @@ function blendProviderRows(providerRows){
   out.capeModelCount=capeValues.length;
   out.capeSupport500=capeValues.filter(v=>v>=500).length;
   out.capeSupport1000=capeValues.filter(v=>v>=1000).length;
+
+  // V1.5.64: retain the role-based representative value, but also preserve the
+  // adverse side of every available model. A route must not become A merely
+  // because the preferred model is calm while another credible model is not.
+  const finiteRows=rows.filter(r=>r&&typeof r==='object');
+  const adverseFlags=finiteRows.map(r=>({
+    mild:(Number.isFinite(r.wind)&&r.wind>=8)||(Number.isFinite(r.gust)&&r.gust>=15)||(Number.isFinite(r.rain)&&r.rain>=0.5)||(Number.isFinite(r.visibility)&&r.visibility<3000),
+    strong:(Number.isFinite(r.wind)&&r.wind>=10)||(Number.isFinite(r.gust)&&r.gust>=18)||(Number.isFinite(r.rain)&&r.rain>=1.5)||(Number.isFinite(r.visibility)&&r.visibility<1000)
+  }));
+  out.adverseModelCount=adverseFlags.filter(x=>x.mild).length;
+  out.strongAdverseModelCount=adverseFlags.filter(x=>x.strong).length;
+  out.modelMaxWind=max(finiteRows.map(r=>r.wind));
+  out.modelMaxGust=max(finiteRows.map(r=>r.gust));
+  out.modelMaxRain=max(finiteRows.map(r=>r.rain));
+  const visValues=finiteRows.map(r=>r.visibility).filter(Number.isFinite);
+  out.modelMinVisibility=visValues.length?Math.min(...visValues):NaN;
   out.gfsAdverse=!!gfs && (
-    (Number.isFinite(gfs.wind)&&Number.isFinite(out.wind)&&gfs.wind>=10&&gfs.wind>=out.wind+4) ||
-    (Number.isFinite(gfs.rain)&&Number.isFinite(out.rain)&&gfs.rain>=2&&gfs.rain>=out.rain+1.5) ||
-    (Number.isFinite(gfs.visibility)&&Number.isFinite(out.visibility)&&gfs.visibility<1000&&out.visibility>=3000)
+    (Number.isFinite(gfs.wind)&&Number.isFinite(out.wind)&&gfs.wind>=8&&gfs.wind>=out.wind+3) ||
+    (Number.isFinite(gfs.gust)&&Number.isFinite(out.gust)&&gfs.gust>=15&&gfs.gust>=out.gust+4) ||
+    (Number.isFinite(gfs.rain)&&Number.isFinite(out.rain)&&gfs.rain>=0.5&&gfs.rain>=out.rain+0.4) ||
+    (Number.isFinite(gfs.visibility)&&Number.isFinite(out.visibility)&&gfs.visibility<3000&&out.visibility>=5000)
   );
   out.feelsLike=apparentTemperatureMountain(out.temp,out.rh,out.wind);
-  out.modelBasis={wind:Number.isFinite(ecmwf?.wind)?'ecmwf':'multi',rain:Number.isFinite(jma?.rain)?'jma':'multi',visibility:Number.isFinite(icon?.visibility)?'icon':'multi',gfsGuard:!!out.gfsAdverse,capeModels:out.capeModelCount,capeSupport500:out.capeSupport500,capeSupport1000:out.capeSupport1000};
+  out.modelBasis={wind:Number.isFinite(ecmwf?.wind)?'ecmwf':'multi',rain:Number.isFinite(jma?.rain)?'jma':'multi',visibility:Number.isFinite(icon?.visibility)?'icon':'multi',gfsGuard:!!out.gfsAdverse,capeModels:out.capeModelCount,capeSupport500:out.capeSupport500,capeSupport1000:out.capeSupport1000,adverseModels:out.adverseModelCount,strongAdverseModels:out.strongAdverseModelCount};
   return out;
 }
 function thunderEvidence(x){
@@ -11293,7 +11310,41 @@ function hypothermiaRisk(x){
   if(f<=0&&Number.isFinite(w)&&Number.isFinite(r)&&w>=5&&r>=.3)return 'CAUTION';
   return 'NONE';
 }
-function assessGrade(x){let s=0;if(x.wind>=20||x.gust>=25)s+=4;else if(x.wind>=15||x.gust>=20)s+=3;else if(x.wind>=10||x.gust>=15)s+=2;else if(x.wind>=7)s+=1;if(x.rain>=8)s+=4;else if(x.rain>=4)s+=3;else if(x.rain>=1.5)s+=2;else if(x.rain>=.3)s+=1;s+=thunderEvidence(x).gradePoints;if(x.cloud>=95)s+=1;if(Number.isFinite(x.visibility)&&x.visibility<500)s+=2;const feels=Number.isFinite(x.feelsLike)?x.feelsLike:x.temp;if(feels<=-10)s+=3;else if(feels<=-5)s+=2;else if(feels<=0)s+=1;const hypo=hypothermiaRisk(x);if(hypo==='DANGER'||hypo==='WARNING')s+=1;if(x.gfsAdverse)s+=1;return s>=8?'E':s>=6?'D':s>=4?'C':s>=2?'B':'A';}
+function assessGrade(x){
+  let s=0;
+  const wind=Number(x.wind),gust=Number(x.gust),rain=Number(x.rain),vis=Number(x.visibility),cloud=Number(x.cloud);
+  if(wind>=18||gust>=25)s+=4;else if(wind>=13||gust>=20)s+=3;else if(wind>=9||gust>=15)s+=2;else if(wind>=5||gust>=12)s+=1;
+  if(rain>=8)s+=4;else if(rain>=4)s+=3;else if(rain>=1.5)s+=2;else if(rain>=.1)s+=1;
+  s+=thunderEvidence(x).gradePoints;
+  if(cloud>=95)s+=1;
+  if(Number.isFinite(vis)){if(vis<500)s+=4;else if(vis<1000)s+=3;else if(vis<3000)s+=2;else if(vis<5000)s+=1;}
+  const feels=Number.isFinite(x.feelsLike)?x.feelsLike:x.temp;
+  if(feels<=-10)s+=3;else if(feels<=-5)s+=2;else if(feels<=0)s+=1;
+  const hypo=hypothermiaRisk(x);if(hypo==='DANGER'||hypo==='WARNING')s+=1;
+
+  // Mild factors that overlap in the mountains are more meaningful together
+  // than they are in isolation (e.g. breeze + drizzle + cold/poor visibility).
+  const combo=[wind>=5||gust>=12,rain>=.1,Number.isFinite(vis)&&vis<5000,Number.isFinite(feels)&&feels<=5,cloud>=90].filter(Boolean).length;
+  if(combo>=3)s+=1;
+
+  // Multi-model adverse-side guard. The representative value still follows
+  // JMA/ECMWF/ICON roles, but credible deterioration scenarios cap optimism.
+  const adverse=Number(x.adverseModelCount)||0,strongAdverse=Number(x.strongAdverseModelCount)||0;
+  if(x.gfsAdverse)s+=1;
+  if(adverse>=2)s+=1;
+  if(strongAdverse>=2)s+=1;
+
+  let grade=s>=8?'E':s>=6?'D':s>=4?'C':s>=2?'B':'A';
+  const rank={A:1,B:2,C:3,D:4,E:5}, floor=g=>{if(rank[grade]<rank[g])grade=g;};
+
+  // A is reserved for genuinely benign mountain conditions.
+  if(wind>=5||gust>=12||rain>=.1||(Number.isFinite(vis)&&vis<5000)||thunderEvidence(x).level!=='LOW'||x.gfsAdverse||adverse>=1)floor('B');
+  // One strong adverse model or broad mild disagreement is enough to prevent
+  // an apparently benign representative value from staying below caution.
+  if(strongAdverse>=1&&(wind>=5||gust>=12||rain>=.1||(Number.isFinite(vis)&&vis<5000)))floor('C');
+  if(adverse>=2&&(wind>=5||rain>=.1||(Number.isFinite(vis)&&vis<5000)))floor('C');
+  return grade;
+}
 function thunderLevel(x){return thunderEvidence(x).level;}
 const HAZARD_RANK={NONE:0,CAUTION:1,WARNING:2,DANGER:3};
 const HAZARD_LABEL={NONE:'平常',CAUTION:'注意',WARNING:'警戒',DANGER:'危険'};
@@ -11301,8 +11352,8 @@ function hazardItem(type,icon,label,level,value,detail){return {type,icon,label,
 function assessHazards(x){
   const thunder=thunderLevel(x);
   const thunderLv=thunder==='EXTREME'?'DANGER':thunder==='HIGH'?'WARNING':thunder==='MEDIUM'?'CAUTION':'NONE';
-  const windLv=(x.wind>=20||x.gust>=25)?'DANGER':(x.wind>=15||x.gust>=20)?'WARNING':(x.wind>=10||x.gust>=15)?'CAUTION':'NONE';
-  const rainLv=x.rain>=8?'DANGER':x.rain>=4?'WARNING':x.rain>=1.5?'CAUTION':'NONE';
+  const windLv=(x.wind>=18||x.gust>=25)?'DANGER':(x.wind>=13||x.gust>=20)?'WARNING':(x.wind>=9||x.gust>=15)?'CAUTION':(x.wind>=5||x.gust>=12)?'CAUTION':'NONE';
+  const rainLv=x.rain>=8?'DANGER':x.rain>=4?'WARNING':x.rain>=1.5?'CAUTION':x.rain>=.1?'CAUTION':'NONE';
   let tempLv='NONE',tempDetail='';
   const feels=Number.isFinite(x.feelsLike)?x.feelsLike:x.temp;
   if(Number.isFinite(feels)){
@@ -11323,7 +11374,7 @@ function assessHazards(x){
     hazardItem('visibility','🌫️','視界',visLv,Number.isFinite(x.visibility)?`${Math.round(x.visibility)}m`:'–',Number.isFinite(x.visibility)?`予報視程 ${Math.round(x.visibility)}m`:'視程データなし')
   ];
   if(hypoLv!=='NONE')items.push(hazardItem('hypothermia','🥶','低体温',hypoLv,`${num(feels)}℃`,`雨・風・低い体感温度が重なっています（体感 ${num(feels)}℃、風 ${num(x.wind)}m/s、雨 ${num(x.rain)}mm/h）`));
-  if(x.gfsAdverse)items.push(hazardItem('model','⚠️','モデル差','CAUTION','GFS悪化','GFSが他モデルより明確に悪天側を示しています'));
+  if(x.gfsAdverse||Number(x.adverseModelCount)>=1)items.push(hazardItem('model','⚠️','モデル差','CAUTION',x.gfsAdverse?'GFS悪化':`${Number(x.adverseModelCount)||1}モデル悪化`,'代表値より悪天側を示すモデルがあるため、楽観側へ寄せず判定しています'));
   return items;
 }
 function maxHazard(hazards){return (hazards||[]).reduce((a,b)=>(b.rank||0)>(a.rank||0)?b:a,hazardItem('none','✓','顕著な注意要素なし','NONE','', ''));}
