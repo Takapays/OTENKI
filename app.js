@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.64';
+const APP_VERSION = '1.5.65';
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
@@ -7202,7 +7202,7 @@ async function openMountainFromNationalMap(name){
   }
   $('mountainPreset')?.scrollIntoView({behavior:'smooth',block:'center'});
 }
-const NATIONAL_OUTLOOK_BROWSER_CACHE_KEY='traten:national-outlook:v5';
+const NATIONAL_OUTLOOK_BROWSER_CACHE_KEY='traten:national-outlook:v6';
 const NATIONAL_OUTLOOK_BROWSER_CACHE_TTL=4*60*60*1000;
 function readNationalOutlookBrowserCache(date){
   try{
@@ -7252,7 +7252,10 @@ async function loadNationalOutlookSharedCacheOnly({silentMiss=false}={}){
     const counts={A:0,B:0,C:0};for(const r of nationalOutlookResults.values())if(counts[r.grade]!=null)counts[r.grade]++;
     const state=String(data.cache?.state||'');
     const freshness=state.includes('stale')?'保存済みの最新キャッシュ':'共有キャッシュ';
-    if(status)status.innerHTML=`${freshness}から${esc(nationalOutlookSelectedLabel())} ${results.length}座を初期表示：<b>A ${counts.A}座</b> / <b>B ${counts.B}座</b> / <b>C ${counts.C}座</b>`;
+    const expected=eligible.length;
+    const missing=Math.max(0,expected-results.length);
+    const coverage=`共有キャッシュ <b>${results.length}/${expected}座</b>`;
+    if(status)status.innerHTML=`${freshness}から${esc(nationalOutlookSelectedLabel())}を初期表示：<b>A ${counts.A}座</b> / <b>B ${counts.B}座</b> / <b>C ${counts.C}座</b><br><span class="national-cache-stats">${coverage}${missing?` / 残り <b>${missing}座</b> はキャッシュ更新待ち`: ' / 充足済み'}</span>`;
     return true;
   }catch(_){
     if(status&&!silentMiss)status.textContent='共有キャッシュを確認できませんでした。「全国を判定」は利用できます。';

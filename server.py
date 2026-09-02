@@ -34,7 +34,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.5.64"
+APP_VERSION = "1.5.65"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -534,7 +534,7 @@ _national_refresh_runtime: dict[str, Any] = {
 }
 _national_refresh_worker_thread: threading.Thread | None = None
 _national_refresh_worker_lock_handle = None
-NATIONAL_OUTLOOK_CHUNK_SIZE = int(os.environ.get("NATIONAL_OUTLOOK_CHUNK_SIZE", "50"))
+NATIONAL_OUTLOOK_CHUNK_SIZE = max(5, min(50, int(os.environ.get("NATIONAL_OUTLOOK_CHUNK_SIZE", "25"))))
 NATIONAL_OUTLOOK_ENGINE = "metno-gfs-v3-conservative"
 NATIONAL_GFS_MIN_INTERVAL = float(os.environ.get("NATIONAL_GFS_MIN_INTERVAL", "0.35"))
 _national_gfs_lock = threading.Lock()
@@ -1587,27 +1587,58 @@ def _refresh_rolling_100_cache(*, force: bool=False, max_dates: int | None=None)
             report["datesDue"]+=1
             due_dates.append((date_text,due,date_report))
 
-    for date_text,due,date_report in due_dates[:limit]:
+    # V1.5.65: incomplete dates are repaired before moving on.  Within a date,
+    # fetch in small blocks and persist every successful block immediately.
+    # This prevents a partial upstream response (for example 58/100) from being
+    # treated as the day's finished refresh and makes progress survive timeouts.
+    due_dates.sort(key=lambda item: (-len(item[1]), item[0]))
+    selected=due_dates[:limit]
+    for date_text,due,date_report in selected:
         fingerprint=_national_points_fingerprint(points)
         if not _national_try_lock(date_text,fingerprint):
             date_report["locked"]=True
             continue
         report["datesProcessed"]+=1
+        date_report["chunkSize"]=NATIONAL_OUTLOOK_CHUNK_SIZE
+        date_report["chunks"]=[]
+        updated_names=set()
         try:
-            results,complete,rate_limited,error=_national_fetch_shared(date_text,due)
-            if results:
-                _national_supabase_write(date_text,due,results)
-                date_report["pointsUpdated"]=len(results)
-                report["pointsUpdated"]+=len(results)
-            date_report["completeFetch"]=bool(complete)
-            date_report["rateLimited"]=bool(rate_limited)
-            if error:
-                date_report["error"]=error; date_report["ok"]=False
-                report["errors"].append({"date":date_text,"error":error})
-            if rate_limited:
+            for start in range(0,len(due),NATIONAL_OUTLOOK_CHUNK_SIZE):
+                chunk=due[start:start+NATIONAL_OUTLOOK_CHUNK_SIZE]
+                chunk_report={"start":start,"requested":len(chunk),"updated":0,"completeFetch":False,"error":None}
+                try:
+                    results,complete,rate_limited,error=_national_fetch_shared(date_text,chunk)
+                    if results:
+                        wrote=_national_supabase_write(date_text,chunk,results)
+                        if wrote:
+                            names={str(r.get("name") or "") for r in results if isinstance(r,dict) and r.get("name")}
+                            updated_names.update(names)
+                            chunk_report["updated"]=len(names)
+                    chunk_report["completeFetch"]=bool(complete)
+                    chunk_report["rateLimited"]=bool(rate_limited)
+                    if error:
+                        chunk_report["error"]=error
+                    date_report["chunks"].append(chunk_report)
+                    if rate_limited:
+                        date_report["rateLimited"]=True
+                        break
+                except Exception as exc:
+                    chunk_report["error"]=str(exc)[:200]
+                    date_report["chunks"].append(chunk_report)
+                    app.logger.exception("national_rolling_100_chunk_failed date=%s start=%s",date_text,start)
+
+            date_report["pointsUpdated"]=len(updated_names)
+            report["pointsUpdated"]+=len(updated_names)
+            fresh_after,stale_after,_=_national_supabase_read(date_text,points)
+            date_report["freshAfter"]=len(fresh_after)
+            date_report["staleAfter"]=len(stale_after)
+            date_report["missingAfter"]=max(0,len(points)-len(set(fresh_after)|set(stale_after)))
+            date_report["remainingDueAfter"]=max(0,len(points)-len(fresh_after))
+            date_report["completeFetch"]=len(fresh_after)>=len(points)
+            if date_report["remainingDueAfter"]:
                 date_report["ok"]=False
-                report["errors"].append({"date":date_text,"error":"rate_limited"})
-                break
+                date_report["error"]=f'fresh cache incomplete: {len(fresh_after)}/{len(points)}'
+                report["errors"].append({"date":date_text,"error":date_report["error"]})
         except Exception as exc:
             app.logger.exception("national_rolling_100_refresh_failed date=%s",date_text)
             date_report["ok"]=False; date_report["error"]=str(exc)[:200]
@@ -2509,6 +2540,7 @@ def health():
         national_100_rolling_auto_cache=NATIONAL_100_ROLLING_AUTO_CACHE,
         national_100_rolling_days=NATIONAL_100_ROLLING_DAYS,
         national_100_rolling_dates_per_cycle=NATIONAL_100_ROLLING_DATES_PER_CYCLE,
+        national_100_chunk_size=NATIONAL_OUTLOOK_CHUNK_SIZE,
         national_100_rolling_target_rows=NATIONAL_100_ROLLING_DAYS*len(_national_load_100_points()),
         national_nextday_100_seed_count=len(_national_load_100_points()),
         national_last_refresh_report=_national_last_refresh_report or None,
