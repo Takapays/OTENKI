@@ -4708,3 +4708,110 @@ body.install-guide-open{overflow:hidden}
   #forecastCards .rf-metric.vis .rf-value-wrap strong{font-size:27px!important}
   #forecastCards .rf-wind-direction-inline small{font-size:8px!important}
 }
+
+
+/* V1.5.62: trailhead point dashboard header layout aligned to design reference */
+#forecastCards .rf-point-head{
+  display:grid!important;
+  grid-template-columns:minmax(0,1.2fr) auto auto!important;
+  align-items:start!important;
+  gap:18px!important;
+}
+#forecastCards .rf-point-copy{
+  min-width:0!important;
+}
+#forecastCards .rf-head-confidence{
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:flex-start!important;
+  gap:7px!important;
+  min-width:220px!important;
+  text-align:center!important;
+  padding-top:2px!important;
+}
+#forecastCards .rf-head-confidence .rf-confidence{
+  display:inline-flex!important;
+  align-items:center!important;
+  flex-wrap:nowrap!important;
+  justify-content:center!important;
+  gap:10px!important;
+  margin-top:0!important;
+}
+#forecastCards .rf-head-confidence .rf-confidence>span{
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:8px!important;
+  font-size:11px!important;
+  font-weight:900!important;
+  color:#26483b!important;
+  white-space:nowrap!important;
+}
+#forecastCards .rf-confidence-icon{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  width:24px!important;
+  height:24px!important;
+  border-radius:999px!important;
+  background:#eef6f1!important;
+  color:#315748!important;
+  font-style:normal!important;
+  font-size:14px!important;
+  line-height:1!important;
+}
+#forecastCards .rf-head-confidence .rf-confidence>b{
+  min-width:46px!important;
+  height:44px!important;
+  padding:0 16px!important;
+  border-radius:12px!important;
+  font-size:28px!important;
+  line-height:1!important;
+  font-weight:950!important;
+}
+#forecastCards .rf-head-confidence .rf-confidence-note{
+  display:block!important;
+  margin:0!important;
+  font-size:12px!important;
+  line-height:1.35!important;
+  font-weight:850!important;
+  color:#6c8178!important;
+  white-space:nowrap!important;
+}
+#forecastCards .rf-weather{
+  justify-items:end!important;
+  text-align:right!important;
+}
+#forecastCards .rf-weather small{font-weight:900!important}
+@media(max-width:1100px){
+  #forecastCards .rf-point-head{grid-template-columns:minmax(0,1fr) auto!important;grid-template-areas:'main weather' 'confidence confidence'!important;gap:12px!important}
+  #forecastCards .rf-point-copy{grid-area:main!important}
+  #forecastCards .rf-head-confidence{grid-area:confidence!important;align-items:flex-start!important;text-align:left!important;min-width:0!important;padding-top:0!important}
+  #forecastCards .rf-head-confidence .rf-confidence{justify-content:flex-start!important}
+  #forecastCards .rf-head-confidence .rf-confidence-note{white-space:normal!important}
+  #forecastCards .rf-weather{grid-area:weather!important}
+}
+@media(max-width:680px){
+  #forecastCards .rf-head-confidence{gap:5px!important}
+  #forecastCards .rf-head-confidence .rf-confidence>span{font-size:10px!important;gap:6px!important}
+  #forecastCards .rf-confidence-icon{width:22px!important;height:22px!important;font-size:13px!important}
+  #forecastCards .rf-head-confidence .rf-confidence>b{min-width:40px!important;height:38px!important;padding:0 12px!important;font-size:24px!important;border-radius:10px!important}
+  #forecastCards .rf-head-confidence .rf-confidence-note{font-size:11px!important;line-height:1.3!important}
+}
+@media(max-width:430px){
+  #forecastCards .rf-point-head{gap:9px!important}
+  #forecastCards .rf-head-confidence .rf-confidence>b{min-width:36px!important;height:34px!important;padding:0 10px!important;font-size:22px!important}
+  #forecastCards .rf-head-confidence .rf-confidence-note{font-size:10px!important}
+}
+
+
+/* V1.5.63: apparent temperature integrated across point forecast and charts */
+#forecastCards .rf-feels-like{display:flex;align-items:baseline;gap:6px;min-height:20px;margin:-1px 0 7px;color:#526d62}
+#forecastCards .rf-feels-like span{font-size:10px;font-weight:850;color:#71877d}
+#forecastCards .rf-feels-like b{font-size:15px;line-height:1;font-weight:950;color:#234a3b;font-variant-numeric:tabular-nums}
+#forecastCards .rf-feels-like small{font-size:9px;font-weight:850;color:#61786d}
+.chart-legend-item.feels::before{background:#516f9f}
+.chart-line.feels{stroke:#516f9f;stroke-dasharray:7 5}
+.chart-dot.feels{stroke:#516f9f}
+.chart-value.feels-value{fill:#445f8b;stroke:#f7faf8;stroke-width:3px}
+@media(max-width:680px){#forecastCards .rf-feels-like{gap:5px;margin-bottom:6px}#forecastCards .rf-feels-like b{font-size:14px}#forecastCards .rf-feels-like span{font-size:9px}}

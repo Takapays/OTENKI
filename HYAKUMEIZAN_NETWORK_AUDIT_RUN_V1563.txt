@@ -1,0 +1,12 @@
+{
+  "mountains": 100,
+  "routeDefinitions": 140,
+  "routeEndpointEdges": 434,
+  "uniqueAdjacentAuditEdges": 700,
+  "verifiedDirect": 700,
+  "composedOnly": 0,
+  "estimated": 0,
+  "missing": 0,
+  "routeDefinitionExclusions": 4,
+  "explicitAreaNetworks": 36
+}

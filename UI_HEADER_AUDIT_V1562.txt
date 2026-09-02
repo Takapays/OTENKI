@@ -1,0 +1,17 @@
+TRATEN V1.5.62 UI HEADER AUDIT
+
+1. Point forecast header layout
+- confidence block moved out of place block: PASS
+- centered confidence summary on desktop: PASS
+- weather icon remains right-aligned: PASS
+- responsive wrap to second row on narrow screens: PASS
+
+2. Wind semantics
+- card label remains 平均風速: PASS
+- direction chip shows arrow + cardinal label without degree text: PASS
+- gust value remains supplemental when available: PASS
+
+3. Version consistency
+- app.js APP_VERSION: 1.5.62
+- server.py APP_VERSION: 1.5.62
+- index cache busters / visible labels: 1.5.62

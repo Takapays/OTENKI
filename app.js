@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.61';
+const APP_VERSION = '1.5.63';
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
@@ -11221,7 +11221,23 @@ function nearestTimeIndex(times,target){const t=new Date(target).getTime();let b
 function numberOrNaN(v){if(v===null||v===undefined||(typeof v==='string'&&v.trim()===''))return NaN;const n=Number(v);return Number.isFinite(n)?n:NaN;}
 function mean(v){const x=v.filter(Number.isFinite);return x.length?x.reduce((a,b)=>a+b,0)/x.length:NaN;} function max(v){const x=v.filter(Number.isFinite);return x.length?Math.max(...x):NaN;}
 function median(v){const x=v.filter(Number.isFinite).sort((a,b)=>a-b);if(!x.length)return NaN;const m=Math.floor(x.length/2);return x.length%2?x[m]:(x[m-1]+x[m])/2;}
-function averageRows(rows){return {temp:mean(rows.map(x=>x.temp)),rain:mean(rows.map(x=>x.rain)),cloud:mean(rows.map(x=>x.cloud)),wind:mean(rows.map(x=>x.wind)),gust:max(rows.map(x=>x.gust)),cape:max(rows.map(x=>x.cape)),visibility:mean(rows.map(x=>x.visibility)),freezing:mean(rows.map(x=>x.freezing))};}
+function apparentTemperatureMountain(temp,rh,wind){
+  const t=Number(temp), h=Number(rh), v=Math.max(0,Number(wind));
+  if(Number.isFinite(t)&&Number.isFinite(h)&&Number.isFinite(v)){
+    const e=(Math.max(0,Math.min(100,h))/100)*6.105*Math.exp((17.27*t)/(237.7+t));
+    return t+0.33*e-0.70*v-4.0;
+  }
+  if(Number.isFinite(t)&&Number.isFinite(v)&&t<=10&&v>=1.3){
+    const kmh=v*3.6, p=Math.pow(kmh,0.16);
+    return 13.12+0.6215*t-11.37*p+0.3965*t*p;
+  }
+  return Number.isFinite(t)?t:NaN;
+}
+function averageRows(rows){
+  const out={temp:mean(rows.map(x=>x.temp)),rh:mean(rows.map(x=>x.rh)),rain:mean(rows.map(x=>x.rain)),cloud:mean(rows.map(x=>x.cloud)),wind:mean(rows.map(x=>x.wind)),gust:max(rows.map(x=>x.gust)),cape:max(rows.map(x=>x.cape)),visibility:mean(rows.map(x=>x.visibility)),freezing:mean(rows.map(x=>x.freezing))};
+  out.feelsLike=apparentTemperatureMountain(out.temp,out.rh,out.wind);
+  return out;
+}
 function rowForProvider(providerRows,id){return (providerRows||[]).find(x=>x?.provider?.id===id)?.row||null;}
 function blendProviderRows(providerRows){
   const rows=(providerRows||[]).map(x=>x.row).filter(Boolean);
@@ -11245,6 +11261,7 @@ function blendProviderRows(providerRows){
     (Number.isFinite(gfs.rain)&&Number.isFinite(out.rain)&&gfs.rain>=2&&gfs.rain>=out.rain+1.5) ||
     (Number.isFinite(gfs.visibility)&&Number.isFinite(out.visibility)&&gfs.visibility<1000&&out.visibility>=3000)
   );
+  out.feelsLike=apparentTemperatureMountain(out.temp,out.rh,out.wind);
   out.modelBasis={wind:Number.isFinite(ecmwf?.wind)?'ecmwf':'multi',rain:Number.isFinite(jma?.rain)?'jma':'multi',visibility:Number.isFinite(icon?.visibility)?'icon':'multi',gfsGuard:!!out.gfsAdverse,capeModels:out.capeModelCount,capeSupport500:out.capeSupport500,capeSupport1000:out.capeSupport1000};
   return out;
 }
@@ -11268,7 +11285,15 @@ function thunderEvidence(x){
   else if((consensus500&&cape>=500)||(rain>=0.5&&cape>=500)||cape>=1000)level='MEDIUM';
   return {level,gradePoints,cape,rain,models,support500,support1000};
 }
-function assessGrade(x){let s=0;if(x.wind>=20||x.gust>=25)s+=4;else if(x.wind>=15||x.gust>=20)s+=3;else if(x.wind>=10||x.gust>=15)s+=2;else if(x.wind>=7)s+=1;if(x.rain>=8)s+=4;else if(x.rain>=4)s+=3;else if(x.rain>=1.5)s+=2;else if(x.rain>=.3)s+=1;s+=thunderEvidence(x).gradePoints;if(x.cloud>=95)s+=1;if(Number.isFinite(x.visibility)&&x.visibility<500)s+=2;if(x.temp<=-5)s+=2;else if(x.temp<=0)s+=1;if(x.gfsAdverse)s+=1;return s>=8?'E':s>=6?'D':s>=4?'C':s>=2?'B':'A';}
+function hypothermiaRisk(x){
+  const f=Number(x.feelsLike),w=Number(x.wind),r=Number(x.rain);
+  if(!Number.isFinite(f))return 'NONE';
+  if(f<=-10&&((Number.isFinite(w)&&w>=10)||(Number.isFinite(r)&&r>=1.5)))return 'DANGER';
+  if(f<=-5&&((Number.isFinite(w)&&w>=7)||(Number.isFinite(r)&&r>=.3)))return 'WARNING';
+  if(f<=0&&Number.isFinite(w)&&Number.isFinite(r)&&w>=5&&r>=.3)return 'CAUTION';
+  return 'NONE';
+}
+function assessGrade(x){let s=0;if(x.wind>=20||x.gust>=25)s+=4;else if(x.wind>=15||x.gust>=20)s+=3;else if(x.wind>=10||x.gust>=15)s+=2;else if(x.wind>=7)s+=1;if(x.rain>=8)s+=4;else if(x.rain>=4)s+=3;else if(x.rain>=1.5)s+=2;else if(x.rain>=.3)s+=1;s+=thunderEvidence(x).gradePoints;if(x.cloud>=95)s+=1;if(Number.isFinite(x.visibility)&&x.visibility<500)s+=2;const feels=Number.isFinite(x.feelsLike)?x.feelsLike:x.temp;if(feels<=-10)s+=3;else if(feels<=-5)s+=2;else if(feels<=0)s+=1;const hypo=hypothermiaRisk(x);if(hypo==='DANGER'||hypo==='WARNING')s+=1;if(x.gfsAdverse)s+=1;return s>=8?'E':s>=6?'D':s>=4?'C':s>=2?'B':'A';}
 function thunderLevel(x){return thunderEvidence(x).level;}
 const HAZARD_RANK={NONE:0,CAUTION:1,WARNING:2,DANGER:3};
 const HAZARD_LABEL={NONE:'平常',CAUTION:'注意',WARNING:'警戒',DANGER:'危険'};
@@ -11279,22 +11304,25 @@ function assessHazards(x){
   const windLv=(x.wind>=20||x.gust>=25)?'DANGER':(x.wind>=15||x.gust>=20)?'WARNING':(x.wind>=10||x.gust>=15)?'CAUTION':'NONE';
   const rainLv=x.rain>=8?'DANGER':x.rain>=4?'WARNING':x.rain>=1.5?'CAUTION':'NONE';
   let tempLv='NONE',tempDetail='';
-  if(Number.isFinite(x.temp)){
-    if(x.temp<=-10){tempLv='DANGER';tempDetail='厳しい低温';}
-    else if(x.temp<=-5){tempLv='WARNING';tempDetail='低温';}
-    else if(x.temp<=0){tempLv='CAUTION';tempDetail='氷点下';}
-    else if(x.temp>=35){tempLv='DANGER';tempDetail='極端な高温';}
-    else if(x.temp>=32){tempLv='WARNING';tempDetail='高温';}
-    else if(x.temp>=30){tempLv='CAUTION';tempDetail='暑熱';}
+  const feels=Number.isFinite(x.feelsLike)?x.feelsLike:x.temp;
+  if(Number.isFinite(feels)){
+    if(feels<=-10){tempLv='DANGER';tempDetail='体感温度が非常に低い';}
+    else if(feels<=-5){tempLv='WARNING';tempDetail='体感温度が低い';}
+    else if(feels<=0){tempLv='CAUTION';tempDetail='体感温度が氷点下';}
+    else if(feels>=35){tempLv='DANGER';tempDetail='体感温度が極端に高い';}
+    else if(feels>=32){tempLv='WARNING';tempDetail='体感温度が高い';}
+    else if(feels>=30){tempLv='CAUTION';tempDetail='体感上の暑熱';}
   }
+  const hypoLv=hypothermiaRisk(x);
   const visLv=!Number.isFinite(x.visibility)?'NONE':x.visibility<500?'DANGER':x.visibility<1000?'WARNING':x.visibility<3000?'CAUTION':'NONE';
   const items=[
     hazardItem('thunder','⚡','雷',thunderLv,thunder,thunderLv==='NONE'?'顕著な雷リスクなし':`雷リスク ${thunder}`),
     hazardItem('wind','💨','風',windLv,`${num(x.wind)}m/s`,Number.isFinite(x.gust)?`平均 ${num(x.wind)}m/s・突風 ${num(x.gust)}m/s`:`平均 ${num(x.wind)}m/s`),
     hazardItem('rain','🌧️','雨',rainLv,`${num(x.rain)}mm/h`,`時間降水量 ${num(x.rain)}mm/h`),
-    hazardItem('temp',tempLv==='NONE'?'🌡️':x.temp<=0?'🥶':'🥵','気温',tempLv,`${num(x.temp)}℃`,tempDetail||`気温 ${num(x.temp)}℃`),
+    hazardItem('temp',tempLv==='NONE'?'🌡️':feels<=0?'🥶':'🥵','体感温度',tempLv,`${num(feels)}℃`,`気温 ${num(x.temp)}℃・体感 ${num(feels)}℃${tempDetail?`（${tempDetail}）`:''}`),
     hazardItem('visibility','🌫️','視界',visLv,Number.isFinite(x.visibility)?`${Math.round(x.visibility)}m`:'–',Number.isFinite(x.visibility)?`予報視程 ${Math.round(x.visibility)}m`:'視程データなし')
   ];
+  if(hypoLv!=='NONE')items.push(hazardItem('hypothermia','🥶','低体温',hypoLv,`${num(feels)}℃`,`雨・風・低い体感温度が重なっています（体感 ${num(feels)}℃、風 ${num(x.wind)}m/s、雨 ${num(x.rain)}mm/h）`));
   if(x.gfsAdverse)items.push(hazardItem('model','⚠️','モデル差','CAUTION','GFS悪化','GFSが他モデルより明確に悪天側を示しています'));
   return items;
 }
@@ -11337,6 +11365,12 @@ function buildDecisionCommentary(points){
     E:'ルート上に非常に強い気象リスクがあり、現計画は大きな見直しが必要な条件です。'
   }[grade]||'ルート全体の気象条件を確認してください。';
   const parts=[intro];
+  const feelPoints=points.filter(p=>Number.isFinite(p.feelsLike));
+  if(feelPoints.length){
+    const coldest=feelPoints.reduce((a,b)=>b.feelsLike<a.feelsLike?b:a,feelPoints[0]);
+    parts.push(`ルート中の最低体感温度は ${coldest.point.time||''} ${coldest.point.name} の ${num(coldest.feelsLike)}℃（気温 ${num(coldest.temp)}℃）です。`);
+    if(hypothermiaRisk(coldest)!=='NONE')parts.push('雨・風・低い体感温度が重なるため、低体温症への注意が必要です。防風・防水と保温装備を前提に判断してください。');
+  }
   if(active.length){
     const top=active[0];
     parts.push(`最大の注意点は ${top.point.time||''} ${top.point.name} の「${top.label}」で、${top.detail}です。`);
@@ -11501,8 +11535,9 @@ function renderImpactChart(points){
 }
 function renderTempCloudChart(points){
   const w=720,h=270,left=42,right=42,top=24,bottom=58;
-  const temps=points.map(p=>p.temp).filter(Number.isFinite), clouds=points.map(p=>p.cloud).filter(Number.isFinite);
-  let tMin=temps.length?Math.min(...temps):0, tMax=temps.length?Math.max(...temps):1;
+  const temps=points.map(p=>p.temp).filter(Number.isFinite), feels=points.map(p=>p.feelsLike).filter(Number.isFinite), clouds=points.map(p=>p.cloud).filter(Number.isFinite);
+  const thermal=[...temps,...feels];
+  let tMin=thermal.length?Math.min(...thermal):0, tMax=thermal.length?Math.max(...thermal):1;
   if(tMin===tMax){tMin-=1;tMax+=1;}
   const pad=Math.max(1,(tMax-tMin)*.12); tMin-=pad; tMax+=pad;
   const x=i=>points.length===1?w/2:left+i*(w-left-right)/(points.length-1);
@@ -11510,12 +11545,11 @@ function renderTempCloudChart(points){
   const yCloud=v=>h-bottom-(Math.max(0,Math.min(100,v))/100)*(h-top-bottom);
   const barW=Math.min(28,Math.max(8,(w-left-right)/Math.max(points.length*2.5,10)));
   const bars=points.map((p,i)=>{const val=Number.isFinite(p.cloud)?p.cloud:0;const yy=yCloud(val),xx=x(i)-barW/2;const labelY=Math.min(h-bottom-6,Math.max(top+14,yy+14));return `<rect class="cloud-bar" x="${xx.toFixed(1)}" y="${yy.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(0,h-bottom-yy).toFixed(1)}" rx="5"><title>${esc(p.point.name)} ${p.point.time} 雲量 ${num(val,0)}%</title></rect><text class="chart-value cloud-value" x="${x(i)}" y="${labelY.toFixed(1)}" text-anchor="middle">${num(val,0)}%</text>`;}).join('');
-  const pts=points.map((p,i)=>Number.isFinite(p.temp)?[x(i),yTemp(p.temp),p.temp,i]:null).filter(Boolean);
-  const path=pts.map((q,i)=>(i?'L':'M')+q[0].toFixed(1)+' '+q[1].toFixed(1)).join(' ');
-  const line=`<path class="chart-line temp" d="${path}"/>${pts.map(q=>{const ly=Math.max(top+11,q[1]-10);return `<circle class="chart-dot temp" cx="${q[0]}" cy="${q[1]}" r="4"><title>${esc(points[q[3]].point.name)} ${points[q[3]].point.time} 気温 ${num(q[2])}℃</title></circle><text class="chart-value temp-value" x="${q[0]}" y="${ly.toFixed(1)}" text-anchor="middle">${num(q[2])}℃</text>`;}).join('')}`;
+  const buildThermalLine=(key,cls,label,offset)=>{const pts=points.map((p,i)=>Number.isFinite(p[key])?[x(i),yTemp(p[key]),p[key],i]:null).filter(Boolean);const path=pts.map((q,i)=>(i?'L':'M')+q[0].toFixed(1)+' '+q[1].toFixed(1)).join(' ');return `<path class="chart-line ${cls}" d="${path}"/>${pts.map(q=>{const ly=Math.max(top+11,q[1]+offset);return `<circle class="chart-dot ${cls}" cx="${q[0]}" cy="${q[1]}" r="4"><title>${esc(points[q[3]].point.name)} ${points[q[3]].point.time} ${label} ${num(q[2])}℃</title></circle><text class="chart-value ${cls}-value" x="${q[0]}" y="${ly.toFixed(1)}" text-anchor="middle">${num(q[2])}℃</text>`;}).join('')}`;};
   const xTicks=points.map((p,i)=>`<g class="chart-step"><circle class="chart-step-dot" cx="${x(i)}" cy="${h-27}" r="10"></circle><text class="chart-step-text" x="${x(i)}" y="${h-23}" text-anchor="middle">${String(i+1).padStart(2,'0')}</text></g>`).join('');
   const avgCloud=clouds.length?clouds.reduce((a,b)=>a+b,0)/clouds.length:NaN;
-  return `<article class="chart-card featured"><div class="chart-head"><div><h3>気温・雲量</h3></div><div class="chart-legend"><span class="chart-legend-item temp">気温</span><span class="chart-legend-item cloud">雲量</span></div></div>${chartKpis([{label:'最低気温',value:`${num(Math.min(...temps))}℃`},{label:'最高気温',value:`${num(Math.max(...temps))}℃`},{label:'平均雲量',value:`${num(avgCloud,0)}%`}])}<div class="chart-canvas temp-cloud"><div class="chart-scale top left">気温 ${num(tMax)}℃</div><div class="chart-scale top right">雲 100%</div><div class="chart-scale bottom left">${num(tMin)}℃</div><div class="chart-scale bottom right">0%</div><svg class="chart-svg" viewBox="0 0 ${w} ${h}" role="img" aria-label="気温と雲量の複合グラフ"><defs><linearGradient id="cloudGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#c3cbd3" stop-opacity=".78"/><stop offset="100%" stop-color="#8f9aa6" stop-opacity=".36"/></linearGradient></defs>${gridLines(w,h,left,right,top,bottom,4)}${chartDateBoundaryLines(points,w,h,left,right,top,bottom)}<line class="chart-axis" x1="${left}" y1="${h-bottom}" x2="${w-right}" y2="${h-bottom}"/>${bars}${line}${xTicks}</svg></div>${chartDateBand(points,w,left,right)}${pointLegend(points)}</article>`;
+  const minTemp=temps.length?Math.min(...temps):NaN, maxTemp=temps.length?Math.max(...temps):NaN, minFeel=feels.length?Math.min(...feels):NaN;
+  return `<article class="chart-card featured"><div class="chart-head"><div><h3>気温・体感・雲量</h3></div><div class="chart-legend"><span class="chart-legend-item temp">気温</span><span class="chart-legend-item feels">体感温度</span><span class="chart-legend-item cloud">雲量</span></div></div>${chartKpis([{label:'最低体感',value:`${num(minFeel)}℃`},{label:'気温範囲',value:`${num(minTemp)}〜${num(maxTemp)}℃`},{label:'平均雲量',value:`${num(avgCloud,0)}%`}])}<div class="chart-canvas temp-cloud"><div class="chart-scale top left">温度 ${num(tMax)}℃</div><div class="chart-scale top right">雲 100%</div><div class="chart-scale bottom left">${num(tMin)}℃</div><div class="chart-scale bottom right">0%</div><svg class="chart-svg" viewBox="0 0 ${w} ${h}" role="img" aria-label="気温・体感温度・雲量の複合グラフ"><defs><linearGradient id="cloudGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#c3cbd3" stop-opacity=".78"/><stop offset="100%" stop-color="#8f9aa6" stop-opacity=".36"/></linearGradient></defs>${gridLines(w,h,left,right,top,bottom,4)}${chartDateBoundaryLines(points,w,h,left,right,top,bottom)}<line class="chart-axis" x1="${left}" y1="${h-bottom}" x2="${w-right}" y2="${h-bottom}"/>${bars}${buildThermalLine('temp','temp','気温',-10)}${buildThermalLine('feelsLike','feels','体感温度',15)}${xTicks}</svg></div>${chartDateBand(points,w,left,right)}${pointLegend(points)}</article>`;
 }
 function renderWeatherCharts(points){
   const el=$('weatherCharts'); if(!el)return;
@@ -11866,6 +11900,9 @@ function pointMetricIcon(kind){
   return '';
 }
 function pointForecastMessage(r){
+  const hypo=hypothermiaRisk(r);
+  if(hypo==='DANGER'||hypo==='WARNING')return {cls:'warning',text:`低体温注意：体感 ${num(r.feelsLike)}℃。雨・風・低温が重なるため、防風・防水と保温を強く意識してください。`};
+  if(hypo==='CAUTION')return {cls:'caution',text:`体感 ${num(r.feelsLike)}℃。濡れと風で体温を奪われやすい条件です。`};
   const g=r.grade||'A';
   if(g==='A')return {cls:'good',text:'到着時は大きな気象上の注意要素は少ない見込みです。'};
   if(g==='B')return {cls:'fair',text:'概ね安定していますが、一部の気象要素に注意してください。'};
@@ -11886,7 +11923,11 @@ function pointForecastRow(r,i,total){
     <div class="rf-point-head">
       <div class="rf-point-copy">
         <div class="rf-time"><small>${esc(r.point.date||'----/--/--')}</small><strong>${esc(r.point.time||'--:--')}</strong></div>
-        <div class="rf-place"><b>${esc(r.point.name)}</b><small>${esc(typeLabel)} / 標高 ${elev.toLocaleString('ja-JP')}m</small><div class="rf-confidence rf-confidence-${conf.level.toLowerCase()}" title="予測信頼度はモデル一致度・比較モデル数・予報までの日数から算出した相対指標です"><span>予測信頼度</span><b>${conf.label}</b><small>${esc(conf.reason)}</small></div></div>
+        <div class="rf-place"><b>${esc(r.point.name)}</b><small>${esc(typeLabel)} / 標高 ${elev.toLocaleString('ja-JP')}m</small></div>
+      </div>
+      <div class="rf-head-confidence" title="予測信頼度はモデル一致度・比較モデル数・予報までの日数から算出した相対指標です">
+        <div class="rf-confidence rf-confidence-${conf.level.toLowerCase()}"><span><em class="rf-confidence-icon" aria-hidden="true">🛡</em>予測信頼度</span><b>${conf.label}</b></div>
+        <small class="rf-confidence-note">${esc(conf.reason)}</small>
       </div>
       <div class="rf-weather wx-${wx.cls}"><span class="rf-weather-icon" aria-hidden="true">${wx.icon}</span><small>${wx.label}</small></div>
     </div>
@@ -11894,6 +11935,7 @@ function pointForecastRow(r,i,total){
       <div class="rf-metric temp${hazardMetricClass(hz.temp)}" data-label="気温">
         <div class="rf-metric-title"><span class="rf-metric-symbol temp">${pointMetricIcon('temp')}</span><b>気温</b></div>
         <div class="rf-value-wrap"><strong>${num(r.temp,0)}</strong><small>℃</small></div>
+        <div class="rf-feels-like"><span>体感</span><b>${num(r.feelsLike,0)}℃</b>${Number.isFinite(r.feelsLike)&&Number.isFinite(r.temp)?`<small>${r.feelsLike<r.temp?'↓':''}${Math.abs(r.feelsLike-r.temp)>=1?`${num(Math.abs(r.feelsLike-r.temp),0)}℃差`:''}</small>`:''}</div>
         ${metricGauge('temp',r.temp)}
       </div>
       <div class="rf-metric wind${hazardMetricClass(hz.wind)}" data-label="平均風速">
@@ -11937,7 +11979,10 @@ function renderSummaryCore(points){
   const maxWindValue=max(points.flatMap(x=>x.providerRows.map(y=>y.row.wind))); const maxRainValue=max(points.flatMap(x=>x.providerRows.map(y=>y.row.rain))); const thunderLevel=maxThunder(points.map(x=>x.thunder)); const forecastConfidence=routeForecastConfidence(points); const confidenceLevel=forecastConfidence.level;
   $('grade').textContent=worst.grade; $('verdict').textContent=verdict(worst.grade);
   const gradeLabels={A:'EXCELLENT',B:'GOOD',C:'CAUTION',D:'HARD',E:'STOP'}; const verdictNotes={A:'全体としてかなり安定した予報です。',B:'一部に注意点はありますが、全体としては比較的安定しています。',C:'注意要素があります。通過時刻と場所を確認してください。',D:'強い気象リスクを含む計画です。見直しを推奨します。',E:'非常に強い気象リスクがあります。中止を含めて再検討してください。'};
-  $('gradeLabel').textContent=gradeLabels[worst.grade]||'–'; $('verdictNote').textContent=verdictNotes[worst.grade]||'ルート全体の気象条件を確認してください。';
+  $('gradeLabel').textContent=gradeLabels[worst.grade]||'–';
+  const feels=points.map(p=>p.feelsLike).filter(Number.isFinite); const minFeels=feels.length?Math.min(...feels):NaN;
+  const baseVerdictNote=verdictNotes[worst.grade]||'ルート全体の気象条件を確認してください。';
+  $('verdictNote').textContent=Number.isFinite(minFeels)?`${baseVerdictNote} 最低体感 ${num(minFeels)}℃。`:baseVerdictNote;
   $('maxWind').textContent=`${num(maxWindValue)} m/s`; $('maxWindLabel').textContent=maxWindValue<5?'弱い':maxWindValue<10?'やや強い':maxWindValue<15?'強い':'非常に強い';
   $('maxRain').textContent=`${num(maxRainValue)} mm/h`; $('maxRainLabel').textContent=maxRainValue<0.2?'ほとんどなし':maxRainValue<1?'弱い':maxRainValue<5?'雨に注意':'強い雨';
   $('thunderRisk').textContent=thunderLevel; $('thunderRiskLabel').textContent=({LOW:'低い',MEDIUM:'注意',HIGH:'高い',EXTREME:'非常に高い'})[thunderLevel]||'–';
@@ -11951,7 +11996,7 @@ function renderAll(points,overnight=[]){
   renderWeatherCharts(points); renderRouteMaps(points); renderPointForecastTimeline(points);
   const overnightWithArrival=overnight.map(o=>{const match=points.find(r=>r.point===o.point||(r.point.name===o.point.name&&r.point.date===o.point.date&&r.point.time===o.point.time));return {...o,arrivalTemp:match?.temp};});
   renderOvernights(overnightWithArrival);
-  $('modelDetails').innerHTML=points.map(r=>`<article class="model-block"><h3>${esc(r.point.name)} <small>${r.point.date} ${r.point.time}</small></h3><div class="table-wrap"><table><thead><tr><th>モデル</th><th>気温</th><th>風</th><th>突風</th><th>雨</th><th>雲</th><th>大気不安定度</th><th>視程</th></tr></thead><tbody>${r.providerRows.map(x=>`<tr><td>${x.provider.name}</td><td>${num(x.row.temp)}℃</td><td>${num(x.row.wind)}m/s</td><td>${num(x.row.gust)}m/s</td><td>${num(x.row.rain)}mm</td><td>${num(x.row.cloud,0)}%</td><td>${num(x.row.cape,0)} J/kg</td><td>${Number.isFinite(x.row.visibility)?Math.round(x.row.visibility)+'m':'–'}</td></tr>`).join('')}</tbody></table></div></article>`).join('');
+  $('modelDetails').innerHTML=points.map(r=>`<article class="model-block"><h3>${esc(r.point.name)} <small>${r.point.date} ${r.point.time}</small></h3><div class="table-wrap"><table><thead><tr><th>モデル</th><th>気温</th><th>体感</th><th>風</th><th>突風</th><th>雨</th><th>雲</th><th>大気不安定度</th><th>視程</th></tr></thead><tbody>${r.providerRows.map(x=>`<tr><td>${x.provider.name}</td><td>${num(x.row.temp)}℃</td><td>${num(apparentTemperatureMountain(x.row.temp,x.row.rh,x.row.wind))}℃</td><td>${num(x.row.wind)}m/s</td><td>${num(x.row.gust)}m/s</td><td>${num(x.row.rain)}mm</td><td>${num(x.row.cloud,0)}%</td><td>${num(x.row.cape,0)} J/kg</td><td>${Number.isFinite(x.row.visibility)?Math.round(x.row.visibility)+'m':'–'}</td></tr>`).join('')}</tbody></table></div></article>`).join('');
   $('updatedAt').textContent=new Date().toLocaleString('ja-JP');
 }
 async function proxyFetch(url){return fetch(`/api/proxy?url=${encodeURIComponent(url)}`);}

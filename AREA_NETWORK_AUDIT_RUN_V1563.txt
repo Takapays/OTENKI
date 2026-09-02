@@ -1,0 +1,10 @@
+{
+  "areas": 36,
+  "nodes": 264,
+  "directedAdjacentEdges": 424,
+  "verifiedDirect": 424,
+  "missing": 0,
+  "estimated": 0,
+  "composedOnly": 0,
+  "disconnectedAreas": 0
+}
