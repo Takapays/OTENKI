@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.5.69"
+APP_VERSION = "1.5.70"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -2212,7 +2212,7 @@ def _national_response(data: dict[str, Any], state: str, *, rate_limited: bool=F
     result_names={str(r.get("name") or "") for r in results if isinstance(r,dict)}
     total=len(points); got=len(result_names)
     missing_names=[str(p.get("name") or "") for p in points if isinstance(p,dict) and str(p.get("name") or "") not in result_names]
-    app.logger.info(
+    app.logger.warning(
         "national_summary date=%s total=%s returned=%s missing_count=%s missing=%s state=%s engine=metno+gfs-direct",
         data.get("date"), total, got, len(missing_names), ",".join(missing_names) if missing_names else "none", state,
     )
@@ -2223,7 +2223,7 @@ def _national_response(data: dict[str, Any], state: str, *, rate_limited: bool=F
         grades=(r or {}).get("modelGrades") if isinstance((r or {}).get("modelGrades"),dict) else {}
         metno_state="ok" if source in {"metno","metno+gfs"} or grades.get("metno") else "missing"
         gfs_state="ok" if source in {"gfs","metno+gfs"} or grades.get("gfs") else "missing"
-        app.logger.info(
+        app.logger.warning(
             "national_debug date=%s mountain=%s returned=%s source=%s metno=%s gfs=%s grade=%s state=%s engine=metno+gfs-direct",
             data.get("date"), debug_name, "yes" if r else "no", source, metno_state, gfs_state, (r or {}).get("grade"), state,
         )
