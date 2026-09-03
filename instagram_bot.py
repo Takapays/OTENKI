@@ -238,6 +238,21 @@ def _graph_request(path: str, params: dict[str, Any] | None = None, *, method: s
     return payload
 
 
+def test_connection() -> dict[str, Any]:
+    """Verify credentials against the configured Instagram professional account."""
+    if not configured():
+        return {"ok": False, "configured": False, "reason": "not-configured"}
+    payload = _graph_request(str(INSTAGRAM_USER_ID), {"fields": "id,username,account_type"})
+    return {
+        "ok": True,
+        "configured": True,
+        "id": str(payload.get("id") or ""),
+        "username": str(payload.get("username") or ""),
+        "accountType": str(payload.get("account_type") or ""),
+        "graphApiVersion": GRAPH_API_VERSION,
+    }
+
+
 def _already_posted_remote(date_text: str) -> bool:
     marker = f"#traten{date.fromisoformat(date_text).strftime('%Y%m%d')}"
     payload = _graph_request(f"{INSTAGRAM_USER_ID}/media", {"fields": "id,caption,timestamp", "limit": 25})

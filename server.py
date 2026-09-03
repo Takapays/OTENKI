@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.5.71"
+APP_VERSION = "1.5.72"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -2402,6 +2402,126 @@ def _instagram_admin_authorized() -> bool:
     return bool(supplied and hmac.compare_digest(supplied, NATIONAL_CACHE_REFRESH_TOKEN))
 
 
+@app.get("/instagram-admin")
+def instagram_admin_page():
+    """Browser-based Instagram bot test console. APIs remain token protected."""
+    return Response("""<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>トラテン Instagram 管理</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#17324a;background:#f4f7fa}
+body{margin:0}.wrap{max-width:920px;margin:0 auto;padding:28px 18px 60px}
+h1{font-size:26px;margin:0 0 6px}.sub{color:#607284;margin-bottom:22px}
+.card{background:#fff;border:1px solid #dbe4ec;border-radius:14px;padding:18px;margin:14px 0;box-shadow:0 2px 9px #0000000a}
+label{display:block;font-weight:700;margin:8px 0 6px}
+input{width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid #bdcbd6;border-radius:9px;font-size:15px}
+button{border:0;border-radius:9px;padding:11px 16px;font-weight:700;cursor:pointer;background:#0b5e9a;color:#fff;margin:6px 8px 6px 0}
+button.secondary{background:#667989}button.danger{background:#a33d3d}
+.row{display:flex;gap:12px;flex-wrap:wrap}.row>div{flex:1;min-width:220px}
+.status{white-space:pre-wrap;background:#102536;color:#eaf4fb;border-radius:10px;padding:13px;min-height:48px;font-family:ui-monospace,Consolas,monospace;font-size:13px;overflow:auto}
+img{display:block;width:min(100%,540px);height:auto;border-radius:12px;border:1px solid #dbe4ec;margin-top:12px}
+.small{font-size:13px;color:#657687}.pill{display:inline-block;padding:4px 9px;border-radius:999px;background:#eaf2f8;margin-right:6px;font-size:13px}
+</style>
+</head><body><main class="wrap">
+<h1>トラテン Instagram 管理</h1>
+<div class="sub">V1.5.72 / 接続確認・全国分析画像プレビュー・手動投稿</div>
+
+<section class="card">
+<label>管理トークン（NATIONAL_CACHE_REFRESH_TOKEN）</label>
+<input id="token" type="password" autocomplete="off" placeholder="Render Environment の値">
+<div class="small">この値はブラウザのsessionStorageだけに保持し、URLには載せません。</div>
+<button onclick="saveToken()">このタブに保存</button>
+<button class="secondary" onclick="clearToken()">消去</button>
+</section>
+
+<section class="card">
+<h2>1. 状態・接続確認</h2>
+<button onclick="loadStatus()">状態確認</button>
+<button onclick="testConnection()">Instagram接続確認</button>
+<div id="summary" style="margin:10px 0"></div>
+<div id="out" class="status">未確認</div>
+</section>
+
+<section class="card">
+<h2>2. 投稿画像プレビュー</h2>
+<div class="row"><div><label>予報日</label><input id="date" type="date"></div></div>
+<button onclick="preview()">画像を表示</button>
+<div id="previewMsg" class="small"></div>
+<img id="previewImg" alt="Instagram投稿画像プレビュー" hidden>
+</section>
+
+<section class="card">
+<h2>3. 手動投稿</h2>
+<p class="small">同じ予報日は通常二重投稿しません。まず画像プレビューを確認してから実行してください。</p>
+<button class="danger" onclick="postNow()">この予報日をInstagramへ投稿</button>
+<label style="font-weight:400"><input id="force" type="checkbox" style="width:auto"> 二重投稿防止を無視して強制投稿（通常はOFF）</label>
+<div id="postOut" class="status">未実行</div>
+</section>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+function token(){return $('token').value.trim()}
+function saveToken(){sessionStorage.setItem('tratenIgAdminToken',token());alert('このタブに保存しました')}
+function clearToken(){sessionStorage.removeItem('tratenIgAdminToken');$('token').value=''}
+function h(json=false){const x={'X-Traten-Cache-Token':token()};if(json)x['Content-Type']='application/json';return x}
+async function api(url,opt={}){
+  if(!token())throw new Error('管理トークンを入力してください');
+  const r=await fetch(url,{...opt,headers:{...(opt.headers||{}),...h(!!opt.body)}});
+  let j;try{j=await r.json()}catch{j={error:'response parse error'}}
+  if(!r.ok)throw new Error((j&&j.error)||('HTTP '+r.status));
+  return j;
+}
+function show(id,obj){$(id).textContent=JSON.stringify(obj,null,2)}
+async function loadStatus(){
+  try{
+    const j=await api('/api/instagram/status');show('out',j);$('date').value=j.tomorrow||'';
+    $('summary').innerHTML=`<span class="pill">configured: ${j.configured}</span><span class="pill">autoPost: ${j.autoPost}</span><span class="pill">fresh: ${j.tomorrowFreshCount}</span>`;
+    if(j.previewImageUrl){$('previewImg').src=j.previewImageUrl;$('previewImg').hidden=false}
+  }catch(e){$('out').textContent=e.message}
+}
+async function testConnection(){
+  try{show('out',await api('/api/instagram/test-connection'))}
+  catch(e){$('out').textContent=e.message}
+}
+async function preview(){
+  try{
+    const d=$('date').value;if(!d)throw new Error('予報日を選択してください');
+    const r=await api('/api/instagram/preview-url?date='+encodeURIComponent(d));
+    $('previewImg').src=r.previewImageUrl+'&t='+Date.now();$('previewImg').hidden=false;
+    $('previewMsg').textContent=`${r.date} / ${r.count}座`;
+  }catch(e){$('previewMsg').textContent=e.message}
+}
+async function postNow(){
+  try{
+    const d=$('date').value;if(!d)throw new Error('予報日を選択してください');
+    if(!confirm(d+' の全国分析画像をInstagramへ投稿します。よろしいですか？'))return;
+    const j=await api('/api/instagram/post-national',{method:'POST',body:JSON.stringify({date:d,force:$('force').checked})});
+    show('postOut',j);
+  }catch(e){$('postOut').textContent=e.message}
+}
+$('token').value=sessionStorage.getItem('tratenIgAdminToken')||'';
+</script>
+</body></html>""", content_type="text/html; charset=utf-8")
+
+
+@app.get("/api/instagram/preview-url")
+def instagram_preview_url():
+    if not _instagram_admin_authorized():
+        return jsonify(error="unauthorized"), 401
+    date_text = str(request.args.get("date") or _national_nextday_date_text())[:10]
+    try:
+        datetime.strptime(date_text, "%Y-%m-%d")
+    except ValueError:
+        return jsonify(error="invalid date"), 400
+    rows = _instagram_load_fresh_100_results(date_text)
+    if len(rows) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
+        return jsonify(error="fresh nationwide cache is incomplete", count=len(rows), minimum=instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS, date=date_text), 409
+    return jsonify(date=date_text, count=len(rows), previewImageUrl=instagram_bot.image_url(date_text))
+
+
 @app.get("/api/instagram/national-image/<date_text>")
 def instagram_national_image(date_text: str):
     """Signed public JPEG URL consumed by Meta's image fetcher."""
@@ -2439,6 +2559,18 @@ def instagram_status():
     if instagram_bot.configured():
         status["previewImageUrl"] = instagram_bot.image_url(target)
     return jsonify(status)
+
+
+@app.get("/api/instagram/test-connection")
+def instagram_test_connection():
+    if not _instagram_admin_authorized():
+        return jsonify(error="unauthorized"), 401
+    try:
+        result = instagram_bot.test_connection()
+        return jsonify(result), 200 if result.get("ok") else 503
+    except Exception as exc:
+        app.logger.exception("instagram_connection_test_failed")
+        return jsonify(ok=False, error=str(exc)[:500]), 502
 
 
 @app.post("/api/instagram/post-national")
