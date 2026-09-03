@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.70';
+const APP_VERSION = '1.5.71';
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
@@ -6911,7 +6911,9 @@ function nationalMountainPoint(name){
   const lon=Number(peak?.lon??peak?.longitude??override?.lon??preset?.longitude??preset?.lon);
   if(!Number.isFinite(lat)||!Number.isFinite(lon))return null;
   const elevation=Number(peak?.elevation??override?.elevation);
-  return {name,lat,lon,elevation:Number.isFinite(elevation)?elevation:null,eligible:representativeCourseOptions(name).length>0};
+  // V1.5.71: 全国分析の対象可否を代表コース有無から切り離す。
+  // 全国簡易判定に必要なのは山頂座標だけ。火山規制等で代表コースを非表示にしている山も気象判定対象とする。
+  return {name,lat,lon,elevation:Number.isFinite(elevation)?elevation:null,eligible:true,hasRepresentativeCourse:representativeCourseOptions(name).length>0};
 }
 function nationalOutlookPoints(){return JAPAN_300_MOUNTAINS.map(nationalMountainPoint).filter(Boolean);}
 function nationalOutlookSelectedHonors(){
