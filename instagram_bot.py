@@ -1,12 +1,18 @@
 from __future__ import annotations
 
 import hashlib
+import math
+import shutil
+import struct
+import subprocess
+import wave
 import hmac
 import io
 import json
 import os
 import tempfile
 import time
+import threading
 import urllib.parse
 import urllib.request
 from datetime import date, datetime
@@ -30,6 +36,9 @@ INSTAGRAM_IMAGE_SECRET = os.environ.get("INSTAGRAM_IMAGE_SECRET", "").strip()
 INSTAGRAM_FONT_PATH = os.environ.get("INSTAGRAM_FONT_PATH", "").strip()
 INSTAGRAM_HTTP_TIMEOUT = max(5, min(60, int(os.environ.get("INSTAGRAM_HTTP_TIMEOUT", "25"))))
 INSTAGRAM_MIN_NATIONAL_RESULTS = max(1, min(100, int(os.environ.get("INSTAGRAM_MIN_NATIONAL_RESULTS", "98"))))
+INSTAGRAM_AUTO_MEDIA = (os.environ.get("INSTAGRAM_AUTO_MEDIA", "reel").strip().lower() or "reel")
+INSTAGRAM_REEL_FPS = max(8, min(20, int(os.environ.get("INSTAGRAM_REEL_FPS", "12"))))
+INSTAGRAM_REEL_SECONDS = max(6, min(12, int(os.environ.get("INSTAGRAM_REEL_SECONDS", "8"))))
 
 _STATE_FILE = os.path.join(tempfile.gettempdir(), "traten-instagram-state.json")
 
@@ -57,6 +66,22 @@ def valid_image_signature(date_text: str, supplied: str) -> bool:
 def image_url(date_text: str) -> str:
     sig = image_signature(date_text)
     return f"{PUBLIC_BASE_URL}/api/instagram/national-image/{urllib.parse.quote(date_text)}?sig={urllib.parse.quote(sig)}"
+
+
+def reel_signature(date_text: str) -> str:
+    if not image_secret():
+        return ""
+    return hmac.new(image_secret(), f"traten-national-reel:{date_text}".encode("utf-8"), hashlib.sha256).hexdigest()[:32]
+
+
+def valid_reel_signature(date_text: str, supplied: str) -> bool:
+    expected = reel_signature(date_text)
+    return bool(expected and supplied and hmac.compare_digest(expected, supplied))
+
+
+def reel_url(date_text: str) -> str:
+    sig = reel_signature(date_text)
+    return f"{PUBLIC_BASE_URL}/api/instagram/national-reel/{urllib.parse.quote(date_text)}?sig={urllib.parse.quote(sig)}"
 
 
 def _bundled_japanese_font_path() -> str:
@@ -214,6 +239,194 @@ def render_national_image(date_text: str, results: list[dict[str, Any]], *, logo
     return out.getvalue()
 
 
+def _lonlat_to_world_px(lat: float, lon: float, zoom: int) -> tuple[float, float]:
+    n = 2 ** zoom
+    x = (lon + 180.0) / 360.0 * n * 256.0
+    lat = max(-85.05112878, min(85.05112878, lat))
+    r = math.radians(lat)
+    y = (1.0 - math.asinh(math.tan(r)) / math.pi) / 2.0 * n * 256.0
+    return x, y
+
+
+def _fetch_gsi_tile(z: int, x: int, y: int) -> "Image.Image":
+    cache_dir = os.path.join(tempfile.gettempdir(), "traten-gsi-tiles")
+    os.makedirs(cache_dir, exist_ok=True)
+    path = os.path.join(cache_dir, f"std-{z}-{x}-{y}.png")
+    if not os.path.exists(path):
+        req = urllib.request.Request(
+            f"https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png",
+            headers={"User-Agent": "Traten/1.5.76 (+https://otenki.onrender.com/)"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=15) as r, open(path + ".tmp", "wb") as f:
+                f.write(r.read())
+            os.replace(path + ".tmp", path)
+        except Exception:
+            try: os.remove(path + ".tmp")
+            except Exception: pass
+            return Image.new("RGB", (256, 256), (218, 236, 246))
+    try:
+        return Image.open(path).convert("RGB")
+    except Exception:
+        return Image.new("RGB", (256, 256), (218, 236, 246))
+
+
+def _render_japan_map(results: list[dict[str, Any]], width: int, height: int) -> "Image.Image":
+    # Bundled Japan base map guarantees a usable Reel even if an external tile server is unavailable.
+    north, south, west, east = 46.2, 29.0, 127.0, 146.8
+    base_path = os.path.join(os.path.dirname(__file__), "instagram-japan-base.png")
+    if os.path.exists(base_path):
+        crop = Image.open(base_path).convert("RGB").resize((width, height), Image.Resampling.LANCZOS)
+    else:
+        crop = Image.new("RGB", (width, height), (207, 234, 245))
+    d = ImageDraw.Draw(crop, "RGBA")
+    grade_colors = {"A": (22, 142, 83, 255), "B": (220, 153, 12, 255), "C": (205, 62, 62, 255)}
+    font = _load_font(max(22, width // 25))
+    r = max(17, width // 36)
+    for row in results:
+        try:
+            lat, lon = float(row.get("lat")), float(row.get("lon"))
+            grade = str(row.get("grade") or "")
+        except Exception:
+            continue
+        if grade not in grade_colors: continue
+        px = int((lon-west)/(east-west)*width)
+        py = int((north-lat)/(north-south)*height)
+        if not (-r <= px <= width+r and -r <= py <= height+r): continue
+        d.ellipse((px-r-3,py-r-3,px+r+3,py+r+3), fill=(255,255,255,235))
+        d.ellipse((px-r,py-r,px+r,py+r), fill=grade_colors[grade])
+        bbox=d.textbbox((0,0), grade, font=font)
+        d.text((px-(bbox[2]-bbox[0])/2, py-(bbox[3]-bbox[1])/2-2), grade, font=font, fill=(255,255,255,255))
+    d.rounded_rectangle((12,height-36,142,height-10), radius=8, fill=(255,255,255,205))
+    d.text((22,height-34), "全国マップ", font=_load_font(18), fill=(50,70,84,255))
+    return crop
+
+
+def _write_original_bgm(path: str, seconds: int) -> None:
+    sr = 44100
+    bpm = 112.0
+    beat = 60.0 / bpm
+    chords = [
+        (174.61,220.00,261.63,329.63),
+        (220.00,261.63,329.63,392.00),
+        (261.63,329.63,392.00,493.88),
+        (196.00,246.94,293.66,329.63),
+    ]
+    melody = (659.25,783.99,880.00,783.99,659.25,587.33,523.25,587.33)
+    total = int(sr * seconds)
+    with wave.open(path, "wb") as wf:
+        wf.setnchannels(2); wf.setsampwidth(2); wf.setframerate(sr)
+        block=[]
+        for i in range(total):
+            t=i/sr
+            ci=min(3,int(t/(seconds/4.0)))
+            local=t-ci*(seconds/4.0)
+            v=0.0
+            for f in chords[ci]:
+                v += 0.035*math.sin(2*math.pi*f*local) + 0.010*math.sin(2*math.pi*f*1.004*local)
+            # soft electronic pulse and pluck
+            pos=t%beat
+            if pos<0.16:
+                v += 0.075*math.sin(2*math.pi*(55+45*math.exp(-18*pos))*pos)*math.exp(-20*pos)
+            step=int(t/(beat/2.0))
+            pl=t-step*(beat/2.0)
+            if pl<0.16:
+                f=melody[step%len(melody)]
+                v += 0.032*math.sin(2*math.pi*f*pl)*math.exp(-12*pl)
+            fade=min(1.0,t/0.35,(seconds-t)/0.55)
+            v=max(-0.75,min(0.75,v*fade))
+            left=int(v*32767); right=int(v*0.96*32767)
+            block.append(struct.pack('<hh',left,right))
+            if len(block)>=4096:
+                wf.writeframes(b''.join(block)); block=[]
+        if block: wf.writeframes(b''.join(block))
+
+
+def render_national_reel(date_text: str, results: list[dict[str, Any]], *, logo_path: str | None = None) -> str:
+    """Render a compact 9:16 Reel with live nationwide data and original BGM."""
+    if Image is None or ImageDraw is None:
+        raise RuntimeError("Pillow is not installed")
+    rows=[dict(r) for r in results if isinstance(r,dict) and str(r.get("grade") or "") in {"A","B","C"}]
+    if len(rows) < INSTAGRAM_MIN_NATIONAL_RESULTS:
+        raise RuntimeError(f"national reel requires at least {INSTAGRAM_MIN_NATIONAL_RESULTS} results, got {len(rows)}")
+    target=date.fromisoformat(date_text)
+    counts={g:sum(1 for r in rows if r.get("grade")==g) for g in "ABC"}
+    outdir=os.path.join(tempfile.gettempdir(),"traten-instagram-reels")
+    os.makedirs(outdir,exist_ok=True)
+    out=os.path.join(outdir,f"traten-{date_text}.mp4")
+    if os.path.exists(out) and os.path.getsize(out)>100000:
+        return out
+    work=os.path.join(outdir,f"work-{date_text}-{os.getpid()}")
+    os.makedirs(work,exist_ok=True)
+    try:
+        W,H=720,1280
+        fps=INSTAGRAM_REEL_FPS
+        sec=INSTAGRAM_REEL_SECONDS
+        map_img=_render_japan_map(rows, W, 900)
+        # imageio-ffmpeg provides a self-contained ffmpeg binary on Render.
+        import imageio_ffmpeg
+        ffmpeg=imageio_ffmpeg.get_ffmpeg_exe()
+        for i in range(fps*sec):
+            t=i/(fps*sec-1)
+            frame=Image.new("RGB",(W,H),(238,247,252)); d=ImageDraw.Draw(frame,"RGBA")
+            # header / hero
+            frame.paste(map_img,(0,215))
+            d.rectangle((0,0,W,222),fill=(255,255,255,242))
+            if logo_path and os.path.exists(logo_path):
+                try:
+                    logo=Image.open(logo_path).convert("RGBA"); logo.thumbnail((180,95)); frame.paste(logo,(24,18),logo)
+                except Exception: pass
+            d.text((28,116),"日本百名山 全国分析",font=_load_font(44),fill=(8,54,92,255))
+            d.text((28,169),f"{target.month}/{target.day}  明日の登山コンディション",font=_load_font(26),fill=(28,96,76,255))
+            # dynamic first-card: '明日の' emphasis
+            if t<0.30:
+                a=int(235*(1 if t<0.23 else max(0,(0.30-t)/0.07)))
+                d.rounded_rectangle((25,265,390,425),radius=28,fill=(4,36,70,a))
+                d.text((52,280),"明日の",font=_load_font(75),fill=(255,222,52,a))
+                d.text((54,365),"全国コンディション",font=_load_font(28),fill=(255,255,255,a))
+            # summary chips
+            if 0.22<t<0.76:
+                y=960
+                specs=[("A",counts['A'],(22,142,83,235)),("B",counts['B'],(220,153,12,235)),("C",counts['C'],(205,62,62,235))]
+                for j,(g,n,c) in enumerate(specs):
+                    x=25+j*230
+                    d.rounded_rectangle((x,y,x+210,y+112),radius=22,fill=(255,255,255,235),outline=c,width=3)
+                    d.ellipse((x+13,y+19,x+75,y+81),fill=c); d.text((x+33,y+26),g,font=_load_font(30),fill=(255,255,255,255))
+                    d.text((x+91,y+17),str(n),font=_load_font(46),fill=c)
+                    d.text((x+92,y+72),"座",font=_load_font(22),fill=(65,78,88,255))
+            # feature summary final ~2.2 sec
+            if t>=0.72:
+                d.rectangle((0,0,W,H),fill=(4,35,63,245))
+                d.text((36,55),"トラテンでできること",font=_load_font(49),fill=(255,255,255,255))
+                items=[
+                    ("全国分析","百名山を2週間先まで"),
+                    ("自分専用天気予報","通過ポイントからルート分析"),
+                    ("登山判断サポート","時間帯別の風・雨・気温・視界"),
+                    ("登山ポータル","登山口・ライブカメラ・山小屋・水場"),
+                ]
+                y=150
+                for k,(ttl,desc) in enumerate(items,1):
+                    d.rounded_rectangle((34,y,686,y+190),radius=24,fill=(255,255,255,235))
+                    d.ellipse((54,y+48,112,y+106),fill=(18,120,81,255)); d.text((75,y+56),str(k),font=_load_font(25),fill=(255,255,255,255))
+                    d.text((132,y+28),ttl,font=_load_font(32),fill=(8,54,92,255))
+                    d.text((132,y+86),desc,font=_fit_text(d,desc,510,24,18),fill=(70,84,96,255))
+                    y+=205
+                d.text((36,1005),"登る前に、トラテン。",font=_load_font(43),fill=(255,219,51,255))
+                d.rounded_rectangle((36,1080,684,1160),radius=35,fill=(255,255,255,255))
+                d.text((155,1098),"otenki.onrender.com",font=_load_font(27),fill=(13,103,72,255))
+            frame.save(os.path.join(work,f"frame-{i:04d}.jpg"),quality=90)
+        wav=os.path.join(work,"bgm.wav"); _write_original_bgm(wav,sec)
+        tmp=out+f".{os.getpid()}.tmp.mp4"
+        cmd=[ffmpeg,"-y","-framerate",str(fps),"-i",os.path.join(work,"frame-%04d.jpg"),"-i",wav,
+             "-c:v","libx264","-profile:v","high","-level","4.0","-pix_fmt","yuv420p","-r",str(fps),
+             "-c:a","aac","-b:a","160k","-shortest","-movflags","+faststart",tmp]
+        subprocess.run(cmd,check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=120)
+        os.replace(tmp,out)
+        return out
+    finally:
+        shutil.rmtree(work,ignore_errors=True)
+
+
 def caption_for(date_text: str, counts: dict[str, int]) -> str:
     target = date.fromisoformat(date_text)
     marker = f"#traten{target.strftime('%Y%m%d')}"
@@ -223,7 +436,11 @@ def caption_for(date_text: str, counts: dict[str, int]) -> str:
         "風・雨・気温は時間帯で大きく変わります。\n"
         "山ごとの詳しい予報は、プロフィールのリンクから『トラテン｜トラバース天気』へ。\n\n"
         "※全国判定は登山可否を保証するものではありません。現地の最新情報・警報・登山道状況も確認してください。\n\n"
-        f"#登山 #登山天気 #日本百名山 #山の天気 #トラテン {marker}"
+        "#登山 #登山天気 #日本百名山 #百名山 #山の天気 #天気予報 #登山情報 "
+        "#登山好きな人と繋がりたい #山好きな人と繋がりたい #山登り #ハイキング #トレッキング "
+        "#アウトドア #山旅 #登山計画 #登山初心者 #ソロ登山 #週末登山 #絶景登山 #山岳気象 "
+        "#北アルプス #中央アルプス #南アルプス #八ヶ岳 #富士山 #トラテン "
+        f"{marker}"
     )
 
 
@@ -300,6 +517,39 @@ def _save_local_state(state: dict[str, Any]) -> None:
     os.replace(tmp, _STATE_FILE)
 
 
+def _finalize_reel_container(date_text: str, creation_id: str) -> None:
+    # Delay first poll so the request that created the container can return and
+    # Instagram can fetch the public video URL even on a single-worker Render service.
+    time.sleep(8)
+    try:
+        deadline=time.time()+240
+        last_status=None
+        while time.time()<deadline:
+            status=_graph_request(creation_id,{"fields":"status_code,status"})
+            last_status=str(status.get("status_code") or status.get("status") or "")
+            if last_status=="FINISHED": break
+            if last_status in {"ERROR","EXPIRED"}:
+                raise RuntimeError(f"Instagram reel container status: {last_status}")
+            time.sleep(3)
+        if last_status!="FINISHED":
+            raise RuntimeError(f"Instagram reel container did not finish: {last_status}")
+        publish=_graph_request(f"{INSTAGRAM_USER_ID}/media_publish",{"creation_id":creation_id},method="POST")
+        media_id=str(publish.get("id") or "")
+        if not media_id: raise RuntimeError("Instagram reel publish id was not returned")
+        state=_load_local_state()
+        state.update({
+            "lastForecastDate":date_text,"lastMediaId":media_id,"lastCreationId":creation_id,
+            "lastPostedAt":datetime.utcnow().isoformat()+"Z",
+        })
+        state.pop("pendingForecastDate",None); state.pop("pendingCreationId",None); state.pop("pendingStartedAt",None)
+        _save_local_state(state)
+    except Exception as exc:
+        state=_load_local_state()
+        state.update({"lastReelError":str(exc)[:500],"lastReelErrorAt":datetime.utcnow().isoformat()+"Z"})
+        state.pop("pendingForecastDate",None); state.pop("pendingCreationId",None); state.pop("pendingStartedAt",None)
+        _save_local_state(state)
+
+
 def post_national(date_text: str, results: list[dict[str, Any]], *, force: bool = False) -> dict[str, Any]:
     if not configured():
         return {"ok": False, "skipped": True, "reason": "not-configured"}
@@ -309,6 +559,8 @@ def post_national(date_text: str, results: list[dict[str, Any]], *, force: bool 
         return {"ok": False, "skipped": True, "reason": "incomplete", "count": sum(counts.values()), "minimum": INSTAGRAM_MIN_NATIONAL_RESULTS}
 
     local = _load_local_state()
+    if not force and local.get("pendingForecastDate") == date_text and local.get("pendingCreationId"):
+        return {"ok": True, "skipped": True, "reason": "reel-pending", "creationId": local.get("pendingCreationId")}
     if not force and local.get("lastForecastDate") == date_text and local.get("lastMediaId"):
         return {"ok": True, "skipped": True, "reason": "already-posted-local", "mediaId": local.get("lastMediaId")}
     if not force and _already_posted_remote(date_text):
@@ -316,14 +568,35 @@ def post_national(date_text: str, results: list[dict[str, Any]], *, force: bool 
         _save_local_state(local)
         return {"ok": True, "skipped": True, "reason": "already-posted-instagram"}
 
+    if INSTAGRAM_AUTO_MEDIA == "reel":
+        render_national_reel(date_text, results, logo_path=os.path.join(os.path.dirname(__file__), "traten-logo.png"))
+        create_params = {
+            "media_type": "REELS",
+            "video_url": reel_url(date_text),
+            "caption": caption_for(date_text, counts),
+            "share_to_feed": "true",
+        }
+    else:
+        create_params = {"image_url": image_url(date_text), "caption": caption_for(date_text, counts)}
     create = _graph_request(
         f"{INSTAGRAM_USER_ID}/media",
-        {"image_url": image_url(date_text), "caption": caption_for(date_text, counts)},
+        create_params,
         method="POST",
     )
     creation_id = str(create.get("id") or "")
     if not creation_id:
         raise RuntimeError("Instagram media container id was not returned")
+
+    if INSTAGRAM_AUTO_MEDIA == "reel":
+        pending = _load_local_state()
+        pending.update({
+            "pendingForecastDate": date_text,
+            "pendingCreationId": creation_id,
+            "pendingStartedAt": datetime.utcnow().isoformat() + "Z",
+        })
+        _save_local_state(pending)
+        threading.Thread(target=_finalize_reel_container, args=(date_text, creation_id), daemon=True).start()
+        return {"ok": True, "pending": True, "forecastDate": date_text, "creationId": creation_id, "mediaType": "reel"}
 
     # Image containers are usually ready quickly. Poll briefly instead of racing media_publish.
     deadline = time.time() + 45
@@ -348,7 +621,7 @@ def post_national(date_text: str, results: list[dict[str, Any]], *, force: bool 
         "lastPostedAt": datetime.utcnow().isoformat() + "Z",
     }
     _save_local_state(state)
-    return {"ok": True, "posted": True, "forecastDate": date_text, "mediaId": media_id, "creationId": creation_id}
+    return {"ok": True, "posted": True, "forecastDate": date_text, "mediaId": media_id, "creationId": creation_id, "mediaType": "image"}
 
 
 def maybe_post_tomorrow(*, now_jst: datetime, load_results: Callable[[str], list[dict[str, Any]]]) -> dict[str, Any]:
@@ -368,6 +641,7 @@ def status() -> dict[str, Any]:
     return {
         "configured": configured(),
         "autoPost": INSTAGRAM_AUTO_POST,
+        "autoMedia": INSTAGRAM_AUTO_MEDIA,
         "postHourJst": INSTAGRAM_AUTO_POST_HOUR_JST,
         "graphApiVersion": GRAPH_API_VERSION,
         "graphBaseUrl": GRAPH_BASE_URL,
@@ -378,4 +652,7 @@ def status() -> dict[str, Any]:
         "lastForecastDate": local.get("lastForecastDate"),
         "lastMediaId": local.get("lastMediaId"),
         "lastPostedAt": local.get("lastPostedAt"),
+        "pendingForecastDate": local.get("pendingForecastDate"),
+        "pendingCreationId": local.get("pendingCreationId"),
+        "lastReelError": local.get("lastReelError"),
     }

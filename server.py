@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.5.74"
+APP_VERSION = "1.5.76"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -2546,6 +2546,25 @@ def instagram_national_image(date_text: str):
     response.headers["Cache-Control"] = "public, max-age=900"
     response.headers["X-Content-Type-Options"] = "nosniff"
     return response
+
+
+@app.get("/api/instagram/national-reel/<date_text>")
+def instagram_national_reel(date_text: str):
+    try:
+        datetime.strptime(date_text, "%Y-%m-%d")
+    except ValueError:
+        return jsonify(error="invalid date"), 400
+    if not instagram_bot.valid_reel_signature(date_text, request.args.get("sig", "")):
+        return jsonify(error="unauthorized"), 401
+    rows = _instagram_load_fresh_100_results(date_text)
+    if len(rows) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
+        return jsonify(error="fresh nationwide cache is incomplete", count=len(rows), minimum=instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS), 409
+    try:
+        path = instagram_bot.render_national_reel(date_text, rows, logo_path=os.path.join(BASE, "traten-logo.png"))
+        return send_file(path, mimetype="video/mp4", conditional=True, download_name=f"traten-{date_text}.mp4")
+    except Exception as exc:
+        app.logger.exception("instagram_national_reel_failed date=%s", date_text)
+        return jsonify(error=str(exc)[:500]), 500
 
 
 @app.get("/api/instagram/status")
