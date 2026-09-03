@@ -33,8 +33,10 @@ from typing import Any
 
 from flask import Flask, Response, jsonify, request, send_from_directory
 
+import instagram_bot
+
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.5.65"
+APP_VERSION = "1.5.67"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -1543,6 +1545,43 @@ def _national_nextday_date_text() -> str:
     return _national_rolling_100_date_texts()[0]
 
 
+def _instagram_load_fresh_100_results(date_text: str) -> list[dict[str, Any]]:
+    """Return the 100 fresh Hyakumeizan rows used by the Instagram bot.
+
+    Stale or partial data is deliberately rejected: social posts should never
+    publish an incomplete nationwide snapshot.
+    """
+    points = _national_load_100_points()
+    if len(points) != 100 or not _national_supabase_enabled():
+        return []
+    fresh, _, _ = _national_supabase_read(date_text, points)
+    if len(fresh) < len(points):
+        return []
+    return [fresh[p["name"]] for p in points if p["name"] in fresh]
+
+
+def _instagram_maybe_post_after_refresh() -> dict[str, Any]:
+    """Attempt one tomorrow-post after nationwide cache maintenance.
+
+    instagram_bot performs all gating (enabled/configured/hour/duplicate checks).
+    Any social API failure is isolated from weather-cache refresh.
+    """
+    now_jst = datetime.now(timezone.utc) + timedelta(hours=9)
+    try:
+        result = instagram_bot.maybe_post_tomorrow(
+            now_jst=now_jst,
+            load_results=_instagram_load_fresh_100_results,
+        )
+        if result.get("posted"):
+            app.logger.info("instagram_national_posted %s", result)
+        elif not result.get("ok", True) and not result.get("skipped"):
+            app.logger.warning("instagram_national_post_failed %s", result)
+        return result
+    except Exception as exc:
+        app.logger.exception("instagram_national_post_failed")
+        return {"ok": False, "error": str(exc)[:500]}
+
+
 def _national_100_date_cache_status(date_text: str, points: list[dict[str, Any]], *, force: bool=False) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Inspect one rolling forecast date and return its status plus due points."""
     report={"date":date_text,"seedCount":len(points),"freshBefore":0,"staleBefore":0,"missingBefore":0,"pointsDue":0,"pointsUpdated":0,"ok":True,"error":None}
@@ -1730,6 +1769,10 @@ def _refresh_national_persistent_cache(*, force: bool = False) -> dict[str, Any]
         report["errors"].append({"error":rolling.get("error")})
     report["elapsedSeconds"]=round(time.time()-started,2)
     report["ok"]=bool(rolling.get("ok",True)) and not report["errors"]
+    # V1.5.67: social publishing is downstream of cache maintenance and never
+    # affects cache success/failure. Only tomorrow's fresh snapshot with at least
+    # 98 valid mountain results is eligible, so rolling 7-day maintenance cannot cause mass posts.
+    report["instagram"] = _instagram_maybe_post_after_refresh()
     _national_last_refresh_report=dict(report)
     _national_last_refresh_report["finishedAt"]=datetime.now(timezone.utc).isoformat()
     return report
@@ -2368,6 +2411,77 @@ def national_outlook_refresh_cache():
         return jsonify(error="Supabase national cache is not configured"), 503
     report = _refresh_national_persistent_cache(force=False)
     return jsonify(report), 200 if report.get("ok") else 207
+
+
+def _instagram_admin_authorized() -> bool:
+    if not NATIONAL_CACHE_REFRESH_TOKEN:
+        return False
+    supplied = request.headers.get("X-Traten-Cache-Token", "")
+    return bool(supplied and hmac.compare_digest(supplied, NATIONAL_CACHE_REFRESH_TOKEN))
+
+
+@app.get("/api/instagram/national-image/<date_text>")
+def instagram_national_image(date_text: str):
+    """Signed public JPEG URL consumed by Meta's image fetcher."""
+    date_text = str(date_text or "")[:10]
+    try:
+        datetime.strptime(date_text, "%Y-%m-%d")
+    except ValueError:
+        return jsonify(error="invalid date"), 400
+    if not instagram_bot.valid_image_signature(date_text, request.args.get("sig", "")):
+        return jsonify(error="unauthorized"), 401
+    rows = _instagram_load_fresh_100_results(date_text)
+    if len(rows) < 100:
+        return jsonify(error="fresh nationwide cache is incomplete", count=len(rows)), 409
+    try:
+        body = instagram_bot.render_national_image(
+            date_text, rows, logo_path=os.path.join(BASE, "traten-logo.webp")
+        )
+    except Exception as exc:
+        app.logger.exception("instagram_national_image_failed date=%s", date_text)
+        return jsonify(error=str(exc)[:300]), 500
+    response = Response(body, status=200, content_type="image/jpeg")
+    response.headers["Cache-Control"] = "public, max-age=900"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
+@app.get("/api/instagram/status")
+def instagram_status():
+    if not _instagram_admin_authorized():
+        return jsonify(error="unauthorized"), 401
+    status = instagram_bot.status()
+    target = _national_nextday_date_text()
+    status["tomorrow"] = target
+    status["tomorrowFreshCount"] = len(_instagram_load_fresh_100_results(target))
+    if instagram_bot.configured():
+        status["previewImageUrl"] = instagram_bot.image_url(target)
+    return jsonify(status)
+
+
+@app.post("/api/instagram/post-national")
+def instagram_post_national():
+    """Protected manual publish/test endpoint.
+
+    JSON: {"date":"YYYY-MM-DD", "force":false}. Omit date for tomorrow JST.
+    """
+    if not _instagram_admin_authorized():
+        return jsonify(error="unauthorized"), 401
+    payload = request.get_json(silent=True) or {}
+    date_text = str(payload.get("date") or _national_nextday_date_text())[:10]
+    try:
+        datetime.strptime(date_text, "%Y-%m-%d")
+    except ValueError:
+        return jsonify(error="invalid date"), 400
+    rows = _instagram_load_fresh_100_results(date_text)
+    if len(rows) < 100:
+        return jsonify(ok=False, error="fresh nationwide cache is incomplete", count=len(rows), date=date_text), 409
+    try:
+        result = instagram_bot.post_national(date_text, rows, force=bool(payload.get("force")))
+        return jsonify(result), 200 if result.get("ok") else 503
+    except Exception as exc:
+        app.logger.exception("instagram_manual_post_failed date=%s", date_text)
+        return jsonify(ok=False, error=str(exc)[:500]), 502
 
 
 @app.post("/api/national-outlook")
