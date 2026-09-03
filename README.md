@@ -1,3 +1,11 @@
+# V1.5.69
+
+## 全国分析診断ログ強化
+- 全国分析APIが結果を返すたびに `national_summary` を必ず出力し、対象座数・返却座数・欠落座名・キャッシュ状態をRender Logsで確認できます。
+- 浅間山・草津白根山は成功/失敗に関係なく `national_debug` を必ず出力し、返却有無・source・MET Norway/GFSの利用状態・判定を追跡できます。
+- `app.js` の利用ログ用 `APP_VERSION` を 1.5.69 に同期しました。
+- 全国分析の取得エンジンは引き続き **MET Norway + NOAA GFS直取得のみ**で、Open-Meteoは使用しません。
+
 # V1.5.68
 
 ## 全国分析のOpen-Meteo完全分離
