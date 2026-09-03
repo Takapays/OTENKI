@@ -59,9 +59,24 @@ def image_url(date_text: str) -> str:
     return f"{PUBLIC_BASE_URL}/api/instagram/national-image/{urllib.parse.quote(date_text)}?sig={urllib.parse.quote(sig)}"
 
 
+def _bundled_japanese_font_path() -> str:
+    """Return a Japanese-capable font installed via japanize-matplotlib."""
+    try:
+        import importlib.util
+        spec = importlib.util.find_spec("japanize_matplotlib")
+        if spec and spec.origin:
+            candidate = os.path.join(os.path.dirname(spec.origin), "fonts", "ipaexg.ttf")
+            if os.path.exists(candidate):
+                return candidate
+    except Exception:
+        pass
+    return ""
+
+
 def _font_candidates() -> list[str]:
     return [
         INSTAGRAM_FONT_PATH,
+        _bundled_japanese_font_path(),
         "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
         "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
         "/usr/share/fonts/truetype/noto/NotoSansJP-Bold.ttf",
@@ -69,20 +84,27 @@ def _font_candidates() -> list[str]:
         "/usr/share/fonts/truetype/fonts-japanese-gothic.ttf",
         "/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc",
         "/System/Library/Fonts/Hiragino Sans GB.ttc",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
     ]
 
 
 def _load_font(size: int):
     if ImageFont is None:
         raise RuntimeError("Pillow is not installed")
+    attempted = []
     for path in _font_candidates():
-        if path and os.path.exists(path):
+        if not path:
+            continue
+        attempted.append(path)
+        if os.path.exists(path):
             try:
                 return ImageFont.truetype(path, size=size, index=0)
             except Exception:
                 continue
-    return ImageFont.load_default()
+    raise RuntimeError(
+        "Japanese font is unavailable for Instagram image generation. "
+        "Install japanize-matplotlib or set INSTAGRAM_FONT_PATH to a Japanese-capable font. "
+        f"attempted={attempted}"
+    )
 
 
 def _fit_text(draw, text: str, max_width: int, start_size: int, min_size: int = 22):

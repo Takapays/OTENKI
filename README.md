@@ -1,3 +1,9 @@
+# V1.5.73
+
+- Instagram投稿画像の日本語フォントを確実に利用するよう修正。`japanize-matplotlib` 同梱の IPAexGothic を優先候補に追加。
+- 日本語対応フォントが見つからない場合、□の画像を生成せず明示エラーで停止。
+- Instagram管理画面・投稿ロジック・全国分析ロジックは変更なし。
+
 # V1.5.72
 
 - Instagram管理テスト画面 `/instagram-admin` を追加。Render Shellなしで接続確認・全国分析画像プレビュー・手動投稿が可能。
