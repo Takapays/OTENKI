@@ -153,7 +153,7 @@ def render_national_image(date_text: str, results: list[dict[str, Any]], *, logo
     sub_font = _load_font(28)
     date_font = _load_font(38)
     draw.text((430, 54), "日本百名山 全国分析", font=title_font, fill=(8, 54, 92))
-    draw.text((432, 127), "翌日の登山コンディションを取得できた百名山で比較", font=sub_font, fill=(65, 82, 96))
+    draw.text((432, 127), "翌日の登山コンディションを百名山で比較", font=sub_font, fill=(65, 82, 96))
     draw.text((432, 171), f"{target.year}/{target.month}/{target.day}", font=date_font, fill=(8, 54, 92))
 
     # Grade cards
