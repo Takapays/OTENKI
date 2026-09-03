@@ -34,7 +34,7 @@ services:
       - key: NATIONAL_CACHE_REFRESH_TOKEN
         sync: false
 
-      # V1.5.67 Instagram nationwide bot. Keep auto-post disabled until Meta
+      # V1.5.68 Instagram nationwide bot. Keep auto-post disabled until Meta
       # credentials are configured and a manual test post succeeds.
       - key: INSTAGRAM_AUTO_POST
         value: "0"

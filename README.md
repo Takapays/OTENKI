@@ -1,3 +1,15 @@
+# V1.5.68
+
+## 全国分析のOpen-Meteo完全分離
+- 全国分析の実処理は **MET Norway + NOAA GFS直取得** のみ。Open-Meteoは使用しません。
+- 未使用のまま残っていた全国分析用Open-Meteoリクエスト／解析関数を削除し、将来誤接続される余地をなくしました。
+- 全国分析で取得できなかった山は Render Logs に `national_missing mountain=... metno=... gfs=... engine=metno+gfs-direct` と出力し、どちらの取得元で欠落したか追跡できます。
+- 通常の山詳細・ルート分析では引き続きOpen-Meteoを使用します。Render Logs上のOpen-Meteo 429は全国分析とは別経路です。
+
+## Instagram 98座閾値のサーバー側統一
+- `INSTAGRAM_MIN_NATIONAL_RESULTS`（既定98）を画像生成・手動投稿・自動投稿の全経路で共通使用。
+- V1.5.67で残っていたサーバー側100座固定チェックを修正し、fresh 98座以上で投稿可能にしました。
+
 # V1.5.67
 
 ## Instagram 全国分析Bot

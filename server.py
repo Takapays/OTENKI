@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.5.67"
+APP_VERSION = "1.5.68"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -1546,18 +1546,19 @@ def _national_nextday_date_text() -> str:
 
 
 def _instagram_load_fresh_100_results(date_text: str) -> list[dict[str, Any]]:
-    """Return the 100 fresh Hyakumeizan rows used by the Instagram bot.
+    """Return fresh Hyakumeizan rows used by the Instagram bot.
 
-    Stale or partial data is deliberately rejected: social posts should never
-    publish an incomplete nationwide snapshot.
+    V1.5.68: allow the configured Instagram minimum (default 98) rather than
+    requiring all 100 rows. Stale rows are never used for social posts.
     """
     points = _national_load_100_points()
     if len(points) != 100 or not _national_supabase_enabled():
         return []
     fresh, _, _ = _national_supabase_read(date_text, points)
-    if len(fresh) < len(points):
+    ordered = [fresh[p["name"]] for p in points if p["name"] in fresh]
+    if len(ordered) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
         return []
-    return [fresh[p["name"]] for p in points if p["name"] in fresh]
+    return ordered
 
 
 def _instagram_maybe_post_after_refresh() -> dict[str, Any]:
@@ -1888,54 +1889,10 @@ def _national_point_cache_put(date_text: str, p: dict[str, Any], result: dict[st
             for k, _ in oldest: _national_point_cache.pop(k, None)
 
 
-def _request_openmeteo_national_once(url: str, timeout: int = UPSTREAM_TIMEOUT):
-    """One Open-Meteo attempt for national refresh. 429 is not retried here.
-    National outlook must stop immediately and fall back to the last-good cache.
-    """
-    global _openmeteo_last_request
-    with _openmeteo_lock:
-        wait = OPENMETEO_MIN_INTERVAL - (time.monotonic() - _openmeteo_last_request)
-        if wait > 0: time.sleep(wait)
-        req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/json"})
-        try:
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
-                return resp.status, resp.headers.get("Content-Type", "application/json"), resp.read()
-        finally:
-            _openmeteo_last_request = time.monotonic()
 
-
-def _national_result_from_forecast(p: dict[str, Any], forecast: dict[str, Any]) -> dict[str, Any] | None:
-    hourly=forecast.get("hourly") or {}; times=hourly.get("time") or []
-    idx=[i for i,t in enumerate(times) if isinstance(t,str) and len(t)>=13 and 6 <= int(t[11:13]) <= 15]
-    def vals(k):
-        a=hourly.get(k) or []; out=[]
-        for i in idx:
-            try:v=float(a[i])
-            except (TypeError,ValueError,IndexError):continue
-            if math.isfinite(v):out.append(v)
-        return out
-    wind=vals("wind_speed_10m"); gust=vals("wind_gusts_10m"); rain=vals("precipitation"); cape=vals("cape"); temp=vals("temperature_2m"); vis=vals("visibility")
-    if not (wind and rain and temp): return None
-    max_w=max(wind); max_g=max(gust) if gust else max_w; max_r=max(rain); max_c=max(cape) if cape else 0; min_t=min(temp); min_v=min(vis) if vis else None
-    caution_hours=severe_hours=extreme_hours=0
-    for i in idx:
-        def hv(k, default=None):
-            a=hourly.get(k) or []
-            try:
-                v=float(a[i]); return v if math.isfinite(v) else default
-            except (TypeError,ValueError,IndexError): return default
-        w=hv("wind_speed_10m",0); g=hv("wind_gusts_10m",w); r=hv("precipitation",0); v=hv("visibility",None); c=hv("cape",0)
-        extreme = w>=15 or g>=25 or r>=6 or (v is not None and v<1000)
-        severe = w>=9 or g>=18 or r>=1.5 or (v is not None and v<3000) or c>=1000
-        caution = w>=5 or g>=12 or r>=0.1 or (v is not None and v<5000) or c>=500
-        if extreme: extreme_hours+=1
-        if severe: severe_hours+=1
-        if caution: caution_hours+=1
-    grade,summary=_national_grade(max_w,max_g,max_r,max_c,min_t,min_v,caution_hours=caution_hours,severe_hours=severe_hours,extreme_hours=extreme_hours)
-    thunder="HIGH" if max_c>=700 else "MEDIUM" if max_c>=300 else "LOW"
-    return {"name":p["name"],"grade":grade,"summary":summary,"maxWind":round(max_w,1),"maxGust":round(max_g,1),"maxRain":round(max_r,1),"maxCape":round(max_c),"minTemp":round(min_t,1),"minVisibility":round(min_v) if min_v is not None else None,"thunder":thunder,"cautionHours":caution_hours,"severeHours":severe_hours,"source":"openmeteo"}
-
-
+# V1.5.68: nationwide analysis must never use Open-Meteo.
+# The old national Open-Meteo request/parser helpers were removed entirely.
+# Nationwide data sources are MET Norway + NOAA GFS direct only.
 
 def _metno_retry_delay(exc: Exception, attempt: int) -> float:
     retry_after=None
@@ -2236,7 +2193,16 @@ def _national_fetch_shared(date_text: str, points: list[dict[str, Any]]) -> tupl
                 _national_point_cache_put(date_text,p,result)
     ordered=[results_by_name[p["name"]] for p in points if p["name"] in results_by_name]
     complete=len(ordered)==len(points)
-    if not complete: warning_parts.append(f"{len(points)-len(ordered)}座は現在データを取得できませんでした")
+    if not complete:
+        missing_names=[p["name"] for p in points if p["name"] not in results_by_name]
+        warning_parts.append(f"{len(missing_names)}座は現在データを取得できませんでした")
+        for name in missing_names:
+            app.logger.warning(
+                "national_missing mountain=%s metno=%s gfs=%s engine=metno+gfs-direct",
+                name,
+                "ok" if name in metno else "missing",
+                "ok" if name in gfs else "missing",
+            )
     return ordered,complete,False,"。".join(dict.fromkeys(warning_parts)) or None
 
 
@@ -2431,8 +2397,8 @@ def instagram_national_image(date_text: str):
     if not instagram_bot.valid_image_signature(date_text, request.args.get("sig", "")):
         return jsonify(error="unauthorized"), 401
     rows = _instagram_load_fresh_100_results(date_text)
-    if len(rows) < 100:
-        return jsonify(error="fresh nationwide cache is incomplete", count=len(rows)), 409
+    if len(rows) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
+        return jsonify(error="fresh nationwide cache is incomplete", count=len(rows), minimum=instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS), 409
     try:
         body = instagram_bot.render_national_image(
             date_text, rows, logo_path=os.path.join(BASE, "traten-logo.webp")
@@ -2474,8 +2440,8 @@ def instagram_post_national():
     except ValueError:
         return jsonify(error="invalid date"), 400
     rows = _instagram_load_fresh_100_results(date_text)
-    if len(rows) < 100:
-        return jsonify(ok=False, error="fresh nationwide cache is incomplete", count=len(rows), date=date_text), 409
+    if len(rows) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
+        return jsonify(ok=False, error="fresh nationwide cache is incomplete", count=len(rows), minimum=instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS, date=date_text), 409
     try:
         result = instagram_bot.post_national(date_text, rows, force=bool(payload.get("force")))
         return jsonify(result), 200 if result.get("ok") else 503
