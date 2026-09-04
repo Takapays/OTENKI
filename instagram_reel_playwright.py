@@ -22,6 +22,22 @@ def _browser_executable() -> str | None:
     explicit = os.environ.get("PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH", "").strip()
     if explicit and os.path.exists(explicit):
         return explicit
+
+    # V1.5.89: install Chromium into the project directory during Render build.
+    # HOME based Playwright caches can differ between build/runtime on Render, so
+    # search the deterministic local browser directory first.
+    root = Path(__file__).resolve().parent
+    local_dir = root / ".playwright-browsers"
+    patterns = (
+        "chromium_headless_shell-*/chrome-headless-shell-linux64/chrome-headless-shell",
+        "chromium-*/chrome-linux/chrome",
+        "chromium-*/chrome-linux64/chrome",
+    )
+    for pattern in patterns:
+        for candidate in sorted(local_dir.glob(pattern), reverse=True):
+            if candidate.is_file() and os.access(candidate, os.X_OK):
+                return str(candidate)
+
     for candidate in ("/usr/bin/chromium", "/usr/bin/chromium-browser", "/usr/bin/google-chrome"):
         if os.path.exists(candidate):
             return candidate
@@ -40,6 +56,10 @@ def renderer_status() -> dict[str, Any]:
 
 def render_scenes(*, template_path: str, map_path: str, logo_path: str, font_path: str | None,
                   date_short: str, counts: dict[str, int], rows: list[dict[str, Any]], out_dir: str) -> list[str]:
+    # V1.5.89: make Playwright use the same browser directory used by the build step.
+    local_browser_dir = Path(__file__).resolve().parent / ".playwright-browsers"
+    if local_browser_dir.exists():
+        os.environ.setdefault("PLAYWRIGHT_BROWSERS_PATH", str(local_browser_dir))
     try:
         from playwright.sync_api import sync_playwright
     except Exception as exc:

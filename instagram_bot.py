@@ -255,7 +255,7 @@ def _fetch_gsi_tile(z: int, x: int, y: int) -> "Image.Image":
     if not os.path.exists(path):
         req = urllib.request.Request(
             f"https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png",
-            headers={"User-Agent": "Traten/1.5.88 (+https://otenki.onrender.com/)"},
+            headers={"User-Agent": "Traten/1.5.89 (+https://otenki.onrender.com/)"},
         )
         try:
             with urllib.request.urlopen(req, timeout=15) as r, open(path + ".tmp", "wb") as f:
