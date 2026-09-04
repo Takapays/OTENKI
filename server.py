@@ -9,6 +9,7 @@ Designed to run locally with `python server.py` and in production with Gunicorn.
 from __future__ import annotations
 
 import gzip
+import gc
 import hmac
 import hashlib
 import heapq
@@ -36,9 +37,9 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-# V1.5.94: keep Playwright browser install/runtime lookup on one persistent deploy path.
+# V1.5.95: keep Playwright browser install/runtime lookup on one persistent deploy path.
 os.environ.setdefault("PLAYWRIGHT_BROWSERS_PATH", os.path.join(BASE, ".playwright-browsers"))
-APP_VERSION = "1.5.94"
+APP_VERSION = "1.5.95"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -120,7 +121,7 @@ NOAA_GFS_FILTER = os.environ.get(
 NOAA_GFS_TIMEOUT = int(os.environ.get("NOAA_GFS_TIMEOUT", "35"))
 NOAA_GFS_CACHE_TTL = int(os.environ.get("NOAA_GFS_CACHE_TTL", "1800"))
 
-# V1.5.94: install Chromium during process startup, not inside the Reel HTTP request.
+# V1.5.95: install Chromium during process startup, not inside the Reel HTTP request.
 PLAYWRIGHT_STARTUP_STATUS = {"ok": False, "error": "not attempted"}
 try:
     from instagram_reel_playwright import ensure_browser_installed
@@ -2585,9 +2586,14 @@ def instagram_reel_preview_url():
     # immediately and the <video> element itself triggered a long render request,
     # so the browser controls looked disabled while ffmpeg was still working.
     try:
+        gc.collect()
+        app.logger.info("instagram_reel_preview_prepare_start date=%s rows=%s", date_text, len(rows))
         instagram_bot.render_national_reel(date_text, rows, logo_path=os.path.join(BASE, "traten-logo.png"))
+        app.logger.info("instagram_reel_preview_prepare_done date=%s", date_text)
+        gc.collect()
     except Exception as exc:
         app.logger.exception("instagram_reel_preview_prepare_failed date=%s", date_text)
+        gc.collect()
         return jsonify(error=str(exc)[:500]), 500
     return jsonify(date=date_text, count=len(rows), previewReelUrl=instagram_bot.reel_url(date_text))
 

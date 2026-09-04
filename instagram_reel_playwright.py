@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import gc
 import json
 import os
 import subprocess
@@ -144,24 +145,47 @@ def render_scenes(*, template_path: str, map_path: str, logo_path: str, font_pat
     if not executable:
         raise RuntimeError("Playwright Chromium executable was not found after installation.")
     with sync_playwright() as p:
-        launch = {"headless": True, "args": ["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]}
+        # V1.5.95: Render Free is memory-constrained. Keep Chromium to one renderer
+        # process and reuse one context/page for all three screenshots.
+        launch = {
+            "headless": True,
+            "args": [
+                "--no-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-gpu",
+                "--disable-software-rasterizer",
+                "--disable-extensions",
+                "--disable-background-networking",
+                "--disable-site-isolation-trials",
+                "--renderer-process-limit=1",
+                "--no-first-run",
+                "--no-default-browser-check",
+                "--mute-audio",
+                "--hide-scrollbars",
+            ],
+        }
         if executable:
             launch["executable_path"] = executable
         browser = p.chromium.launch(**launch)
+        context = None
+        page = None
         try:
+            context = browser.new_context(viewport={"width": 1080, "height": 1920}, device_scale_factor=1)
+            page = context.new_page()
             for scene in ("hero", "map", "features"):
-                page = browser.new_page(viewport={"width": 1080, "height": 1920}, device_scale_factor=1)
-                try:
-                    data = {"scene": scene, "dateShort": date_short, "counts": counts, "rows": clean_rows}
-                    html = template.replace("__TRATEN_REEL_DATA__", json.dumps(data, ensure_ascii=False))
-                    html = html.replace("__MAP_DATA_URI__", map_uri).replace("__LOGO_DATA_URI__", logo_uri).replace("__FONT_DATA_URI__", font_uri)
-                    page.set_content(html, wait_until="load")
-                    page.evaluate("document.fonts.ready")
-                    out = os.path.join(out_dir, f"scene-{scene}.png")
-                    page.screenshot(path=out, full_page=False)
-                    output.append(out)
-                finally:
-                    page.close()
+                data = {"scene": scene, "dateShort": date_short, "counts": counts, "rows": clean_rows}
+                html = template.replace("__TRATEN_REEL_DATA__", json.dumps(data, ensure_ascii=False))
+                html = html.replace("__MAP_DATA_URI__", map_uri).replace("__LOGO_DATA_URI__", logo_uri).replace("__FONT_DATA_URI__", font_uri)
+                page.set_content(html, wait_until="load")
+                page.evaluate("document.fonts.ready")
+                out = os.path.join(out_dir, f"scene-{scene}.png")
+                page.screenshot(path=out, full_page=False)
+                output.append(out)
         finally:
+            if page is not None:
+                page.close()
+            if context is not None:
+                context.close()
             browser.close()
+    gc.collect()
     return output
