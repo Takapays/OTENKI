@@ -68,6 +68,8 @@ def image_url(date_text: str) -> str:
     return f"{PUBLIC_BASE_URL}/api/instagram/national-image/{urllib.parse.quote(date_text)}?sig={urllib.parse.quote(sig)}"
 
 
+REEL_ASSET_VERSION = "1598"
+
 def reel_signature(date_text: str) -> str:
     if not image_secret():
         return ""
@@ -81,7 +83,7 @@ def valid_reel_signature(date_text: str, supplied: str) -> bool:
 
 def reel_url(date_text: str) -> str:
     sig = reel_signature(date_text)
-    return f"{PUBLIC_BASE_URL}/api/instagram/national-reel/{urllib.parse.quote(date_text)}?sig={urllib.parse.quote(sig)}"
+    return f"{PUBLIC_BASE_URL}/api/instagram/national-reel/{urllib.parse.quote(date_text)}?sig={urllib.parse.quote(sig)}&v={REEL_ASSET_VERSION}"
 
 
 def _bundled_japanese_font_path() -> str:
@@ -569,7 +571,7 @@ def _render_reel_scenes_pillow(*, rows: list[dict[str, Any]], counts: dict[str, 
 
 
 def render_national_reel(date_text: str, results: list[dict[str, Any]], *, logo_path: str | None = None) -> str:
-    """Render a polished 9:16 Reel without Playwright/Chromium (V1.5.97)."""
+    """Render a polished 9:16 Reel without Playwright/Chromium (V1.5.98)."""
     if Image is None or ImageDraw is None:
         raise RuntimeError("Pillow is not installed")
     rows = [dict(r) for r in results if isinstance(r, dict) and str(r.get("grade") or "") in {"A", "B", "C"}]
@@ -578,9 +580,9 @@ def render_national_reel(date_text: str, results: list[dict[str, Any]], *, logo_
 
     target = date.fromisoformat(date_text)
     counts = {g: sum(1 for r in rows if r.get("grade") == g) for g in "ABC"}
-    outdir = os.path.join(tempfile.gettempdir(), "traten-instagram-reels-v1597")
+    outdir = os.path.join(tempfile.gettempdir(), "traten-instagram-reels-v1598")
     os.makedirs(outdir, exist_ok=True)
-    out = os.path.join(outdir, f"traten-{date_text}-v1597.mp4")
+    out = os.path.join(outdir, f"traten-{date_text}-v1598.mp4")
     if os.path.exists(out) and os.path.getsize(out) > 100000:
         return out
 
