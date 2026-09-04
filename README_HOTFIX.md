@@ -1,16 +1,13 @@
-# V1.5.84 Reel Preview Hotfix 2
+# V1.5.85 Reel Preview Hotfix 3
 
-原因:
-- `/api/instagram/reel-preview-url` はURLだけ先に返しており、MP4生成は `<video>` のGET時に開始していた。
-- そのため「読み込みました」と表示されても実際はffmpeg生成中で、再生コントロールが操作できない時間があった。
-- async処理後の自動 `video.play()` はブラウザのユーザー操作判定から外れ、拒否されやすい。
+## Root cause
+`/api/instagram/national-reel/<date>` calls Flask `send_file(...)`, but `server.py` imported only `send_from_directory` and did not import `send_file`.
 
-修正:
-- プレビューAPI側でMP4を先に生成/キャッシュしてからURLを返す。
-- `canplay` になるまで専用再生ボタンをdisabled。
-- 「▶ リールを再生」専用ボタンを追加。
-- 「別タブで開く」フォールバックを追加。
-- 生成中/再生準備完了/読込失敗を画面表示。
+The Reel itself could be generated successfully, then the response failed with `NameError: name 'send_file' is not defined`, producing `instagram_national_reel_failed` and causing the browser video element to show a load error.
 
-差し替え:
-- server.py のみ
+## Fix
+- Add `send_file` to the Flask import in `server.py`.
+- No other behavior changed.
+
+## Deploy
+Replace `server.py` only, then redeploy/restart Render.

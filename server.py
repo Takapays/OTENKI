@@ -31,7 +31,7 @@ from datetime import datetime, timezone, timedelta
 from collections import OrderedDict
 from typing import Any
 
-from flask import Flask, Response, jsonify, request, send_from_directory
+from flask import Flask, Response, jsonify, request, send_from_directory, send_file
 
 import instagram_bot
 
