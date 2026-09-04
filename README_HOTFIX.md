@@ -1,8 +1,16 @@
-# V1.5.84 Instagram Reel Preview Hotfix
+# V1.5.84 Reel Preview Hotfix 2
 
-Replace `server.py` only.
+原因:
+- `/api/instagram/reel-preview-url` はURLだけ先に返しており、MP4生成は `<video>` のGET時に開始していた。
+- そのため「読み込みました」と表示されても実際はffmpeg生成中で、再生コントロールが操作できない時間があった。
+- async処理後の自動 `video.play()` はブラウザのユーザー操作判定から外れ、拒否されやすい。
 
-Fixes:
-- Renames the Reel preview JavaScript function and `<video>` id so they no longer share the same `previewReel` name.
-- Adds visible loading/playback/error feedback for Reel preview.
-- Keeps application version at V1.5.84; this is a display/admin hotfix only.
+修正:
+- プレビューAPI側でMP4を先に生成/キャッシュしてからURLを返す。
+- `canplay` になるまで専用再生ボタンをdisabled。
+- 「▶ リールを再生」専用ボタンを追加。
+- 「別タブで開く」フォールバックを追加。
+- 生成中/再生準備完了/読込失敗を画面表示。
+
+差し替え:
+- server.py のみ

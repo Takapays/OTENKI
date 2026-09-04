@@ -2453,7 +2453,8 @@ video{display:block;width:min(100%,540px);height:auto;max-height:76vh;border-rad
 <button onclick="previewReelVideo()">リールをプレビュー</button>
 <div id="previewMsg" class="small"></div>
 <img id="previewImg" alt="Instagram投稿画像プレビュー" hidden>
-<video id="previewReelVideo" controls playsinline preload="metadata" hidden></video>
+<div id="reelControls" hidden style="margin-top:10px"><button id="reelPlayBtn" class="secondary" type="button" onclick="playPreviewReel()" disabled>▶ リールを再生</button> <a id="reelOpenLink" href="#" target="_blank" rel="noopener" style="display:none;margin-left:8px">別タブで開く</a></div>
+<video id="previewReelVideo" controls playsinline preload="metadata" hidden style="min-height:360px;aspect-ratio:9/16;pointer-events:auto"></video>
 </section>
 
 <section class="card">
@@ -2493,7 +2494,7 @@ async function preview(){
   try{
     const d=$('date').value;if(!d)throw new Error('予報日を選択してください');
     const r=await api('/api/instagram/preview-url?date='+encodeURIComponent(d));
-    $('previewReelVideo').pause();$('previewReelVideo').hidden=true;
+    $('previewReelVideo').pause();$('previewReelVideo').hidden=true;$('reelControls').hidden=true;$('reelPlayBtn').disabled=true;$('reelOpenLink').style.display='none';
     $('previewImg').src=r.previewImageUrl+'&t='+Date.now();$('previewImg').hidden=false;
     $('previewMsg').textContent=`静止画: ${r.date} / ${r.count}座`;
   }catch(e){$('previewMsg').textContent=e.message}
@@ -2502,14 +2503,24 @@ async function previewReelVideo(){
   try{
     const d=$('date').value;if(!d)throw new Error('予報日を選択してください');
     $('previewMsg').textContent='リールを生成しています。初回は少し時間がかかります…';
+    $('reelControls').hidden=true;$('reelPlayBtn').disabled=true;$('reelOpenLink').style.display='none';
     const r=await api('/api/instagram/reel-preview-url?date='+encodeURIComponent(d));
     $('previewImg').hidden=true;
     const v=$('previewReelVideo');
-    v.onerror=()=>{ $('previewMsg').textContent='リール動画の生成または読込に失敗しました。Renderログの instagram_national_reel_failed を確認してください。'; };
-    v.onloadedmetadata=()=>{ $('previewMsg').textContent=`リール: ${r.date} / ${r.count}座 / ${Math.round(v.duration||0)}秒`; };
-    v.src=r.previewReelUrl+'&t='+Date.now();v.hidden=false;v.load();
-    try{await v.play()}catch(_){ $('previewMsg').textContent=`リールを読み込みました。再生ボタンを押してください: ${r.date} / ${r.count}座`; }
+    const url=r.previewReelUrl+'&t='+Date.now();
+    v.hidden=false;v.controls=true;v.src=url;
+    $('reelOpenLink').href=url;$('reelOpenLink').style.display='inline';$('reelControls').hidden=false;
+    v.onerror=()=>{ $('previewMsg').textContent='リール動画の生成または読込に失敗しました。別タブで開く、またはRenderログの instagram_national_reel_failed を確認してください。'; $('reelPlayBtn').disabled=true; };
+    v.onloadedmetadata=()=>{ $('previewMsg').textContent=`リール生成完了: ${r.date} / ${r.count}座 / ${Math.round(v.duration||0)}秒。下の「▶ リールを再生」を押してください。`; };
+    v.oncanplay=()=>{ $('reelPlayBtn').disabled=false; $('previewMsg').textContent=`リール再生準備完了: ${r.date} / ${r.count}座 / ${Math.round(v.duration||0)}秒`; };
+    v.onwaiting=()=>{ $('previewMsg').textContent='動画データを読み込み中です…'; };
+    v.load();
   }catch(e){$('previewMsg').textContent=e.message}
+}
+async function playPreviewReel(){
+  const v=$('previewReelVideo');
+  try{ await v.play(); $('previewMsg').textContent=`再生中 / ${Math.round(v.duration||0)}秒`; }
+  catch(e){ $('previewMsg').textContent='ブラウザで再生できませんでした。「別タブで開く」を試してください: '+(e&&e.message?e.message:'再生エラー'); }
 }
 async function postNow(){
   try{
@@ -2551,6 +2562,14 @@ def instagram_reel_preview_url():
     rows = _instagram_load_fresh_100_results(date_text)
     if len(rows) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
         return jsonify(error="fresh nationwide cache is incomplete", count=len(rows), minimum=instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS, date=date_text), 409
+    # Generate/cache the MP4 before returning the URL. Previously the API returned
+    # immediately and the <video> element itself triggered a long render request,
+    # so the browser controls looked disabled while ffmpeg was still working.
+    try:
+        instagram_bot.render_national_reel(date_text, rows, logo_path=os.path.join(BASE, "traten-logo.png"))
+    except Exception as exc:
+        app.logger.exception("instagram_reel_preview_prepare_failed date=%s", date_text)
+        return jsonify(error=str(exc)[:500]), 500
     return jsonify(date=date_text, count=len(rows), previewReelUrl=instagram_bot.reel_url(date_text))
 
 
