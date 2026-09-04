@@ -36,7 +36,9 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.5.92"
+# V1.5.93: keep Playwright browser install/runtime lookup on one persistent deploy path.
+os.environ.setdefault("PLAYWRIGHT_BROWSERS_PATH", os.path.join(BASE, ".playwright-browsers"))
+APP_VERSION = "1.5.93"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))

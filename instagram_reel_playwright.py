@@ -3,6 +3,8 @@ from __future__ import annotations
 import base64
 import json
 import os
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -44,6 +46,40 @@ def _browser_executable() -> str | None:
     return None
 
 
+def _ensure_browser_executable() -> str | None:
+    """Ensure the Playwright Chromium bundle exists in the deploy-local directory.
+
+    Render can use different HOME/cache locations during build and runtime. V1.5.93
+    pins both phases to .playwright-browsers and, as a final safety net, installs the
+    matching Chromium bundle lazily on first Reel render when it is still absent.
+    """
+    root = Path(__file__).resolve().parent
+    local_dir = root / ".playwright-browsers"
+    os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(local_dir)
+    exe = _browser_executable()
+    if exe:
+        return exe
+    try:
+        local_dir.mkdir(parents=True, exist_ok=True)
+        env = os.environ.copy()
+        env["PLAYWRIGHT_BROWSERS_PATH"] = str(local_dir)
+        subprocess.run(
+            [sys.executable, "-m", "playwright", "install", "chromium"],
+            check=True,
+            timeout=300,
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+    except Exception as exc:
+        raise RuntimeError(
+            "Chromium is not available for Playwright and automatic installation failed: "
+            + str(exc)
+        ) from exc
+    return _browser_executable()
+
+
 def renderer_status() -> dict[str, Any]:
     try:
         import playwright.sync_api  # noqa:F401
@@ -81,7 +117,9 @@ def render_scenes(*, template_path: str, map_path: str, logo_path: str, font_pat
 
     Path(out_dir).mkdir(parents=True, exist_ok=True)
     output: list[str] = []
-    executable = _browser_executable()
+    executable = _ensure_browser_executable()
+    if not executable:
+        raise RuntimeError("Playwright Chromium executable was not found after installation.")
     with sync_playwright() as p:
         launch = {"headless": True, "args": ["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]}
         if executable:
