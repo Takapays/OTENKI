@@ -2450,10 +2450,10 @@ video{display:block;width:min(100%,540px);height:auto;max-height:76vh;border-rad
 <h2>2. 投稿画像プレビュー</h2>
 <div class="row"><div><label>予報日</label><input id="date" type="date"></div></div>
 <button onclick="preview()">静止画をプレビュー</button>
-<button onclick="previewReel()">リールをプレビュー</button>
+<button onclick="previewReelVideo()">リールをプレビュー</button>
 <div id="previewMsg" class="small"></div>
 <img id="previewImg" alt="Instagram投稿画像プレビュー" hidden>
-<video id="previewReel" controls playsinline preload="metadata" hidden></video>
+<video id="previewReelVideo" controls playsinline preload="metadata" hidden></video>
 </section>
 
 <section class="card">
@@ -2493,20 +2493,22 @@ async function preview(){
   try{
     const d=$('date').value;if(!d)throw new Error('予報日を選択してください');
     const r=await api('/api/instagram/preview-url?date='+encodeURIComponent(d));
-    $('previewReel').pause();$('previewReel').hidden=true;
+    $('previewReelVideo').pause();$('previewReelVideo').hidden=true;
     $('previewImg').src=r.previewImageUrl+'&t='+Date.now();$('previewImg').hidden=false;
     $('previewMsg').textContent=`静止画: ${r.date} / ${r.count}座`;
   }catch(e){$('previewMsg').textContent=e.message}
 }
-async function previewReel(){
+async function previewReelVideo(){
   try{
     const d=$('date').value;if(!d)throw new Error('予報日を選択してください');
     $('previewMsg').textContent='リールを生成しています。初回は少し時間がかかります…';
     const r=await api('/api/instagram/reel-preview-url?date='+encodeURIComponent(d));
     $('previewImg').hidden=true;
-    const v=$('previewReel');v.src=r.previewReelUrl+'&t='+Date.now();v.hidden=false;v.load();
-    try{await v.play()}catch(_){ }
-    $('previewMsg').textContent=`リール: ${r.date} / ${r.count}座`;
+    const v=$('previewReelVideo');
+    v.onerror=()=>{ $('previewMsg').textContent='リール動画の生成または読込に失敗しました。Renderログの instagram_national_reel_failed を確認してください。'; };
+    v.onloadedmetadata=()=>{ $('previewMsg').textContent=`リール: ${r.date} / ${r.count}座 / ${Math.round(v.duration||0)}秒`; };
+    v.src=r.previewReelUrl+'&t='+Date.now();v.hidden=false;v.load();
+    try{await v.play()}catch(_){ $('previewMsg').textContent=`リールを読み込みました。再生ボタンを押してください: ${r.date} / ${r.count}座`; }
   }catch(e){$('previewMsg').textContent=e.message}
 }
 async function postNow(){

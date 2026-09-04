@@ -1,5 +1,8 @@
-# V1.5.84 display hotfix
+# V1.5.84 Instagram Reel Preview Hotfix
 
-The cumulative V1.5.84 archive contained the correct V1.5.84 app/server/enrichment code, but two visible version labels in index.html still showed V1.5.81.
+Replace `server.py` only.
 
-Replace index.html with this file. No route, CT, Instagram, or weather logic changes.
+Fixes:
+- Renames the Reel preview JavaScript function and `<video>` id so they no longer share the same `previewReel` name.
+- Adds visible loading/playback/error feedback for Reel preview.
+- Keeps application version at V1.5.84; this is a display/admin hotfix only.
