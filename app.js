@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.71';
+const APP_VERSION = '1.5.84';
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
@@ -435,8 +435,8 @@ const EAST_NORTH_COURSE_TIMES = Object.freeze({
   '雄阿寒岳→滝口・雄阿寒岳登山口': {minutes:140, source:'環境省・阿寒摩周国立公園 雄阿寒岳登山コース'},
   '五色温泉インフォメーションセンター→ニセコアンヌプリ': {minutes:110, source:'ニセコ町公式観光パンフレット・五色温泉コース'},
   'ニセコアンヌプリ→五色温泉インフォメーションセンター': {minutes:70, source:'ニセコ町公式観光パンフレット・五色温泉コース'},
-  'トムラウシ短縮コース登山口→トムラウシ山': {minutes:357, source:'ヤマレコ・トムラウシ山 短縮コース山行計画（標準CT複数照合）', sourceType:'yamareco'},
-  'トムラウシ山→トムラウシ短縮コース登山口': {minutes:242, source:'ヤマレコ・トムラウシ山 短縮コース山行計画（標準CT複数照合）', sourceType:'yamareco'},
+  'トムラウシ短縮コース登山口→トムラウシ山': {minutes:305, source:'大雪山国立公園連絡協議会・トムラウシ山 短縮コース 登り5時間05分', sourceType:'official'},
+  'トムラウシ山→トムラウシ短縮コース登山口': {minutes:210, source:'大雪山国立公園連絡協議会・トムラウシ山 短縮コース 下り3時間30分', sourceType:'official'},
   'シュナイダーコース登山口（音更川二十一ノ沢出合）→石狩岳': {minutes:285, source:'ヤマレコ・石狩岳 シュナイダーコース山行計画（標準CT複数照合）', sourceType:'yamareco'},
   '石狩岳→シュナイダーコース登山口（音更川二十一ノ沢出合）': {minutes:174, source:'ヤマレコ・石狩岳 シュナイダーコース山行計画（標準CT複数照合）', sourceType:'yamareco'},
   '岩木山八合目→岩木山': {minutes:86, source:'ヤマレコ・岩木山 八合目コース山行計画（標準CT複数照合）', sourceType:'yamareco'},
@@ -1659,8 +1659,8 @@ const V14199_REPRESENTATIVE_VERIFIED_COURSE_TIMES = Object.freeze({
   '瑞牆山→みずがき山自然公園': {minutes:110, source:'北杜市公式・瑞牆山自然公園ルート（下り 約1時間50分）', sourceType:'official'},
   '瑞牆山荘・富士見平口→金峰山': {minutes:260, source:'北杜市公式・金峰山 瑞牆山荘ルート（登り 約4時間20分）', sourceType:'official'},
   '金峰山→瑞牆山荘・富士見平口': {minutes:210, source:'北杜市公式・金峰山 瑞牆山荘ルート（下り 約3時間30分）', sourceType:'official'},
-  '広河原登山口・峰越林道ゲート→恵那山': {minutes:200, source:'公開登山ガイド・峰越林道ゲート駐車場→恵那山 3時間20分', sourceType:'other'},
-  '恵那山→広河原登山口・峰越林道ゲート': {minutes:150, source:'公開登山ガイド・恵那山→峰越林道ゲート駐車場 2時間30分', sourceType:'other'},
+  '広河原登山口・峰越林道ゲート→恵那山': {minutes:230, source:'中津川市公式・恵那山 広河原ルート 登り3時間50分', sourceType:'official'},
+  '恵那山→広河原登山口・峰越林道ゲート': {minutes:200, source:'中津川市公式・恵那山 広河原ルート 下り3時間20分', sourceType:'official'},
   '戸沢出合→塔ノ岳': {minutes:189, source:'YAMAP標準モデル・戸沢の出合駐車場→塔ノ岳（チェックポイント合算 3時間09分）', sourceType:'yamap'},
   '塔ノ岳→戸沢出合': {minutes:121, source:'YAMAP標準モデル・塔ノ岳→戸沢の出合駐車場（チェックポイント合算 2時間01分）', sourceType:'yamap'},
   '山ノ鼻（至仏山東面登山道入口・登り専用）→至仏山': {minutes:150, source:'YAMAP標準モデル・鳩待峠-山ノ鼻-至仏山周回（山ノ鼻側分岐→至仏山 約2時間30分）', sourceType:'yamap'},
@@ -2795,7 +2795,60 @@ function v1551AllowLongVerifiedCustomRoute(fromName,toName){
   return V1551_LONG_VERIFIED_CUSTOM_ROUTE_GROUPS.some(group=>group.has(fromName)&&group.has(toName));
 }
 
+
+
+const V1584_PRIORITY_B_COURSE_TIMES = Object.freeze({
+  '八方台登山口→弘法清水小屋':{minutes:105,source:'猪苗代観光協会公式・磐梯山登山マップ（八方台→中ノ湯35分＋中ノ湯→弘法清水70分）',sourceType:'official'},
+  '弘法清水小屋→磐梯山':{minutes:30,source:'猪苗代観光協会公式・磐梯山登山マップ（弘法清水→山頂30分）',sourceType:'official'},
+  '磐梯山→弘法清水小屋':{minutes:20,source:'猪苗代観光協会公式・磐梯山登山マップ（山頂→弘法清水20分）',sourceType:'official'},
+  '弘法清水小屋→八方台登山口':{minutes:80,source:'猪苗代観光協会公式・磐梯山登山マップ（弘法清水→中ノ湯55分＋中ノ湯→八方台25分）',sourceType:'official'},
+  '雨飾高原キャンプ場登山口→荒菅沢':{minutes:110,source:'環境省・雨飾山（荒菅沢まで）上り約1時間50分',sourceType:'official'},
+  '荒菅沢→雨飾山':{minutes:130,source:'既存確認済み雨飾高原→雨飾山240分から公式登山口→荒菅沢110分を差引',sourceType:'derived-verified'},
+  '雨飾山→荒菅沢':{minutes:90,source:'既存確認済み雨飾山→雨飾高原185分から公式荒菅沢→登山口95分を差引',sourceType:'derived-verified'},
+  '荒菅沢→雨飾高原キャンプ場登山口':{minutes:95,source:'環境省・雨飾山（荒菅沢まで）下り約1時間35分',sourceType:'official'},
+  '二荒山神社中宮祠登山口→八合目 瀧尾神社':{minutes:175,source:'YAMAP公開モデル・二荒山神社-男体山往復（登拝門→三合目45分→四合目25分→瀧尾神社105分）',sourceType:'yamap'},
+  '八合目 瀧尾神社→男体山':{minutes:62,source:'YAMAP公開モデル・男体山（瀧尾神社→奥宮60分＋奥宮→男体山2分）',sourceType:'yamap'},
+  '男体山→八合目 瀧尾神社':{minutes:37,source:'YAMAP公開モデル・男体山（男体山→奥宮2分＋奥宮→瀧尾神社35分）',sourceType:'yamap'},
+  '八合目 瀧尾神社→二荒山神社中宮祠登山口':{minutes:130,source:'YAMAP公開モデル・男体山（瀧尾神社→四合目80分→三合目20分→登拝門30分）',sourceType:'yamap'},
+  '椹島→聖平小屋':{minutes:321,source:'既存確認済みCT・椹島→聖平小屋',sourceType:'derived-verified'},
+  '聖平小屋→聖岳':{minutes:179,source:'既存確認済みCT・聖平小屋→聖岳',sourceType:'yamareco'},
+  '聖岳→聖平小屋':{minutes:104,source:'既存確認済みCT・聖岳→聖平小屋',sourceType:'yamareco'},
+  '聖平小屋→椹島':{minutes:256,source:'既存確認済み聖岳→椹島360分から聖岳→聖平小屋104分を差引',sourceType:'derived-verified'}
+});
+
+const V1583_PRIORITY_B_COURSE_TIMES = Object.freeze({
+  '大日杉登山口→切合小屋':{minutes:445,source:'既存確認済みCT・大日杉→切合小屋',sourceType:'verified'},
+  '切合小屋→本山小屋':{minutes:121,source:'ヤマレコ標準コースタイム区間合算・切合小屋→本山小屋',sourceType:'yamareco'},
+  '本山小屋→飯豊山':{minutes:14,source:'ヤマレコ標準コースタイム・本山小屋→飯豊山',sourceType:'yamareco'},
+  '飯豊山→本山小屋':{minutes:5,source:'ヤマレコ標準コースタイム・飯豊山→本山小屋',sourceType:'yamareco'},
+  '本山小屋→切合小屋':{minutes:92,source:'ヤマレコ標準コースタイム区間合算・本山小屋→切合小屋',sourceType:'yamareco'},
+  '飯豊山→大日杉登山口':{minutes:425,source:'既存確認済み下山CT・飯豊山→大日杉',sourceType:'verified'},
+  '日暮沢登山口駐車場（日暮沢小屋）→竜門小屋':{minutes:367,source:'既存確認済みCT・日暮沢→竜門小屋',sourceType:'verified'},
+  '竜門小屋→大朝日岳山頂避難小屋':{minutes:180,source:'朝日鉱泉公式・竜門山避難小屋→大朝日岳山頂避難小屋 3時間',sourceType:'official'},
+  '大朝日岳山頂避難小屋→大朝日岳':{minutes:20,source:'朝日鉱泉公式・山頂避難小屋→大朝日岳 約20分',sourceType:'official'},
+  '大朝日岳→大朝日岳山頂避難小屋':{minutes:10,source:'朝日鉱泉公式・大朝日岳→山頂避難小屋 約10分',sourceType:'official'},
+  '大朝日岳→日暮沢登山口駐車場（日暮沢小屋）':{minutes:340,source:'既存確認済み下山CT・大朝日岳→日暮沢',sourceType:'verified'},
+  '銀山平・皇海山登山者駐車場→庚申山荘（避難小屋）':{minutes:201,source:'YAMAPモデル・銀山平→庚申山荘',sourceType:'yamap'},
+  '庚申山荘（避難小屋）→庚申山':{minutes:45,source:'YAMAPモデル・庚申山荘→庚申山',sourceType:'yamap'},
+  '庚申山→皇海山':{minutes:237,source:'YAMAPモデル・庚申山→鋸山→皇海山区間合算',sourceType:'yamap'},
+  '皇海山→銀山平・皇海山登山者駐車場':{minutes:394,source:'既存確認済みCT・皇海山→銀山平',sourceType:'verified'},
+  '八方台登山口→弘法清水小屋':{minutes:125,source:'既存確認済みCT・八方台→弘法清水小屋',sourceType:'verified'},
+  '弘法清水小屋→磐梯山':{minutes:40,source:'既存確認済みCT・弘法清水小屋→磐梯山',sourceType:'verified'},
+  '磐梯山→弘法清水小屋':{minutes:22,source:'既存確認済みCT・磐梯山→弘法清水小屋',sourceType:'verified'},
+  '弘法清水小屋→八方台登山口':{minutes:86,source:'既存確認済みCT・弘法清水小屋→八方台',sourceType:'verified'},
+  '鉾立登山口（象潟口）→御浜小屋':{minutes:92,source:'YAMAP公開モデル・鉾立→御浜小屋区間合算',sourceType:'yamap'},
+  '御浜小屋→鳥海山（新山）':{minutes:214,source:'既存確認済み鉾立→新山306分から鉾立→御浜92分を差引',sourceType:'derived-verified'},
+  '鳥海山（新山）→御浜小屋':{minutes:115,source:'YAMAP公開モデル・新山→御浜小屋区間合算',sourceType:'yamap'},
+  '御浜小屋→鉾立登山口（象潟口）':{minutes:88,source:'既存確認済み新山→鉾立203分から新山→御浜115分を差引',sourceType:'derived-verified'},
+  '毛木平登山口→甲武信小屋':{minutes:225,source:'既存確認済み登り240分から甲武信小屋→山頂15分を差引',sourceType:'derived-verified'},
+  '甲武信小屋→甲武信ヶ岳':{minutes:15,source:'YAMAPモデル・甲武信小屋→甲武信ヶ岳',sourceType:'yamap'},
+  '甲武信ヶ岳→甲武信小屋':{minutes:20,source:'YAMAPモデル・甲武信ヶ岳→甲武信小屋',sourceType:'yamap'},
+  '甲武信小屋→毛木平登山口':{minutes:148,source:'既存確認済み下山168分から山頂→甲武信小屋20分を差引',sourceType:'derived-verified'}
+});
+
 const COURSE_TIME_TABLES = Object.freeze([
+  V1584_PRIORITY_B_COURSE_TIMES,
+  V1583_PRIORITY_B_COURSE_TIMES,
   V1555_ROUTE_RESTORE_COURSE_TIMES,
   V1554_ROUTE_INTEGRITY_COURSE_TIMES,
   V1552_ALPS_CUSTOM_ROUTE_COURSE_TIMES,

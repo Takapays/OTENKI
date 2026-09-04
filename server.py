@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.5.76"
+APP_VERSION = "1.5.84"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -2423,11 +2423,12 @@ button.secondary{background:#667989}button.danger{background:#a33d3d}
 .row{display:flex;gap:12px;flex-wrap:wrap}.row>div{flex:1;min-width:220px}
 .status{white-space:pre-wrap;background:#102536;color:#eaf4fb;border-radius:10px;padding:13px;min-height:48px;font-family:ui-monospace,Consolas,monospace;font-size:13px;overflow:auto}
 img{display:block;width:min(100%,540px);height:auto;border-radius:12px;border:1px solid #dbe4ec;margin-top:12px}
+video{display:block;width:min(100%,540px);height:auto;max-height:76vh;border-radius:12px;border:1px solid #dbe4ec;margin-top:12px;background:#091827}
 .small{font-size:13px;color:#657687}.pill{display:inline-block;padding:4px 9px;border-radius:999px;background:#eaf2f8;margin-right:6px;font-size:13px}
 </style>
 </head><body><main class="wrap">
 <h1>トラテン Instagram 管理</h1>
-<div class="sub">V1.5.72 / 接続確認・全国分析画像プレビュー・手動投稿</div>
+<div class="sub">V1.5.84 / 接続確認・静止画/リールプレビュー・手動投稿</div>
 
 <section class="card">
 <label>管理トークン（NATIONAL_CACHE_REFRESH_TOKEN）</label>
@@ -2448,9 +2449,11 @@ img{display:block;width:min(100%,540px);height:auto;border-radius:12px;border:1p
 <section class="card">
 <h2>2. 投稿画像プレビュー</h2>
 <div class="row"><div><label>予報日</label><input id="date" type="date"></div></div>
-<button onclick="preview()">画像を表示</button>
+<button onclick="preview()">静止画をプレビュー</button>
+<button onclick="previewReel()">リールをプレビュー</button>
 <div id="previewMsg" class="small"></div>
 <img id="previewImg" alt="Instagram投稿画像プレビュー" hidden>
+<video id="previewReel" controls playsinline preload="metadata" hidden></video>
 </section>
 
 <section class="card">
@@ -2478,7 +2481,7 @@ function show(id,obj){$(id).textContent=JSON.stringify(obj,null,2)}
 async function loadStatus(){
   try{
     const j=await api('/api/instagram/status');show('out',j);$('date').value=j.tomorrow||'';
-    $('summary').innerHTML=`<span class="pill">configured: ${j.configured}</span><span class="pill">autoPost: ${j.autoPost}</span><span class="pill">fresh: ${j.tomorrowFreshCount}</span>`;
+    $('summary').innerHTML=`<span class="pill">configured: ${j.configured}</span><span class="pill">autoPost: ${j.autoPost}</span><span class="pill">autoMedia: ${j.autoMedia}</span><span class="pill">fresh: ${j.tomorrowFreshCount}</span>`;
     if(j.previewImageUrl){$('previewImg').src=j.previewImageUrl;$('previewImg').hidden=false}
   }catch(e){$('out').textContent=e.message}
 }
@@ -2490,14 +2493,26 @@ async function preview(){
   try{
     const d=$('date').value;if(!d)throw new Error('予報日を選択してください');
     const r=await api('/api/instagram/preview-url?date='+encodeURIComponent(d));
+    $('previewReel').pause();$('previewReel').hidden=true;
     $('previewImg').src=r.previewImageUrl+'&t='+Date.now();$('previewImg').hidden=false;
-    $('previewMsg').textContent=`${r.date} / ${r.count}座`;
+    $('previewMsg').textContent=`静止画: ${r.date} / ${r.count}座`;
+  }catch(e){$('previewMsg').textContent=e.message}
+}
+async function previewReel(){
+  try{
+    const d=$('date').value;if(!d)throw new Error('予報日を選択してください');
+    $('previewMsg').textContent='リールを生成しています。初回は少し時間がかかります…';
+    const r=await api('/api/instagram/reel-preview-url?date='+encodeURIComponent(d));
+    $('previewImg').hidden=true;
+    const v=$('previewReel');v.src=r.previewReelUrl+'&t='+Date.now();v.hidden=false;v.load();
+    try{await v.play()}catch(_){ }
+    $('previewMsg').textContent=`リール: ${r.date} / ${r.count}座`;
   }catch(e){$('previewMsg').textContent=e.message}
 }
 async function postNow(){
   try{
     const d=$('date').value;if(!d)throw new Error('予報日を選択してください');
-    if(!confirm(d+' の全国分析画像をInstagramへ投稿します。よろしいですか？'))return;
+    if(!confirm(d+' の全国分析をInstagramへ投稿します。よろしいですか？'))return;
     const j=await api('/api/instagram/post-national',{method:'POST',body:JSON.stringify({date:d,force:$('force').checked})});
     show('postOut',j);
   }catch(e){$('postOut').textContent=e.message}
@@ -2520,6 +2535,21 @@ def instagram_preview_url():
     if len(rows) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
         return jsonify(error="fresh nationwide cache is incomplete", count=len(rows), minimum=instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS, date=date_text), 409
     return jsonify(date=date_text, count=len(rows), previewImageUrl=instagram_bot.image_url(date_text))
+
+
+@app.get("/api/instagram/reel-preview-url")
+def instagram_reel_preview_url():
+    if not _instagram_admin_authorized():
+        return jsonify(error="unauthorized"), 401
+    date_text = str(request.args.get("date") or _national_nextday_date_text())[:10]
+    try:
+        datetime.strptime(date_text, "%Y-%m-%d")
+    except ValueError:
+        return jsonify(error="invalid date"), 400
+    rows = _instagram_load_fresh_100_results(date_text)
+    if len(rows) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
+        return jsonify(error="fresh nationwide cache is incomplete", count=len(rows), minimum=instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS, date=date_text), 409
+    return jsonify(date=date_text, count=len(rows), previewReelUrl=instagram_bot.reel_url(date_text))
 
 
 @app.get("/api/instagram/national-image/<date_text>")

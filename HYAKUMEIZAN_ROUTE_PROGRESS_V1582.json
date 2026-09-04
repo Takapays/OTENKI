@@ -1,0 +1,396 @@
+{
+  "summary": {
+    "hyakumeizan": 100,
+    "fail": 1,
+    "bImproved": 9,
+    "bTotal": 18,
+    "katsuu": {
+      "selectable": true,
+      "area": "kyushu",
+      "points": [
+        "嘉津宇岳登山口",
+        "嘉津宇岳",
+        "嘉津宇岳登山口"
+      ],
+      "segments": [
+        30,
+        30
+      ],
+      "error": ""
+    }
+  },
+  "priorityB": [
+    {
+      "raw": "岩手山",
+      "mountain": "岩手山",
+      "label": "馬返し登山口ルート",
+      "expandedPoints": 5,
+      "status": "OK",
+      "error": "",
+      "routePoints": [
+        "馬返し登山口",
+        "八合目避難小屋",
+        "岩手山",
+        "八合目避難小屋",
+        "馬返し登山口"
+      ],
+      "segments": [
+        255,
+        65,
+        27,
+        145
+      ],
+      "totalMinutes": 492
+    },
+    {
+      "raw": "鳥海山",
+      "mountain": "鳥海山",
+      "label": "湯ノ台口ルート",
+      "expandedPoints": 3,
+      "status": "OK",
+      "error": "",
+      "routePoints": [
+        "湯ノ台口登山口",
+        "鳥海山（新山）",
+        "湯ノ台口登山口"
+      ],
+      "segments": [
+        274,
+        171
+      ],
+      "totalMinutes": 445
+    },
+    {
+      "raw": "大朝日岳",
+      "mountain": "大朝日岳",
+      "label": "日暮沢・竜門ルート",
+      "expandedPoints": 4,
+      "status": "OK",
+      "error": "",
+      "routePoints": [
+        "日暮沢登山口駐車場（日暮沢小屋）",
+        "竜門小屋",
+        "大朝日岳",
+        "日暮沢登山口駐車場（日暮沢小屋）"
+      ],
+      "segments": [
+        367,
+        185,
+        340
+      ],
+      "totalMinutes": 892
+    },
+    {
+      "raw": "飯豊山",
+      "mountain": "飯豊山",
+      "label": "大日杉登山口ルート",
+      "expandedPoints": 4,
+      "status": "OK",
+      "error": "",
+      "routePoints": [
+        "大日杉登山口",
+        "切合小屋",
+        "飯豊山",
+        "大日杉登山口"
+      ],
+      "segments": [
+        445,
+        163,
+        425
+      ],
+      "totalMinutes": 1033
+    },
+    {
+      "raw": "西吾妻山",
+      "mountain": "西吾妻山",
+      "label": "白布峠登山口ルート",
+      "expandedPoints": 5,
+      "status": "OK",
+      "error": "",
+      "routePoints": [
+        "白布峠登山口",
+        "西大巓",
+        "西吾妻山",
+        "西大巓",
+        "白布峠登山口"
+      ],
+      "segments": [
+        185,
+        66,
+        140,
+        60
+      ],
+      "totalMinutes": 451
+    },
+    {
+      "raw": "磐梯山",
+      "mountain": "磐梯山",
+      "label": "猪苗代ルート",
+      "expandedPoints": 3,
+      "status": "OK",
+      "error": "",
+      "routePoints": [
+        "猪苗代登山口（猪苗代スキー場）",
+        "磐梯山",
+        "猪苗代登山口（猪苗代スキー場）"
+      ],
+      "segments": [
+        283,
+        166
+      ],
+      "totalMinutes": 449
+    },
+    {
+      "raw": "会津駒ヶ岳",
+      "mountain": "会津駒ヶ岳",
+      "label": "滝沢ルート",
+      "expandedPoints": 5,
+      "status": "OK",
+      "error": "",
+      "routePoints": [
+        "滝沢登山口",
+        "駒の小屋",
+        "会津駒ヶ岳",
+        "駒の小屋",
+        "滝沢登山口"
+      ],
+      "segments": [
+        218,
+        13,
+        15,
+        145
+      ],
+      "totalMinutes": 391
+    },
+    {
+      "raw": "燧ヶ岳",
+      "mountain": "燧ヶ岳",
+      "label": "御池登山口ルート",
+      "expandedPoints": 5,
+      "status": "OK",
+      "error": "",
+      "routePoints": [
+        "御池登山口",
+        "熊沢田代",
+        "燧ヶ岳（柴安嵓）",
+        "熊沢田代",
+        "御池登山口"
+      ],
+      "segments": [
+        145,
+        86,
+        75,
+        70
+      ],
+      "totalMinutes": 376
+    },
+    {
+      "raw": "妙高山",
+      "mountain": "妙高山",
+      "label": "笹ヶ峰ルート",
+      "expandedPoints": 5,
+      "status": "OK",
+      "error": "",
+      "routePoints": [
+        "笹ヶ峰登山口",
+        "黒沢池ヒュッテ",
+        "妙高山",
+        "黒沢池ヒュッテ",
+        "笹ヶ峰登山口"
+      ],
+      "segments": [
+        190,
+        150,
+        130,
+        160
+      ],
+      "totalMinutes": 630
+    },
+    {
+      "raw": "雨飾山",
+      "mountain": "雨飾山",
+      "label": "雨飾高原キャンプ場ルート",
+      "expandedPoints": 3,
+      "status": "OK",
+      "error": "",
+      "routePoints": [
+        "雨飾高原キャンプ場登山口",
+        "雨飾山",
+        "雨飾高原キャンプ場登山口"
+      ],
+      "segments": [
+        240,
+        185
+      ],
+      "totalMinutes": 425
+    },
+    {
+      "raw": "男体山",
+      "mountain": "男体山",
+      "label": "二荒山神社中宮祠ルート",
+      "expandedPoints": 3,
+      "status": "OK",
+      "error": "",
+      "routePoints": [
+        "二荒山神社中宮祠登山口",
+        "男体山",
+        "二荒山神社中宮祠登山口"
+      ],
+      "segments": [
+        230,
+        160
+      ],
+      "totalMinutes": 390
+    },
+    {
+      "raw": "皇海山",
+      "mountain": "皇海山",
+      "label": "銀山平・庚申山ルート",
+      "expandedPoints": 4,
+      "status": "OK",
+      "error": "",
+      "routePoints": [
+        "銀山平・皇海山登山者駐車場",
+        "庚申山荘（避難小屋）",
+        "皇海山",
+        "銀山平・皇海山登山者駐車場"
+      ],
+      "segments": [
+        201,
+        282,
+        394
+      ],
+      "totalMinutes": 877
+    },
+    {
+      "raw": "雲取山",
+      "mountain": "雲取山",
+      "label": "鴨沢ルート",
+      "expandedPoints": 5,
+      "status": "OK",
+      "error": "",
+      "routePoints": [
+        "鴨沢登山口",
+        "七ツ石小屋",
+        "七ツ石山",
+        "雲取山",
+        "鴨沢登山口"
+      ],
+      "segments": [
+        220,
+        37,
+        105,
+        297
+      ],
+      "totalMinutes": 659
+    },
+    {
+      "raw": "甲武信ヶ岳",
+      "mountain": "甲武信ヶ岳",
+      "label": "毛木平ルート",
+      "expandedPoints": 3,
+      "status": "OK",
+      "error": "",
+      "routePoints": [
+        "毛木平登山口",
+        "甲武信ヶ岳",
+        "毛木平登山口"
+      ],
+      "segments": [
+        240,
+        168
+      ],
+      "totalMinutes": 408
+    },
+    {
+      "raw": "甲斐駒ヶ岳",
+      "mountain": "甲斐駒ヶ岳",
+      "label": "北沢峠ルート",
+      "expandedPoints": 5,
+      "status": "OK",
+      "error": "",
+      "routePoints": [
+        "北沢峠",
+        "駒津峰",
+        "甲斐駒ヶ岳",
+        "駒津峰",
+        "北沢峠"
+      ],
+      "segments": [
+        231,
+        91,
+        127,
+        81
+      ],
+      "totalMinutes": 530
+    },
+    {
+      "raw": "仙丈ヶ岳",
+      "mountain": "仙丈ヶ岳",
+      "label": "北沢峠・藪沢馬の背ルート",
+      "expandedPoints": 7,
+      "status": "OK",
+      "error": "",
+      "routePoints": [
+        "北沢峠",
+        "馬の背ヒュッテ",
+        "仙丈小屋",
+        "仙丈ヶ岳",
+        "仙丈小屋",
+        "馬の背ヒュッテ",
+        "北沢峠"
+      ],
+      "segments": [
+        150,
+        60,
+        30,
+        25,
+        80,
+        155
+      ],
+      "totalMinutes": 500
+    },
+    {
+      "raw": "聖岳",
+      "mountain": "聖岳",
+      "label": "椹島・聖平ルート",
+      "expandedPoints": 4,
+      "status": "OK",
+      "error": "",
+      "routePoints": [
+        "椹島",
+        "聖平小屋",
+        "聖岳",
+        "椹島"
+      ],
+      "segments": [
+        321,
+        179,
+        360
+      ],
+      "totalMinutes": 860
+    },
+    {
+      "raw": "荒島岳",
+      "mountain": "荒島岳",
+      "label": "勝原コースルート",
+      "expandedPoints": 5,
+      "status": "OK",
+      "error": "",
+      "routePoints": [
+        "勝原コース登山口",
+        "シャクナゲ平",
+        "荒島岳",
+        "シャクナゲ平",
+        "勝原コース登山口"
+      ],
+      "segments": [
+        165,
+        83,
+        61,
+        159
+      ],
+      "totalMinutes": 468
+    }
+  ]
+}

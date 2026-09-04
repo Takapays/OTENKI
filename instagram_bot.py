@@ -255,7 +255,7 @@ def _fetch_gsi_tile(z: int, x: int, y: int) -> "Image.Image":
     if not os.path.exists(path):
         req = urllib.request.Request(
             f"https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png",
-            headers={"User-Agent": "Traten/1.5.76 (+https://otenki.onrender.com/)"},
+            headers={"User-Agent": "Traten/1.5.84 (+https://otenki.onrender.com/)"},
         )
         try:
             with urllib.request.urlopen(req, timeout=15) as r, open(path + ".tmp", "wb") as f:
@@ -376,14 +376,18 @@ def render_national_reel(date_text: str, results: list[dict[str, Any]], *, logo_
                 try:
                     logo=Image.open(logo_path).convert("RGBA"); logo.thumbnail((180,95)); frame.paste(logo,(24,18),logo)
                 except Exception: pass
-            d.text((28,116),"日本百名山 全国分析",font=_load_font(44),fill=(8,54,92,255))
-            d.text((28,169),f"{target.month}/{target.day}  明日の登山コンディション",font=_load_font(26),fill=(28,96,76,255))
+            d.text((28,96),"まったく新しい登山天気ツール",font=_load_font(25),fill=(255,196,18,255))
+            d.text((28,130),"日本三百名山 全国分析",font=_load_font(42),fill=(8,54,92,255))
+            d.text((28,181),f"{target.month}/{target.day}  明日の登山コンディション",font=_load_font(25),fill=(28,96,76,255))
             # dynamic first-card: '明日の' emphasis
             if t<0.30:
                 a=int(235*(1 if t<0.23 else max(0,(0.30-t)/0.07)))
                 d.rounded_rectangle((25,265,390,425),radius=28,fill=(4,36,70,a))
                 d.text((52,280),"明日の",font=_load_font(75),fill=(255,222,52,a))
                 d.text((54,365),"全国コンディション",font=_load_font(28),fill=(255,255,255,a))
+                d.ellipse((32,445,205,618),fill=(255,207,24,a),outline=(255,255,255,a),width=5)
+                d.text((62,482),"全部",font=_load_font(34),fill=(4,36,70,a))
+                d.text((49,526),"無料！",font=_load_font(40),fill=(4,36,70,a))
             # summary chips
             if 0.22<t<0.76:
                 y=960
@@ -397,23 +401,26 @@ def render_national_reel(date_text: str, results: list[dict[str, Any]], *, logo_
             # feature summary final ~2.2 sec
             if t>=0.72:
                 d.rectangle((0,0,W,H),fill=(4,35,63,245))
-                d.text((36,55),"トラテンでできること",font=_load_font(49),fill=(255,255,255,255))
+                d.text((36,38),"まったく新しい登山天気ツール",font=_load_font(27),fill=(255,219,51,255))
+                d.text((36,78),"トラテンでできること",font=_load_font(46),fill=(255,255,255,255))
+                d.rounded_rectangle((210,150,510,214),radius=30,fill=(255,210,35,255))
+                d.text((287,163),"全部無料！",font=_load_font(29),fill=(4,35,63,255))
                 items=[
-                    ("全国分析","百名山を2週間先まで"),
-                    ("自分専用天気予報","通過ポイントからルート分析"),
+                    ("全国分析","三百名山を2週間先まで"),
+                    ("自分専用天気予報","通過ポイントを入れたらルート分析"),
                     ("登山判断サポート","時間帯別の風・雨・気温・視界"),
-                    ("登山ポータル","登山口・ライブカメラ・山小屋・水場"),
+                    ("登山ポータル","登山口アクセス・ライブカメラ・山小屋HP・水場"),
                 ]
-                y=150
+                y=235
                 for k,(ttl,desc) in enumerate(items,1):
-                    d.rounded_rectangle((34,y,686,y+190),radius=24,fill=(255,255,255,235))
-                    d.ellipse((54,y+48,112,y+106),fill=(18,120,81,255)); d.text((75,y+56),str(k),font=_load_font(25),fill=(255,255,255,255))
-                    d.text((132,y+28),ttl,font=_load_font(32),fill=(8,54,92,255))
-                    d.text((132,y+86),desc,font=_fit_text(d,desc,510,24,18),fill=(70,84,96,255))
-                    y+=205
-                d.text((36,1005),"登る前に、トラテン。",font=_load_font(43),fill=(255,219,51,255))
-                d.rounded_rectangle((36,1080,684,1160),radius=35,fill=(255,255,255,255))
-                d.text((155,1098),"otenki.onrender.com",font=_load_font(27),fill=(13,103,72,255))
+                    d.rounded_rectangle((34,y,686,y+164),radius=24,fill=(255,255,255,235))
+                    d.ellipse((54,y+39,112,y+97),fill=(18,120,81,255)); d.text((75,y+47),str(k),font=_load_font(25),fill=(255,255,255,255))
+                    d.text((132,y+20),ttl,font=_load_font(31),fill=(8,54,92,255))
+                    d.text((132,y+75),desc,font=_fit_text(d,desc,510,23,17),fill=(70,84,96,255))
+                    y+=177
+                d.text((36,965),"登る前に、トラテン。",font=_load_font(43),fill=(255,219,51,255))
+                d.rounded_rectangle((36,1045,684,1125),radius=35,fill=(255,255,255,255))
+                d.text((155,1063),"otenki.onrender.com",font=_load_font(27),fill=(13,103,72,255))
             frame.save(os.path.join(work,f"frame-{i:04d}.jpg"),quality=90)
         wav=os.path.join(work,"bgm.wav"); _write_original_bgm(wav,sec)
         tmp=out+f".{os.getpid()}.tmp.mp4"
@@ -431,12 +438,12 @@ def caption_for(date_text: str, counts: dict[str, int]) -> str:
     target = date.fromisoformat(date_text)
     marker = f"#traten{target.strftime('%Y%m%d')}"
     return (
-        f"🏔 {target.month}/{target.day} 日本百名山・全国登山天気\n\n"
+        f"🏔 {target.month}/{target.day} 日本三百名山・全国登山天気\n\n"
         f"A：{counts.get('A', 0)}座　B：{counts.get('B', 0)}座　C：{counts.get('C', 0)}座\n\n"
         "風・雨・気温は時間帯で大きく変わります。\n"
         "山ごとの詳しい予報は、プロフィールのリンクから『トラテン｜トラバース天気』へ。\n\n"
         "※全国判定は登山可否を保証するものではありません。現地の最新情報・警報・登山道状況も確認してください。\n\n"
-        "#登山 #登山天気 #日本百名山 #百名山 #山の天気 #天気予報 #登山情報 "
+        "#登山 #登山天気 #日本三百名山 #三百名山 #日本百名山 #百名山 #山の天気 #天気予報 #登山情報 "
         "#登山好きな人と繋がりたい #山好きな人と繋がりたい #山登り #ハイキング #トレッキング "
         "#アウトドア #山旅 #登山計画 #登山初心者 #ソロ登山 #週末登山 #絶景登山 #山岳気象 "
         "#北アルプス #中央アルプス #南アルプス #八ヶ岳 #富士山 #トラテン "
