@@ -36,9 +36,9 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-# V1.5.93: keep Playwright browser install/runtime lookup on one persistent deploy path.
+# V1.5.94: keep Playwright browser install/runtime lookup on one persistent deploy path.
 os.environ.setdefault("PLAYWRIGHT_BROWSERS_PATH", os.path.join(BASE, ".playwright-browsers"))
-APP_VERSION = "1.5.93"
+APP_VERSION = "1.5.94"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -119,6 +119,17 @@ NOAA_GFS_FILTER = os.environ.get(
 )
 NOAA_GFS_TIMEOUT = int(os.environ.get("NOAA_GFS_TIMEOUT", "35"))
 NOAA_GFS_CACHE_TTL = int(os.environ.get("NOAA_GFS_CACHE_TTL", "1800"))
+
+# V1.5.94: install Chromium during process startup, not inside the Reel HTTP request.
+PLAYWRIGHT_STARTUP_STATUS = {"ok": False, "error": "not attempted"}
+try:
+    from instagram_reel_playwright import ensure_browser_installed
+    _pw_exe = ensure_browser_installed()
+    PLAYWRIGHT_STARTUP_STATUS = {"ok": bool(_pw_exe), "executable": _pw_exe or ""}
+    print(f"[playwright] startup ready: {_pw_exe}", flush=True)
+except Exception as _pw_exc:
+    PLAYWRIGHT_STARTUP_STATUS = {"ok": False, "error": str(_pw_exc)[:1000]}
+    print(f"[playwright] startup install failed: {_pw_exc}", flush=True)
 
 app = Flask(__name__, static_folder=None)
 
@@ -2476,8 +2487,14 @@ function h(json=false){const x={'X-Traten-Cache-Token':token()};if(json)x['Conte
 async function api(url,opt={}){
   if(!token())throw new Error('管理トークンを入力してください');
   const r=await fetch(url,{...opt,headers:{...(opt.headers||{}),...h(!!opt.body)}});
-  let j;try{j=await r.json()}catch{j={error:'response parse error'}}
-  if(!r.ok)throw new Error((j&&j.error)||('HTTP '+r.status));
+  const raw=await r.text();
+  let j=null;
+  if(raw){try{j=JSON.parse(raw)}catch{j=null}}
+  if(!r.ok){
+    const detail=(j&&j.error)?j.error:(raw?raw.replace(/<[^>]*>/g,' ').replace(/\\s+/g,' ').trim().slice(0,500):'empty response');
+    throw new Error(`HTTP ${r.status}: ${detail}`);
+  }
+  if(!j)throw new Error(`HTTP ${r.status}: JSONではない応答です: ${(raw||'empty response').slice(0,500)}`);
   return j;
 }
 function show(id,obj){$(id).textContent=JSON.stringify(obj,null,2)}
@@ -2633,6 +2650,7 @@ def instagram_status():
     try:
         from instagram_reel_playwright import renderer_status
         status["reelRenderer"] = renderer_status()
+        status["playwrightStartup"] = PLAYWRIGHT_STARTUP_STATUS
     except Exception as exc:
         status["reelRenderer"] = {"engine":"playwright","error":str(exc)[:300]}
     return jsonify(status)

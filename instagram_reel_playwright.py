@@ -46,12 +46,12 @@ def _browser_executable() -> str | None:
     return None
 
 
-def _ensure_browser_executable() -> str | None:
-    """Ensure the Playwright Chromium bundle exists in the deploy-local directory.
+def ensure_browser_installed() -> str | None:
+    """Install the matching Playwright Chromium bundle before requests are served.
 
-    Render can use different HOME/cache locations during build and runtime. V1.5.93
-    pins both phases to .playwright-browsers and, as a final safety net, installs the
-    matching Chromium bundle lazily on first Reel render when it is still absent.
+    V1.5.94 moves the potentially long browser download out of the Reel API request.
+    Gunicorn can import the app in more than one worker, so a deploy-local file lock
+    serializes installation and the second worker simply reuses the finished bundle.
     """
     root = Path(__file__).resolve().parent
     local_dir = root / ".playwright-browsers"
@@ -59,25 +59,48 @@ def _ensure_browser_executable() -> str | None:
     exe = _browser_executable()
     if exe:
         return exe
+
+    local_dir.mkdir(parents=True, exist_ok=True)
+    lock_path = local_dir / ".install.lock"
     try:
-        local_dir.mkdir(parents=True, exist_ok=True)
-        env = os.environ.copy()
-        env["PLAYWRIGHT_BROWSERS_PATH"] = str(local_dir)
-        subprocess.run(
-            [sys.executable, "-m", "playwright", "install", "chromium"],
-            check=True,
-            timeout=300,
-            env=env,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-        )
-    except Exception as exc:
+        import fcntl
+        with lock_path.open("a+") as lock:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+            exe = _browser_executable()
+            if exe:
+                return exe
+            env = os.environ.copy()
+            env["PLAYWRIGHT_BROWSERS_PATH"] = str(local_dir)
+            proc = subprocess.run(
+                [sys.executable, "-m", "playwright", "install", "chromium"],
+                check=False,
+                timeout=300,
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
+            if proc.returncode != 0:
+                tail = (proc.stdout or "")[-1500:]
+                raise RuntimeError(f"playwright install chromium failed ({proc.returncode}): {tail}")
+    except ModuleNotFoundError as exc:
+        raise RuntimeError("Playwright Python package is not installed") from exc
+
+    exe = _browser_executable()
+    if not exe:
+        raise RuntimeError("Chromium install completed but executable was not found")
+    return exe
+
+
+def _ensure_browser_executable() -> str | None:
+    """Request-time check only; do not download Chromium inside an HTTP request."""
+    exe = _browser_executable()
+    if not exe:
         raise RuntimeError(
-            "Chromium is not available for Playwright and automatic installation failed: "
-            + str(exc)
-        ) from exc
-    return _browser_executable()
+            "Playwright Chromium is not ready. Browser installation must complete during server startup; "
+            "check Render deploy logs for 'playwright install chromium'."
+        )
+    return exe
 
 
 def renderer_status() -> dict[str, Any]:
