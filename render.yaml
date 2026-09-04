@@ -4,13 +4,11 @@ services:
     runtime: python
     plan: free
     region: singapore
-    buildCommand: export PLAYWRIGHT_BROWSERS_PATH=/opt/render/project/src/.playwright-browsers && pip install -r requirements.txt && python -m playwright install chromium
+    buildCommand: pip install -r requirements.txt
     startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 2 --timeout 300 --max-requests 200 --max-requests-jitter 20 server:app
     healthCheckPath: /api/health
     autoDeployTrigger: commit
     envVars:
-      - key: PLAYWRIGHT_BROWSERS_PATH
-        value: "/opt/render/project/src/.playwright-browsers"
       - key: APP_ENV
         value: production
       - key: MALLOC_ARENA_MAX
@@ -37,8 +35,6 @@ services:
         value: "1"
       - key: NATIONAL_CACHE_REFRESH_TOKEN
         sync: false
-      # Instagram nationwide bot. Keep auto-post disabled until Meta
-      # credentials are configured and a manual test post succeeds.
       - key: INSTAGRAM_AUTO_POST
         value: "0"
       - key: INSTAGRAM_AUTO_POST_HOUR_JST

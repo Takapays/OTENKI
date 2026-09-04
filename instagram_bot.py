@@ -373,89 +373,209 @@ def _write_original_bgm(path: str, seconds: int) -> None:
         if block: wf.writeframes(b''.join(block))
 
 
-def render_national_reel(date_text: str, results: list[dict[str, Any]], *, logo_path: str | None = None) -> str:
-    """Render the 9:16 Reel from the approved HTML/CSS mock template via Playwright."""
+def _render_reel_scenes_pillow(*, rows: list[dict[str, Any]], counts: dict[str, int], target: date,
+                                logo_path: str | None, out_dir: str) -> list[str]:
+    """Render the approved Reel concept without a browser.
+
+    V1.5.96 deliberately avoids Playwright/Chromium on Render Free.  Three still
+    scenes are drawn directly with Pillow, then ffmpeg turns those stills into a
+    short 9:16 Reel.  Only one 720x1280 canvas is alive at a time.
+    """
     if Image is None or ImageDraw is None:
         raise RuntimeError("Pillow is not installed")
-    rows=[dict(r) for r in results if isinstance(r,dict) and str(r.get("grade") or "") in {"A","B","C"}]
+
+    W, H = 720, 1280
+    navy = (5, 37, 67)
+    deep = (8, 54, 92)
+    yellow = (255, 211, 36)
+    green = (22, 142, 83)
+    amber = (220, 153, 12)
+    red = (205, 62, 62)
+    white = (255, 255, 255)
+    light = (239, 247, 251)
+    muted = (77, 96, 112)
+    grade_colors = {"A": green, "B": amber, "C": red}
+
+    os.makedirs(out_dir, exist_ok=True)
+    scene_paths: list[str] = []
+
+    def paste_logo(img, max_size=(180, 86), xy=(24, 18)):
+        if not logo_path or not os.path.exists(logo_path):
+            return
+        try:
+            with Image.open(logo_path) as src:
+                logo = src.convert("RGBA")
+                logo.thumbnail(max_size)
+                img.paste(logo, xy, logo)
+        except Exception:
+            pass
+
+    def save_scene(img, name: str) -> str:
+        path = os.path.join(out_dir, name)
+        img.save(path, format="JPEG", quality=90, optimize=True, progressive=False)
+        img.close()
+        scene_paths.append(path)
+        return path
+
+    # Scene 1: hero + live ABC counts.  Keep the A/B/C visual identity explicit.
+    img = Image.new("RGB", (W, H), light)
+    d = ImageDraw.Draw(img, "RGBA")
+    d.rectangle((0, 0, W, 220), fill=white)
+    paste_logo(img)
+    d.text((24, 106), "まったく新しい登山天気ツール", font=_load_font(23), fill=amber)
+    d.text((24, 142), "日本三百名山 全国分析", font=_load_font(42), fill=deep)
+    d.text((24, 190), f"{target.month}/{target.day}  明日の登山コンディション", font=_load_font(22), fill=green)
+
+    # Main promise card.
+    d.rounded_rectangle((24, 256, 696, 482), radius=30, fill=navy)
+    d.text((50, 280), "明日の", font=_load_font(72), fill=yellow)
+    d.text((52, 370), "全国コンディションを一目で。", font=_load_font(30), fill=white)
+    d.rounded_rectangle((500, 296, 660, 410), radius=54, fill=yellow)
+    d.text((535, 315), "全部", font=_load_font(28), fill=navy)
+    d.text((523, 355), "無料！", font=_load_font(34), fill=navy)
+
+    # Grade chips.
+    x0 = 24
+    for idx, grade in enumerate("ABC"):
+        x = x0 + idx * 228
+        c = grade_colors[grade]
+        d.rounded_rectangle((x, 530, x + 208, 695), radius=24, fill=white, outline=c, width=4)
+        d.ellipse((x + 16, 550, x + 86, 620), fill=c)
+        d.text((x + 39, 558), grade, font=_load_font(34), fill=white)
+        d.text((x + 104, 544), str(counts.get(grade, 0)), font=_load_font(48), fill=c)
+        d.text((x + 106, 606), "座", font=_load_font(20), fill=muted)
+        label = {"A": "好条件", "B": "注意あり", "C": "厳しい"}[grade]
+        d.text((x + 18, 646), label, font=_load_font(22), fill=muted)
+
+    # Mini map with ABC markers.
+    map_img = _render_japan_map(rows, 672, 430)
+    img.paste(map_img, (24, 742))
+    map_img.close()
+    d.rounded_rectangle((24, 1188, 696, 1248), radius=26, fill=white)
+    d.text((102, 1202), "山ごとの時間帯・風・雨・気温はトラテンへ", font=_fit_text(d, "山ごとの時間帯・風・雨・気温はトラテンへ", 560, 24, 18), fill=deep)
+    save_scene(img, "scene-hero.jpg")
+
+    # Scene 2: map focus.  The ABC markers are the visual anchor.
+    img = Image.new("RGB", (W, H), (222, 240, 248))
+    d = ImageDraw.Draw(img, "RGBA")
+    d.rectangle((0, 0, W, 178), fill=white)
+    paste_logo(img, max_size=(150, 70), xy=(22, 12))
+    d.text((22, 88), "日本三百名山 全国マップ", font=_load_font(39), fill=deep)
+    d.text((22, 136), f"{target.month}/{target.day}  A / B / C を全国で比較", font=_load_font(22), fill=muted)
+    map_img = _render_japan_map(rows, 720, 865)
+    img.paste(map_img, (0, 178))
+    map_img.close()
+    d.rectangle((0, 1043, W, H), fill=(255, 255, 255, 245))
+    for idx, grade in enumerate("ABC"):
+        x = 28 + idx * 226
+        c = grade_colors[grade]
+        d.ellipse((x, 1070, x + 70, 1140), fill=c)
+        d.text((x + 23, 1079), grade, font=_load_font(34), fill=white)
+        d.text((x + 82, 1068), str(counts.get(grade, 0)), font=_load_font(44), fill=c)
+        d.text((x + 85, 1122), "座", font=_load_font(19), fill=muted)
+    d.text((28, 1190), "地点ごとの判定を、登山前の比較材料に。", font=_load_font(27), fill=deep)
+    d.text((28, 1230), "※判定は登山可否を保証するものではありません", font=_load_font(17), fill=muted)
+    save_scene(img, "scene-map.jpg")
+
+    # Scene 3: feature summary / CTA.
+    img = Image.new("RGB", (W, H), navy)
+    d = ImageDraw.Draw(img, "RGBA")
+    d.text((34, 34), "まったく新しい登山天気ツール", font=_load_font(25), fill=yellow)
+    d.text((34, 76), "トラテンでできること", font=_load_font(45), fill=white)
+    d.rounded_rectangle((236, 148, 484, 212), radius=30, fill=yellow)
+    d.text((295, 161), "全部無料！", font=_load_font(27), fill=navy)
+    items = [
+        ("全国分析", "三百名山を2週間先まで"),
+        ("自分専用天気予報", "通過ポイントを入れてルート分析"),
+        ("登山判断サポート", "時間帯別の風・雨・気温・視界"),
+        ("登山ポータル", "登山口・ライブカメラ・山小屋・水場"),
+    ]
+    y = 246
+    for k, (ttl, desc) in enumerate(items, 1):
+        d.rounded_rectangle((34, y, 686, y + 154), radius=24, fill=(255, 255, 255, 242))
+        d.ellipse((54, y + 38, 112, y + 96), fill=green)
+        d.text((75, y + 45), str(k), font=_load_font(24), fill=white)
+        d.text((132, y + 18), ttl, font=_load_font(29), fill=deep)
+        d.text((132, y + 72), desc, font=_fit_text(d, desc, 510, 22, 17), fill=muted)
+        y += 170
+    d.text((34, 952), "登る前に、トラテン。", font=_load_font(42), fill=yellow)
+    d.rounded_rectangle((34, 1030, 686, 1110), radius=38, fill=white)
+    d.text((155, 1048), "otenki.onrender.com", font=_load_font(27), fill=green)
+    d.text((34, 1160), "明日の山選びから、ルート上の時間帯予報まで。", font=_fit_text(d, "明日の山選びから、ルート上の時間帯予報まで。", 650, 25, 18), fill=(224, 238, 246))
+    save_scene(img, "scene-features.jpg")
+    return scene_paths
+
+
+def render_national_reel(date_text: str, results: list[dict[str, Any]], *, logo_path: str | None = None) -> str:
+    """Render a compact 9:16 Reel without Playwright/Chromium (V1.5.96)."""
+    if Image is None or ImageDraw is None:
+        raise RuntimeError("Pillow is not installed")
+    rows = [dict(r) for r in results if isinstance(r, dict) and str(r.get("grade") or "") in {"A", "B", "C"}]
     if len(rows) < INSTAGRAM_MIN_NATIONAL_RESULTS:
         raise RuntimeError(f"national reel requires at least {INSTAGRAM_MIN_NATIONAL_RESULTS} results, got {len(rows)}")
-    target=date.fromisoformat(date_text)
-    counts={g:sum(1 for r in rows if r.get("grade")==g) for g in "ABC"}
-    outdir=os.path.join(tempfile.gettempdir(),"traten-instagram-reels-v1587")
-    os.makedirs(outdir,exist_ok=True)
-    out=os.path.join(outdir,f"traten-{date_text}-v1587.mp4")
-    if os.path.exists(out) and os.path.getsize(out)>100000:
+
+    target = date.fromisoformat(date_text)
+    counts = {g: sum(1 for r in rows if r.get("grade") == g) for g in "ABC"}
+    outdir = os.path.join(tempfile.gettempdir(), "traten-instagram-reels-v1596")
+    os.makedirs(outdir, exist_ok=True)
+    out = os.path.join(outdir, f"traten-{date_text}-v1596.mp4")
+    if os.path.exists(out) and os.path.getsize(out) > 100000:
         return out
-    work=os.path.join(outdir,f"work-{date_text}-{os.getpid()}")
-    os.makedirs(work,exist_ok=True)
+
+    work = os.path.join(outdir, f"work-{date_text}-{os.getpid()}")
+    os.makedirs(work, exist_ok=True)
     try:
-        base=os.path.dirname(__file__)
-        template_path=os.path.join(base,"instagram-reel-template-v1587.html")
-        map_fallback=os.path.join(base,"instagram-japan-base.png")
-        map_path=map_fallback
-        # Optional: use the exact GSI standard tiles used by the site when the Render environment permits fast tile access.
-        # Default stays on the bundled Japan map so Reel generation never stalls on external tile requests.
-        if os.environ.get("INSTAGRAM_REEL_USE_LIVE_GSI","0").strip().lower() in {"1","true","yes","on"}:
-            candidate=os.path.join(work,"gsi-japan-map.png")
-            try:
-                _render_gsi_japan_background(candidate,1080,1590)
-                map_path=candidate
-            except Exception:
-                map_path=map_fallback
-        if not logo_path:
-            logo_path=os.path.join(base,"traten-logo.png")
-        if not os.path.exists(template_path):
-            raise RuntimeError("instagram-reel-template-v1587.html is missing")
-        if not os.path.exists(map_path):
-            raise RuntimeError("Japan map rendering failed")
-        if not logo_path or not os.path.exists(logo_path):
-            raise RuntimeError("traten-logo.png is missing")
-        font_path=""
-        for candidate in _font_candidates():
-            if candidate and os.path.exists(candidate):
-                font_path=candidate; break
-        from instagram_reel_playwright import render_scenes
-        scenes=render_scenes(
-            template_path=template_path,
-            map_path=map_path,
-            logo_path=logo_path,
-            font_path=font_path,
-            date_short=f"{target.month}/{target.day}",
-            counts=counts,
+        scenes = _render_reel_scenes_pillow(
             rows=rows,
+            counts=counts,
+            target=target,
+            logo_path=logo_path,
             out_dir=work,
         )
-        if len(scenes)!=3:
-            raise RuntimeError(f"Playwright renderer returned {len(scenes)} scenes")
-        W,H=1080,1920
-        fps=INSTAGRAM_REEL_FPS
-        sec=float(INSTAGRAM_REEL_SECONDS)
-        # The approved mock itself is the source of truth. We keep each Playwright scene pixel-stable
-        # and use short hard cuts; this prevents browser/Pillow re-layout drift.
-        d0=max(2.2,sec*0.40); d1=max(1.4,sec*0.25); d2=max(1.8,sec-d0-d1)
-        wav=os.path.join(work,"bgm.wav"); _write_original_bgm(wav,int(math.ceil(sec)))
-        concat_path=os.path.join(work,"scenes.txt")
+        if len(scenes) != 3:
+            raise RuntimeError(f"Pillow renderer returned {len(scenes)} scenes")
+
+        # Keep encoding deliberately small-memory for Render Free (512 MB).
+        fps = min(12, INSTAGRAM_REEL_FPS)
+        sec = float(INSTAGRAM_REEL_SECONDS)
+        d0 = max(2.2, sec * 0.40)
+        d1 = max(1.4, sec * 0.25)
+        d2 = max(1.8, sec - d0 - d1)
+        wav = os.path.join(work, "bgm.wav")
+        _write_original_bgm(wav, int(math.ceil(sec)))
+        concat_path = os.path.join(work, "scenes.txt")
+
         def qpath(x: str) -> str:
             return x.replace("'", "'\\''")
-        with open(concat_path,"w",encoding="utf-8") as f:
+
+        with open(concat_path, "w", encoding="utf-8") as f:
             f.write(f"file '{qpath(scenes[0])}'\nduration {d0:.3f}\n")
             f.write(f"file '{qpath(scenes[1])}'\nduration {d1:.3f}\n")
             f.write(f"file '{qpath(scenes[2])}'\nduration {d2:.3f}\n")
-            # concat demuxer needs the final still repeated for its duration to be honored.
             f.write(f"file '{qpath(scenes[2])}'\n")
+
         import imageio_ffmpeg
-        ffmpeg=imageio_ffmpeg.get_ffmpeg_exe()
-        tmp=out+f".{os.getpid()}.tmp.mp4"
-        cmd=[ffmpeg,"-y","-f","concat","-safe","0","-i",concat_path,"-i",wav,
-             "-vf",f"fps={fps},scale={W}:{H},format=yuv420p","-map","0:v:0","-map","1:a:0",
-             "-c:v","libx264","-profile:v","high","-level","4.1","-crf","18","-pix_fmt","yuv420p",
-             "-c:a","aac","-b:a","160k","-t",f"{sec:.3f}","-movflags","+faststart",tmp]
-        subprocess.run(cmd,check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=120)
-        os.replace(tmp,out)
+        ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
+        tmp = out + f".{os.getpid()}.tmp.mp4"
+        cmd = [
+            ffmpeg, "-y", "-f", "concat", "-safe", "0", "-i", concat_path, "-i", wav,
+            "-vf", f"fps={fps},scale=720:1280,format=yuv420p",
+            "-map", "0:v:0", "-map", "1:a:0",
+            "-c:v", "libx264", "-preset", "ultrafast", "-tune", "stillimage",
+            "-crf", "23", "-pix_fmt", "yuv420p", "-threads", "1",
+            "-c:a", "aac", "-b:a", "128k", "-t", f"{sec:.3f}",
+            "-movflags", "+faststart", tmp,
+        ]
+        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120)
+        os.replace(tmp, out)
         return out
     finally:
-        shutil.rmtree(work,ignore_errors=True)
+        shutil.rmtree(work, ignore_errors=True)
+        try:
+            import gc
+            gc.collect()
+        except Exception:
+            pass
 
 def caption_for(date_text: str, counts: dict[str, int]) -> str:
     target = date.fromisoformat(date_text)

@@ -37,9 +37,8 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-# V1.5.95: keep Playwright browser install/runtime lookup on one persistent deploy path.
-os.environ.setdefault("PLAYWRIGHT_BROWSERS_PATH", os.path.join(BASE, ".playwright-browsers"))
-APP_VERSION = "1.5.95"
+# V1.5.96: Reel rendering is Pillow + ffmpeg only; no browser process at runtime.
+APP_VERSION = "1.5.96"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -121,16 +120,8 @@ NOAA_GFS_FILTER = os.environ.get(
 NOAA_GFS_TIMEOUT = int(os.environ.get("NOAA_GFS_TIMEOUT", "35"))
 NOAA_GFS_CACHE_TTL = int(os.environ.get("NOAA_GFS_CACHE_TTL", "1800"))
 
-# V1.5.95: install Chromium during process startup, not inside the Reel HTTP request.
-PLAYWRIGHT_STARTUP_STATUS = {"ok": False, "error": "not attempted"}
-try:
-    from instagram_reel_playwright import ensure_browser_installed
-    _pw_exe = ensure_browser_installed()
-    PLAYWRIGHT_STARTUP_STATUS = {"ok": bool(_pw_exe), "executable": _pw_exe or ""}
-    print(f"[playwright] startup ready: {_pw_exe}", flush=True)
-except Exception as _pw_exc:
-    PLAYWRIGHT_STARTUP_STATUS = {"ok": False, "error": str(_pw_exc)[:1000]}
-    print(f"[playwright] startup install failed: {_pw_exc}", flush=True)
+# V1.5.96: no Playwright/Chromium startup.  This keeps Render Free below the 512 MB cap.
+REEL_RENDERER_STATUS = {"engine": "pillow+ffmpeg", "browser": False, "memoryProfile": "low"}
 
 app = Flask(__name__, static_folder=None)
 
@@ -2653,12 +2644,7 @@ def instagram_status():
     status["tomorrowFreshCount"] = len(_instagram_load_fresh_100_results(target))
     if instagram_bot.configured():
         status["previewImageUrl"] = instagram_bot.image_url(target)
-    try:
-        from instagram_reel_playwright import renderer_status
-        status["reelRenderer"] = renderer_status()
-        status["playwrightStartup"] = PLAYWRIGHT_STARTUP_STATUS
-    except Exception as exc:
-        status["reelRenderer"] = {"engine":"playwright","error":str(exc)[:300]}
+    status["reelRenderer"] = dict(REEL_RENDERER_STATUS)
     return jsonify(status)
 
 
