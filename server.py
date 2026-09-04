@@ -37,8 +37,8 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-# V1.5.96: Reel rendering is Pillow + ffmpeg only; no browser process at runtime.
-APP_VERSION = "1.5.96"
+# V1.5.97: Reel rendering stays Pillow + ffmpeg, with refreshed visual design.
+APP_VERSION = "1.5.97"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -120,7 +120,7 @@ NOAA_GFS_FILTER = os.environ.get(
 NOAA_GFS_TIMEOUT = int(os.environ.get("NOAA_GFS_TIMEOUT", "35"))
 NOAA_GFS_CACHE_TTL = int(os.environ.get("NOAA_GFS_CACHE_TTL", "1800"))
 
-# V1.5.96: no Playwright/Chromium startup.  This keeps Render Free below the 512 MB cap.
+# V1.5.97: still no Playwright/Chromium startup.  Keep Render Free below the 512 MB cap.
 REEL_RENDERER_STATUS = {"engine": "pillow+ffmpeg", "browser": False, "memoryProfile": "low"}
 
 app = Flask(__name__, static_folder=None)
