@@ -1,3 +1,15 @@
+# V1.5.86
+西日本（三百名山）通過ポイント増設PJ 第1弾。詳細は `RELEASE_AUDIT_V1586.md` を参照。
+
+V1.5.85: Priority-C 30座を一括通過ポイント拡充。伊吹山は2026年の麓側入山禁止を反映し代表ルートを修正。
+
+# V1.5.84
+
+Priority-B route waypoint enrichment complete: 磐梯山 / 雨飾山 / 男体山 / 聖岳.
+
+
+# V1.5.83
+Priority-B representative route enrichment batch 2. See README_V1583.md and RELEASE_AUDIT_V1583.md.
 # V1.5.79
 
 - 日本百名山の代表コース通過ポイント密度を100座一括監査。
