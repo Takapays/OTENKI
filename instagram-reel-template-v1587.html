@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+@font-face{font-family:TratenJP;src:url('__FONT_DATA_URI__') format('truetype');font-weight:100 900;font-style:normal;font-display:block}
+*{box-sizing:border-box}
+html,body{margin:0;width:1080px;height:1920px;overflow:hidden;background:#82cff6;font-family:TratenJP,'Noto Sans JP',sans-serif;color:#fff}
+body{position:relative}
+.scene{position:absolute;inset:0;overflow:hidden;background:linear-gradient(160deg,#eaf8ff 0%,#8bd4fb 46%,#3fa9e4 100%)}
+.scene::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 76% 28%,rgba(255,255,255,.35),transparent 24%),linear-gradient(180deg,rgba(255,255,255,.12),transparent 30%,rgba(3,45,86,.12) 100%)}
+.ray{position:absolute;height:2px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.75),transparent);transform:rotate(-19deg);filter:blur(.2px);opacity:.72}
+#mapWrap{position:absolute;right:-140px;top:0;width:880px;height:1590px;filter:drop-shadow(0 18px 22px rgba(0,61,101,.16));z-index:2}
+#mapBase{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;opacity:.98}
+.marker{position:absolute;width:74px;height:74px;border-radius:50%;transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:42px;color:white;border:7px solid rgba(255,255,255,.95);box-shadow:0 5px 14px rgba(0,0,0,.24),0 0 15px rgba(255,255,255,.88);z-index:3}
+.marker.A{background:#118a58}.marker.B{background:#dfaa13}.marker.C{background:#d23135}
+.logo{position:absolute;left:38px;top:26px;width:270px;height:122px;object-fit:contain;object-position:left center;z-index:8;filter:drop-shadow(0 2px 3px rgba(255,255,255,.8))}
+.datePill{position:absolute;left:-16px;top:166px;width:430px;height:154px;border-radius:0 76px 76px 0;background:linear-gradient(180deg,#17965d,#047147);box-shadow:0 0 0 5px rgba(255,255,255,.38),0 8px 18px rgba(0,74,53,.35);z-index:8;padding:15px 34px}
+.datePill .date{font-size:73px;line-height:1;font-weight:900;letter-spacing:1px}.datePill .sub{font-size:29px;font-weight:700;margin-top:9px}
+.heroTitle{position:absolute;left:-26px;top:360px;width:690px;z-index:7;text-shadow:0 7px 10px rgba(0,38,88,.5)}
+.heroTitle .t1{font-size:100px;line-height:.98;font-weight:950;letter-spacing:-5px;white-space:nowrap}.heroTitle .t2{font-size:100px;line-height:.98;font-weight:950;letter-spacing:-5px;white-space:nowrap}.heroTitle .yellow{color:#ffe41c}
+.tomorrowCard{position:absolute;left:130px;top:575px;width:520px;height:176px;background:rgba(4,40,76,.88);border-radius:24px;z-index:9;box-shadow:0 9px 18px rgba(0,45,83,.24);padding:10px 22px 14px}
+.tomorrowCard .big{font-size:84px;line-height:1;color:#ffe21e;font-weight:950}.tomorrowCard .small{font-size:34px;font-weight:800;margin-top:-2px}.tomorrowCard .small2{font-size:22px;color:#dcefff;margin-top:2px}
+.counts{position:absolute;left:-18px;top:854px;width:668px;height:248px;background:rgba(255,255,255,.93);border-radius:0 30px 30px 0;z-index:9;display:flex;align-items:center;padding:24px 24px 24px 42px;box-shadow:0 10px 22px rgba(0,53,91,.22);color:#12334d}
+.countBox{width:194px;text-align:center;border-right:1px solid rgba(15,59,85,.22)}.countBox:last-child{border-right:0}.countBadge{width:70px;height:70px;margin:0 auto 5px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:950;font-size:40px}.countBox.A .countBadge{background:#118a58}.countBox.B .countBadge{background:#dfaa13}.countBox.C .countBadge{background:#d23135}.countNum{font-size:54px;font-weight:950;line-height:1}.countBox.A .countNum{color:#118a58}.countBox.B .countNum{color:#c89400}.countBox.C .countNum{color:#d23135}.countLabel{font-size:23px;font-weight:900;margin-top:4px}.countBox.A .countLabel{color:#118a58}.countBox.B .countLabel{color:#b78500}.countBox.C .countLabel{color:#c72e32}
+.slogan{position:absolute;right:-55px;top:1290px;width:670px;height:180px;background:#082b59;transform:skewX(-12deg);z-index:10;box-shadow:0 9px 19px rgba(0,30,65,.35);border-top:3px solid rgba(255,255,255,.7);border-bottom:3px solid rgba(255,255,255,.35)}
+.slogan>div{transform:skewX(12deg);padding:26px 95px 0 50px;font-size:42px;line-height:1.35;font-weight:900;text-align:center}.slogan .yellow{color:#ffe221;font-size:52px}
+.cta{position:absolute;left:88px;bottom:72px;width:904px;height:235px;background:rgba(255,255,255,.95);border-radius:32px;z-index:11;box-shadow:0 11px 22px rgba(0,46,86,.3);color:#092d56;padding:32px 38px 26px 185px}.cta .phone{position:absolute;left:45px;top:28px;width:90px;height:142px;border:8px solid #092d56;border-radius:17px}.cta .mountain{position:absolute;left:65px;top:91px;width:48px;height:38px;border-left:8px solid #092d56;border-bottom:8px solid #092d56;transform:rotate(45deg)}.cta .main{font-size:45px;font-weight:950;white-space:nowrap}.cta .url{display:inline-block;margin-top:20px;background:#0b8050;color:#fff;border-radius:35px;padding:11px 39px;font-size:31px;font-weight:850}.cta .arrow{position:absolute;right:48px;top:56px;width:64px;height:64px;border-radius:50%;background:#0b8050;color:white;font-size:42px;font-weight:900;display:flex;align-items:center;justify-content:center}
+.mapScene .mapTitle{position:absolute;left:48px;top:42px;z-index:8;font-size:46px;color:#092d56;font-weight:950}.mapScene .mapTitle .yellow{display:block;color:#d8a600;font-size:80px;margin-top:4px}.mapScene #mapWrap{right:0;top:190px;width:1080px;height:1470px}.mapScene .counts{top:auto;bottom:90px;left:92px;border-radius:30px;width:896px;justify-content:center;padding-left:28px}.mapScene .countBox{width:270px}.mapScene .hint{position:absolute;z-index:9;top:1430px;left:130px;background:rgba(4,40,76,.92);padding:18px 30px;border-radius:22px;font-size:31px;font-weight:900}
+.featureScene{background:radial-gradient(circle at 78% 13%,rgba(22,135,99,.28),transparent 28%),linear-gradient(180deg,#092947 0%,#061c35 100%)}.featureScene .featureHead{position:absolute;left:58px;top:60px;font-size:34px;color:#ffe31b;font-weight:900;z-index:4}.featureScene h1{position:absolute;left:58px;top:105px;margin:0;font-size:74px;letter-spacing:-3px;z-index:4}.freeBadge{position:absolute;left:340px;top:250px;width:400px;height:96px;border-radius:48px;background:#ffe01c;color:#082846;font-size:43px;font-weight:950;display:flex;align-items:center;justify-content:center;z-index:4;box-shadow:0 8px 18px rgba(0,0,0,.25)}.featureList{position:absolute;left:54px;right:54px;top:390px;z-index:4}.featureItem{height:238px;margin-bottom:27px;background:rgba(255,255,255,.97);border-radius:31px;color:#102f4e;display:flex;align-items:center;padding:32px 38px;box-shadow:0 7px 18px rgba(0,0,0,.16)}.num{width:88px;height:88px;border-radius:50%;background:#0f8757;color:#fff;font-size:42px;font-weight:950;display:flex;align-items:center;justify-content:center;flex:0 0 auto;margin-right:30px}.featureText .ttl{font-size:43px;font-weight:950;line-height:1.12}.featureText .desc{font-size:27px;color:#52677b;margin-top:14px;font-weight:700;line-height:1.35}.featureFoot{position:absolute;left:58px;right:58px;bottom:82px;z-index:4}.featureFoot .s1{font-size:60px;font-weight:950;color:#ffe11e}.featureFoot .url2{margin-top:34px;height:90px;border-radius:45px;background:#fff;color:#0a774b;display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:900}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const DATA=__TRATEN_REEL_DATA__;
+const MAP='__MAP_DATA_URI__'; const LOGO='__LOGO_DATA_URI__';
+const north=46.2,south=29.0,west=127.0,east=146.8;
+const pos=(lat,lon)=>({x:(lon-west)/(east-west)*100,y:(north-lat)/(north-south)*100});
+function markers(){return (DATA.rows||[]).filter(r=>['A','B','C'].includes(r.grade)).map(r=>{const p=pos(+r.lat,+r.lon);return `<div class="marker ${r.grade}" style="left:${p.x}%;top:${p.y}%">${r.grade}</div>`}).join('')}
+function rays(){let s='';for(let i=0;i<14;i++){s+=`<div class="ray" style="width:${360+i*34}px;left:${-120+i*92}px;top:${90+i*118}px"></div>`}return s}
+function countBoxes(){return ['A','B','C'].map(g=>`<div class="countBox ${g}"><div class="countBadge">${g}</div><div class="countNum">${DATA.counts[g]||0}</div><div class="countLabel">${g==='A'?'絶好':g==='B'?'やや注意':'注意'}</div></div>`).join('')}
+function mapBlock(){return `<div id="mapWrap"><img id="mapBase" src="${MAP}">${markers()}</div>`}
+function hero(){return `<div class="scene heroScene">${rays()}<img class="logo" src="${LOGO}"><div class="datePill"><div class="date">${DATA.dateShort}</div><div class="sub">最新データ更新</div></div>${mapBlock()}<div class="heroTitle"><div class="t1">日本三百名山</div><div class="t2">全国<span class="yellow">分析</span></div></div><div class="tomorrowCard"><div class="big">明日の</div><div class="small">登山コンディション</div><div class="small2">全国マップでチェック</div></div><div class="counts">${countBoxes()}</div><div class="slogan"><div>三百名山の“今”が<br><span class="yellow">一目</span>でわかる！</div></div><div class="cta"><div class="phone"></div><div class="mountain"></div><div class="main">詳しくはトラテン</div><div class="url">otenki.onrender.com</div><div class="arrow">›</div></div></div>`}
+function mapScene(){return `<div class="scene mapScene">${rays()}<div class="mapTitle">日本三百名山 全国分析<span class="yellow">明日の全国コンディション</span></div>${mapBlock()}<div class="hint">A / B / C を全国マップで一目チェック</div><div class="counts">${countBoxes()}</div></div>`}
+function features(){let items=[['全国分析','三百名山を2週間先まで'],['自分専用天気予報','通過ポイントを入れたらルート分析'],['登山判断サポート','時間帯別の風・雨・気温・視界'],['登山ポータル','登山口アクセス・ライブカメラ・山小屋HP・水場']];return `<div class="scene featureScene"><div class="featureHead">まったく新しい登山天気ツール</div><h1>トラテンでできること</h1><div class="freeBadge">全部無料！</div><div class="featureList">${items.map((it,i)=>`<div class="featureItem"><div class="num">${i+1}</div><div class="featureText"><div class="ttl">${it[0]}</div><div class="desc">${it[1]}</div></div></div>`).join('')}</div><div class="featureFoot"><div class="s1">登る前に、トラテン。</div><div class="url2">otenki.onrender.com</div></div></div>`}
+root.innerHTML=DATA.scene==='features'?features():DATA.scene==='map'?mapScene():hero();
+</script>
+</body>
+</html>

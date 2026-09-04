@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.5.86"
+APP_VERSION = "1.5.87"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -2428,7 +2428,7 @@ video{display:block;width:min(100%,540px);height:auto;max-height:76vh;border-rad
 </style>
 </head><body><main class="wrap">
 <h1>トラテン Instagram 管理</h1>
-<div class="sub">V1.5.85 / 接続確認・静止画/リールプレビュー・手動投稿</div>
+<div class="sub">V1.5.87 / 接続確認・モック準拠リールプレビュー・手動投稿</div>
 
 <section class="card">
 <label>管理トークン（NATIONAL_CACHE_REFRESH_TOKEN）</label>
@@ -2510,7 +2510,7 @@ async function previewReelVideo(){
     const url=r.previewReelUrl+'&t='+Date.now();
     v.hidden=false;v.controls=true;v.src=url;
     $('reelOpenLink').href=url;$('reelOpenLink').style.display='inline';$('reelControls').hidden=false;
-    v.onerror=()=>{ $('previewMsg').textContent='リール動画の生成または読込に失敗しました。別タブで開く、またはRenderログの instagram_national_reel_failed を確認してください。'; $('reelPlayBtn').disabled=true; };
+    v.onerror=()=>{ $('previewMsg').textContent='リール動画の生成または読込に失敗しました。状態確認の reelRenderer と Renderログを確認してください。'; $('reelPlayBtn').disabled=true; };
     v.onloadedmetadata=()=>{ $('previewMsg').textContent=`リール生成完了: ${r.date} / ${r.count}座 / ${Math.round(v.duration||0)}秒。下の「▶ リールを再生」を押してください。`; };
     v.oncanplay=()=>{ $('reelPlayBtn').disabled=false; $('previewMsg').textContent=`リール再生準備完了: ${r.date} / ${r.count}座 / ${Math.round(v.duration||0)}秒`; };
     v.onwaiting=()=>{ $('previewMsg').textContent='動画データを読み込み中です…'; };
@@ -2628,6 +2628,11 @@ def instagram_status():
     status["tomorrowFreshCount"] = len(_instagram_load_fresh_100_results(target))
     if instagram_bot.configured():
         status["previewImageUrl"] = instagram_bot.image_url(target)
+    try:
+        from instagram_reel_playwright import renderer_status
+        status["reelRenderer"] = renderer_status()
+    except Exception as exc:
+        status["reelRenderer"] = {"engine":"playwright","error":str(exc)[:300]}
     return jsonify(status)
 
 
