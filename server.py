@@ -2645,7 +2645,7 @@ def instagram_national_reel(date_text: str):
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
-        response.headers["X-Traten-Reel-Version"] = "15116"
+        response.headers["X-Traten-Reel-Version"] = "15117"
         return response
     except Exception as exc:
         app.logger.exception("instagram_national_reel_failed date=%s", date_text)

@@ -68,7 +68,7 @@ def image_url(date_text: str) -> str:
     return f"{PUBLIC_BASE_URL}/api/instagram/national-image/{urllib.parse.quote(date_text)}?sig={urllib.parse.quote(sig)}"
 
 
-REEL_ASSET_VERSION = "15116"
+REEL_ASSET_VERSION = "15117"
 
 def reel_signature(date_text: str) -> str:
     if not image_secret():
@@ -341,16 +341,19 @@ def _render_gsi_japan_background(path: str, width: int = 1080, height: int = 159
         raise
 
 def _write_original_bgm(path: str, seconds: int) -> None:
+    """Write a bright, breezy original jingle for the mountain forecast Reel."""
     sr = 44100
-    bpm = 112.0
+    bpm = 120.0
     beat = 60.0 / bpm
+    # C - G - Am - F: a clean, optimistic progression.  Short decays emulate
+    # an acoustic/ukulele pluck instead of the former sustained synth pad.
     chords = [
-        (174.61,220.00,261.63,329.63),
-        (220.00,261.63,329.63,392.00),
-        (261.63,329.63,392.00,493.88),
-        (196.00,246.94,293.66,329.63),
+        (261.63, 329.63, 392.00, 523.25),
+        (196.00, 246.94, 293.66, 392.00),
+        (220.00, 261.63, 329.63, 440.00),
+        (174.61, 220.00, 261.63, 349.23),
     ]
-    melody = (659.25,783.99,880.00,783.99,659.25,587.33,523.25,587.33)
+    melody = (659.25, 783.99, 880.00, 783.99, 659.25, 587.33, 659.25, 783.99)
     total = int(sr * seconds)
     with wave.open(path, "wb") as wf:
         wf.setnchannels(2); wf.setsampwidth(2); wf.setframerate(sr)
@@ -358,22 +361,34 @@ def _write_original_bgm(path: str, seconds: int) -> None:
         for i in range(total):
             t=i/sr
             ci=min(3,int(t/(seconds/4.0)))
-            local=t-ci*(seconds/4.0)
-            v=0.0
-            for f in chords[ci]:
-                v += 0.035*math.sin(2*math.pi*f*local) + 0.010*math.sin(2*math.pi*f*1.004*local)
-            # soft electronic pulse and pluck
-            pos=t%beat
-            if pos<0.16:
-                v += 0.075*math.sin(2*math.pi*(55+45*math.exp(-18*pos))*pos)*math.exp(-20*pos)
-            step=int(t/(beat/2.0))
-            pl=t-step*(beat/2.0)
-            if pl<0.16:
-                f=melody[step%len(melody)]
-                v += 0.032*math.sin(2*math.pi*f*pl)*math.exp(-12*pl)
+            chord=chords[ci]
+
+            # Alternating acoustic-style arpeggio on eighth notes.
+            arp_step=int(t/(beat/2.0)); arp_t=t-arp_step*(beat/2.0)
+            af=chord[(0,2,1,3)[arp_step%4]]
+            arp_env=math.exp(-7.2*arp_t)
+            pluck=(math.sin(2*math.pi*af*arp_t)
+                   +0.34*math.sin(4*math.pi*af*arp_t)
+                   +0.12*math.sin(6*math.pi*af*arp_t))
+
+            # A small bell-like top line gives an open-air, morning feel.
+            mel_step=int(t/beat); mel_t=t-mel_step*beat
+            mf=melody[mel_step%len(melody)]
+            mel_env=math.exp(-5.5*mel_t)
+            bell=(math.sin(2*math.pi*mf*mel_t)
+                  +0.28*math.sin(2*math.pi*mf*2.01*mel_t))
+
+            # Very light off-beat shaker; deterministic so every render matches.
+            shaker_t=(t+beat/2.0)%beat
+            shaker_env=math.exp(-34.0*shaker_t) if shaker_t<0.12 else 0.0
+            noise=math.sin(i*12.9898)*math.sin(i*78.233)
+            v=0.105*pluck*arp_env + 0.045*bell*mel_env + 0.018*noise*shaker_env
             fade=min(1.0,t/0.35,(seconds-t)/0.55)
             v=max(-0.75,min(0.75,v*fade))
-            left=int(v*32767); right=int(v*0.96*32767)
+            # Subtle stereo width without changing the melody.
+            width=0.025*pluck*arp_env*((-1) if arp_step%2 else 1)
+            left=int(max(-0.75,min(0.75,v+width))*32767)
+            right=int(max(-0.75,min(0.75,v-width))*32767)
             block.append(struct.pack('<hh',left,right))
             if len(block)>=4096:
                 wf.writeframes(b''.join(block)); block=[]
@@ -476,9 +491,9 @@ def render_national_reel(date_text: str, results: list[dict[str, Any]], *, logo_
 
     target = date.fromisoformat(date_text)
     counts = {g: sum(1 for r in rows if r.get("grade") == g) for g in "ABC"}
-    outdir = os.path.join(tempfile.gettempdir(), "traten-instagram-reels-v15116")
+    outdir = os.path.join(tempfile.gettempdir(), "traten-instagram-reels-v15117")
     os.makedirs(outdir, exist_ok=True)
-    out = os.path.join(outdir, f"traten-{date_text}-v15116.mp4")
+    out = os.path.join(outdir, f"traten-{date_text}-v15117.mp4")
     if os.path.exists(out) and os.path.getsize(out) > 100000:
         return out
 
