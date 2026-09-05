@@ -35,7 +35,7 @@ INSTAGRAM_SITE_URL = os.environ.get("INSTAGRAM_SITE_URL", "https://otenki.onrend
 INSTAGRAM_IMAGE_SECRET = os.environ.get("INSTAGRAM_IMAGE_SECRET", "").strip()
 INSTAGRAM_FONT_PATH = os.environ.get("INSTAGRAM_FONT_PATH", "").strip()
 INSTAGRAM_HTTP_TIMEOUT = max(5, min(60, int(os.environ.get("INSTAGRAM_HTTP_TIMEOUT", "25"))))
-INSTAGRAM_MIN_NATIONAL_RESULTS = max(1, min(100, int(os.environ.get("INSTAGRAM_MIN_NATIONAL_RESULTS", "98"))))
+INSTAGRAM_MIN_NATIONAL_RESULTS = max(1, min(300, int(os.environ.get("INSTAGRAM_MIN_NATIONAL_RESULTS", "294"))))
 INSTAGRAM_AUTO_MEDIA = (os.environ.get("INSTAGRAM_AUTO_MEDIA", "reel").strip().lower() or "reel")
 INSTAGRAM_REEL_FPS = max(8, min(20, int(os.environ.get("INSTAGRAM_REEL_FPS", "12"))))
 INSTAGRAM_REEL_SECONDS = max(6, min(12, int(os.environ.get("INSTAGRAM_REEL_SECONDS", "12"))))
@@ -68,7 +68,7 @@ def image_url(date_text: str) -> str:
     return f"{PUBLIC_BASE_URL}/api/instagram/national-image/{urllib.parse.quote(date_text)}?sig={urllib.parse.quote(sig)}"
 
 
-REEL_ASSET_VERSION = "15114"
+REEL_ASSET_VERSION = "15115"
 
 def reel_signature(date_text: str) -> str:
     if not image_secret():
@@ -429,8 +429,16 @@ def _render_reel_scenes_pillow(*, rows: list[dict[str, Any]], counts: dict[str, 
         candidates.append([x,y,grade])
 
     # Mild collision relaxation: preserve location, but keep labels readable in dense ranges.
+    # Three hundred labels cannot be read individually at Reel size. Keep the
+    # underlying counts based on every mountain, while selecting geographically
+    # distributed map markers (C then A then B) like the approved visual mock.
+    display_candidates=[]; occupied_cells=set()
+    for item in sorted(candidates,key=lambda p:({"C":0,"A":1,"B":2}[p[2]],p[1],p[0])):
+        cell=(int(item[0]//28),int(item[1]//32))
+        if cell in occupied_cells: continue
+        occupied_cells.add(cell); display_candidates.append(item)
     placed=[]
-    for x,y,grade in sorted(candidates,key=lambda p:({"C":0,"A":1,"B":2}[p[2]],p[1])):
+    for x,y,grade in display_candidates:
         best=(x,y)
         for ring in range(0,7):
             found=False
@@ -468,9 +476,9 @@ def render_national_reel(date_text: str, results: list[dict[str, Any]], *, logo_
 
     target = date.fromisoformat(date_text)
     counts = {g: sum(1 for r in rows if r.get("grade") == g) for g in "ABC"}
-    outdir = os.path.join(tempfile.gettempdir(), "traten-instagram-reels-v15114")
+    outdir = os.path.join(tempfile.gettempdir(), "traten-instagram-reels-v15115")
     os.makedirs(outdir, exist_ok=True)
-    out = os.path.join(outdir, f"traten-{date_text}-v15114.mp4")
+    out = os.path.join(outdir, f"traten-{date_text}-v15115.mp4")
     if os.path.exists(out) and os.path.getsize(out) > 100000:
         return out
 

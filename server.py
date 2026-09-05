@@ -1551,13 +1551,15 @@ def _national_nextday_date_text() -> str:
 
 
 def _instagram_load_fresh_100_results(date_text: str) -> list[dict[str, Any]]:
-    """Return fresh Hyakumeizan rows used by the Instagram bot.
+    """Return fresh Sanbyakumeizan rows used by the Instagram bot.
 
-    V1.5.68: allow the configured Instagram minimum (default 98) rather than
-    requiring all 100 rows. Stale rows are never used for social posts.
+    V1.5.115: the proactive catalog now contains 300 mountains. The former
+    ``len(points) == 100`` guard made every completed 300-row cache look empty,
+    causing a permanent HTTP 409. Allow the configured 98% minimum (294).
+    Stale rows are never used for social posts.
     """
     points = _national_load_100_points()
-    if len(points) != 100 or not _national_supabase_enabled():
+    if len(points) != 300 or not _national_supabase_enabled():
         return []
     fresh, _, _ = _national_supabase_read(date_text, points)
     ordered = [fresh[p["name"]] for p in points if p["name"] in fresh]
@@ -2632,7 +2634,7 @@ def instagram_national_reel(date_text: str):
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
-        response.headers["X-Traten-Reel-Version"] = "15114"
+        response.headers["X-Traten-Reel-Version"] = "15115"
         return response
     except Exception as exc:
         app.logger.exception("instagram_national_reel_failed date=%s", date_text)
