@@ -71,8 +71,8 @@
     ]
   }
   </script>
-    <link rel="stylesheet" href="styles.css?v=1.5.165">
-    <link rel="stylesheet" href="ui-v1.4.254.css?v=1.5.165">
+    <link rel="stylesheet" href="styles.css?v=1.5.167">
+    <link rel="stylesheet" href="ui-v1.4.254.css?v=1.5.167">
     <style>
       /* V1.4.250: mobile TOP explainer is intentionally moved to guide.html.
          Inline fallback prevents an old/missing override stylesheet from leaving it visible. */
@@ -98,7 +98,7 @@
     <div class="topbar-center">
       <h1>全国から探す。自分の山行を読む。</h1>
       <div class="topbar-badges">
-        <span data-app-version>V1.5.155</span>
+        <span data-app-version>V1.5.167</span>
         <span>日本三百名山 網羅</span>
         <span>5系統アラート</span>
         <span>全国一括簡易判定</span>
@@ -106,7 +106,7 @@
       </div>
     </div>
     <div class="mobile-topbar-copy">全国から探す。自分の山行を読む。</div>
-    <span class="mobile-topbar-version" data-app-version>V1.5.155</span>
+    <span class="mobile-topbar-version" data-app-version>V1.5.167</span>
     <div class="mobile-topbar-badges" aria-label="トラテン機能"><span>日本三百名山 網羅</span><span>5系統アラート</span><span>全国一括簡易判定</span><span>登山口アクセス情報</span></div>
     <nav class="topbar-nav topbar-resource-nav" aria-label="トラテン主要メニュー">
       <a class="topbar-nav-link trailhead" href="trailheads.html" aria-label="登山口一覧を開く"><span class="resource-nav-icon" aria-hidden="true">⛰</span><span class="resource-nav-copy"><b>登山口</b><small>アクセス情報</small></span></a>
@@ -262,7 +262,7 @@
           <span class="horizon-chip caution"><b>8〜15日先</b><small>ECMWF / GFS中心 △</small></span>
           <span class="horizon-chip out"><b>16日以降</b><small>予報対象外</small></span>
         </div>
-        <div class="forecast-horizon-note">※混雑時は予備モデルのみの分析となります</div>
+        <div class="forecast-horizon-note">※Open-Meteo混雑・障害時は MET Norway → NOAA GFS の順で自動切替します</div>
       </div>
 
       <div class="welcome-risk-grid">
@@ -465,7 +465,7 @@
 
 <footer>
   <div class="footer-brand"><strong>トラテン｜トラバース天気</strong></div>
-  <div class="footer-note">Weather via Open-Meteo。予報は登山の安全を保証しません。</div>
+  <div class="footer-note">Weather via Open-Meteo / MET Norway / NOAA GFS。予報は登山の安全を保証しません。</div>
   <div class="footer-guide-row">
     <a class="footer-guide-link" href="guide.html"><span>使い方</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5h11v11"/><path d="M19 5L8 16"/><path d="M16 19H5V8"/></svg></a>
     <a class="footer-guide-link footer-admin-link" href="/usage-dashboard"><span>管理画面</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg></a>
@@ -477,42 +477,43 @@
     </a>
   </div>
 </footer>
-<script src="app.js?v=1.5.165" defer></script>
-<script src="asama-route-v1578.js?v=1.5.165" defer></script>
-<script src="hyakumeizan-route-enrichment-v1579.js?v=1.5.165" defer></script>
-<script src="hyakumeizan-route-enrichment-v1580.js?v=1.5.165" defer></script>
-<script src="hyakumeizan-route-enrichment-v1581.js?v=1.5.165" defer></script>
-<script src="hyakumeizan-route-enrichment-v1582.js?v=1.5.165" defer></script>
-<script src="hyakumeizan-route-enrichment-v1583.js?v=1.5.165" defer></script>
-<script src="hyakumeizan-route-enrichment-v1584.js?v=1.5.165" defer></script>
-<script src="hyakumeizan-route-enrichment-v1585.js?v=1.5.165" defer></script>
-<script src="west-japan-route-enrichment-v1586.js?v=1.5.165" defer></script>
-<script src="west-japan-route-enrichment-v1588.js?v=1.5.165" defer></script>
-<script src="west-japan-route-enrichment-v1590.js?v=1.5.165" defer></script>
-<script src="west-japan-route-enrichment-v1591.js?v=1.5.165" defer></script>
-<script src="representative-route-enrichment-v15132.js?v=1.5.165" defer></script>
-<script src="representative-route-enrichment-v15134.js?v=1.5.165" defer></script>
-<script src="representative-route-cleanup-v15128.js?v=1.5.165" defer></script>
-<script src="representative-route-enrichment-v15145.js?v=1.5.165" defer></script>
-<script src="representative-route-enrichment-v15146.js?v=1.5.165" defer></script>
-<script src="representative-route-enrichment-v15147.js?v=1.5.165" defer></script>
-<script src="representative-route-enrichment-v15148.js?v=1.5.165" defer></script>
-<script src="representative-route-enrichment-v15149.js?v=1.5.165" defer></script>
-<script src="representative-route-enrichment-v15150.js?v=1.5.165" defer></script>
-<script src="representative-route-enrichment-v15151.js?v=1.5.165" defer></script>
-<script src="representative-route-enrichment-v15152.js?v=1.5.165" defer></script>
-<script src="representative-route-enrichment-v15153.js?v=1.5.165" defer></script>
-<script src="representative-route-enrichment-v15154.js?v=1.5.165" defer></script>
-<script src="representative-route-enrichment-v15155.js?v=1.5.165" defer></script>
-<script src="representative-route-enrichment-v15156.js?v=1.5.165" defer></script>
-<script src="representative-route-enrichment-v15157.js?v=1.5.165" defer></script>
-<script src="representative-route-enrichment-v15158.js?v=1.5.165" defer></script>
-<script src="representative-route-enrichment-v15159.js?v=1.5.165" defer></script>
-<script src="representative-route-enrichment-v15160.js?v=1.5.165" defer></script>
-<script src="representative-route-enrichment-v15161.js?v=1.5.165" defer></script>
-<script src="representative-route-enrichment-v15162.js?v=1.5.165" defer></script>
-<script src="representative-route-enrichment-v15163.js?v=1.5.165" defer></script>
-<script src="representative-route-enrichment-v15164.js?v=1.5.165" defer></script>
-<script src="representative-route-enrichment-v15165.js?v=1.5.165" defer></script>
+<script src="app.js?v=1.5.167" defer></script>
+<script src="weather-fallback-v15167.js?v=1.5.167" defer></script>
+<script src="asama-route-v1578.js?v=1.5.167" defer></script>
+<script src="hyakumeizan-route-enrichment-v1579.js?v=1.5.167" defer></script>
+<script src="hyakumeizan-route-enrichment-v1580.js?v=1.5.167" defer></script>
+<script src="hyakumeizan-route-enrichment-v1581.js?v=1.5.167" defer></script>
+<script src="hyakumeizan-route-enrichment-v1582.js?v=1.5.167" defer></script>
+<script src="hyakumeizan-route-enrichment-v1583.js?v=1.5.167" defer></script>
+<script src="hyakumeizan-route-enrichment-v1584.js?v=1.5.167" defer></script>
+<script src="hyakumeizan-route-enrichment-v1585.js?v=1.5.167" defer></script>
+<script src="west-japan-route-enrichment-v1586.js?v=1.5.167" defer></script>
+<script src="west-japan-route-enrichment-v1588.js?v=1.5.167" defer></script>
+<script src="west-japan-route-enrichment-v1590.js?v=1.5.167" defer></script>
+<script src="west-japan-route-enrichment-v1591.js?v=1.5.167" defer></script>
+<script src="representative-route-enrichment-v15132.js?v=1.5.167" defer></script>
+<script src="representative-route-enrichment-v15134.js?v=1.5.167" defer></script>
+<script src="representative-route-cleanup-v15128.js?v=1.5.167" defer></script>
+<script src="representative-route-enrichment-v15145.js?v=1.5.167" defer></script>
+<script src="representative-route-enrichment-v15146.js?v=1.5.167" defer></script>
+<script src="representative-route-enrichment-v15147.js?v=1.5.167" defer></script>
+<script src="representative-route-enrichment-v15148.js?v=1.5.167" defer></script>
+<script src="representative-route-enrichment-v15149.js?v=1.5.167" defer></script>
+<script src="representative-route-enrichment-v15150.js?v=1.5.167" defer></script>
+<script src="representative-route-enrichment-v15151.js?v=1.5.167" defer></script>
+<script src="representative-route-enrichment-v15152.js?v=1.5.167" defer></script>
+<script src="representative-route-enrichment-v15153.js?v=1.5.167" defer></script>
+<script src="representative-route-enrichment-v15154.js?v=1.5.167" defer></script>
+<script src="representative-route-enrichment-v15155.js?v=1.5.167" defer></script>
+<script src="representative-route-enrichment-v15156.js?v=1.5.167" defer></script>
+<script src="representative-route-enrichment-v15157.js?v=1.5.167" defer></script>
+<script src="representative-route-enrichment-v15158.js?v=1.5.167" defer></script>
+<script src="representative-route-enrichment-v15159.js?v=1.5.167" defer></script>
+<script src="representative-route-enrichment-v15160.js?v=1.5.167" defer></script>
+<script src="representative-route-enrichment-v15161.js?v=1.5.167" defer></script>
+<script src="representative-route-enrichment-v15162.js?v=1.5.167" defer></script>
+<script src="representative-route-enrichment-v15163.js?v=1.5.167" defer></script>
+<script src="representative-route-enrichment-v15164.js?v=1.5.167" defer></script>
+<script src="representative-route-enrichment-v15165.js?v=1.5.167" defer></script>
 </body>
 </html>
