@@ -68,7 +68,7 @@ def image_url(date_text: str) -> str:
     return f"{PUBLIC_BASE_URL}/api/instagram/national-image/{urllib.parse.quote(date_text)}?sig={urllib.parse.quote(sig)}"
 
 
-REEL_ASSET_VERSION = "15115"
+REEL_ASSET_VERSION = "15116"
 
 def reel_signature(date_text: str) -> str:
     if not image_secret():
@@ -476,9 +476,9 @@ def render_national_reel(date_text: str, results: list[dict[str, Any]], *, logo_
 
     target = date.fromisoformat(date_text)
     counts = {g: sum(1 for r in rows if r.get("grade") == g) for g in "ABC"}
-    outdir = os.path.join(tempfile.gettempdir(), "traten-instagram-reels-v15115")
+    outdir = os.path.join(tempfile.gettempdir(), "traten-instagram-reels-v15116")
     os.makedirs(outdir, exist_ok=True)
-    out = os.path.join(outdir, f"traten-{date_text}-v15115.mp4")
+    out = os.path.join(outdir, f"traten-{date_text}-v15116.mp4")
     if os.path.exists(out) and os.path.getsize(out) > 100000:
         return out
 
