@@ -9,18 +9,12 @@ Designed to run locally with `python server.py` and in production with Gunicorn.
 from __future__ import annotations
 
 import gzip
-import gc
 import hmac
 import hashlib
 import heapq
 import json
 import math
 import os
-import re
-import html
-import unicodedata
-from html.parser import HTMLParser
-import xml.etree.ElementTree as ET
 import threading
 import time
 import urllib.error
@@ -32,20 +26,20 @@ from datetime import datetime, timezone, timedelta
 from collections import OrderedDict
 from typing import Any
 
-from flask import Flask, Response, jsonify, request, send_from_directory, send_file
-
-import instagram_bot
+from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-# V1.5.114: locked two-page Reel artwork; only date and A/B/C markers are dynamic.
-APP_VERSION = "1.5.137"
+APP_VERSION = "1.5.180"
 PORT = int(os.environ.get("PORT", "8000"))
+METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
 CACHE_TTL = int(os.environ.get("CACHE_TTL", "900"))
 OVERPASS_CACHE_TTL = int(os.environ.get("OVERPASS_CACHE_TTL", "86400"))
 CACHE_MAX_ITEMS = int(os.environ.get("CACHE_MAX_ITEMS", "256"))
 MAX_OVERPASS_BYTES = int(os.environ.get("MAX_OVERPASS_BYTES", str(512 * 1024)))
+
+
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
@@ -63,10 +57,6 @@ INDEXNOW_HOST = "otenki.onrender.com"
 INDEXNOW_PUBLIC_URLS = [
     "https://otenki.onrender.com/",
     "https://otenki.onrender.com/guide.html",
-    "https://otenki.onrender.com/live-cameras.html",
-    "https://otenki.onrender.com/trailheads.html",
-    "https://otenki.onrender.com/huts.html",
-    "https://otenki.onrender.com/water-sources.html",
 ]
 
 ALLOWED_EVENT_NAMES = {
@@ -79,8 +69,6 @@ ALLOWED_EVENT_NAMES = {
     "mountain_selected",
     "point_selected",
     "route_point_used",
-    "water_report",
-    "route_camera",
 }
 
 ALLOWED_HOSTS = {
@@ -120,373 +108,7 @@ NOAA_GFS_FILTER = os.environ.get(
 NOAA_GFS_TIMEOUT = int(os.environ.get("NOAA_GFS_TIMEOUT", "35"))
 NOAA_GFS_CACHE_TTL = int(os.environ.get("NOAA_GFS_CACHE_TTL", "1800"))
 
-# V1.5.99: still no Playwright/Chromium startup. Keep Render Free below the 512 MB cap.
-REEL_RENDERER_STATUS = {"engine": "pillow+ffmpeg", "browser": False, "memoryProfile": "low"}
-
 app = Flask(__name__, static_folder=None)
-
-
-# V1.5.36: resolve the selected mountain to an actual "てんきとくらす" mountain page.
-# URLs are not guessed from mountain names. The resolver reads Tenkura's own regional
-# mountain indexes, extracts the links that are actually published there, and returns
-# a direct link only when the name match is unambiguous. Regional index results are
-# cached so weather analysis itself is never blocked by this lookup.
-TENKURA_BASE = "https://tenkura.n-kishou.co.jp"
-TENKURA_INDEX_URLS = {
-    "hk": f"{TENKURA_BASE}/tk/kanko/kasel.html?ba=hk&type=15",
-    "th": f"{TENKURA_BASE}/tk/kanko/kasel.html?ba=th&type=15",
-    "hr": f"{TENKURA_BASE}/tk/kanko/kasel.html?ba=hr&type=15",
-    "kk": f"{TENKURA_BASE}/tk/kanko/kasel.html?ba=kk&type=15",
-    "tk": f"{TENKURA_BASE}/tk/kanko/kasel.html?ba=tk&type=15",
-    "kn": f"{TENKURA_BASE}/tk/kanko/kasel.html?ba=kn&type=15",
-    "cg": f"{TENKURA_BASE}/tk/kanko/kasel.html?ba=cg&type=15",
-    "sk": f"{TENKURA_BASE}/tk/kanko/kasel.html?ba=sk&type=15",
-    "ks": f"{TENKURA_BASE}/tk/kanko/kasel.html?ba=ks&type=15",
-}
-TENKURA_AREA_HINTS = {
-    "hokkaido": ["hk"],
-    "tohoku": ["th"],
-    "echigo_oze": ["hr", "kk", "th"],
-    "kanto_joshinetsu": ["kk", "hr"],
-    "yatsugatake_chushin": ["kk"],
-    "hokushin_kubiki": ["kk", "hr"],
-    "northern_alps": ["kk", "hr", "tk"],
-    "central_alps_ontake": ["kk", "tk"],
-    "okuchichibu_fuji": ["kk"],
-    "southern_alps": ["kk", "tk"],
-    "hokuriku_gifu": ["hr", "tk"],
-    "kinki": ["kn"],
-    "chugoku": ["cg"],
-    "shikoku": ["sk"],
-    "kyushu": ["ks"],
-}
-TENKURA_INDEX_TTL = max(3600, int(os.environ.get("TENKURA_INDEX_TTL", "21600")))
-TENKURA_TIMEOUT = max(3, min(20, int(os.environ.get("TENKURA_TIMEOUT", "8"))))
-_tenkura_index_cache: dict[str, tuple[float, list[dict[str, str]]]] = {}
-_tenkura_index_lock = threading.Lock()
-
-# Known naming differences between the Traten mountain catalog and Tenkura.
-# These aliases are names only; the actual target URL still has to be present in
-# Tenkura's regional index before it is returned.
-TENKURA_VERIFIED_LINKS = {
-    "富士山": {"name": "富士山山頂", "url": f"{TENKURA_BASE}/tk/kanko/kad.html?code=19150004&type=15", "region": "kk"},
-    "槍ヶ岳": {"name": "槍ヶ岳", "url": f"{TENKURA_BASE}/tk/kanko/kad.html?code=20150022&type=15", "region": "kk"},
-    "御嶽": {"name": "御嶽山", "url": f"{TENKURA_BASE}/tk/kanko/kad.html?code=20150023&type=15", "region": "kk"},
-    "御嶽山": {"name": "御嶽山", "url": f"{TENKURA_BASE}/tk/kanko/kad.html?code=20150023&type=15", "region": "kk"},
-}
-
-TENKURA_NAME_ALIASES = {
-    "富士山": ["富士山山頂"],
-    "御嶽": ["御嶽山"],
-    "御嶽山": ["御嶽山"],
-    "大雪山（旭岳）": ["旭岳", "大雪山旭岳"],
-    "蔵王山（熊野岳）": ["熊野岳", "蔵王山（熊野岳）"],
-    "茶臼岳（那須岳）": ["茶臼岳(那須岳)", "茶臼岳（那須岳）"],
-    "榛名山（榛名富士）": ["榛名富士"],
-    "八ヶ岳（赤岳）": ["赤岳"],
-    "霧ヶ峰（車山）": ["車山（霧ヶ峰）", "車山(霧ヶ峰)"],
-    "水晶岳（黒岳）": ["水晶岳", "黒岳"],
-    "笠ヶ岳（岐阜）": ["笠ヶ岳"],
-    "笠ヶ岳（長野）": ["笠ヶ岳"],
-    "朝日岳（群馬）": ["朝日岳"],
-    "朝日岳（新潟・富山）": ["朝日岳"],
-    "釈迦ヶ岳（栃木）": ["釈迦ヶ岳"],
-    "経ヶ岳（長野）": ["経ヶ岳"],
-    "阿蘇山（高岳）": ["高岳", "高岳(阿蘇山)", "高岳［阿蘇山］"],
-    "雲仙岳（普賢岳）": ["普賢岳", "雲仙岳（普賢岳）"],
-    "霧島山（韓国岳）": ["韓国岳", "霧島山（韓国岳）"],
-}
-
-class _TenkuraIndexParser(HTMLParser):
-    def __init__(self) -> None:
-        super().__init__(convert_charrefs=True)
-        self._href: str | None = None
-        self._parts: list[str] = []
-        self.links: list[dict[str, str]] = []
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        if tag.lower() != "a":
-            return
-        href = dict(attrs).get("href") or ""
-        if "kad.html" not in href or "type=15" not in href:
-            return
-        self._href = href
-        self._parts = []
-
-    def handle_data(self, data: str) -> None:
-        if self._href is not None:
-            self._parts.append(data)
-
-    def handle_endtag(self, tag: str) -> None:
-        if tag.lower() != "a" or self._href is None:
-            return
-        name = "".join(self._parts).strip()
-        href = self._href
-        self._href = None
-        self._parts = []
-        if not name:
-            return
-        url = urllib.parse.urljoin(f"{TENKURA_BASE}/tk/kanko/", href)
-        parsed = urllib.parse.urlparse(url)
-        if parsed.hostname != "tenkura.n-kishou.co.jp" or not parsed.path.endswith("/kad.html"):
-            return
-        self.links.append({"name": name, "url": url})
-
-def _tenkura_decode(body: bytes, content_type: str = "") -> str:
-    m = re.search(r"charset=([\w-]+)", content_type or "", re.I)
-    candidates = [m.group(1)] if m else []
-    candidates += ["utf-8", "cp932", "shift_jis", "euc_jp"]
-    seen: set[str] = set()
-    best = ""
-    best_bad = 10**9
-    for enc in candidates:
-        if not enc or enc.lower() in seen:
-            continue
-        seen.add(enc.lower())
-        try:
-            text = body.decode(enc, errors="replace")
-        except LookupError:
-            continue
-        bad = text.count("�")
-        if bad < best_bad:
-            best, best_bad = text, bad
-        if bad == 0:
-            return text
-    return best
-
-def _tenkura_norm(value: str) -> str:
-    text = unicodedata.normalize("NFKC", str(value or ""))
-    text = text.replace("ヶ", "ケ").replace("ヵ", "カ")
-    return re.sub(r"[\s・･　]", "", text).lower()
-
-def _tenkura_name_candidates(mountain: str) -> list[str]:
-    values = [mountain, *TENKURA_NAME_ALIASES.get(mountain, [])]
-    # Parenthetical location/alias qualifiers are common in Traten. The stripped
-    # form is only used when it produces a unique match in the hinted region(s).
-    stripped = re.sub(r"[（(［\[].*?[）)］\]]", "", mountain).strip()
-    if stripped and stripped != mountain:
-        values.append(stripped)
-    out: list[str] = []
-    seen: set[str] = set()
-    for value in values:
-        key = _tenkura_norm(value)
-        if key and key not in seen:
-            seen.add(key)
-            out.append(value)
-    return out
-
-def _fetch_tenkura_index(region: str) -> list[dict[str, str]]:
-    now = time.time()
-    with _tenkura_index_lock:
-        cached = _tenkura_index_cache.get(region)
-        if cached and cached[0] > now:
-            return [dict(x) for x in cached[1]]
-    url = TENKURA_INDEX_URLS[region]
-    req = urllib.request.Request(url, headers={
-        "User-Agent": "TRATEN/1.5.42 https://otenki.onrender.com",
-        "Accept": "text/html,application/xhtml+xml",
-        "Accept-Language": "ja,en;q=0.5",
-    })
-    with urllib.request.urlopen(req, timeout=TENKURA_TIMEOUT) as resp:
-        body = resp.read(2 * 1024 * 1024)
-        text = _tenkura_decode(body, resp.headers.get("Content-Type", ""))
-    parser = _TenkuraIndexParser()
-    parser.feed(text)
-    # Deduplicate exact URL entries while preserving the official display name.
-    rows: list[dict[str, str]] = []
-    seen_urls: set[str] = set()
-    for row in parser.links:
-        if row["url"] in seen_urls:
-            continue
-        seen_urls.add(row["url"])
-        rows.append(row)
-    with _tenkura_index_lock:
-        _tenkura_index_cache[region] = (now + TENKURA_INDEX_TTL, rows)
-    return [dict(x) for x in rows]
-
-def _resolve_tenkura_link(mountain: str, area: str = "") -> dict[str, Any] | None:
-    verified = TENKURA_VERIFIED_LINKS.get(mountain)
-    if verified:
-        return {**verified, "matchedBy": "verified-direct"}
-    candidates = _tenkura_name_candidates(mountain)
-    candidate_keys = {_tenkura_norm(x) for x in candidates}
-    hinted = [r for r in TENKURA_AREA_HINTS.get(area, []) if r in TENKURA_INDEX_URLS]
-    regions = hinted + [r for r in TENKURA_INDEX_URLS if r not in hinted]
-    matches: list[dict[str, str]] = []
-    for region in regions:
-        try:
-            rows = _fetch_tenkura_index(region)
-        except Exception:
-            continue
-        region_matches = [row for row in rows if _tenkura_norm(row.get("name", "")) in candidate_keys]
-        if region_matches:
-            matches.extend([{**row, "region": region} for row in region_matches])
-            # A unique match inside an explicitly hinted first-choice region is safe
-            # and avoids unnecessary requests to all other Tenkura regional indexes.
-            unique_urls = {m["url"] for m in region_matches}
-            if region in hinted and len(unique_urls) == 1:
-                row = region_matches[0]
-                return {"name": row["name"], "url": row["url"], "region": region, "matchedBy": "official-index"}
-    unique: dict[str, dict[str, str]] = {m["url"]: m for m in matches}
-    if len(unique) == 1:
-        row = next(iter(unique.values()))
-        return {"name": row["name"], "url": row["url"], "region": row["region"], "matchedBy": "official-index"}
-    return None
-
-
-
-# V1.5.38: additional external mountain-weather cross checks.
-# Like Tenkura, targets are resolved only from URLs actually published by the
-# provider (or a tiny set of manually verified direct URLs). Unknown or
-# ambiguous matches stay unavailable rather than guessing an ID.
-WEATHERNEWS_BASE = "https://weathernews.jp"
-WEATHERNEWS_INDEX_URL = f"{WEATHERNEWS_BASE}/mountain/"
-TENKIJP_BASE = "https://tenki.jp"
-TENKIJP_INDEX_URL = f"{TENKIJP_BASE}/mountain/"
-EXTERNAL_INDEX_TTL = max(3600, int(os.environ.get("EXTERNAL_MOUNTAIN_INDEX_TTL", "21600")))
-EXTERNAL_INDEX_TIMEOUT = max(3, min(20, int(os.environ.get("EXTERNAL_MOUNTAIN_INDEX_TIMEOUT", "8"))))
-_external_mountain_index_cache: dict[str, tuple[float, list[dict[str, str]]]] = {}
-_external_mountain_index_lock = threading.Lock()
-
-EXTERNAL_NAME_ALIASES = {
-    **TENKURA_NAME_ALIASES,
-    "大雪山（旭岳）": ["大雪山", "旭岳"],
-    "蔵王山（熊野岳）": ["蔵王山", "熊野岳"],
-    "茶臼岳（那須岳）": ["那須岳", "茶臼岳"],
-    "八ヶ岳（赤岳）": ["八ヶ岳", "赤岳"],
-    "霧ヶ峰（車山）": ["霧ヶ峰", "車山"],
-    "水晶岳（黒岳）": ["水晶岳", "黒岳"],
-    "阿蘇山（高岳）": ["阿蘇山", "高岳"],
-    "雲仙岳（普賢岳）": ["雲仙岳", "普賢岳"],
-    "霧島山（韓国岳）": ["霧島山", "韓国岳"],
-}
-
-WEATHERNEWS_VERIFIED_LINKS = {
-    "富士山": {"name": "富士山", "url": f"{WEATHERNEWS_BASE}/mountain/fuji/40504/"},
-    "槍ヶ岳": {"name": "槍ヶ岳", "url": f"{WEATHERNEWS_BASE}/mountain/northernalps/40350/"},
-    "御嶽": {"name": "御嶽山", "url": f"{WEATHERNEWS_BASE}/mountain/northernalps/41001/"},
-    "御嶽山": {"name": "御嶽山", "url": f"{WEATHERNEWS_BASE}/mountain/northernalps/41001/"},
-}
-
-TENKIJP_VERIFIED_LINKS = {
-    "富士山": {"name": "富士山", "url": f"{TENKIJP_BASE}/mountain/famous100/5/25/150.html"},
-    "槍ヶ岳": {"name": "槍ヶ岳", "url": f"{TENKIJP_BASE}/mountain/famous100/3/23/161.html"},
-    "御嶽": {"name": "御嶽", "url": f"{TENKIJP_BASE}/mountain/normal/3/23/1049.html"},
-    "御嶽山": {"name": "御嶽", "url": f"{TENKIJP_BASE}/mountain/normal/3/23/1049.html"},
-}
-
-class _ExternalMountainIndexParser(HTMLParser):
-    def __init__(self, provider: str) -> None:
-        super().__init__(convert_charrefs=True)
-        self.provider = provider
-        self._href: str | None = None
-        self._parts: list[str] = []
-        self.links: list[dict[str, str]] = []
-
-    def _accepted(self, href: str) -> bool:
-        parsed = urllib.parse.urlparse(urllib.parse.urljoin(
-            WEATHERNEWS_INDEX_URL if self.provider == "weathernews" else TENKIJP_INDEX_URL, href
-        ))
-        if self.provider == "weathernews":
-            if parsed.hostname != "weathernews.jp":
-                return False
-            return bool(re.fullmatch(r"/mountain/[a-z0-9_-]+/\d+/?", parsed.path, re.I))
-        if parsed.hostname != "tenki.jp":
-            return False
-        return bool(re.fullmatch(r"/mountain/(?:famous100|normal)/\d+/\d+/\d+\.html", parsed.path, re.I)
-                    or re.fullmatch(r"/mountain/\d+/\d+/\d+\.html", parsed.path, re.I))
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        if tag.lower() != "a":
-            return
-        href = dict(attrs).get("href") or ""
-        if not self._accepted(href):
-            return
-        self._href = href
-        self._parts = []
-
-    def handle_data(self, data: str) -> None:
-        if self._href is not None:
-            self._parts.append(data)
-
-    def handle_endtag(self, tag: str) -> None:
-        if tag.lower() != "a" or self._href is None:
-            return
-        href = self._href
-        name = re.sub(r"\s+", " ", "".join(self._parts)).strip()
-        self._href = None
-        self._parts = []
-        if not name:
-            return
-        base = WEATHERNEWS_INDEX_URL if self.provider == "weathernews" else TENKIJP_INDEX_URL
-        url = urllib.parse.urljoin(base, href)
-        self.links.append({"name": name, "url": url})
-
-def _external_name_candidates(mountain: str) -> list[str]:
-    values = [mountain, *EXTERNAL_NAME_ALIASES.get(mountain, [])]
-    stripped = re.sub(r"[（(［\[].*?[）)］\]]", "", mountain).strip()
-    if stripped and stripped != mountain:
-        values.append(stripped)
-    out: list[str] = []
-    seen: set[str] = set()
-    for value in values:
-        key = _tenkura_norm(value)
-        if key and key not in seen:
-            seen.add(key)
-            out.append(value)
-    return out
-
-def _fetch_external_mountain_index(provider: str) -> list[dict[str, str]]:
-    now = time.time()
-    with _external_mountain_index_lock:
-        cached = _external_mountain_index_cache.get(provider)
-        if cached and cached[0] > now:
-            return [dict(x) for x in cached[1]]
-    if provider == "weathernews":
-        url = WEATHERNEWS_INDEX_URL
-    elif provider == "tenkijp":
-        url = TENKIJP_INDEX_URL
-    else:
-        raise ValueError("unknown provider")
-    req = urllib.request.Request(url, headers={
-        "User-Agent": "TRATEN/1.5.42 https://otenki.onrender.com",
-        "Accept": "text/html,application/xhtml+xml",
-        "Accept-Language": "ja,en;q=0.5",
-    })
-    with urllib.request.urlopen(req, timeout=EXTERNAL_INDEX_TIMEOUT) as resp:
-        body = resp.read(4 * 1024 * 1024)
-        text = _tenkura_decode(body, resp.headers.get("Content-Type", ""))
-    parser = _ExternalMountainIndexParser(provider)
-    parser.feed(text)
-    rows: list[dict[str, str]] = []
-    seen_urls: set[str] = set()
-    for row in parser.links:
-        if row["url"] in seen_urls:
-            continue
-        seen_urls.add(row["url"])
-        rows.append(row)
-    with _external_mountain_index_lock:
-        _external_mountain_index_cache[provider] = (now + EXTERNAL_INDEX_TTL, rows)
-    return [dict(x) for x in rows]
-
-def _resolve_external_mountain_link(provider: str, mountain: str) -> dict[str, Any] | None:
-    verified_map = WEATHERNEWS_VERIFIED_LINKS if provider == "weathernews" else TENKIJP_VERIFIED_LINKS
-    verified = verified_map.get(mountain)
-    if verified:
-        return {**verified, "matchedBy": "verified-direct"}
-    candidate_keys = {_tenkura_norm(x) for x in _external_name_candidates(mountain)}
-    try:
-        rows = _fetch_external_mountain_index(provider)
-    except Exception:
-        return None
-    matches = [row for row in rows if _tenkura_norm(row.get("name", "")) in candidate_keys]
-    unique = {row["url"]: row for row in matches}
-    if len(unique) != 1:
-        return None
-    row = next(iter(unique.values()))
-    return {"name": row["name"], "url": row["url"], "matchedBy": "official-index"}
-
-
 app.config["MAX_CONTENT_LENGTH"] = MAX_OVERPASS_BYTES
 
 _cache: "OrderedDict[str, tuple[float, int, str, bytes]]" = OrderedDict()
@@ -515,34 +137,9 @@ _national_metno_last_request = 0.0
 NATIONAL_OUTLOOK_STALE_TTL = int(os.environ.get("NATIONAL_OUTLOOK_STALE_TTL", "86400"))
 NATIONAL_OUTLOOK_REFRESH_INTERVAL = int(os.environ.get("NATIONAL_OUTLOOK_REFRESH_INTERVAL", "900"))
 NATIONAL_OUTLOOK_AUTO_REFRESH = os.environ.get("NATIONAL_OUTLOOK_AUTO_REFRESH", "1").lower() not in {"0", "false", "no"}
-NATIONAL_OUTLOOK_BOOT_GRACE = int(os.environ.get("NATIONAL_OUTLOOK_BOOT_GRACE", "45"))
 NATIONAL_CACHE_REFRESH_TOKEN = os.environ.get("NATIONAL_CACHE_REFRESH_TOKEN", "")
-# V1.5.112: proactively keep the next seven days of all Japan 300 Famous Mountains
-# in the persistent Supabase cache. One forecast date is refreshed per cycle to
-# avoid API bursts; the 15-minute worker interval still completes a full sweep
-# comfortably inside the four-hour TTL.
-NATIONAL_100_ROLLING_AUTO_CACHE = os.environ.get(
-    "NATIONAL_100_ROLLING_AUTO_CACHE", os.environ.get("NATIONAL_NEXTDAY_100_AUTO_CACHE", "1")
-).lower() not in {"0", "false", "no"}
-NATIONAL_100_ROLLING_DAYS = max(1, min(9, int(os.environ.get("NATIONAL_100_ROLLING_DAYS", "7"))))
-NATIONAL_100_ROLLING_DATES_PER_CYCLE = max(1, min(3, int(os.environ.get("NATIONAL_100_ROLLING_DATES_PER_CYCLE", "1"))))
-NATIONAL_100_POINTS_FILE = os.path.join(BASE, "national-300-points.json")
-NATIONAL_REFRESH_STATUS_FILE = os.path.join(tempfile.gettempdir(), "traten-national-refresh-status.json")
-_national_last_refresh_report: dict[str, Any] = {}
-_national_refresh_runtime: dict[str, Any] = {
-    "state": "not-started",
-    "workerPid": None,
-    "workerThreadAlive": False,
-    "lastCheckAt": None,
-    "lastRunStartedAt": None,
-    "lastRunFinishedAt": None,
-    "lastRunOk": None,
-    "lastError": None,
-}
-_national_refresh_worker_thread: threading.Thread | None = None
-_national_refresh_worker_lock_handle = None
-NATIONAL_OUTLOOK_CHUNK_SIZE = max(5, min(50, int(os.environ.get("NATIONAL_OUTLOOK_CHUNK_SIZE", "25"))))
-NATIONAL_OUTLOOK_ENGINE = "metno-gfs-v3-conservative"
+NATIONAL_OUTLOOK_CHUNK_SIZE = int(os.environ.get("NATIONAL_OUTLOOK_CHUNK_SIZE", "50"))
+NATIONAL_OUTLOOK_ENGINE = "metno-gfs-v1"
 NATIONAL_GFS_MIN_INTERVAL = float(os.environ.get("NATIONAL_GFS_MIN_INTERVAL", "0.35"))
 _national_gfs_lock = threading.Lock()
 _national_gfs_last_request = 0.0
@@ -706,82 +303,18 @@ def _clean_int(value: Any, minimum: int = 0, maximum: int = 10_000_000) -> int |
     return max(minimum, min(maximum, number))
 
 
-def _sanitize_route_itinerary(value: Any) -> list[dict[str, Any]]:
-    """Sanitize anonymous route/timing detail for usage analytics.
-
-    Deliberately stores no coordinates, IP, user agent, email, or free-form identity data.
-    The route is capped so one analytics event stays small even for long traverses.
-    """
-    if not isinstance(value, list):
-        return []
-    allowed = {"point_name", "point_type", "point_role", "date", "time", "stay"}
-    out: list[dict[str, Any]] = []
-    for raw in value[:40]:
-        if not isinstance(raw, dict):
-            continue
-        row: dict[str, Any] = {}
-        for key in allowed:
-            val = raw.get(key)
-            if key == "stay":
-                row[key] = bool(val)
-            elif val is not None:
-                limit = 120 if key == "point_name" else 40
-                row[key] = str(val)[:limit]
-        if row.get("point_name"):
-            out.append(row)
-    return out
-
-
-def _sanitize_ct_review_segments(value: Any) -> list[dict[str, Any]]:
-    """Sanitize CT review candidates captured from anonymous analyzed routes."""
-    if not isinstance(value, list):
-        return []
-    out: list[dict[str, Any]] = []
-    for raw in value[:39]:
-        if not isinstance(raw, dict):
-            continue
-        from_name = _clean_text(raw.get("from_name"), 120)
-        to_name = _clean_text(raw.get("to_name"), 120)
-        status = str(raw.get("status") or "").strip()
-        if not from_name or not to_name or status not in {"estimated", "missing"}:
-            continue
-        row = {"from_name": from_name, "to_name": to_name, "status": status}
-        minutes = _clean_int(raw.get("minutes"), 0, 2000)
-        if minutes is not None:
-            row["minutes"] = minutes
-        source = _clean_text(raw.get("source"), 180)
-        if source:
-            row["source"] = source
-        out.append(row)
-    return out
-
-
 def _sanitize_metadata(value: Any) -> dict[str, Any]:
     if not isinstance(value, dict):
         return {}
     # Keep analytics payloads small and deliberately exclude common identity fields.
     blocked = {"ip", "ip_address", "email", "name", "user_agent", "ua", "phone", "address"}
-    long_text_keys = {"route_path"}
     out: dict[str, Any] = {}
-    for key, val in list(value.items())[:32]:
+    for key, val in list(value.items())[:24]:
         k = str(key)[:64]
         if k.lower() in blocked:
             continue
-        if k == "itinerary":
-            rows = _sanitize_route_itinerary(val)
-            if rows:
-                out[k] = rows
-            continue
-        if k == "ct_review_segments":
-            rows = _sanitize_ct_review_segments(val)
-            if rows:
-                out[k] = rows
-            continue
         if isinstance(val, (str, int, float, bool)) or val is None:
-            if isinstance(val, str):
-                out[k] = val[:1600 if k in long_text_keys else 300]
-            else:
-                out[k] = val
+            out[k] = val if not isinstance(val, str) else val[:300]
     return out
 
 
@@ -1044,103 +577,6 @@ def _usage_dashboard_summary(events: list[dict[str, Any]]) -> dict[str, Any]:
         places.append(row)
     places.sort(key=lambda x: (-x["used_count"], -x["selected_count"], x["mountain"], x["point_name"]))
 
-    # V1.5.8: anonymous analyzed-route history and popular-route aggregation.
-    # Route/timing details live inside the existing metadata JSON, so no Supabase
-    # schema migration is required. Older events simply have no itinerary field.
-    analysis_history: list[dict[str, Any]] = []
-    route_map: dict[tuple[str, str], dict[str, Any]] = {}
-    for e in events:
-        if e.get("event_name") != "weather_analysis" or e.get("success") is not True:
-            continue
-        meta = e.get("metadata") if isinstance(e.get("metadata"), dict) else {}
-        itinerary = _sanitize_route_itinerary(meta.get("itinerary"))
-        mountain = str(e.get("mountain") or meta.get("mountain") or "").strip()
-        route_path = str(meta.get("route_path") or "").strip()
-        if not route_path and itinerary:
-            route_path = " → ".join(str(x.get("point_name") or "") for x in itinerary if x.get("point_name"))
-        route_label = str(meta.get("route_label") or "").strip()
-        start_date = str(meta.get("start_date") or (itinerary[0].get("date") if itinerary else "") or "")[:10]
-        end_date = str(meta.get("end_date") or (itinerary[-1].get("date") if itinerary else "") or "")[:10]
-        stay_count = int(e.get("stay_count") or meta.get("overnight_count") or 0)
-        row = {
-            "created_at": e.get("created_at"),
-            "mountain": mountain,
-            "route_label": route_label,
-            "route_path": route_path,
-            "start_date": start_date,
-            "end_date": end_date,
-            "stay_count": stay_count,
-            "point_count": int(e.get("route_points") or len(itinerary) or 0),
-            "itinerary": itinerary,
-        }
-        if route_path or itinerary:
-            analysis_history.append(row)
-
-        if not route_path:
-            continue
-        key = (mountain, route_path)
-        rr = route_map.setdefault(key, {
-            "mountain": mountain, "route_label": route_label, "route_path": route_path,
-            "analysis_count": 0, "sessions": set(), "last_used": "",
-        })
-        rr["analysis_count"] += 1
-        if e.get("session_id"):
-            rr["sessions"].add(str(e.get("session_id")))
-        created = str(e.get("created_at") or "")
-        if created > rr["last_used"]:
-            rr["last_used"] = created
-        if not rr["route_label"] and route_label:
-            rr["route_label"] = route_label
-
-    analysis_history.sort(key=lambda x: str(x.get("created_at") or ""), reverse=True)
-    analysis_history = analysis_history[:100]
-    popular_routes = []
-    for row in route_map.values():
-        row["unique_sessions"] = len(row.pop("sessions"))
-        popular_routes.append(row)
-    popular_routes.sort(key=lambda x: str(x.get("last_used") or ""), reverse=True)
-    popular_routes.sort(key=lambda x: (x["analysis_count"], x["unique_sessions"]), reverse=True)
-    popular_routes = popular_routes[:20]
-
-    # V1.5.9: aggregate actually-used estimated/missing CT segments.
-    # This is a review queue only; user usage never turns an estimate into a verified CT.
-    ct_review_map: dict[tuple[str, str], dict[str, Any]] = {}
-    for e in events:
-        if e.get("event_name") != "weather_analysis" or e.get("success") is not True:
-            continue
-        meta = e.get("metadata") if isinstance(e.get("metadata"), dict) else {}
-        segments = _sanitize_ct_review_segments(meta.get("ct_review_segments"))
-        mountain = str(e.get("mountain") or "").strip()
-        session = str(e.get("session_id") or "")
-        created = str(e.get("created_at") or "")
-        for seg in segments:
-            key = (seg["from_name"], seg["to_name"])
-            row = ct_review_map.setdefault(key, {
-                "from_name": seg["from_name"], "to_name": seg["to_name"],
-                "status": seg["status"], "minutes": seg.get("minutes"),
-                "source": seg.get("source", ""), "use_count": 0,
-                "sessions": set(), "mountains": set(), "last_used": "",
-            })
-            row["use_count"] += 1
-            if seg["status"] == "missing":
-                row["status"] = "missing"
-                row["minutes"] = None
-            elif row.get("minutes") is None and seg.get("minutes") is not None:
-                row["minutes"] = seg.get("minutes")
-            if session:
-                row["sessions"].add(session)
-            if mountain:
-                row["mountains"].add(mountain)
-            if created > row["last_used"]:
-                row["last_used"] = created
-    ct_review_segments = []
-    for row in ct_review_map.values():
-        row["unique_sessions"] = len(row.pop("sessions"))
-        row["mountains"] = sorted(row.pop("mountains"))
-        ct_review_segments.append(row)
-    ct_review_segments.sort(key=lambda x: (x["use_count"], x["unique_sessions"], x["last_used"]), reverse=True)
-    ct_review_segments = ct_review_segments[:100]
-
     recent_failures = [
         {
             "created_at": e.get("created_at"), "event_name": e.get("event_name"),
@@ -1161,9 +597,6 @@ def _usage_dashboard_summary(events: list[dict[str, Any]]) -> dict[str, Any]:
         "mountains": mountains,
         "places": places,
         "daily_trend": daily_trend,
-        "analysis_history": analysis_history,
-        "popular_routes": popular_routes,
-        "ct_review_segments": ct_review_segments,
         "recent_failures": recent_failures,
     }
 
@@ -1421,14 +854,14 @@ def _bytes_response(status: int, ctype: str, body: bytes, *, cache_control: str 
 
 
 def _national_grade(max_wind: float, max_gust: float, max_rain: float, max_cape: float, min_temp: float, min_visibility: float | None, *, caution_hours: int = 0, severe_hours: int = 0, extreme_hours: int = 0):
-    # V1.5.64: nationwide A/B/C is intentionally conservative. A is reserved
-    # for a day with no caution hour during 06-15. Strong conditions sustained
-    # for two hours, or any extreme hour, are C.
-    if extreme_hours >= 1 or severe_hours >= 2:
-        return "C", "6〜15時に強い風・突風・雨・低視程などが見込まれ、登山には厳しめの条件です。時間帯別の詳細を確認してください。"
-    if severe_hours >= 1 or caution_hours >= 1:
-        return "B", "6〜15時の一部に風・突風・雨・低視程などの注意要素があります。詳細分析で通過時刻を確認してください。"
-    return "A", "6〜15時に主要な注意条件が見当たらない日です。詳細分析でルートと到着時刻を最終確認してください。"
+    # V1.4.79: 全国簡易判定は「てんくらの感覚」に近づけ、風・雨を主判定にする。
+    # 雷(CAPE)・視界・低温は詳細注意情報として残すが、それだけでABCをCへ落とさない。
+    # 6〜15時の10時間のうち、強い風雨の継続時間を重視する。
+    if extreme_hours >= 1 or severe_hours >= 4:
+        return "C", "6〜15時に強い風または雨が見込まれ、登山には厳しめの条件です。時間帯別の詳細を確認してください。"
+    if severe_hours >= 1 or caution_hours >= 3:
+        return "B", "6〜15時の一部で風または雨の影響が見込まれます。比較的よい時間帯を確認してください。"
+    return "A", "6〜15時は風雨の大きな影響が比較的少なく、登山候補にしやすい条件です。詳細分析で最終確認してください。"
 
 
 NATIONAL_SUPABASE_CACHE_TABLE = os.environ.get("NATIONAL_SUPABASE_CACHE_TABLE", "national_outlook_cache")
@@ -1441,12 +874,12 @@ def _national_supabase_key(date_text: str, p: dict[str, Any]) -> str:
     raw=f'{NATIONAL_OUTLOOK_ENGINE}|{date_text}|{p["name"]}|{p["lat"]:.5f}|{p["lon"]:.5f}|{"" if p.get("elevation") is None else round(float(p["elevation"]))}'
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
-def _national_supabase_read(date_text: str, points: list[dict[str, Any]]) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]], dict[str, dict[str, float]]]:
+def _national_supabase_read(date_text: str, points: list[dict[str, Any]]) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
     """Return (fresh_by_name, stale_by_name) from persistent shared cache.
     Missing table/config fails open so national outlook still works with local fallback.
     """
     if not _national_supabase_enabled():
-        return {}, {}, {}
+        return {}, {}
     params={
         "select":"cache_key,mountain_name,result,generated_ts,fresh_until,stale_until",
         "forecast_date":f"eq.{date_text}",
@@ -1460,23 +893,20 @@ def _national_supabase_read(date_text: str, points: list[dict[str, Any]]) -> tup
         with urllib.request.urlopen(req,timeout=NATIONAL_SUPABASE_TIMEOUT) as resp:
             rows=json.loads(resp.read().decode("utf-8"))
     except Exception:
-        return {}, {}, {}
+        return {}, {}
     wanted={_national_supabase_key(date_text,p):p["name"] for p in points}
-    now=time.time(); fresh={}; stale={}; meta={}
+    now=time.time(); fresh={}; stale={}
     for row in rows if isinstance(rows,list) else []:
         key=str(row.get("cache_key") or "")
         name=wanted.get(key)
         result=row.get("result")
         if not name or not isinstance(result,dict): continue
         result=dict(result); result["name"]=name
-        try:
-            fu=float(row.get("fresh_until") or 0); su=float(row.get("stale_until") or 0)
-            gt=float(row.get("generated_ts") or 0)
+        try: fu=float(row.get("fresh_until") or 0); su=float(row.get("stale_until") or 0)
         except (TypeError,ValueError): continue
         if su<=now: continue
-        meta[name]={"generated_ts":gt,"fresh_until":fu,"stale_until":su}
         (fresh if fu>now else stale)[name]=result
-    return fresh,stale,meta
+    return fresh,stale
 
 def _national_supabase_write(date_text: str, points: list[dict[str, Any]], results: list[dict[str, Any]]) -> bool:
     if not _national_supabase_enabled() or not results:
@@ -1512,200 +942,6 @@ def _national_supabase_write(date_text: str, points: list[dict[str, Any]], resul
             return 200<=resp.status<300
     except Exception:
         return False
-
-
-
-def _national_load_100_points() -> list[dict[str, Any]]:
-    try:
-        with open(NATIONAL_100_POINTS_FILE, "r", encoding="utf-8") as f:
-            rows = json.load(f)
-    except Exception as exc:
-        app.logger.warning("national_100_seed_load_failed %s", exc)
-        return []
-    out=[]
-    seen=set()
-    for row in rows if isinstance(rows,list) else []:
-        if not isinstance(row,dict): continue
-        name=str(row.get("name") or "")[:80]
-        try:
-            lat=float(row.get("lat")); lon=float(row.get("lon"))
-        except (TypeError,ValueError):
-            continue
-        if not name or name in seen or not (20 <= lat <= 50 and 120 <= lon <= 155):
-            continue
-        try: elev=float(row.get("elevation")) if row.get("elevation") is not None else None
-        except (TypeError,ValueError): elev=None
-        seen.add(name); out.append({"name":name,"lat":lat,"lon":lon,"elevation":elev})
-    return out
-
-
-def _national_rolling_100_date_texts() -> list[str]:
-    """Return tomorrow through N days ahead in JST for proactive 100-mountain caching."""
-    today_jst=(datetime.now(timezone.utc)+timedelta(hours=9)).date()
-    return [(today_jst+timedelta(days=offset)).isoformat() for offset in range(1, NATIONAL_100_ROLLING_DAYS+1)]
-
-
-def _national_nextday_date_text() -> str:
-    # Backward-compatible helper retained for diagnostics / older callers.
-    return _national_rolling_100_date_texts()[0]
-
-
-def _instagram_load_fresh_100_results(date_text: str) -> list[dict[str, Any]]:
-    """Return fresh Sanbyakumeizan rows used by the Instagram bot.
-
-    V1.5.116: Supabase rows do not contain the point-master coordinates used by
-    the reel renderer. Merge those coordinates back into each cached result so
-    A/B/C markers can be plotted. Stale rows are never used for social posts.
-    """
-    points = _national_load_100_points()
-    if len(points) != 300 or not _national_supabase_enabled():
-        return []
-    fresh, _, _ = _national_supabase_read(date_text, points)
-    ordered = []
-    for point in points:
-        cached = fresh.get(point["name"])
-        if cached is None:
-            continue
-        row = dict(cached)
-        row.update(
-            name=point["name"],
-            lat=point["lat"],
-            lon=point["lon"],
-            elevation=point.get("elevation"),
-        )
-        ordered.append(row)
-    if len(ordered) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
-        return []
-    return ordered
-
-
-def _instagram_maybe_post_after_refresh() -> dict[str, Any]:
-    """Attempt one tomorrow-post after nationwide cache maintenance.
-
-    instagram_bot performs all gating (enabled/configured/hour/duplicate checks).
-    Any social API failure is isolated from weather-cache refresh.
-    """
-    now_jst = datetime.now(timezone.utc) + timedelta(hours=9)
-    try:
-        result = instagram_bot.maybe_post_tomorrow(
-            now_jst=now_jst,
-            load_results=_instagram_load_fresh_100_results,
-        )
-        if result.get("posted"):
-            app.logger.info("instagram_national_posted %s", result)
-        elif not result.get("ok", True) and not result.get("skipped"):
-            app.logger.warning("instagram_national_post_failed %s", result)
-        return result
-    except Exception as exc:
-        app.logger.exception("instagram_national_post_failed")
-        return {"ok": False, "error": str(exc)[:500]}
-
-
-def _national_100_date_cache_status(date_text: str, points: list[dict[str, Any]], *, force: bool=False) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    """Inspect one rolling forecast date and return its status plus due points."""
-    report={"date":date_text,"seedCount":len(points),"freshBefore":0,"staleBefore":0,"missingBefore":0,"pointsDue":0,"pointsUpdated":0,"ok":True,"error":None}
-    fresh,stale,_=_national_supabase_read(date_text,points)
-    report["freshBefore"]=len(fresh); report["staleBefore"]=len(stale)
-    report["missingBefore"]=sum(1 for p in points if p["name"] not in fresh and p["name"] not in stale)
-    due=points if force else [p for p in points if p["name"] not in fresh]
-    report["pointsDue"]=len(due)
-    return report,due
-
-
-def _refresh_rolling_100_cache(*, force: bool=False, max_dates: int | None=None) -> dict[str, Any]:
-    """Maintain a rolling 7-day Supabase cache for all Japan 300 Famous Mountains.
-
-    The window is tomorrow through NATIONAL_100_ROLLING_DAYS days ahead.
-    To protect upstream weather APIs, only the earliest due forecast date(s) are
-    refreshed each cycle (one date by default). Fresh rows are never refetched.
-    """
-    points=_national_load_100_points()
-    dates=_national_rolling_100_date_texts()
-    limit=max(1, int(max_dates or NATIONAL_100_ROLLING_DATES_PER_CYCLE))
-    report: dict[str, Any]={
-        "ok":True,"windowStart":dates[0] if dates else None,"windowEnd":dates[-1] if dates else None,
-        "rollingDays":len(dates),"seedCount":len(points),"targetRows":len(dates)*len(points),
-        "datesInspected":0,"datesDue":0,"datesProcessed":0,"pointsDue":0,"pointsUpdated":0,
-        "dateReports":[],"errors":[],
-    }
-    if len(points)!=300:
-        report.update(ok=False,error=f"三百名山固定座標が300件ではありません: {len(points)}")
-        return report
-    if not _national_supabase_enabled():
-        report.update(ok=False,error="Supabase national cache is not configured")
-        return report
-
-    due_dates: list[tuple[str,list[dict[str,Any]],dict[str,Any]]]=[]
-    for date_text in dates:
-        date_report,due=_national_100_date_cache_status(date_text,points,force=force)
-        report["datesInspected"]+=1
-        report["pointsDue"]+=len(due)
-        report["dateReports"].append(date_report)
-        if due:
-            report["datesDue"]+=1
-            due_dates.append((date_text,due,date_report))
-
-    # V1.5.112: incomplete dates are repaired before moving on. Within a date,
-    # fetch in small blocks and persist every successful block immediately.
-    # This prevents a partial upstream response (for example 58/100) from being
-    # treated as the day's finished refresh and makes progress survive timeouts.
-    due_dates.sort(key=lambda item: (-len(item[1]), item[0]))
-    selected=due_dates[:limit]
-    for date_text,due,date_report in selected:
-        fingerprint=_national_points_fingerprint(points)
-        if not _national_try_lock(date_text,fingerprint):
-            date_report["locked"]=True
-            continue
-        report["datesProcessed"]+=1
-        date_report["chunkSize"]=NATIONAL_OUTLOOK_CHUNK_SIZE
-        date_report["chunks"]=[]
-        updated_names=set()
-        try:
-            for start in range(0,len(due),NATIONAL_OUTLOOK_CHUNK_SIZE):
-                chunk=due[start:start+NATIONAL_OUTLOOK_CHUNK_SIZE]
-                chunk_report={"start":start,"requested":len(chunk),"updated":0,"completeFetch":False,"error":None}
-                try:
-                    results,complete,rate_limited,error=_national_fetch_shared(date_text,chunk)
-                    if results:
-                        wrote=_national_supabase_write(date_text,chunk,results)
-                        if wrote:
-                            names={str(r.get("name") or "") for r in results if isinstance(r,dict) and r.get("name")}
-                            updated_names.update(names)
-                            chunk_report["updated"]=len(names)
-                    chunk_report["completeFetch"]=bool(complete)
-                    chunk_report["rateLimited"]=bool(rate_limited)
-                    if error:
-                        chunk_report["error"]=error
-                    date_report["chunks"].append(chunk_report)
-                    if rate_limited:
-                        date_report["rateLimited"]=True
-                        break
-                except Exception as exc:
-                    chunk_report["error"]=str(exc)[:200]
-                    date_report["chunks"].append(chunk_report)
-                    app.logger.exception("national_rolling_300_chunk_failed date=%s start=%s",date_text,start)
-
-            date_report["pointsUpdated"]=len(updated_names)
-            report["pointsUpdated"]+=len(updated_names)
-            fresh_after,stale_after,_=_national_supabase_read(date_text,points)
-            date_report["freshAfter"]=len(fresh_after)
-            date_report["staleAfter"]=len(stale_after)
-            date_report["missingAfter"]=max(0,len(points)-len(set(fresh_after)|set(stale_after)))
-            date_report["remainingDueAfter"]=max(0,len(points)-len(fresh_after))
-            date_report["completeFetch"]=len(fresh_after)>=len(points)
-            if date_report["remainingDueAfter"]:
-                date_report["ok"]=False
-                date_report["error"]=f'fresh cache incomplete: {len(fresh_after)}/{len(points)}'
-                report["errors"].append({"date":date_text,"error":date_report["error"]})
-        except Exception as exc:
-            app.logger.exception("national_rolling_300_refresh_failed date=%s",date_text)
-            date_report["ok"]=False; date_report["error"]=str(exc)[:200]
-            report["errors"].append({"date":date_text,"error":str(exc)[:200]})
-        finally:
-            _national_unlock(date_text,fingerprint)
-    report["ok"]=not report["errors"] and not report.get("error")
-    return report
-
 
 def _national_supabase_refresh_candidates(force: bool = False) -> dict[str, list[dict[str, Any]]]:
     """Load persistent cache rows that should be refreshed, grouped by forecast date.
@@ -1760,40 +996,43 @@ def _national_supabase_refresh_candidates(force: bool = False) -> dict[str, list
 
 
 def _refresh_national_persistent_cache(*, force: bool = False) -> dict[str, Any]:
-    """Refresh only the proactive rolling 7-day / 100-mountain cache.
+    """Refresh stale nationwide rows stored in Supabase.
 
-    Other dates and the additional 200 mountains remain opportunistic/on-demand:
-    every successful user analysis is stored in the same Supabase shared cache and
-    is reusable within the four-hour fresh TTL, but the background worker does not
-    spend API calls keeping those rows warm.
+    The operation is intentionally stale-only by default: an hourly external wake-up
+    is cheap when nothing is due, while each row is actually fetched only after its
+    four-hour TTL has expired.
     """
-    global _national_last_refresh_report
-    started=time.time()
-    rolling=(
-        _refresh_rolling_100_cache(force=force)
-        if NATIONAL_100_ROLLING_AUTO_CACHE
-        else {"ok":True,"disabled":True,"rollingDays":NATIONAL_100_ROLLING_DAYS,"pointsDue":0,"pointsUpdated":0,"errors":[]}
-    )
-    report: dict[str, Any]={
-        "ok":bool(rolling.get("ok",True)),"force":force,"rolling100":rolling,
-        "datesChecked":int(rolling.get("datesInspected") or 0),
-        "datesDue":int(rolling.get("datesDue") or 0),
-        "datesProcessed":int(rolling.get("datesProcessed") or 0),
-        "pointsDue":int(rolling.get("pointsDue") or 0),
-        "pointsUpdated":int(rolling.get("pointsUpdated") or 0),
-        "errors":list(rolling.get("errors") or []),
-        "backgroundScope":"100-famous-mountains-next-7-days",
+    started = time.time()
+    groups = _national_supabase_refresh_candidates(force=force)
+    report: dict[str, Any] = {
+        "ok": True, "force": force, "datesChecked": len(groups), "pointsDue": sum(len(v) for v in groups.values()),
+        "pointsUpdated": 0, "datesUpdated": 0, "errors": [],
     }
-    if rolling.get("error"):
-        report["errors"].append({"error":rolling.get("error")})
-    report["elapsedSeconds"]=round(time.time()-started,2)
-    report["ok"]=bool(rolling.get("ok",True)) and not report["errors"]
-    # V1.5.67: social publishing is downstream of cache maintenance and never
-    # affects cache success/failure. Only tomorrow's fresh snapshot with at least
-    # 98 valid mountain results is eligible, so rolling 7-day maintenance cannot cause mass posts.
-    report["instagram"] = _instagram_maybe_post_after_refresh()
-    _national_last_refresh_report=dict(report)
-    _national_last_refresh_report["finishedAt"]=datetime.now(timezone.utc).isoformat()
+    for date_text in sorted(groups):
+        points = groups[date_text]
+        if not points:
+            continue
+        fingerprint = _national_points_fingerprint(points)
+        if not _national_try_lock(date_text, fingerprint):
+            continue
+        try:
+            results, complete, rate_limited, error = _national_fetch_shared(date_text, points)
+            if results:
+                _national_supabase_write(date_text, points, results)
+                report["pointsUpdated"] += len(results)
+                report["datesUpdated"] += 1
+            if error:
+                report["errors"].append({"date": date_text, "error": error})
+            if rate_limited:
+                report["errors"].append({"date": date_text, "error": "rate_limited"})
+                break
+        except Exception as exc:
+            app.logger.exception("national_persistent_refresh_failed date=%s", date_text)
+            report["errors"].append({"date": date_text, "error": str(exc)[:200]})
+        finally:
+            _national_unlock(date_text, fingerprint)
+    report["elapsedSeconds"] = round(time.time() - started, 2)
+    report["ok"] = not report["errors"]
     return report
 
 
@@ -1907,10 +1146,54 @@ def _national_point_cache_put(date_text: str, p: dict[str, Any], result: dict[st
             for k, _ in oldest: _national_point_cache.pop(k, None)
 
 
+def _request_openmeteo_national_once(url: str, timeout: int = UPSTREAM_TIMEOUT):
+    """One Open-Meteo attempt for national refresh. 429 is not retried here.
+    National outlook must stop immediately and fall back to the last-good cache.
+    """
+    global _openmeteo_last_request
+    with _openmeteo_lock:
+        wait = OPENMETEO_MIN_INTERVAL - (time.monotonic() - _openmeteo_last_request)
+        if wait > 0: time.sleep(wait)
+        req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return resp.status, resp.headers.get("Content-Type", "application/json"), resp.read()
+        finally:
+            _openmeteo_last_request = time.monotonic()
 
-# V1.5.68: nationwide analysis must never use Open-Meteo.
-# The old national Open-Meteo request/parser helpers were removed entirely.
-# Nationwide data sources are MET Norway + NOAA GFS direct only.
+
+def _national_result_from_forecast(p: dict[str, Any], forecast: dict[str, Any]) -> dict[str, Any] | None:
+    hourly=forecast.get("hourly") or {}; times=hourly.get("time") or []
+    idx=[i for i,t in enumerate(times) if isinstance(t,str) and len(t)>=13 and 6 <= int(t[11:13]) <= 15]
+    def vals(k):
+        a=hourly.get(k) or []; out=[]
+        for i in idx:
+            try:v=float(a[i])
+            except (TypeError,ValueError,IndexError):continue
+            if math.isfinite(v):out.append(v)
+        return out
+    wind=vals("wind_speed_10m"); gust=vals("wind_gusts_10m"); rain=vals("precipitation"); cape=vals("cape"); temp=vals("temperature_2m"); vis=vals("visibility")
+    if not (wind and rain and temp): return None
+    max_w=max(wind); max_g=max(gust) if gust else max_w; max_r=max(rain); max_c=max(cape) if cape else 0; min_t=min(temp); min_v=min(vis) if vis else None
+    caution_hours=severe_hours=extreme_hours=0
+    for i in idx:
+        def hv(k, default=None):
+            a=hourly.get(k) or []
+            try:
+                v=float(a[i]); return v if math.isfinite(v) else default
+            except (TypeError,ValueError,IndexError): return default
+        w=hv("wind_speed_10m",0); r=hv("precipitation",0)
+        extreme = w>=18 or r>=8
+        severe = w>=13 or r>=3
+        caution = w>=8 or r>=0.8
+        if extreme: extreme_hours+=1
+        if severe: severe_hours+=1
+        if caution: caution_hours+=1
+    grade,summary=_national_grade(max_w,max_g,max_r,max_c,min_t,min_v,caution_hours=caution_hours,severe_hours=severe_hours,extreme_hours=extreme_hours)
+    thunder="HIGH" if max_c>=700 else "MEDIUM" if max_c>=300 else "LOW"
+    return {"name":p["name"],"grade":grade,"summary":summary,"maxWind":round(max_w,1),"maxGust":round(max_g,1),"maxRain":round(max_r,1),"maxCape":round(max_c),"minTemp":round(min_t,1),"minVisibility":round(min_v) if min_v is not None else None,"thunder":thunder,"cautionHours":caution_hours,"severeHours":severe_hours,"source":"openmeteo"}
+
+
 
 def _metno_retry_delay(exc: Exception, attempt: int) -> float:
     retry_after=None
@@ -1978,10 +1261,10 @@ def _national_result_from_metno(p: dict[str, Any], date_text: str, payload: dict
     if not rows: return None
     winds=[x[0] for x in rows]; gusts=[x[1] for x in rows]; rains=[x[2] for x in rows]; temps=[x[3] for x in rows]
     caution_hours=severe_hours=extreme_hours=0
-    for w,g,r,_ in rows:
-        if w>=15 or g>=25 or r>=6: extreme_hours+=1
-        if w>=9 or g>=18 or r>=1.5: severe_hours+=1
-        if w>=5 or g>=12 or r>=0.1: caution_hours+=1
+    for w,_,r,_ in rows:
+        if w>=18 or r>=8: extreme_hours+=1
+        if w>=13 or r>=3: severe_hours+=1
+        if w>=8 or r>=0.8: caution_hours+=1
     max_w=max(winds); max_g=max(gusts); max_r=max(rains); min_t=min(temps)
     grade,summary=_national_grade(max_w,max_g,max_r,0,min_t,None,caution_hours=caution_hours,severe_hours=severe_hours,extreme_hours=extreme_hours)
     return {"name":p["name"],"grade":grade,"summary":summary,"maxWind":round(max_w,1),"maxGust":round(max_g,1),"maxRain":round(max_r,1),"maxCape":0,"minTemp":round(min_t,1),"minVisibility":None,"thunder":"–","cautionHours":caution_hours,"severeHours":severe_hours,"source":"metno"}
@@ -2122,9 +1405,9 @@ def _national_gfs_results(date_text: str, points: list[dict[str, Any]]) -> dict[
         rr=rows.get(p["name"]) or []
         if len(rr)<4: continue
         winds=[x["wind"] for x in rr]; gusts=[x["gust"] for x in rr]; rains=[x["rain"] for x in rr]; temps=[x["temp"] for x in rr]
-        caution=sum(1 for x in rr if x["wind"]>=5 or x.get("gust",x["wind"])>=12 or x["rain"]>=0.1)
-        severe=sum(1 for x in rr if x["wind"]>=9 or x.get("gust",x["wind"])>=18 or x["rain"]>=1.5)
-        extreme=sum(1 for x in rr if x["wind"]>=15 or x.get("gust",x["wind"])>=25 or x["rain"]>=6)
+        caution=sum(1 for x in rr if x["wind"]>=8 or x["rain"]>=0.8)
+        severe=sum(1 for x in rr if x["wind"]>=13 or x["rain"]>=3)
+        extreme=sum(1 for x in rr if x["wind"]>=18 or x["rain"]>=8)
         grade,summary=_national_grade(max(winds),max(gusts),max(rains),0,min(temps),None,caution_hours=caution,severe_hours=severe,extreme_hours=extreme)
         results[p["name"]]={"name":p["name"],"grade":grade,"summary":summary,"maxWind":round(max(winds),1),"maxGust":round(max(gusts),1),"maxRain":round(max(rains),1),"maxCape":0,"minTemp":round(min(temps),1),"minVisibility":None,"thunder":"–","cautionHours":caution,"severeHours":severe,"source":"gfs"}
     return results
@@ -2211,16 +1494,7 @@ def _national_fetch_shared(date_text: str, points: list[dict[str, Any]]) -> tupl
                 _national_point_cache_put(date_text,p,result)
     ordered=[results_by_name[p["name"]] for p in points if p["name"] in results_by_name]
     complete=len(ordered)==len(points)
-    if not complete:
-        missing_names=[p["name"] for p in points if p["name"] not in results_by_name]
-        warning_parts.append(f"{len(missing_names)}座は現在データを取得できませんでした")
-        for name in missing_names:
-            app.logger.warning(
-                "national_missing mountain=%s metno=%s gfs=%s engine=metno+gfs-direct",
-                name,
-                "ok" if name in metno else "missing",
-                "ok" if name in gfs else "missing",
-            )
+    if not complete: warning_parts.append(f"{len(points)-len(ordered)}座は現在データを取得できませんでした")
     return ordered,complete,False,"。".join(dict.fromkeys(warning_parts)) or None
 
 
@@ -2229,35 +1503,14 @@ def _national_response(data: dict[str, Any], state: str, *, rate_limited: bool=F
     results=data.get("results") or []; points=data.get("points") or []
     result_names={str(r.get("name") or "") for r in results if isinstance(r,dict)}
     total=len(points); got=len(result_names)
-    missing_names=[str(p.get("name") or "") for p in points if isinstance(p,dict) and str(p.get("name") or "") not in result_names]
-    app.logger.warning(
-        "national_summary date=%s total=%s returned=%s missing_count=%s missing=%s state=%s engine=metno+gfs-direct",
-        data.get("date"), total, got, len(missing_names), ",".join(missing_names) if missing_names else "none", state,
-    )
-    by_name={str(r.get("name") or ""):r for r in results if isinstance(r,dict) and r.get("name")}
-    for debug_name in ("浅間山","草津白根山"):
-        r=by_name.get(debug_name)
-        source=str((r or {}).get("source") or "missing")
-        grades=(r or {}).get("modelGrades") if isinstance((r or {}).get("modelGrades"),dict) else {}
-        metno_state="ok" if source in {"metno","metno+gfs"} or grades.get("metno") else "missing"
-        gfs_state="ok" if source in {"gfs","metno+gfs"} or grades.get("gfs") else "missing"
-        app.logger.warning(
-            "national_debug date=%s mountain=%s returned=%s source=%s metno=%s gfs=%s grade=%s state=%s engine=metno+gfs-direct",
-            data.get("date"), debug_name, "yes" if r else "no", source, metno_state, gfs_state, (r or {}).get("grade"), state,
-        )
     payload={
         "date":data.get("date"), "results":results, "version":APP_VERSION,
         "complete":got >= total if total else False,
         "cache":{"state":state,"backend":"supabase+local" if _national_supabase_enabled() else "local-only","generatedAt":data.get("generated_at"),"ageSeconds":max(0,round(now-generated)),"freshTtlSeconds":NATIONAL_OUTLOOK_CACHE_TTL,
-                 "freshUntil":datetime.fromtimestamp(float(data.get("fresh_until") or now), timezone.utc).isoformat(),
-                 "freshRemainingSeconds":max(0,round(float(data.get("fresh_until") or 0)-now)),
                  "cachedCount":int(cached_count if cached_count is not None else data.get("cached_count") or got),
-                 "freshCount":int(data.get("supabase_fresh_count") or 0),
-                 "staleCount":int(data.get("supabase_stale_count") or 0),
                  "newlyFetchedCount":int(newly_fetched_count or 0),
                  "staleFallbackCount":max(0,int(stale_fallback_count or 0)),
-                 "missingCount":max(0,total-got),
-                 "cacheHit":bool((cached_count if cached_count is not None else data.get("cached_count") or got)>0 and int(newly_fetched_count or 0)==0)},
+                 "missingCount":max(0,total-got)},
         "rateLimited":False,
         "dualModelCount":sum(1 for r in results if r.get("source")=="metno+gfs"),
         "metnoOnlyCount":sum(1 for r in results if r.get("source")=="metno"),
@@ -2271,128 +1524,56 @@ def _national_response(data: dict[str, Any], state: str, *, rate_limited: bool=F
     return resp
 
 
-def _save_national_refresh_runtime() -> None:
-    payload = dict(_national_refresh_runtime)
-    payload["workerThreadAlive"] = bool(_national_refresh_worker_thread and _national_refresh_worker_thread.is_alive())
-    payload["statusWrittenAt"] = datetime.now(timezone.utc).isoformat()
-    tmp = NATIONAL_REFRESH_STATUS_FILE + f".{os.getpid()}.tmp"
-    try:
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(payload, f, ensure_ascii=False, separators=(",", ":"))
-        os.replace(tmp, NATIONAL_REFRESH_STATUS_FILE)
-    except Exception:
-        try:
-            if os.path.exists(tmp): os.unlink(tmp)
-        except OSError:
-            pass
-
-
-def _national_refresh_runtime_snapshot() -> dict[str, Any]:
-    snap = dict(_national_refresh_runtime)
-    # /tmp is shared by Gunicorn workers. Prefer the status written by the lock owner
-    # so /api/health is consistent no matter which worker serves the request.
-    try:
-        with open(NATIONAL_REFRESH_STATUS_FILE, "r", encoding="utf-8") as f:
-            shared = json.load(f)
-        if isinstance(shared, dict):
-            snap.update(shared)
-    except Exception:
-        pass
-    thread = _national_refresh_worker_thread
-    if snap.get("workerPid") == os.getpid():
-        snap["workerThreadAlive"] = bool(thread and thread.is_alive())
-    if snap.get("lastCheckAt"):
-        try:
-            last = datetime.fromisoformat(str(snap["lastCheckAt"]).replace("Z", "+00:00"))
-            nxt = last + timedelta(seconds=max(300, NATIONAL_OUTLOOK_REFRESH_INTERVAL))
-            snap["nextCheckAt"] = nxt.astimezone(timezone.utc).isoformat()
-        except Exception:
-            snap["nextCheckAt"] = None
-    else:
-        snap["nextCheckAt"] = None
-    return snap
-
-
-def _run_national_refresh_cycle(trigger: str) -> None:
-    now_iso = datetime.now(timezone.utc).isoformat()
-    _national_refresh_runtime["lastCheckAt"] = now_iso
-    _national_refresh_runtime["lastRunStartedAt"] = now_iso
-    _national_refresh_runtime["state"] = "running"
-    _national_refresh_runtime["lastError"] = None
-    _save_national_refresh_runtime()
-    try:
-        if NATIONAL_OUTLOOK_AUTO_REFRESH and _national_supabase_enabled():
-            report = _refresh_national_persistent_cache(force=False)
-            _national_refresh_runtime["lastRunOk"] = bool(report.get("ok"))
-            _national_refresh_runtime["lastError"] = None if report.get("ok") else str(report.get("errors") or report.get("error") or "refresh failed")[:500]
-        else:
-            _national_refresh_runtime["lastRunOk"] = True
-        _national_refresh_runtime["state"] = "sleeping"
-    except Exception as exc:
-        _national_refresh_runtime["lastRunOk"] = False
-        _national_refresh_runtime["lastError"] = str(exc)[:500]
-        _national_refresh_runtime["state"] = "error"
-        app.logger.exception("national_refresh_cycle_failed trigger=%s", trigger)
-    finally:
-        _national_refresh_runtime["lastRunFinishedAt"] = datetime.now(timezone.utc).isoformat()
-        _save_national_refresh_runtime()
-
-
 def _ensure_national_refresh_worker() -> None:
-    """Start one refresh worker per Render instance, safely across Gunicorn workers."""
-    global _national_refresh_thread_started, _national_refresh_worker_thread, _national_refresh_worker_lock_handle
-    if not NATIONAL_OUTLOOK_AUTO_REFRESH:
-        _national_refresh_runtime["state"] = "disabled"
-        return
+    global _national_refresh_thread_started
     with _national_refresh_thread_lock:
-        if _national_refresh_worker_thread and _national_refresh_worker_thread.is_alive():
-            return
-        # Gunicorn runs two workers. Use an OS file lock so only one owns the
-        # background refresh loop; the other workers remain standby.
-        try:
-            import fcntl
-            lock_path = os.path.join(tempfile.gettempdir(), "traten-national-refresh-worker.lock")
-            handle = open(lock_path, "a+")
+        if _national_refresh_thread_started: return
+        _national_refresh_thread_started=True
+    def worker():
+        while True:
+            time.sleep(max(300,NATIONAL_OUTLOOK_REFRESH_INTERVAL))
             try:
-                fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-            except BlockingIOError:
-                handle.close()
-                _national_refresh_runtime["state"] = "standby"
-                _national_refresh_runtime["workerPid"] = None
-                return
-            _national_refresh_worker_lock_handle = handle
-        except Exception as exc:
-            # Render is Linux, but keep a fallback so local Windows development still works.
-            app.logger.warning("national_refresh_worker_lock_unavailable %s", exc)
-        _national_refresh_thread_started = True
-        _national_refresh_runtime["state"] = "starting"
-        _national_refresh_runtime["workerPid"] = os.getpid()
-        _save_national_refresh_runtime()
-
-        def worker():
-            # V1.4.237: do not compete with Render cold-start / first-page delivery.
-            # The persistent cache can wait briefly; user-facing HTML/JS gets priority.
-            _national_refresh_runtime["state"] = "boot-grace"
-            _national_refresh_runtime["workerPid"] = os.getpid()
-            _save_national_refresh_runtime()
-            if NATIONAL_OUTLOOK_BOOT_GRACE > 0:
-                time.sleep(NATIONAL_OUTLOOK_BOOT_GRACE)
-            _run_national_refresh_cycle("boot")
-            while True:
-                time.sleep(max(300, NATIONAL_OUTLOOK_REFRESH_INTERVAL))
-                _run_national_refresh_cycle("interval")
-
-        thread = threading.Thread(target=worker, name="traten-national-refresh", daemon=True)
-        _national_refresh_worker_thread = thread
-        thread.start()
-
-
-@app.before_request
-def _ensure_refresh_worker_on_request():
-    # A request after a Render wake is a second safety net. If the owning Gunicorn
-    # worker disappeared, the next request lets another worker acquire the lock.
-    if NATIONAL_OUTLOOK_AUTO_REFRESH and not (_national_refresh_worker_thread and _national_refresh_worker_thread.is_alive()):
-        _ensure_national_refresh_worker()
+                if NATIONAL_OUTLOOK_AUTO_REFRESH and _national_supabase_enabled():
+                    _refresh_national_persistent_cache(force=False)
+                files=[os.path.join(NATIONAL_OUTLOOK_CACHE_DIR,n) for n in os.listdir(NATIONAL_OUTLOOK_CACHE_DIR) if n.endswith('.json')]
+                now=time.time()
+                for path in files:
+                    try:
+                        with open(path,'r',encoding='utf-8') as f: data=json.load(f)
+                        if float(data.get('stale_until') or 0)<=now: continue
+                        if float(data.get('fresh_until') or 0)>now: continue
+                        date_text=str(data.get('date') or '')
+                        points=data.get('points') or []
+                        fp=str(data.get('fingerprint') or '')
+                        if not date_text or not fp or not points: continue
+                        try:
+                            target_date=datetime.strptime(date_text,'%Y-%m-%d').date()
+                            today_jst=(datetime.now(timezone.utc)+timedelta(hours=9)).date()
+                            if target_date < today_jst or target_date > today_jst + timedelta(days=15): continue
+                        except ValueError:
+                            continue
+                        if not _national_try_lock(date_text,fp): continue
+                        try:
+                            latest,state=_national_read_disk_cache(date_text,fp)
+                            if state=='fresh': continue
+                            latest_results=(latest or {}).get("results") or []
+                            latest_names={str(r.get("name") or "") for r in latest_results if isinstance(r,dict)}
+                            fetch_points=points if state=='stale' else [p for p in points if p.get("name") not in latest_names]
+                            results,complete,rate_limited,error=_national_fetch_shared(date_text,fetch_points) if fetch_points else ([],True,False,None)
+                            by_name={str(r.get("name") or ""):dict(r) for r in latest_results if isinstance(r,dict) and r.get("name")}
+                            for r in results:
+                                if isinstance(r,dict) and r.get("name"): by_name[str(r.get("name"))]=dict(r)
+                            merged=[by_name[p["name"]] for p in points if p.get("name") in by_name]
+                            _national_write_disk_cache(date_text,fp,points,merged)
+                            if rate_limited:
+                                break
+                        finally:
+                            _national_unlock(date_text,fp)
+                    except Exception:
+                        continue
+            except Exception:
+                continue
+    threading.Thread(target=worker,name='traten-national-refresh',daemon=True).start()
 
 
 @app.post("/api/national-outlook/refresh-cache")
@@ -2400,7 +1581,7 @@ def national_outlook_refresh_cache():
     """Scheduled wake-up endpoint for the persistent nationwide cache.
 
     Configure the same NATIONAL_CACHE_REFRESH_TOKEN in Render and GitHub Actions.
-    The endpoint maintains tomorrow through seven days ahead for the 100 Famous Mountains, refreshing only rows whose four-hour TTL has expired.
+    The endpoint refreshes only rows whose four-hour TTL has expired.
     """
     if not NATIONAL_CACHE_REFRESH_TOKEN:
         return jsonify(error="NATIONAL_CACHE_REFRESH_TOKEN is not configured"), 503
@@ -2413,300 +1594,9 @@ def national_outlook_refresh_cache():
     return jsonify(report), 200 if report.get("ok") else 207
 
 
-def _instagram_admin_authorized() -> bool:
-    if not NATIONAL_CACHE_REFRESH_TOKEN:
-        return False
-    supplied = request.headers.get("X-Traten-Cache-Token", "")
-    return bool(supplied and hmac.compare_digest(supplied, NATIONAL_CACHE_REFRESH_TOKEN))
-
-
-@app.get("/instagram-admin")
-def instagram_admin_page():
-    """Browser-based Instagram bot test console. APIs remain token protected."""
-    return Response("""<!doctype html>
-<html lang="ja">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>トラテン Instagram 管理</title>
-<style>
-:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#17324a;background:#f4f7fa}
-body{margin:0}.wrap{max-width:920px;margin:0 auto;padding:28px 18px 60px}
-h1{font-size:26px;margin:0 0 6px}.sub{color:#607284;margin-bottom:22px}
-.card{background:#fff;border:1px solid #dbe4ec;border-radius:14px;padding:18px;margin:14px 0;box-shadow:0 2px 9px #0000000a}
-label{display:block;font-weight:700;margin:8px 0 6px}
-input{width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid #bdcbd6;border-radius:9px;font-size:15px}
-button{border:0;border-radius:9px;padding:11px 16px;font-weight:700;cursor:pointer;background:#0b5e9a;color:#fff;margin:6px 8px 6px 0}
-button.secondary{background:#667989}button.danger{background:#a33d3d}
-.row{display:flex;gap:12px;flex-wrap:wrap}.row>div{flex:1;min-width:220px}
-.status{white-space:pre-wrap;background:#102536;color:#eaf4fb;border-radius:10px;padding:13px;min-height:48px;font-family:ui-monospace,Consolas,monospace;font-size:13px;overflow:auto}
-img{display:block;width:min(100%,540px);height:auto;border-radius:12px;border:1px solid #dbe4ec;margin-top:12px}
-video{display:block;width:min(100%,540px);height:auto;max-height:76vh;border-radius:12px;border:1px solid #dbe4ec;margin-top:12px;background:#091827}
-.small{font-size:13px;color:#657687}.pill{display:inline-block;padding:4px 9px;border-radius:999px;background:#eaf2f8;margin-right:6px;font-size:13px}
-</style>
-</head><body><main class="wrap">
-<h1>トラテン Instagram 管理</h1>
-<div class="sub">V1.5.87 / 接続確認・モック準拠リールプレビュー・手動投稿</div>
-
-<section class="card">
-<label>管理トークン（NATIONAL_CACHE_REFRESH_TOKEN）</label>
-<input id="token" type="password" autocomplete="off" placeholder="Render Environment の値">
-<div class="small">この値はブラウザのsessionStorageだけに保持し、URLには載せません。</div>
-<button onclick="saveToken()">このタブに保存</button>
-<button class="secondary" onclick="clearToken()">消去</button>
-</section>
-
-<section class="card">
-<h2>1. 状態・接続確認</h2>
-<button onclick="loadStatus()">状態確認</button>
-<button onclick="testConnection()">Instagram接続確認</button>
-<div id="summary" style="margin:10px 0"></div>
-<div id="out" class="status">未確認</div>
-</section>
-
-<section class="card">
-<h2>2. 投稿画像プレビュー</h2>
-<div class="row"><div><label>予報日</label><input id="date" type="date"></div></div>
-<button onclick="preview()">静止画をプレビュー</button>
-<button onclick="previewReelVideo()">リールをプレビュー</button>
-<div id="previewMsg" class="small"></div>
-<img id="previewImg" alt="Instagram投稿画像プレビュー" hidden>
-<div id="reelControls" hidden style="margin-top:10px"><button id="reelPlayBtn" class="secondary" type="button" onclick="playPreviewReel()" disabled>▶ リールを再生</button> <a id="reelOpenLink" href="#" target="_blank" rel="noopener" style="display:none;margin-left:8px">別タブで開く</a></div>
-<video id="previewReelVideo" controls playsinline preload="metadata" hidden style="min-height:360px;aspect-ratio:9/16;pointer-events:auto"></video>
-</section>
-
-<section class="card">
-<h2>3. 手動投稿</h2>
-<p class="small">同じ予報日は通常二重投稿しません。まず画像プレビューを確認してから実行してください。</p>
-<button class="danger" onclick="postNow()">この予報日をInstagramへ投稿</button>
-<label style="font-weight:400"><input id="force" type="checkbox" style="width:auto"> 二重投稿防止を無視して強制投稿（通常はOFF）</label>
-<div id="postOut" class="status">未実行</div>
-</section>
-</main>
-<script>
-const $=id=>document.getElementById(id);
-function token(){return $('token').value.trim()}
-function saveToken(){sessionStorage.setItem('tratenIgAdminToken',token());alert('このタブに保存しました')}
-function clearToken(){sessionStorage.removeItem('tratenIgAdminToken');$('token').value=''}
-function h(json=false){const x={'X-Traten-Cache-Token':token()};if(json)x['Content-Type']='application/json';return x}
-async function api(url,opt={}){
-  if(!token())throw new Error('管理トークンを入力してください');
-  const r=await fetch(url,{...opt,headers:{...(opt.headers||{}),...h(!!opt.body)}});
-  const raw=await r.text();
-  let j=null;
-  if(raw){try{j=JSON.parse(raw)}catch{j=null}}
-  if(!r.ok){
-    const detail=(j&&j.error)?j.error:(raw?raw.replace(/<[^>]*>/g,' ').replace(/\\s+/g,' ').trim().slice(0,500):'empty response');
-    throw new Error(`HTTP ${r.status}: ${detail}`);
-  }
-  if(!j)throw new Error(`HTTP ${r.status}: JSONではない応答です: ${(raw||'empty response').slice(0,500)}`);
-  return j;
-}
-function show(id,obj){$(id).textContent=JSON.stringify(obj,null,2)}
-async function loadStatus(){
-  try{
-    const j=await api('/api/instagram/status');show('out',j);$('date').value=j.tomorrow||'';
-    $('summary').innerHTML=`<span class="pill">configured: ${j.configured}</span><span class="pill">autoPost: ${j.autoPost}</span><span class="pill">autoMedia: ${j.autoMedia}</span><span class="pill">fresh: ${j.tomorrowFreshCount}</span>`;
-    if(j.previewImageUrl){$('previewImg').src=j.previewImageUrl;$('previewImg').hidden=false}
-  }catch(e){$('out').textContent=e.message}
-}
-async function testConnection(){
-  try{show('out',await api('/api/instagram/test-connection'))}
-  catch(e){$('out').textContent=e.message}
-}
-async function preview(){
-  try{
-    const d=$('date').value;if(!d)throw new Error('予報日を選択してください');
-    const r=await api('/api/instagram/preview-url?date='+encodeURIComponent(d));
-    $('previewReelVideo').pause();$('previewReelVideo').hidden=true;$('reelControls').hidden=true;$('reelPlayBtn').disabled=true;$('reelOpenLink').style.display='none';
-    $('previewImg').src=r.previewImageUrl+'&t='+Date.now();$('previewImg').hidden=false;
-    $('previewMsg').textContent=`静止画: ${r.date} / ${r.count}座`;
-  }catch(e){$('previewMsg').textContent=e.message}
-}
-async function previewReelVideo(){
-  try{
-    const d=$('date').value;if(!d)throw new Error('予報日を選択してください');
-    $('previewMsg').textContent='リールを生成しています。初回は少し時間がかかります…';
-    $('reelControls').hidden=true;$('reelPlayBtn').disabled=true;$('reelOpenLink').style.display='none';
-    const r=await api('/api/instagram/reel-preview-url?date='+encodeURIComponent(d));
-    $('previewImg').hidden=true;
-    const v=$('previewReelVideo');
-    const url=r.previewReelUrl+'&t='+Date.now();
-    v.hidden=false;v.controls=true;v.src=url;
-    $('reelOpenLink').href=url;$('reelOpenLink').style.display='inline';$('reelControls').hidden=false;
-    v.onerror=()=>{ $('previewMsg').textContent='リール動画の生成または読込に失敗しました。状態確認の reelRenderer と Renderログを確認してください。'; $('reelPlayBtn').disabled=true; };
-    v.onloadedmetadata=()=>{ $('previewMsg').textContent=`リール生成完了: ${r.date} / ${r.count}座 / ${Math.round(v.duration||0)}秒。下の「▶ リールを再生」を押してください。`; };
-    v.oncanplay=()=>{ $('reelPlayBtn').disabled=false; $('previewMsg').textContent=`リール再生準備完了: ${r.date} / ${r.count}座 / ${Math.round(v.duration||0)}秒`; };
-    v.onwaiting=()=>{ $('previewMsg').textContent='動画データを読み込み中です…'; };
-    v.load();
-  }catch(e){$('previewMsg').textContent=e.message}
-}
-async function playPreviewReel(){
-  const v=$('previewReelVideo');
-  try{ await v.play(); $('previewMsg').textContent=`再生中 / ${Math.round(v.duration||0)}秒`; }
-  catch(e){ $('previewMsg').textContent='ブラウザで再生できませんでした。「別タブで開く」を試してください: '+(e&&e.message?e.message:'再生エラー'); }
-}
-async function postNow(){
-  try{
-    const d=$('date').value;if(!d)throw new Error('予報日を選択してください');
-    if(!confirm(d+' の全国分析をInstagramへ投稿します。よろしいですか？'))return;
-    const j=await api('/api/instagram/post-national',{method:'POST',body:JSON.stringify({date:d,force:$('force').checked})});
-    show('postOut',j);
-  }catch(e){$('postOut').textContent=e.message}
-}
-$('token').value=sessionStorage.getItem('tratenIgAdminToken')||'';
-</script>
-</body></html>""", content_type="text/html; charset=utf-8")
-
-
-@app.get("/api/instagram/preview-url")
-def instagram_preview_url():
-    if not _instagram_admin_authorized():
-        return jsonify(error="unauthorized"), 401
-    date_text = str(request.args.get("date") or _national_nextday_date_text())[:10]
-    try:
-        datetime.strptime(date_text, "%Y-%m-%d")
-    except ValueError:
-        return jsonify(error="invalid date"), 400
-    rows = _instagram_load_fresh_100_results(date_text)
-    if len(rows) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
-        return jsonify(error="fresh nationwide cache is incomplete", count=len(rows), minimum=instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS, date=date_text), 409
-    return jsonify(date=date_text, count=len(rows), previewImageUrl=instagram_bot.image_url(date_text))
-
-
-@app.get("/api/instagram/reel-preview-url")
-def instagram_reel_preview_url():
-    if not _instagram_admin_authorized():
-        return jsonify(error="unauthorized"), 401
-    date_text = str(request.args.get("date") or _national_nextday_date_text())[:10]
-    try:
-        datetime.strptime(date_text, "%Y-%m-%d")
-    except ValueError:
-        return jsonify(error="invalid date"), 400
-    rows = _instagram_load_fresh_100_results(date_text)
-    if len(rows) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
-        return jsonify(error="fresh nationwide cache is incomplete", count=len(rows), minimum=instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS, date=date_text), 409
-    # Generate/cache the MP4 before returning the URL. Previously the API returned
-    # immediately and the <video> element itself triggered a long render request,
-    # so the browser controls looked disabled while ffmpeg was still working.
-    try:
-        gc.collect()
-        app.logger.info("instagram_reel_preview_prepare_start date=%s rows=%s", date_text, len(rows))
-        instagram_bot.render_national_reel(date_text, rows, logo_path=os.path.join(BASE, "traten-logo.png"))
-        app.logger.info("instagram_reel_preview_prepare_done date=%s", date_text)
-        gc.collect()
-    except Exception as exc:
-        app.logger.exception("instagram_reel_preview_prepare_failed date=%s", date_text)
-        gc.collect()
-        return jsonify(error=str(exc)[:500]), 500
-    return jsonify(date=date_text, count=len(rows), previewReelUrl=instagram_bot.reel_url(date_text))
-
-
-@app.get("/api/instagram/national-image/<date_text>")
-def instagram_national_image(date_text: str):
-    """Signed public JPEG URL consumed by Meta's image fetcher."""
-    date_text = str(date_text or "")[:10]
-    try:
-        datetime.strptime(date_text, "%Y-%m-%d")
-    except ValueError:
-        return jsonify(error="invalid date"), 400
-    if not instagram_bot.valid_image_signature(date_text, request.args.get("sig", "")):
-        return jsonify(error="unauthorized"), 401
-    rows = _instagram_load_fresh_100_results(date_text)
-    if len(rows) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
-        return jsonify(error="fresh nationwide cache is incomplete", count=len(rows), minimum=instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS), 409
-    try:
-        body = instagram_bot.render_national_image(
-            date_text, rows, logo_path=os.path.join(BASE, "traten-logo.webp")
-        )
-    except Exception as exc:
-        app.logger.exception("instagram_national_image_failed date=%s", date_text)
-        return jsonify(error=str(exc)[:300]), 500
-    response = Response(body, status=200, content_type="image/jpeg")
-    response.headers["Cache-Control"] = "public, max-age=900"
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    return response
-
-
-@app.get("/api/instagram/national-reel/<date_text>")
-def instagram_national_reel(date_text: str):
-    try:
-        datetime.strptime(date_text, "%Y-%m-%d")
-    except ValueError:
-        return jsonify(error="invalid date"), 400
-    if not instagram_bot.valid_reel_signature(date_text, request.args.get("sig", "")):
-        return jsonify(error="unauthorized"), 401
-    rows = _instagram_load_fresh_100_results(date_text)
-    if len(rows) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
-        return jsonify(error="fresh nationwide cache is incomplete", count=len(rows), minimum=instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS), 409
-    try:
-        path = instagram_bot.render_national_reel(date_text, rows, logo_path=os.path.join(BASE, "traten-logo.png"))
-        response = send_file(path, mimetype="video/mp4", conditional=False, download_name=f"traten-{date_text}-v1599.mp4")
-        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
-        response.headers["Pragma"] = "no-cache"
-        response.headers["Expires"] = "0"
-        response.headers["X-Traten-Reel-Version"] = "15119"
-        return response
-    except Exception as exc:
-        app.logger.exception("instagram_national_reel_failed date=%s", date_text)
-        return jsonify(error=str(exc)[:500]), 500
-
-
-@app.get("/api/instagram/status")
-def instagram_status():
-    if not _instagram_admin_authorized():
-        return jsonify(error="unauthorized"), 401
-    status = instagram_bot.status()
-    target = _national_nextday_date_text()
-    status["tomorrow"] = target
-    status["tomorrowFreshCount"] = len(_instagram_load_fresh_100_results(target))
-    if instagram_bot.configured():
-        status["previewImageUrl"] = instagram_bot.image_url(target)
-    status["reelRenderer"] = dict(REEL_RENDERER_STATUS)
-    return jsonify(status)
-
-
-@app.get("/api/instagram/test-connection")
-def instagram_test_connection():
-    if not _instagram_admin_authorized():
-        return jsonify(error="unauthorized"), 401
-    try:
-        result = instagram_bot.test_connection()
-        return jsonify(result), 200 if result.get("ok") else 503
-    except Exception as exc:
-        app.logger.exception("instagram_connection_test_failed")
-        return jsonify(ok=False, error=str(exc)[:500]), 502
-
-
-@app.post("/api/instagram/post-national")
-def instagram_post_national():
-    """Protected manual publish/test endpoint.
-
-    JSON: {"date":"YYYY-MM-DD", "force":false}. Omit date for tomorrow JST.
-    """
-    if not _instagram_admin_authorized():
-        return jsonify(error="unauthorized"), 401
-    payload = request.get_json(silent=True) or {}
-    date_text = str(payload.get("date") or _national_nextday_date_text())[:10]
-    try:
-        datetime.strptime(date_text, "%Y-%m-%d")
-    except ValueError:
-        return jsonify(error="invalid date"), 400
-    rows = _instagram_load_fresh_100_results(date_text)
-    if len(rows) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
-        return jsonify(ok=False, error="fresh nationwide cache is incomplete", count=len(rows), minimum=instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS, date=date_text), 409
-    try:
-        result = instagram_bot.post_national(date_text, rows, force=bool(payload.get("force")))
-        return jsonify(result), 200 if result.get("ok") else 503
-    except Exception as exc:
-        app.logger.exception("instagram_manual_post_failed date=%s", date_text)
-        return jsonify(ok=False, error=str(exc)[:500]), 502
-
-
 @app.post("/api/national-outlook")
 def national_outlook():
     payload = request.get_json(silent=True) or {}
-    cache_only = bool(payload.get("cacheOnly"))
     date_text = str(payload.get("date") or "")[:10]
     try: target = datetime.strptime(date_text, "%Y-%m-%d").date()
     except ValueError: return jsonify(error="日付が不正です"), 400
@@ -2727,7 +1617,7 @@ def national_outlook():
     if not points: return jsonify(error="有効な地点がありません"), 400
 
     fingerprint=_national_points_fingerprint(points)
-    sb_fresh,sb_stale,sb_meta=_national_supabase_read(date_text,points)
+    sb_fresh,sb_stale=_national_supabase_read(date_text,points)
     cached,state=_national_read_disk_cache(date_text,fingerprint)
     disk_state=state
     _ensure_national_refresh_worker()
@@ -2744,19 +1634,10 @@ def national_outlook():
         elif name in sb_stale: persistent_seed.append(sb_stale[name])
     if persistent_seed:
         now=time.time()
-        selected_meta=[sb_meta.get(p["name"]) for p in points if p["name"] in sb_meta]
-        generated_values=[float(m.get("generated_ts") or 0) for m in selected_meta if m and float(m.get("generated_ts") or 0)>0]
-        fresh_values=[float(m.get("fresh_until") or 0) for m in selected_meta if m and float(m.get("fresh_until") or 0)>0]
-        stale_values=[float(m.get("stale_until") or 0) for m in selected_meta if m and float(m.get("stale_until") or 0)>0]
-        generated_ts=min(generated_values) if generated_values else now
-        fresh_until=min(fresh_values) if fresh_values else now
-        stale_until=min(stale_values) if stale_values else now+NATIONAL_OUTLOOK_STALE_TTL
         cached={
-            "date":date_text,"fingerprint":fingerprint,
-            "generated_at":datetime.fromtimestamp(generated_ts,timezone.utc).isoformat(),"generated_ts":generated_ts,
-            "fresh_until":fresh_until,"stale_until":stale_until,
+            "date":date_text,"fingerprint":fingerprint,"generated_at":datetime.now(timezone.utc).isoformat(),"generated_ts":now,
+            "fresh_until":now+NATIONAL_OUTLOOK_CACHE_TTL,"stale_until":now+NATIONAL_OUTLOOK_STALE_TTL,
             "points":points,"results":persistent_seed,"complete":len(persistent_seed)>=len(points),"cached_count":len(persistent_seed),"version":APP_VERSION,
-            "supabase_fresh_count":len(sb_fresh),"supabase_stale_count":len(sb_stale),
         }
         # Supabase is authoritative across restarts. Preserve a genuinely fresh local snapshot
         # when no persistent rows exist yet (useful during first deployment/migration).
@@ -2774,19 +1655,6 @@ def national_outlook():
     cached_names={str(r.get("name") or "") for r in cached_results if isinstance(r,dict)}
     cached_count=len(cached_names)
     is_cached_complete=cached_count >= len(points)
-
-    # V1.4.190: initial nationwide display may ask only for already-saved results.
-    # Never generate/fetch forecasts for cacheOnly requests.
-    if cache_only:
-        if cached_results:
-            cache_state='cache-only-fresh' if state=='fresh' else 'cache-only-stale'
-            return _national_response(cached,cache_state,cached_count=cached_count,newly_fetched_count=0)
-        now=time.time()
-        empty={
-            'date':date_text,'fingerprint':fingerprint,'generated_at':datetime.now(timezone.utc).isoformat(),'generated_ts':now,
-            'fresh_until':now,'stale_until':now,'points':points,'results':[],'complete':False,'cached_count':0,'version':APP_VERSION,
-        }
-        return _national_response(empty,'cache-miss',cached_count=0,newly_fetched_count=0)
 
     # A complete fresh cache returns immediately. A fresh partial cache is useful,
     # but we continue only for the missing mountains and merge the result back.
@@ -2866,20 +1734,10 @@ def health():
         national_persistent_cache_configured=_national_supabase_enabled(),
         national_persistent_cache_table=NATIONAL_SUPABASE_CACHE_TABLE if _national_supabase_enabled() else None,
         national_cache_ttl_seconds=NATIONAL_OUTLOOK_CACHE_TTL,
-        national_browser_cache_ttl_seconds=NATIONAL_OUTLOOK_CACHE_TTL,
         national_auto_refresh_enabled=NATIONAL_OUTLOOK_AUTO_REFRESH,
         national_refresh_interval_seconds=NATIONAL_OUTLOOK_REFRESH_INTERVAL,
         national_refresh_token_configured=bool(NATIONAL_CACHE_REFRESH_TOKEN),
-        national_100_rolling_auto_cache=NATIONAL_100_ROLLING_AUTO_CACHE,
-        national_100_rolling_days=NATIONAL_100_ROLLING_DAYS,
-        national_100_rolling_dates_per_cycle=NATIONAL_100_ROLLING_DATES_PER_CYCLE,
-        national_100_chunk_size=NATIONAL_OUTLOOK_CHUNK_SIZE,
-        national_100_rolling_target_rows=NATIONAL_100_ROLLING_DAYS*len(_national_load_100_points()),
-        national_nextday_100_seed_count=len(_national_load_100_points()),
-        national_last_refresh_report=_national_last_refresh_report or None,
-        national_refresh_runtime=_national_refresh_runtime_snapshot(),
         usage_logging=True,
-        startup_optimization={"gzip_text_responses": True, "lazy_leaflet": True, "lazy_html2canvas": True},
         supabase_configured=bool(SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY),
         trail_regions_ready=sum(1 for r in _load_trail_manifest().get("regions", []) if r.get("ready")),
     )
@@ -2959,6 +1817,51 @@ def trail_route():
 
 
 
+@app.get("/api/meteoblue")
+def meteoblue_forecast():
+    """Server-side meteoblue proxy so the API key never reaches the browser."""
+    if not METEOBLUE_API_KEY:
+        return jsonify(error="meteoblue API key is not configured", configured=False), 503
+    try:
+        lat = float(request.args["lat"])
+        lon = float(request.args["lon"])
+        params = {
+            "lat": f"{lat:.5f}",
+            "lon": f"{lon:.5f}",
+            "apikey": METEOBLUE_API_KEY,
+            "format": "json",
+            "tz": "Asia/Tokyo",
+            "windspeed": "ms-1",
+            "winddirection": "degree",
+            "precipitationamount": "mm",
+            "temperature": "C",
+        }
+        asl = request.args.get("asl")
+        if asl not in (None, ""):
+            try: params["asl"] = str(round(float(asl)))
+            except (TypeError, ValueError): pass
+        url = "https://my.meteoblue.com/packages/basic-1h_clouds-1h?" + urllib.parse.urlencode(params)
+        cache_key = "meteoblue:" + urllib.parse.urlencode({k:v for k,v in params.items() if k != "apikey"})
+        cached = _cache_get(cache_key)
+        if cached:
+            status, ctype, body = cached
+            return _bytes_response(status, ctype, body, cache_control="public, max-age=900")
+        req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=UPSTREAM_TIMEOUT) as resp:
+            status = resp.status
+            ctype = resp.headers.get("Content-Type", "application/json")
+            body = resp.read()
+        _cache_put(cache_key, status, ctype, body, ttl=900)
+        return _bytes_response(status, ctype, body, cache_control="public, max-age=900")
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")[:1200]
+        return jsonify(error=f"meteoblue HTTP {exc.code}", detail=detail), exc.code
+    except (KeyError, ValueError) as exc:
+        return jsonify(error=f"meteoblue input error: {exc}"), 400
+    except Exception as exc:
+        return jsonify(error=f"meteoblue fetch failed: {exc}"), 502
+
+
 @app.get("/api/noaa-gfs")
 def noaa_gfs():
     try:
@@ -3002,7 +1905,7 @@ def proxy():
         is_openmeteo = (target.hostname or "").endswith("open-meteo.com")
         ttl = OPENMETEO_PROXY_CACHE_TTL if is_openmeteo else None
         _cache_put("get:" + url, status, ctype, body, ttl=ttl)
-        return _bytes_response(status, ctype, body, cache_control=(f"public, max-age={OPENMETEO_PROXY_CACHE_TTL}" if is_openmeteo else "public, max-age=60"))
+        return _bytes_response(status, ctype, body, cache_control=("public, max-age=300" if is_openmeteo else "public, max-age=60"))
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")[:1200]
         # Preserve the upstream status so the frontend can distinguish
@@ -3041,369 +1944,6 @@ def overpass():
 
     return jsonify(error="Overpass取得失敗", detail=" / ".join(errors)), 502
 
-
-# V1.4.250: water audit results live on the dedicated GitHub `water-cache` branch.
-# This keeps scheduled cache commits away from main and prevents release ZIPs /
-# normal application merges from rolling the accumulated audit back.
-WATER_MOUNTAIN_CACHE_PATH = os.path.join(BASE, "water-mountain-cache.json")
-WATER_MOUNTAIN_CACHE_REMOTE_URL = os.environ.get(
-    "WATER_MOUNTAIN_CACHE_REMOTE_URL",
-    "https://raw.githubusercontent.com/Takapays/OTENKI/water-cache/water-mountain-cache.json",
-).strip()
-# V1.5.1 recovery fallback. `ea3633c` is the immutable completed 300/300 audit
-# (61 mountains with candidates) that pre-dates creation of the dedicated branch.
-# It is used only until/when `water-cache` becomes available; release ZIPs still
-# intentionally exclude water-mountain-cache.json.
-WATER_MOUNTAIN_CACHE_BOOTSTRAP_URL = os.environ.get(
-    "WATER_MOUNTAIN_CACHE_BOOTSTRAP_URL",
-    "https://raw.githubusercontent.com/Takapays/OTENKI/ea3633c/water-mountain-cache.json",
-).strip()
-WATER_MOUNTAIN_CACHE_REMOTE_TTL = max(60, int(os.environ.get("WATER_MOUNTAIN_CACHE_REMOTE_TTL", "300")))
-WATER_MOUNTAIN_CACHE_REMOTE_TIMEOUT = max(1, int(os.environ.get("WATER_MOUNTAIN_CACHE_REMOTE_TIMEOUT", "5")))
-_water_mountain_cache_state: dict[str, Any] = {
-    "mtime": None, "data": None, "remote_data": None, "remote_checked_at": 0.0
-}
-
-def _valid_water_mountain_cache(data: Any) -> bool:
-    return isinstance(data, dict) and isinstance(data.get("mountains"), dict)
-
-def _water_mountain_cache_remote_load() -> dict[str, Any] | None:
-    now = time.time()
-    cached = _water_mountain_cache_state.get("remote_data")
-    checked_at = float(_water_mountain_cache_state.get("remote_checked_at") or 0.0)
-    if _valid_water_mountain_cache(cached) and now - checked_at < WATER_MOUNTAIN_CACHE_REMOTE_TTL:
-        return cached
-
-    # Dedicated water-cache is authoritative. If it does not exist yet, recover
-    # from the immutable completed audit commit instead of silently returning 0.
-    urls = [u for u in (WATER_MOUNTAIN_CACHE_REMOTE_URL, WATER_MOUNTAIN_CACHE_BOOTSTRAP_URL) if u]
-    for url in dict.fromkeys(urls):
-        try:
-            req = urllib.request.Request(
-                url,
-                headers={"User-Agent": "Traten/1.5.42", "Cache-Control": "no-cache"},
-            )
-            with urllib.request.urlopen(req, timeout=WATER_MOUNTAIN_CACHE_REMOTE_TIMEOUT) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-            if _valid_water_mountain_cache(data):
-                _water_mountain_cache_state["remote_data"] = data
-                _water_mountain_cache_state["remote_checked_at"] = now
-                return data
-        except Exception:
-            continue
-
-    # Keep serving the last known-good remote result if GitHub is temporarily unavailable.
-    if _valid_water_mountain_cache(cached):
-        _water_mountain_cache_state["remote_checked_at"] = now
-        return cached
-    return None
-
-def _water_mountain_cache_local_load() -> dict[str, Any]:
-    try:
-        mtime = os.path.getmtime(WATER_MOUNTAIN_CACHE_PATH)
-    except OSError:
-        return {"mountains": {}}
-    if _water_mountain_cache_state.get("mtime") == mtime and _valid_water_mountain_cache(_water_mountain_cache_state.get("data")):
-        return _water_mountain_cache_state["data"]
-    try:
-        with open(WATER_MOUNTAIN_CACHE_PATH, "r", encoding="utf-8") as fh:
-            data = json.load(fh)
-        if not _valid_water_mountain_cache(data):
-            data = {"mountains": {}}
-    except Exception:
-        data = {"mountains": {}}
-    _water_mountain_cache_state["mtime"] = mtime
-    _water_mountain_cache_state["data"] = data
-    return data
-
-def _water_mountain_cache_load() -> dict[str, Any]:
-    # Remote dedicated branch is authoritative. Local file is only a deploy/startup fallback.
-    remote = _water_mountain_cache_remote_load()
-    return remote if _valid_water_mountain_cache(remote) else _water_mountain_cache_local_load()
-
-def _water_mountain_cache_entry(mountain: str) -> dict[str, Any] | None:
-    row = (_water_mountain_cache_load().get("mountains") or {}).get(str(mountain or "").strip())
-    return row if isinstance(row, dict) else None
-
-
-# V1.5.6: curated water corrections that must survive remote cache refreshes.
-# Coordinates are fixed only from public published coordinates; never guessed.
-def _apply_water_manual_overrides(data: dict[str, Any]) -> dict[str, Any]:
-    if not _valid_water_mountain_cache(data):
-        return data
-    import copy
-    out = copy.deepcopy(data)
-    mountains = out.get("mountains") or {}
-    row = mountains.get("白馬岳")
-    if isinstance(row, dict):
-        sources = [x for x in (row.get("sources") or []) if not (isinstance(x, dict) and "栂池温泉" in str(x.get("name") or ""))]
-        ginrei = {
-            "name": "銀嶺水",
-            "lat": 36.779000,
-            "lon": 137.816056,
-            "kind": "湧水",
-            "potability": "unknown",
-            "near_point": "栂池登山道入口",
-            "distance_m": 585,
-            "source_name": "YAMAP",
-            "source_url": "https://yamap.com/landmarks/199865",
-            "source_note": "標高2073m・北緯36度46分44.4秒・東経137度48分57.8秒（公開情報）",
-            "manual_verified": True,
-        }
-        if not any(isinstance(x, dict) and str(x.get("name") or "") == "銀嶺水" for x in sources):
-            sources.append(ginrei)
-        row["sources"] = sources
-        row["count"] = len(sources)
-        row["available"] = bool(sources)
-        row["checked"] = True
-    return out
-
-@app.get("/api/water-mountain-index")
-def water_mountain_index():
-    data = _apply_water_manual_overrides(_water_mountain_cache_load())
-    mountains = data.get("mountains") or {}
-    if not mountains:
-        # Never present a failed cache fetch as a legitimate "0 audited mountains" result.
-        return jsonify(ok=False, error="水場監査済みキャッシュを取得できませんでした"), 503
-    name = str(request.args.get("mountain") or "").strip()
-    if name:
-        row = mountains.get(name)
-        return jsonify(ok=True, mountain=name, entry=row if isinstance(row, dict) else None, generated_at=data.get("generated_at"), source=data.get("source"), radius_m=data.get("radius_m"))
-    checked = sum(1 for v in mountains.values() if isinstance(v, dict) and v.get("checked") is True)
-    available = sum(1 for v in mountains.values() if isinstance(v, dict) and v.get("checked") is True and v.get("available") is True)
-    errors = sum(1 for v in mountains.values() if isinstance(v, dict) and v.get("error"))
-    audit_stamps = [str(v.get("checked_at") or "") for v in mountains.values() if isinstance(v, dict) and v.get("checked_at")]
-    last_audit_at = max(audit_stamps) if audit_stamps else None
-    return jsonify(ok=True, generated_at=data.get("generated_at"), last_audit_at=last_audit_at, source=data.get("source"), radius_m=data.get("radius_m"), mountain_count=len(mountains), checked_count=checked, available_count=available, error_count=errors, mountains=mountains)
-
-# V1.4.253: recent water-report search/status judgement removed; fixed water list is served by /api/water-mountain-index.
-
-# V1.4.220: route live / road camera discovery.
-CAMERA_MAX_RESULTS = int(os.environ.get("CAMERA_MAX_RESULTS", "12"))
-CAMERA_POINT_LIMIT = int(os.environ.get("CAMERA_POINT_LIMIT", "7"))
-
-def _camera_search_query(mountain: str, point_name: str) -> str:
-    # One compact query per route point. Results are filtered again below.
-    return f'"{point_name}" (ライブカメラ OR 道路カメラ OR 定点カメラ OR ライブ映像)'
-
-def _camera_type(text: str) -> str:
-    t = text.lower()
-    if any(k in t for k in ("道路", "国道", "県道", "林道", "峠", "路面", "road")):
-        return "road"
-    if any(k in t for k in ("山小屋", "山荘", "ヒュッテ", "ロッジ", "小屋")):
-        return "hut"
-    if any(k in t for k in ("ロープウェイ", "観光", "スキー", "ビジターセンター")):
-        return "tourism"
-    if any(k in t for k in ("気象", "山岳", "積雪", "天候")):
-        return "weather"
-    return "other"
-
-def _camera_official(host: str, text: str) -> bool:
-    h = (host or "").lower()
-    t = text.lower()
-    if h.endswith(".go.jp") or h.endswith(".lg.jp"):
-        return True
-    if any(k in h for k in ("mlit.go.jp", "pref.", "city.", "town.", "vill.")):
-        return True
-    if any(k in t for k in ("国土交通省", "道路情報", "県公式", "市公式", "町公式", "村公式", "観光協会", "山荘", "山小屋")):
-        return True
-    return False
-
-def _camera_useful(row: dict[str, Any]) -> bool:
-    text = f'{row.get("title", "")} {row.get("snippet", "")}'
-    return any(k in text for k in ("ライブカメラ", "道路カメラ", "監視カメラ", "カメラ画像", "路面状況", "道路情報カメラ", "定点カメラ", "webカメラ", "webcam", "ライブ映像"))
-
-def _route_camera_points(points: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    if len(points) <= CAMERA_POINT_LIMIT:
-        return points
-    idxs = {0, len(points)-1}
-    for i in range(1, CAMERA_POINT_LIMIT-1):
-        idxs.add(round(i*(len(points)-1)/(CAMERA_POINT_LIMIT-1)))
-    return [points[i] for i in sorted(idxs)[:CAMERA_POINT_LIMIT]]
-
-def _search_cameras_for_point(mountain: str, point: dict[str, Any]) -> tuple[list[dict[str, Any]], str | None]:
-    query = _camera_search_query(mountain, point["name"])
-    try:
-        rows = _bing_rss_search(query)
-    except Exception as exc:
-        return [], str(exc)
-    out = []
-    search_url = "https://www.bing.com/search?" + urllib.parse.urlencode({"q": query, "setlang": "ja-JP"})
-    for row in rows:
-        if not _camera_useful(row):
-            continue
-        text = f'{row.get("title", "")} {row.get("snippet", "")}'
-        item = dict(row)
-        item["near_point"] = point["name"]
-        item["type"] = _camera_type(text)
-        item["official"] = _camera_official(row.get("host", ""), text)
-        item["search_url"] = search_url
-        out.append(item)
-    return out, None
-
-# V1.4.221: lightweight route-extra availability probe.
-# The client uses this only after a route settles, so water/camera buttons stay hidden
-# unless at least one candidate is confirmed. Results are cached to avoid repeated
-# network work while the user edits times on the same route.
-ROUTE_EXTRA_AVAILABILITY_TTL = int(os.environ.get("ROUTE_EXTRA_AVAILABILITY_TTL", "1800"))
-_route_extra_availability_cache: dict[str, tuple[float, dict[str, Any]]] = {}
-_route_extra_availability_lock = threading.Lock()
-
-def _route_extra_availability_key(mountain: str, points: list[dict[str, Any]]) -> str:
-    compact = [
-        [str(p.get("name") or "")[:80], round(float(p["lat"]), 4), round(float(p["lon"]), 4)]
-        for p in points
-    ]
-    raw = json.dumps([mountain, compact], ensure_ascii=False, separators=(",", ":"))
-    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
-
-def _route_extra_availability_get(key: str) -> dict[str, Any] | None:
-    now = time.time()
-    with _route_extra_availability_lock:
-        item = _route_extra_availability_cache.get(key)
-        if not item:
-            return None
-        expires, value = item
-        if expires <= now:
-            _route_extra_availability_cache.pop(key, None)
-            return None
-        return dict(value)
-
-def _route_extra_availability_put(key: str, value: dict[str, Any]) -> None:
-    with _route_extra_availability_lock:
-        _route_extra_availability_cache[key] = (time.time() + max(300, ROUTE_EXTRA_AVAILABILITY_TTL), dict(value))
-        if len(_route_extra_availability_cache) > 300:
-            oldest = sorted(_route_extra_availability_cache.items(), key=lambda kv: kv[1][0])[:60]
-            for k, _ in oldest:
-                _route_extra_availability_cache.pop(k, None)
-
-def _availability_camera_points(points: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    # Availability should be materially cheaper than opening the full camera panel.
-    # Probe at most start / middle / end; the full endpoint still searches up to 7 points.
-    if len(points) <= 3:
-        return points
-    idxs = sorted({0, len(points)//2, len(points)-1})
-    return [points[i] for i in idxs]
-
-@app.post("/api/route-extras-availability")
-def route_extras_availability():
-    payload = request.get_json(silent=True) or {}
-    mountain = str(payload.get("mountain") or "").strip()[:80]
-    raw_points = payload.get("points") or []
-    points: list[dict[str, Any]] = []
-    for row in raw_points[:24]:
-        try:
-            lat, lon = float(row.get("lat")), float(row.get("lon"))
-        except (TypeError, ValueError, AttributeError):
-            continue
-        if not (-90 <= lat <= 90 and -180 <= lon <= 180):
-            continue
-        points.append({"name": str(row.get("name") or "通過地点").strip()[:100], "lat": lat, "lon": lon})
-    if not mountain or len(points) < 1:
-        return jsonify(ok=True, water=False, camera=False, ready=False)
-
-    key = _route_extra_availability_key(mountain, points)
-    cached = _route_extra_availability_get(key)
-    if cached is not None:
-        cached["cached"] = True
-        return jsonify(cached)
-
-    water = False
-    camera = False
-    diagnostics: list[str] = []
-
-    # Run the two independent checks concurrently. Water discovery already uses the
-    # existing Overpass cache; camera searches reuse the existing Bing RSS cache.
-    def check_water() -> bool:
-        try:
-            waters, errs = _discover_water_sources(points)
-            if errs:
-                diagnostics.extend([f"water: {x}" for x in errs[-1:]])
-            return bool(waters)
-        except Exception as exc:
-            diagnostics.append(f"water: {exc}")
-            return False
-
-    # V1.4.224: live-camera visibility is decided from the verified fixed catalog
-    # in camera-data.js. Do not run a web search during availability probes.
-    try:
-        water = bool(check_water())
-    except Exception as exc:
-        diagnostics.append(f"water: {exc}")
-    camera = False
-
-    result = {
-        "ok": True, "ready": True, "water": water, "camera": camera,
-        "checked_points": len(points), "cached": False,
-        "partial": bool(diagnostics), "diagnostics": diagnostics[-3:],
-    }
-    _route_extra_availability_put(key, result)
-    return jsonify(result)
-
-@app.post("/api/route-cameras")
-def route_cameras():
-    payload = request.get_json(silent=True) or {}
-    mountain = str(payload.get("mountain") or "").strip()[:80]
-    raw_points = payload.get("points") or []
-    points: list[dict[str, Any]] = []
-    for row in raw_points[:24]:
-        try:
-            lat, lon = float(row.get("lat")), float(row.get("lon"))
-        except (TypeError, ValueError, AttributeError):
-            continue
-        if not (-90 <= lat <= 90 and -180 <= lon <= 180):
-            continue
-        name = str(row.get("name") or "通過地点").strip()[:100]
-        points.append({"name": name, "lat": lat, "lon": lon})
-    if not mountain or len(points) < 1:
-        return jsonify(error="山と座標付き地点を1地点以上設定してください。"), 400
-
-    selected = _route_camera_points(points)
-    found: list[dict[str, Any]] = []
-    errors: list[str] = []
-    with ThreadPoolExecutor(max_workers=min(6, len(selected)), thread_name_prefix="traten-camera") as ex:
-        futs = {ex.submit(_search_cameras_for_point, mountain, pt): pt for pt in selected}
-        for fut in as_completed(futs):
-            pt = futs[fut]
-            try:
-                rows, err = fut.result()
-            except Exception as exc:
-                rows, err = [], str(exc)
-            found.extend(rows)
-            if err:
-                errors.append(f'{pt["name"]}: {err}')
-
-    # Deduplicate by destination URL, while preferring official/public-authority candidates.
-    dedup: dict[str, dict[str, Any]] = {}
-    for row in found:
-        url = row.get("url") or ""
-        if not url:
-            continue
-        old = dedup.get(url)
-        if old is None or (row.get("official") and not old.get("official")):
-            dedup[url] = row
-    cameras = list(dedup.values())
-    type_rank = {"road": 0, "hut": 1, "weather": 2, "tourism": 3, "other": 4}
-    cameras.sort(key=lambda x: (0 if x.get("official") else 1, type_rank.get(x.get("type"), 9), x.get("near_point", "")))
-    cameras = cameras[:CAMERA_MAX_RESULTS]
-
-    search_links = []
-    for pt in selected[:6]:
-        q = f'"{pt["name"]}" (ライブカメラ OR 道路カメラ OR 定点カメラ)'
-        search_links.append({"label": f'{pt["name"]}のカメラを検索', "url": "https://www.bing.com/search?" + urllib.parse.urlencode({"q": q, "setlang": "ja-JP"})})
-
-    return jsonify({
-        "ok": True, "mountain": mountain,
-        "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-        "cameras": cameras, "search_links": search_links,
-        "notes": [
-            "通過地点名と山名から、ライブカメラ・道路カメラ・林道・山小屋等の公開ページを検索しています。",
-            "カメラ画像や映像自体はトラテンに転載せず、提供元の公開ページへのリンクだけを表示します。",
-            "検索結果は候補表示です。撮影地点・撮影方向・更新日時・冬季停止等はリンク先の提供元情報を確認してください。",
-        ],
-        "partial": bool(errors),
-        "diagnostics": {"search_errors": errors[-5:], "searched_points": [p["name"] for p in selected]},
-    })
 
 @app.get("/usage-dashboard")
 def usage_dashboard():
@@ -3482,56 +2022,11 @@ def usage_dashboard_data():
         return jsonify(ok=False, error=str(exc)[:500]), 502
 
 
-@app.get("/api/tenkura-link")
-def tenkura_link():
-    mountain = (request.args.get("mountain") or "").strip()
-    area = (request.args.get("area") or "").strip()
-    if not mountain or len(mountain) > 80:
-        return jsonify(ok=False, error="mountain is required"), 400
-    try:
-        result = _resolve_tenkura_link(mountain, area)
-    except Exception as exc:
-        return jsonify(ok=False, available=False, error=str(exc)[:300]), 502
-    response = jsonify(ok=True, available=bool(result), mountain=mountain, result=result)
-    response.headers["Cache-Control"] = "public, max-age=21600"
-    return response
-
-
-@app.get("/api/weathernews-link")
-def weathernews_link():
-    mountain = (request.args.get("mountain") or "").strip()
-    if not mountain or len(mountain) > 80:
-        return jsonify(ok=False, error="mountain is required"), 400
-    result = _resolve_external_mountain_link("weathernews", mountain)
-    response = jsonify(ok=True, available=bool(result), mountain=mountain, result=result)
-    response.headers["Cache-Control"] = "public, max-age=21600"
-    return response
-
-
-@app.get("/api/tenkijp-link")
-def tenkijp_link():
-    mountain = (request.args.get("mountain") or "").strip()
-    if not mountain or len(mountain) > 80:
-        return jsonify(ok=False, error="mountain is required"), 400
-    result = _resolve_external_mountain_link("tenkijp", mountain)
-    response = jsonify(ok=True, available=bool(result), mountain=mountain, result=result)
-    response.headers["Cache-Control"] = "public, max-age=21600"
-    return response
-
-
-def _index_response():
-    response = send_from_directory(BASE, "index.html")
-    # HTML must always revalidate. Versioned JS/CSS assets can remain immutable,
-    # but the document itself carries the cache-buster query strings.
-    response.headers["Cache-Control"] = "no-store, no-cache, max-age=0, must-revalidate"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
-    return response
-
-
 @app.get("/")
 def index():
-    return _index_response()
+    response = send_from_directory(BASE, "index.html")
+    response.headers["Cache-Control"] = "no-cache, max-age=0, must-revalidate"
+    return response
 
 
 @app.get("/robots.txt")
@@ -3555,7 +2050,7 @@ def bing_site_auth():
     return response
 
 
-PUBLIC_FILES = {"app.js", "styles.css", "ui-v1.4.254.css", "access.js", "access-data.js", "access.css", "camera-data.js", "live-cameras.js", "live-cameras.css", "live-cameras.html", "water-sources.html", "water-sources.js", "water-sources.css", "water-mountain-cache.json", "trailheads.html", "trailheads.js", "huts.html", "huts.js", "hut-data.js", "resource-index.css", "resource-mountain-data.js", "trailhead-access.html", "trailhead-access.js", "favicon.ico", "robots.txt", "sitemap.xml", "guide.html", "manifest.json", "google5a7b3dfd79ff97f0.html", "BingSiteAuth.xml", INDEXNOW_KEY_FILENAME}
+PUBLIC_FILES = {"app.js", "styles.css", "access.js", "access-data.js", "access.css", "favicon.ico", "robots.txt", "sitemap.xml", "guide.html", "manifest.json", "google5a7b3dfd79ff97f0.html", "BingSiteAuth.xml", INDEXNOW_KEY_FILENAME}
 PUBLIC_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif", ".ico"}
 
 
@@ -3568,14 +2063,9 @@ def static_files(path: str):
     if is_public_asset and os.path.isfile(full_path):
         response = send_from_directory(BASE, path)
         if path.endswith((".js", ".css", ".json")) or ext in PUBLIC_IMAGE_EXTS:
-            # Versioned asset URLs (?v=...) are immutable. A new app version changes
-            # the query string, so repeat launches can reuse the local copy safely.
-            if request.args.get("v"):
-                response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
-            else:
-                response.headers["Cache-Control"] = "public, max-age=3600"
+            response.headers["Cache-Control"] = "public, max-age=300"
         return response
-    return _index_response()
+    return send_from_directory(BASE, "index.html")
 
 
 @app.after_request
@@ -3585,45 +2075,14 @@ def security_headers(response: Response):
     response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
     if request.path in {"/", "/guide.html"}:
         response.headers.setdefault("X-Robots-Tag", "index, follow, max-image-preview:large")
-
-    # V1.4.208: compress first-party text assets. app.js and styles.css have grown
-    # with nationwide fixed data; gzip cuts the transfer size to roughly one quarter.
-    # Skip streaming/range/empty responses and already-compressed payloads.
-    accept_encoding = request.headers.get("Accept-Encoding", "")
-    content_type = (response.content_type or "").lower()
-    compressible = any(token in content_type for token in (
-        "text/", "javascript", "json", "xml", "svg"
-    ))
-    if (
-        "gzip" in accept_encoding.lower()
-        and compressible
-        and response.status_code == 200
-        and not response.headers.get("Content-Encoding")
-        and "Content-Range" not in response.headers
-    ):
-        try:
-            response.direct_passthrough = False
-            data = response.get_data()
-            if len(data) >= 1024:
-                packed = gzip.compress(data, compresslevel=6)
-                if len(packed) < len(data):
-                    response.set_data(packed)
-                    response.headers["Content-Encoding"] = "gzip"
-                    response.headers["Content-Length"] = str(len(packed))
-                    vary = response.headers.get("Vary", "")
-                    if "Accept-Encoding" not in vary:
-                        response.headers["Vary"] = (vary + ", Accept-Encoding").strip(", ")
-        except Exception:
-            # Compression is an optimization only; never break a response because of it.
-            pass
     return response
 
 
-# V1.4.193: start the cache watcher immediately when each Gunicorn worker imports
-# the app. An OS-level lock makes exactly one worker the background-loop owner.
-# before_request above provides failover after Render wakes or a worker restarts.
+# V1.4.174: start the cache watcher on process boot, not only after a user opens 全国判定.
+# Render free instances can sleep, so the GitHub Actions wake-up endpoint below is the
+# reliable scheduler; this worker covers periods while the process stays awake.
 if NATIONAL_OUTLOOK_AUTO_REFRESH:
-    _ensure_national_refresh_worker()
+    threading.Timer(2.0, _ensure_national_refresh_worker).start()
 
 
 if __name__ == "__main__":

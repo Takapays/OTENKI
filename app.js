@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.176';
+const APP_VERSION = '1.5.180';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -9268,6 +9268,45 @@ function renderRepresentativeCourseStaticPreview(mountainOverride=''){
   preview.setAttribute('aria-hidden','false');
 }
 
+function renderMobileRepresentativeCourses(mountainOverride=''){
+  const box=$('mobileRepresentativeCourses');
+  if(!box)return;
+  const mountain=(mountainOverride||currentMountainLabel()).trim();
+  const options=representativeCourseOptions(mountain);
+  if(!options.length){
+    box.replaceChildren();
+    box.classList.add('hidden');
+    box.setAttribute('aria-hidden','true');
+    return;
+  }
+  const selectedIndex=representativeCourseSelectedIndex(mountain,options);
+  const frag=document.createDocumentFragment();
+  const title=document.createElement('div');
+  title.className='mobile-representative-title';
+  title.textContent=options.length>1?'代表コースを選択':'代表コース';
+  frag.append(title);
+  options.forEach((course,i)=>{
+    const item=document.createElement('button');
+    item.type='button';
+    item.className=`mobile-representative-course${i===selectedIndex?' is-active':''}`;
+    item.dataset.courseIndex=String(i);
+    item.setAttribute('aria-pressed',i===selectedIndex?'true':'false');
+    const name=document.createElement('b');
+    name.textContent=`${options.length>1?`${i+1}. `:''}${course.label||'代表コース'}`;
+    const path=document.createElement('span');
+    path.textContent=representativeCoursePathText(course,mountain)||course.points?.map(p=>p?.[1]).filter(Boolean).join(' → ')||'';
+    item.append(name,path);
+    item.addEventListener('click',()=>{
+      setRepresentativeCourseSelectedIndex(mountain,i);
+      renderMobileRepresentativeCourses(mountain);
+    });
+    frag.append(item);
+  });
+  box.replaceChildren(frag);
+  box.classList.remove('hidden');
+  box.setAttribute('aria-hidden','false');
+}
+
 function refreshRepresentativeCourseButton(){
   const btn=$('representativeCourseBtn');
   const sel=$('representativeCourseSelect');
@@ -9290,8 +9329,8 @@ function refreshRepresentativeCourseButton(){
   // V1.4.182: mountain selection immediately exposes the representative-course selector
   // and its route preview. Loading remains an explicit button action.
   if(choices){choices.replaceChildren();choices.classList.add('hidden');choices.removeAttribute('data-course-count');}
-  if(mobileChoices){mobileChoices.replaceChildren();mobileChoices.classList.add('hidden');}
   if(legacySummary){legacySummary.replaceChildren();legacySummary.style.setProperty('display','none','important');}
+  renderMobileRepresentativeCourses(mountain);
   renderRepresentativeCourseStaticPreview(mountain);
   renderRepresentativeCourseSummaryNow(mountain);
 }
@@ -10460,6 +10499,55 @@ async function fetchMetNoFallback(point){
     .filter(x=>Number.isFinite(x.rain)||Number.isFinite(x.wind));
   return {...row,timeline};
 }
+function meteoblueTimeIso(value){
+  const s=String(value||'').trim();
+  if(!s)return '';
+  if(/^\d{4}-\d{2}-\d{2}T/.test(s))return s;
+  const m=s.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}):(\d{2})/);
+  return m?`${m[1]}T${m[2]}:${m[3]}:00+09:00`:s;
+}
+function meteoblueRows(payload){
+  const d=payload?.data_1h||payload?.data1h||{};
+  const times=Array.isArray(d.time)?d.time:[];
+  const get=(keys,i)=>{
+    for(const k of keys){const v=numberOrNaN(d?.[k]?.[i]);if(Number.isFinite(v))return v;}
+    return NaN;
+  };
+  return times.map((t,i)=>{
+    const temp=get(['temperature'],i), rh=get(['relativehumidity','relative_humidity'],i), wind=get(['windspeed','wind_speed'],i);
+    const apparent=get(['felttemperature','apparenttemperature','apparent_temperature'],i);
+    return {
+      time:meteoblueTimeIso(t), temp, apparent:Number.isFinite(apparent)?apparent:apparentTempApprox(temp,wind), rh,
+      rain:get(['precipitation','precipitationamount'],i), cloud:get(['totalcloudcover','cloudcover'],i),
+      lowCloud:get(['lowclouds'],i), midCloud:get(['midclouds'],i), highCloud:get(['highclouds'],i),
+      wind, gust:get(['gust','windgust','windgusts'],i), windDir:get(['winddirection'],i),
+      visibility:get(['visibility'],i), cape:NaN, freezing:NaN, thunderRisk:'LOW'
+    };
+  }).filter(x=>x.time);
+}
+async function fetchMeteobluePayload(point){
+  // Free Weather API basic/cloud packages provide a 7-day hourly forecast.
+  if(daysAhead(point.date)>7)return null;
+  const q=new URLSearchParams({lat:String(point.lat),lon:String(point.lon)});
+  if(Number.isFinite(Number(point.elevation))&&Number(point.elevation)>0)q.set('asl',String(Math.round(Number(point.elevation))));
+  const r=await fetch(`/api/meteoblue?${q}`,{headers:{Accept:'application/json'}});
+  const payload=await r.json().catch(()=>null);
+  if(r.status===503&&payload?.configured===false)return null;
+  if(!r.ok)throw new Error(payload?.error||`meteoblue HTTP ${r.status}`);
+  return payload;
+}
+async function fetchMeteoblueFallback(point){
+  const payload=await fetchMeteobluePayload(point);
+  if(!payload)return null;
+  const rows=meteoblueRows(payload);
+  const targetMs=new Date(`${point.date}T${point.time}:00+09:00`).getTime();
+  let best=null,bestDiff=Infinity;
+  for(const r of rows){const diff=Math.abs(new Date(r.time).getTime()-targetMs);if(diff<bestDiff){best=r;bestDiff=diff;}}
+  if(!best||bestDiff>90*60000)return null;
+  const timeline=rows.filter(r=>Math.abs(new Date(r.time).getTime()-targetMs)<=6*3600000)
+    .map(r=>({time:r.time,rain:numberOrNaN(r.rain),wind:numberOrNaN(r.wind),cape:NaN}));
+  return {...best,timeline};
+}
 async function fetchNoaaGfsRowAt(point,date,time){
   const q=new URLSearchParams({lat:String(point.lat),lon:String(point.lon),date,time});
   const r=await fetch(`/api/noaa-gfs?${q}`,{headers:{Accept:'application/json'}});
@@ -10514,33 +10602,34 @@ async function analyzePointsBatch(points,providerList=providers,statusLabel='気
       });
     });
   }
-  // V1.5.170: when normal Open-Meteo rows are unavailable because of
-  // congestion/server/network errors, preserve passage-point TIMESERIES too.
-  // Priority is Open-Meteo -> MET Norway -> NOAA GFS.
+  // V1.5.179: when Open-Meteo is unavailable, compare up to three
+  // independent backup sources: MET Norway + NOAA GFS + meteoblue.
   const metnoProvider={id:'metno',name:'MET Norway（予備）',kind:'fallback'};
   const noaaProvider={id:'noaa-gfs',name:'NOAA GFS（直取得）',kind:'fallback'};
+  const meteoblueProvider={id:'meteoblue',name:'meteoblue（予備）',kind:'fallback'};
   const fallbackIndexes=buckets.map((bucket,index)=>({bucket,index})).filter(x=>!x.bucket.rows.length&&fallbackableWeatherErrors(x.bucket.errors)).map(x=>x.index);
   if(fallbackIndexes.length){
-    setStatus(`Open-Meteo取得困難：${fallbackIndexes.length}地点を予備時系列で取得中…`);
+    setStatus(`Open-Meteo取得困難：${fallbackIndexes.length}地点をMET Norway + NOAA GFS + meteoblueで取得中…`);
     await Promise.all(fallbackIndexes.map(async index=>{
       const bucket=buckets[index], point=points[index];
-      let row=null;
-      try{
-        row=await fetchMetNoFallback(point);
-        if(row){
-          bucket.rows.push({provider:metnoProvider,row});
-          bucket.errors.push('Open-Meteo取得困難 → MET Norwayへ自動切替（時系列含む）');
-        }
-      }catch(e){bucket.errors.push(e?.message||'MET Norway取得失敗');}
-      if(!row){
-        try{
-          row=await fetchNoaaGfsFallback(point);
-          if(row){
-            bucket.rows.push({provider:noaaProvider,row});
-            bucket.errors.push('MET Norway取得不可 → NOAA GFSへ自動切替（時系列含む）');
-          }
-        }catch(e){bucket.errors.push(e?.message||'NOAA GFS取得失敗');}
-      }
+      const [metState,noaaState,mbState]=await Promise.allSettled([
+        fetchMetNoFallback(point),
+        fetchNoaaGfsFallback(point),
+        fetchMeteoblueFallback(point)
+      ]);
+      const metRow=metState.status==='fulfilled'?metState.value:null;
+      const noaaRow=noaaState.status==='fulfilled'?noaaState.value:null;
+      const mbRow=mbState.status==='fulfilled'?mbState.value:null;
+      if(metRow)bucket.rows.push({provider:metnoProvider,row:metRow});
+      else if(metState.status==='rejected')bucket.errors.push(metState.reason?.message||'MET Norway取得失敗');
+      else bucket.errors.push('MET Norway: 対象期間外または指定時刻なし');
+      if(noaaRow)bucket.rows.push({provider:noaaProvider,row:noaaRow});
+      else if(noaaState.status==='rejected')bucket.errors.push(noaaState.reason?.message||'NOAA GFS取得失敗');
+      else bucket.errors.push('NOAA GFS: 対象期間外または指定時刻なし');
+      if(mbRow)bucket.rows.push({provider:meteoblueProvider,row:mbRow});
+      else if(mbState.status==='rejected')bucket.errors.push(mbState.reason?.message||'meteoblue取得失敗');
+      const got=[metRow&&'MET Norway',noaaRow&&'NOAA GFS',mbRow&&'meteoblue'].filter(Boolean);
+      bucket.errors.push(`Open-Meteo取得困難 → ${got.length?got.join(' + '):'予備モデルなし'}${got.length>=2?'を統合（時系列含む）':'で継続'}`);
     }));
   }
   return points.map((point,index)=>{
@@ -10786,13 +10875,13 @@ function solarTimeApprox(date,lat,lon,isSunrise){
   const hh=Math.floor(jst), mm=Math.round((jst-hh)*60)%60, h2=(hh+(Math.round((jst-hh)*60)>=60?1:0))%24;
   return `${date}T${String(h2).padStart(2,'0')}:${String(mm).padStart(2,'0')}:00+09:00`;
 }
-function analyzeOvernightMetNo(point,nightNo,payload){
-  const next=addDays(point.date,1), allRows=metNoRows(payload);
+function analyzeOvernightFallbackRows(point,nightNo,allRows,sourceLabel){
+  const next=addDays(point.date,1);
   const startMs=new Date(`${point.date}T${point.time}:00+09:00`).getTime(), endMs=new Date(`${next}T08:00:00+09:00`).getTime();
   const rows=allRows.filter(x=>{const t=new Date(x.time).getTime();return t>=startMs&&t<=endMs;});
   const morningStartMs=new Date(`${next}T00:00:00+09:00`).getTime(), morningEndMs=new Date(`${next}T08:00:00+09:00`).getTime();
   const morningRows=allRows.filter(x=>{const t=new Date(x.time).getTime();return t>=morningStartMs&&t<=morningEndMs;});
-  if(!rows.length)throw new Error('MET Norway: 宿泊時間帯の予報なし');
+  if(!rows.length)throw new Error(`${sourceLabel}: 宿泊時間帯の予報なし`);
   const sunset=solarTimeApprox(point.date,Number(point.lat),Number(point.lon),false), sunrise=solarTimeApprox(next,Number(point.lat),Number(point.lon),true);
   const sunsetMs=new Date(sunset).getTime();
   const eveningRows=allRows.filter(x=>Math.abs(new Date(x.time).getTime()-sunsetMs)<=120*60000);
@@ -10805,16 +10894,73 @@ function analyzeOvernightMetNo(point,nightNo,payload){
   const fogRisk=(maxRh>=97&&avgCloud>=85)?'高':(maxRh>=92||avgCloud>=75)?'中':'低', score=best?milkyScore(best,moon):0;
   const dawnTarget=`${next}T05:00:00+09:00`;
   const dawnRow=allRows[nearestTimeIndex(allRows.map(x=>x.time),dawnTarget)]||morningRows[0]||null;
-  const dawnVisual=dawnRow?weatherVisual({cloud:dawnRow.cloud,rain:dawnRow.rain,thunder:'LOW'}):{icon:'',label:'--',cls:'partly'};
-  return {nightNo,point,sunset,sunrise,sunsetView,sunriseView,minTemp,morningMinTemp,minApp,maxWind,maxGust,maxRain,avgCloud,avgWind,maxRh,minVis:NaN,fogRisk,moon,best,score,_allRows:allRows,_astroRows:astroRows,_morningRows:morningRows,_eveningRows:eveningRows,_darkStart:darkStart,_darkEnd:darkEnd,dawn:{time:dawnRow?.time||dawnTarget,temp:dawnRow?.temp,rain:dawnRow?.rain,cloud:dawnRow?.cloud,wind:dawnRow?.wind,label:dawnVisual.label,cls:dawnVisual.cls},milkyLabel:score>=75?'期待大':score>=55?'見える可能性あり':score>=35?'条件次第':'厳しい',source:'MET Norway（予備）'};
+  const dawnVisual=dawnRow?weatherVisual({cloud:dawnRow.cloud,rain:dawnRow.rain,thunder:dawnRow.thunderRisk||'LOW'}):{icon:'',label:'--',cls:'partly'};
+  return {nightNo,point,sunset,sunrise,sunsetView,sunriseView,minTemp,morningMinTemp,minApp,maxWind,maxGust,maxRain,avgCloud,avgWind,maxRh,minVis:NaN,fogRisk,moon,best,score,_allRows:allRows,_astroRows:astroRows,_morningRows:morningRows,_eveningRows:eveningRows,_darkStart:darkStart,_darkEnd:darkEnd,dawn:{time:dawnRow?.time||dawnTarget,temp:dawnRow?.temp,rain:dawnRow?.rain,cloud:dawnRow?.cloud,wind:dawnRow?.wind,label:dawnVisual.label,cls:dawnVisual.cls},milkyLabel:score>=75?'期待大':score>=55?'見える可能性あり':score>=35?'条件次第':'厳しい',source:sourceLabel};
 }
-async function analyzeOvernightsMetNo(points){
+function analyzeOvernightMetNo(point,nightNo,payload){
+  return analyzeOvernightFallbackRows(point,nightNo,metNoRows(payload),'MET Norway（予備）');
+}
+async function fetchMeteoblueOvernightRows(point){
+  const payload=await fetchMeteobluePayload(point);
+  if(!payload)return [];
+  const next=addDays(point.date,1);
+  const startMs=new Date(`${point.date}T${point.time}:00+09:00`).getTime();
+  const endMs=new Date(`${next}T08:00:00+09:00`).getTime();
+  return meteoblueRows(payload).filter(r=>{const ms=new Date(r.time).getTime();return ms>=startMs&&ms<=endMs;});
+}
+async function fetchNoaaGfsOvernightRows(point){
+  if(daysAhead(point.date)>16)return [];
+  const next=addDays(point.date,1);
+  const startMs=new Date(`${point.date}T${point.time}:00+09:00`).getTime();
+  const endMs=new Date(`${next}T08:00:00+09:00`).getTime();
+  const times=[];
+  for(let ms=startMs;ms<=endMs;ms+=3*3600000)times.push(ms);
+  if(!times.length||times[times.length-1]!==endMs)times.push(endMs);
+  const settled=await Promise.allSettled(times.map(async ms=>{
+    const p=fallbackJstParts(ms);
+    return await fetchNoaaGfsRowAt(point,p.date,p.time);
+  }));
+  return settled.filter(x=>x.status==='fulfilled'&&x.value?.time).map(x=>{
+    const r=x.value, temp=numberOrNaN(r.temp), wind=numberOrNaN(r.wind), rh=numberOrNaN(r.rh), cloud=numberOrNaN(r.cloud);
+    return {time:r.time,temp,apparent:apparentTempApprox(temp,wind),rh,dew:dewPointApprox(temp,rh),rain:numberOrNaN(r.rain),cloud,lowCloud:cloud,midCloud:NaN,highCloud:NaN,wind,gust:numberOrNaN(r.gust),visibility:numberOrNaN(r.visibility),thunderRisk:Number.isFinite(numberOrNaN(r.cape))&&numberOrNaN(r.cape)>=1000?'HIGH':Number.isFinite(numberOrNaN(r.cape))&&numberOrNaN(r.cape)>=500?'MEDIUM':'LOW'};
+  }).sort((a,b)=>new Date(a.time)-new Date(b.time));
+}
+function mergeFallbackOvernightRows(...series){
+  const slots=new Map();
+  for(const row of series.flatMap(rows=>rows||[])){
+    if(!row?.time)continue;
+    const key=String(row.time).slice(0,13);
+    const slot=slots.get(key)||{time:row.time,rows:[]};
+    slot.rows.push(row); slots.set(key,slot);
+  }
+  return [...slots.values()].sort((a,b)=>new Date(a.time)-new Date(b.time)).map(slot=>{
+    const rows=slot.rows;
+    const avg=k=>mean(rows.map(r=>r[k]));
+    const risk=rows.some(r=>r.thunderRisk==='HIGH')?'HIGH':rows.some(r=>r.thunderRisk==='MEDIUM')?'MEDIUM':'LOW';
+    return {time:slot.time,temp:avg('temp'),apparent:avg('apparent'),rh:avg('rh'),dew:avg('dew'),rain:avg('rain'),cloud:avg('cloud'),lowCloud:avg('lowCloud'),midCloud:avg('midCloud'),highCloud:avg('highCloud'),wind:avg('wind'),gust:max(rows.map(r=>r.gust)),visibility:avg('visibility'),thunderRisk:risk};
+  });
+}
+async function analyzeOvernightsFallbackDual(points){
   const out=[];
   for(let i=0;i<points.length;i++){
-    setStatus(`宿泊分析：Open-Meteo 429 → ${i+1}/${points.length}泊目をMET Norwayで取得中…`);
-    const payload=await fetchMetNoPayload(points[i]);
-    if(!payload)throw new Error('MET Norway: 宿泊予報は約9日先までです');
-    out.push(analyzeOvernightMetNo(points[i],i+1,payload));
+    setStatus(`宿泊分析：Open-Meteo取得困難 → ${i+1}/${points.length}泊目をMET Norway + NOAA GFS + meteoblueで取得中…`);
+    const point=points[i];
+    const [metState,noaaState,mbState]=await Promise.allSettled([fetchMetNoPayload(point),fetchNoaaGfsOvernightRows(point),fetchMeteoblueOvernightRows(point)]);
+    const metPayload=metState.status==='fulfilled'?metState.value:null;
+    const metRows=metPayload?metNoRows(metPayload):[];
+    const noaaRows=noaaState.status==='fulfilled'?(noaaState.value||[]):[];
+    const mbRows=mbState.status==='fulfilled'?(mbState.value||[]):[];
+    if(!metRows.length&&!noaaRows.length&&!mbRows.length){
+      const msgs=[];
+      if(metState.status==='rejected')msgs.push(metState.reason?.message||'MET Norway取得失敗');
+      if(noaaState.status==='rejected')msgs.push(noaaState.reason?.message||'NOAA GFS取得失敗');
+      if(mbState.status==='rejected')msgs.push(mbState.reason?.message||'meteoblue取得失敗');
+      throw new Error(msgs.join(' / ')||'MET Norway / NOAA GFS / meteoblueの宿泊予報を取得できませんでした');
+    }
+    const merged=mergeFallbackOvernightRows(metRows,noaaRows,mbRows);
+    const src=[metRows.length&&'MET Norway',noaaRows.length&&'NOAA GFS',mbRows.length&&'meteoblue'].filter(Boolean);
+    const source=`${src.join(' + ')}（予備${src.length}モデル）`;
+    out.push(analyzeOvernightFallbackRows(point,i+1,merged,source));
   }
   return out;
 }
@@ -10829,7 +10975,7 @@ async function analyzeOvernightsBatch(points){
   const r=await proxyFetch(`https://api.open-meteo.com/v1/forecast?${q}`);
   let baseItems;
   if(!r.ok){
-    if(r.status===429)baseItems=await analyzeOvernightsMetNo(points);
+    if(r.status===429||r.status>=500)baseItems=await analyzeOvernightsFallbackDual(points);
     else throw new Error(`宿泊予報 HTTP ${r.status}`);
   }else{
     const raw=await r.json(), locations=Array.isArray(raw)?raw:[raw];
