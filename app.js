@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.112';
+const APP_VERSION = '1.5.113';
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
@@ -9245,6 +9245,25 @@ async function applyRepresentativeCourse(){
     const built=buildRepresentativeResolvedRoute(mountain,course);
     if(built.error)return setStatus(`代表コースを読み込めませんでした。${built.error}`,true);
     resolved=built.resolved;
+    // V1.5.113: representativeCandidateForMountain() can resolve a fixed route point
+    // that is intentionally absent from the current visible candidate list. addPointRow()
+    // selects by candidate id, so make every resolved route point selectable before the
+    // current rows are cleared. Prefer an already-loaded equivalent point only when its
+    // coordinate is effectively the same; otherwise inject the authoritative fixed point.
+    resolved=resolved.map(item=>{
+      const p=item?.p;
+      if(!p)return item;
+      const sameId=candidates.find(c=>c?.id===p.id);
+      if(sameId)return {...item,p:sameId};
+      const equivalent=candidates.find(c=>
+        c?.type===p.type&&String(c?.name||'')===String(p.name||'')&&
+        hasResolvedCoord(c)&&hasResolvedCoord(p)&&
+        haversineMeters(Number(c.lat),Number(c.lon),Number(p.lat),Number(p.lon))<=120
+      );
+      if(equivalent)return {...item,p:equivalent};
+      candidates.push(p);
+      return item;
+    });
     const segments=built.segments;
     const distributedPointCount=Number(built.distributedPointCount||0);
     let totalMinutes=0, missingCtCount=0, estimatedCtCount=0;

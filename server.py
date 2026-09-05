@@ -38,7 +38,7 @@ import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 # V1.5.109: keep Pillow + ffmpeg design and force fresh Reel delivery after redesign.
-APP_VERSION = "1.5.112"
+APP_VERSION = "1.5.113"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
