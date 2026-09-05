@@ -10306,7 +10306,7 @@ function extractProviderRow(hourly,point){
   if(idx<0)return null;
   const get=k=>numberOrNaN(hourly[k]?.[idx]);
   const targetMs=new Date(`${point.date}T${point.time}:00+09:00`).getTime();
-  const timeline=(hourly.time||[]).map((time,i)=>({time,rain:numberOrNaN(hourly.precipitation?.[i]),wind:numberOrNaN(hourly.wind_speed_10m?.[i]),cape:numberOrNaN(hourly.cape?.[i])})).filter(x=>Math.abs(new Date(x.time).getTime()-targetMs)<=6*3600000);
+  const timeline=(hourly.time||[]).map((time,i)=>({time,rain:numberOrNaN(hourly.precipitation?.[i]),wind:numberOrNaN(hourly.wind_speed_10m?.[i]),cape:numberOrNaN(hourly.cape?.[i])})).filter(x=>Math.abs(new Date(x.time).getTime()-targetMs)<=8*3600000);
   return {time:hourly.time[idx],temp:get('temperature_2m'),rh:get('relative_humidity_2m'),rain:get('precipitation'),cloud:get('cloud_cover'),wind:get('wind_speed_10m'),gust:get('wind_gusts_10m'),windDir:get('wind_direction_10m'),cape:get('cape'),visibility:get('visibility'),freezing:get('freezing_level_height'),timeline};
 }
 function blendTimelineRows(providerRows){
@@ -11245,7 +11245,7 @@ function timeOnly(s){
     const d=new Date(str);
     if(Number.isFinite(d.getTime()))return new Intl.DateTimeFormat('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit',hour12:false}).format(d);
   }
-  return str.slice(11,16);
+  return str.slice(11,13);
 }
 function horizonVisibility(row){
   if(!row) return {label:'判定不可',mark:'–',score:0};
@@ -11367,7 +11367,7 @@ function renderWeatherTimeline(rows,arrivalMs,departureMs=null){
   const data=(rows||[]).filter(x=>x?.time&&[x.rain,x.wind,x.cape].some(Number.isFinite)).sort((a,b)=>new Date(a.time)-new Date(b.time));
   if(data.length<2)return '<div class="wx-timeline-empty">時系列データを取得できませんでした</div>';
   const W=720,H=218,L=48,R=48,base=142,thY=174,plotW=W-L-R,step=plotW/Math.max(1,data.length-1),barW=Math.max(5,Math.min(22,plotW/data.length*.6));
-  const axisMax=10,x=i=>L+i*step,rainY=v=>base-(Math.min(axisMax,Math.max(0,v))/axisMax)*92,windY=v=>base-(Math.min(axisMax,Math.max(0,v))/axisMax)*92;
+  const axisMax=7,x=i=>L+i*step,rainY=v=>base-(Math.min(axisMax,Math.max(0,v))/axisMax)*92,windY=v=>base-(Math.min(axisMax,Math.max(0,v))/axisMax)*92;
   const windPoints=data.map((d,i)=>Number.isFinite(d.wind)?`${x(i).toFixed(1)},${windY(d.wind).toFixed(1)}`:null).filter(Boolean).join(' ');
   const times=data.map(d=>new Date(d.time).getTime()),nearest=ms=>times.reduce((best,t,i)=>Math.abs(t-ms)<Math.abs(times[best]-ms)?i:best,0);
   const ai=nearest(arrivalMs),di=departureMs?nearest(departureMs):ai,hx=Math.max(L,x(Math.min(ai,di))-step/2),hw=Math.max(8,x(Math.max(ai,di))-x(Math.min(ai,di))+step),bandLabel=departureMs?'滞在':'到着';
@@ -11380,12 +11380,12 @@ function renderWeatherTimeline(rows,arrivalMs,departureMs=null){
       ${data.map((d,i)=>`<rect class="wx-rain-bar" x="${(x(i)-barW/2).toFixed(1)}" y="${rainY(Number.isFinite(d.rain)?d.rain:0).toFixed(1)}" width="${barW.toFixed(1)}" height="${(base-rainY(Number.isFinite(d.rain)?d.rain:0)).toFixed(1)}" rx="2"/>`).join('')}
       <polyline class="wx-wind-line" points="${windPoints}"/>${data.map((d,i)=>Number.isFinite(d.wind)?`<circle class="wx-wind-dot" cx="${x(i)}" cy="${windY(d.wind)}" r="2.8"/>`:'').join('')}
       <text class="wx-axis-title rain" x="2" y="34">降水量</text><text class="wx-axis-title wind" x="${W-2}" y="34" text-anchor="end">平均風速</text>
-      <text class="wx-axis-tick rain" x="${L-7}" y="54" text-anchor="end">10</text><text class="wx-axis-tick rain" x="${L-7}" y="100" text-anchor="end">5</text><text class="wx-axis-tick rain" x="${L-7}" y="${base+4}" text-anchor="end">0</text>
-      <text class="wx-axis-tick wind" x="${W-R+7}" y="54">10</text><text class="wx-axis-tick wind" x="${W-R+7}" y="100">5</text><text class="wx-axis-tick wind" x="${W-R+7}" y="${base+4}">0</text>
+      <text class="wx-axis-tick rain" x="${L-7}" y="54" text-anchor="end">7</text><text class="wx-axis-tick rain" x="${L-7}" y="100" text-anchor="end">3.5</text><text class="wx-axis-tick rain" x="${L-7}" y="${base+4}" text-anchor="end">0</text>
+      <text class="wx-axis-tick wind" x="${W-R+7}" y="54">7</text><text class="wx-axis-tick wind" x="${W-R+7}" y="100">3.5</text><text class="wx-axis-tick wind" x="${W-R+7}" y="${base+4}">0</text>
       <text class="wx-axis-unit rain" x="${L-7}" y="44" text-anchor="end">mm/h</text><text class="wx-axis-unit wind" x="${W-R+7}" y="44">m/s</text><text class="wx-th-label" x="4" y="179">雷</text>
       ${data.map((d,i)=>Number(d.rain)>axisMax?`<text class="wx-over-value rain" x="${x(i)}" y="46" text-anchor="middle">${num(d.rain,1)}</text>`:'').join('')}
       ${data.map((d,i)=>Number(d.wind)>axisMax?`<text class="wx-over-value wind" x="${x(i)}" y="38" text-anchor="middle">${num(d.wind,1)}</text>`:'').join('')}
-      ${data.map((d,i)=>{const q=timelineThunder(d.cape,d.rain);return `<text class="wx-thunder-mark ${q.cls}" x="${x(i)}" y="${thY+6}" text-anchor="middle">⚡<title>${timeOnly(d.time)} 雷リスク ${q.label}</title></text>`;}).join('')}${ticks}
+      ${data.map((d,i)=>{const q=timelineThunder(d.cape,d.rain);return q.cls==='low'?'':`<text class="wx-thunder-mark ${q.cls}" x="${x(i)}" y="${thY+6}" text-anchor="middle">⚡<title>${timeOnly(d.time)} 雷リスク ${q.label}</title></text>`;}).join('')}${ticks}
     </svg>
   </div>`;
 }
