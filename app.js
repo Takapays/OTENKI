@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.138';
+const APP_VERSION = '1.5.146';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -8030,8 +8030,11 @@ function init(){
   $('loadPoiBtn').addEventListener('click',loadCandidates);
   $('mountainInfoBtn')?.addEventListener('click',openMountainInfoFromPlanner);
   $('representativeCourseBtn')?.addEventListener('click',applyRepresentativeCourse);
-  $('representativeCourseBtn')?.addEventListener('mouseenter',()=>renderRepresentativeCourseSummaryNow());
-  $('representativeCourseBtn')?.addEventListener('focus',()=>renderRepresentativeCourseSummaryNow());
+  // V1.5.144: On touch Safari, focus/mouseenter can be synthesized before click.
+  // Re-rendering the representative-course DOM at that moment can consume the first tap,
+  // making users tap "代表コースを読み込む" twice. Keep hover refresh desktop-mouse only;
+  // mountain/course change handlers already keep the summary current on mobile.
+  $('representativeCourseBtn')?.addEventListener('pointerenter',e=>{if(e.pointerType==='mouse')renderRepresentativeCourseSummaryNow();});
   $('representativeCourseSelect')?.addEventListener('change',()=>{setRepresentativeCourseSelectedIndex(currentMountainLabel(),Number($('representativeCourseSelect')?.value)||0);renderRepresentativeCourseStaticPreview();});
   $('addPointBtn').addEventListener('click',()=>addManualPointRow());
   $('analyzeBtn').addEventListener('click',analyze);
@@ -14510,3 +14513,506 @@ try{
 try{if(typeof rebuildRouteDerivedCaches==='function')rebuildRouteDerivedCaches();}catch(_){}
 window.TRATEN_REPRESENTATIVE_REPAIR_V15138=Object.freeze({version:VERSION,restoredRoutes:1,addedFixedPoints:1,policy:'published coordinate + published directional CT only; no guessed coordinate/CT'});
 })();
+
+// Traten V1.5.139: reduce verified 3-point representative courses and repair Rokko fixed-waypoint loading.
+// Policy: use only published coordinates and published/directly-composed course times; no guessed coordinates or estimated CT.
+(function(){'use strict';
+const VERSION='1.5.139';
+function addFixed(mountain,point){
+  try{
+    const k=canonicalMountainName(mountain);
+    const arr=BUILTIN_ROUTE_CATALOG[k];
+    if(Array.isArray(arr)&&!arr.some(p=>p?.id===point.id||String(p?.name||'')===point.name))arr.push(Object.freeze(point));
+  }catch(_){}
+}
+
+// Published position for Gakidake's standard Shirazawa trailhead.
+addFixed('餓鬼岳',{
+  id:'v15139-gaki-shirasawa',type:'trailhead',name:'白沢登山口',
+  lat:36.465601,lon:137.792192,elevation:990,
+  source:'登山口ナビ 公開位置（36.465601, 137.792192、標高990m）'
+});
+
+// The old Nakabusa endpoint belongs to the east-ridge traverse side, not the standard Gakidake out-and-back.
+// Remove only that Gakidake trailhead entry so the representative option is generated from Shirazawa instead.
+try{
+  const k=canonicalMountainName('餓鬼岳');
+  const arr=BUILTIN_ROUTE_CATALOG[k];
+  if(Array.isArray(arr)){
+    for(let i=arr.length-1;i>=0;i--){
+      if(arr[i]?.type==='trailhead'&&String(arr[i]?.name||'')==='中房登山口')arr.splice(i,1);
+    }
+  }
+}catch(_){}
+
+// MapFan published coordinate for the tea house immediately below Rokko's highest point.
+addFixed('六甲山',{
+  id:'v15139-rokko-ikkenchaya',type:'pass',name:'一軒茶屋',
+  lat:34.777725,lon:135.2657222,
+  source:'MapFan 公開位置（34.777725, 135.2657222）'
+});
+
+const CT=Object.freeze({
+  // Gakidake: normalize the representative route to the standard Shirazawa trailhead model course.
+  '白沢登山口→餓鬼岳小屋':{minutes:430,source:'YAMAP 餓鬼岳・白沢登山口モデル（白沢→標高1446m地点105分＋大凪山155分＋餓鬼岳小屋170分＝430分）',sourceType:'yamap-composed'},
+  '餓鬼岳小屋→餓鬼岳':{minutes:5,source:'YAMAP 餓鬼岳・白沢登山口モデル 餓鬼岳小屋→餓鬼岳5分',sourceType:'yamap'},
+  '餓鬼岳→餓鬼岳小屋':{minutes:5,source:'YAMAP 餓鬼岳・白沢登山口モデル 餓鬼岳→餓鬼岳小屋5分',sourceType:'yamap'},
+  '餓鬼岳小屋→白沢登山口':{minutes:330,source:'YAMAP 餓鬼岳・白沢登山口モデル（餓鬼岳小屋→大凪山125分＋標高1446m地点115分＋白沢90分＝330分）',sourceType:'yamap-composed'},
+
+  // Mitsutoge Nishikatsura route: one published guide gives 175 min ascent, 115 min descent and 15 min Shikirakuen->summit.
+  // Therefore Nishikatsura->Shikirakuen is a direct same-route difference (175-15=160), not an estimated walking time.
+  '西桂口→四季楽園':{minutes:160,source:'登山口ナビ・達磨石/西桂口コース（登り175分）から同一コース四季楽園→山頂15分を差引いた公開CT構成値',sourceType:'public-guide-composed'},
+  '四季楽園→三ッ峠山':{minutes:15,source:'登山口ナビ・達磨石/西桂口コース 四季楽園→三ッ峠山15分',sourceType:'public-guide'},
+  '三ッ峠山→西桂口':{minutes:115,source:'登山口ナビ・達磨石/西桂口コース 下り1時間55分',sourceType:'public-guide'},
+
+  // Rokko: existing verified forward segment CTs are combined into one stable fixed-point leg.
+  '芦屋川 高座の滝→一軒茶屋':{minutes:190,source:'山と高原地図Web 公開区間CT合算（高座の滝→風吹岩40分＋風吹岩→雨ヶ峠60分＋雨ヶ峠→一軒茶屋90分）',sourceType:'yamakei-composed'}
+});
+try{
+  if(typeof courseTimeInfo==='function'){
+    const old=courseTimeInfo;
+    courseTimeInfo=function(a,b){return CT[`${String(a?.name||'').trim()}→${String(b?.name||'').trim()}`]||old(a,b);};
+  }
+  if(typeof directCourseTimeInfoByNames==='function'){
+    const oldD=directCourseTimeInfoByNames;
+    directCourseTimeInfoByNames=function(a,b){return CT[`${String(a||'').trim()}→${String(b||'').trim()}`]||oldD(a,b);};
+  }
+}catch(_){}
+
+if(typeof representativeCourseExpandedPointDefs==='function'){
+  const old=representativeCourseExpandedPointDefs;
+  representativeCourseExpandedPointDefs=function(mountain,course){
+    let defs=old(mountain,course)||[];
+    let m=String(mountain||'').trim();
+    try{m=canonicalMountainName(m);}catch(_){}
+    const key=`${m}|${course?.label||''}`;
+
+    // Gakidake: the prior representative start (Nakabusa) was a traverse-side endpoint.
+    // Normalize this representative option to the published standard Shirazawa out-and-back route.
+    if(key==='餓鬼岳|白沢登山口ルート'){
+      defs=[
+        ['trailhead','白沢登山口','登山口'],
+        ['hut','餓鬼岳小屋','山小屋'],
+        ['peak','餓鬼岳','山頂'],
+        ['hut','餓鬼岳小屋','山小屋'],
+        ['trailhead','白沢登山口','下山口']
+      ];
+    }
+
+    // Mitsutoge/Nishikatsura: Shikirakuen is a published on-route hut; ascent only, descent keeps its published direct CT.
+    if(key==='三ッ峠山|西桂口ルート'){
+      const out=[];
+      for(let i=0;i<defs.length;i++){
+        out.push(defs[i]);
+        const next=defs[i+1];
+        if(defs[i]?.[1]==='西桂口'&&next?.[1]==='三ッ峠山')out.push(['hut','四季楽園','山小屋']);
+      }
+      defs=out;
+    }
+
+    // V1.5.127 expanded this course with two points whose fixed coordinates were not registered.
+    // Keep the verified one-tea-house split only, removing the unresolved placeholders.
+    if(key==='六甲山|芦屋川 高座の滝ルート'){
+      defs=defs.filter(d=>!['風吹岩','雨ヶ峠'].includes(String(d?.[1]||'')));
+    }
+    return defs;
+  };
+}
+
+try{if(typeof rebuildRouteDerivedCaches==='function')rebuildRouteDerivedCaches();}catch(_){}
+try{if(typeof APP_VERSION!=='undefined'){} }catch(_){}
+window.TRATEN_REPRESENTATIVE_REPAIR_V15139=Object.freeze({
+  version:VERSION,
+  reducedThreePointRoutes:['餓鬼岳|白沢登山口ルート','三ッ峠山|西桂口ルート'],
+  repairedRoutes:['六甲山|芦屋川 高座の滝ルート'],
+  policy:'published coordinates + published/directly-composed CT only; no guessed coordinate/estimated CT'
+});
+})();
+
+/* === V1.5.140: restore Kazefuki-iwa to Rokko representative route === */
+(()=>{
+'use strict';
+const VERSION='1.5.140';
+
+function addFixed140(mountain,point){
+  try{
+    const k=canonicalMountainName(mountain);
+    const arr=BUILTIN_ROUTE_CATALOG[k];
+    if(Array.isArray(arr)&&!arr.some(p=>p?.id===point.id||String(p?.name||'')===point.name))arr.push(Object.freeze(point));
+  }catch(_){ }
+}
+
+// 360@旅行ナビ embeds the named Google Maps place for 風吹岩 at this coordinate.
+// The same point is independently described as the standard on-route landmark at 437-447m by Kobe/JR/YAMAP sources.
+addFixed140('六甲山',{
+  id:'v15140-rokko-kazefukiiwa',type:'pass',name:'風吹岩',
+  lat:34.747858555755066,lon:135.27585894617206,elevation:447,
+  source:'360@旅行ナビ 風吹岩 Google Maps 埋込位置（34.747858555755066, 135.27585894617206）／JR・神戸観光資料で標高447mの主要経由地を確認'
+});
+
+const CT140=Object.freeze({
+  '芦屋川 高座の滝→風吹岩':{minutes:40,source:'山と高原地図Web・高座の滝→風吹岩40分（既存検証CT）',sourceType:'yamakei'},
+  '風吹岩→一軒茶屋':{minutes:150,source:'山と高原地図Web 公開区間CT合算（風吹岩→雨ヶ峠60分＋雨ヶ峠→一軒茶屋90分）',sourceType:'yamakei-composed'}
+});
+try{
+  if(typeof courseTimeInfo==='function'){
+    const old=courseTimeInfo;
+    courseTimeInfo=function(a,b){return CT140[`${String(a?.name||'').trim()}→${String(b?.name||'').trim()}`]||old(a,b);};
+  }
+  if(typeof directCourseTimeInfoByNames==='function'){
+    const oldD=directCourseTimeInfoByNames;
+    directCourseTimeInfoByNames=function(a,b){return CT140[`${String(a||'').trim()}→${String(b||'').trim()}`]||oldD(a,b);};
+  }
+}catch(_){ }
+
+if(typeof representativeCourseExpandedPointDefs==='function'){
+  const old=representativeCourseExpandedPointDefs;
+  representativeCourseExpandedPointDefs=function(mountain,course){
+    let defs=old(mountain,course)||[];
+    let m=String(mountain||'').trim();
+    try{m=canonicalMountainName(m);}catch(_){ }
+    const key=`${m}|${course?.label||''}`;
+    if(key==='六甲山|芦屋川 高座の滝ルート'&&!defs.some(d=>String(d?.[1]||'')==='風吹岩')){
+      const out=[];
+      let inserted=false;
+      for(const d of defs){
+        out.push(d);
+        if(!inserted&&String(d?.[1]||'')==='芦屋川 高座の滝'){
+          out.push(['pass','風吹岩','主要通過点']);
+          inserted=true;
+        }
+      }
+      defs=out;
+    }
+    return defs;
+  };
+}
+try{if(typeof rebuildRouteDerivedCaches==='function')rebuildRouteDerivedCaches();}catch(_){ }
+window.TRATEN_ROKKO_KAZEFUKIIWA_V15140=Object.freeze({
+  version:VERSION,
+  route:'六甲山|芦屋川 高座の滝ルート',
+  restoredPoint:'風吹岩',
+  policy:'named published coordinate + published/directly-composed CT only; no guessed coordinate/estimated CT'
+});
+})();
+
+
+/* === V1.5.141: continue 3-point representative-route reduction === */
+(()=>{
+'use strict';
+const VERSION='1.5.141';
+
+function addFixed141(mountain,point){
+  try{
+    const k=canonicalMountainName(mountain);
+    const arr=BUILTIN_ROUTE_CATALOG[k];
+    if(Array.isArray(arr)&&!arr.some(p=>p?.id===point.id||String(p?.name||'')===point.name))arr.push(Object.freeze(point));
+  }catch(_){ }
+}
+
+// Yakishidake: Ginmeisui shelter is a real, named checkpoint on the standard Nakanuma route.
+// Coordinate is published as 39.148892, 140.846299 / 1170 m; no route-shape interpolation is used.
+addFixed141('焼石岳',{
+  id:'v15141-yakeishi-ginmeisui',type:'hut',name:'銀明水避難小屋',
+  lat:39.148892,lon:140.846299,elevation:1170,
+  source:'公開山岳地点情報・銀明水避難小屋 39.148892, 140.846299 / 1170m。YAMAP中沼登山口-焼石岳往復モデルの主要チェックポイントを照合'
+});
+
+const CT141=Object.freeze({
+  '中沼登山口→銀明水避難小屋':{minutes:105,source:'YAMAP 中沼登山口-焼石岳 往復モデル（07:00→08:45）',sourceType:'yamap'},
+  '銀明水避難小屋→焼石岳':{minutes:85,source:'YAMAP 中沼登山口-焼石岳 往復モデル（08:45→10:10）',sourceType:'yamap'},
+  '焼石岳→銀明水避難小屋':{minutes:70,source:'YAMAP 中沼登山口-焼石岳 往復モデル（10:10→11:20）',sourceType:'yamap'},
+  '銀明水避難小屋→中沼登山口':{minutes:90,source:'YAMAP 中沼登山口-焼石岳 往復モデル（11:20→12:50）',sourceType:'yamap'},
+  // Togakushiyama: standard traverse from Okusha to Togakushi pasture via Ichifudo.
+  '戸隠山→一不動避難小屋':{minutes:110,source:'YAMAP 戸隠山周回モデル（戸隠山10:10→一不動避難小屋12:00）',sourceType:'yamap'},
+  '一不動避難小屋→戸隠キャンプ場・戸隠牧場':{minutes:33,source:'YAMAP 戸隠山周回モデル（一不動12:00→戸隠キャンプ場前12:33）',sourceType:'yamap'}
+});
+try{
+  if(typeof courseTimeInfo==='function'){
+    const old=courseTimeInfo;
+    courseTimeInfo=function(a,b){return CT141[`${String(a?.name||'').trim()}→${String(b?.name||'').trim()}`]||old(a,b);};
+  }
+  if(typeof directCourseTimeInfoByNames==='function'){
+    const oldD=directCourseTimeInfoByNames;
+    directCourseTimeInfoByNames=function(a,b){return CT141[`${String(a||'').trim()}→${String(b||'').trim()}`]||oldD(a,b);};
+  }
+}catch(_){ }
+
+if(typeof representativeCourseExpandedPointDefs==='function'){
+  const old=representativeCourseExpandedPointDefs;
+  representativeCourseExpandedPointDefs=function(mountain,course){
+    let defs=old(mountain,course)||[];
+    let m=String(mountain||'').trim();
+    try{m=canonicalMountainName(m);}catch(_){ }
+    const key=`${m}|${course?.label||''}`;
+
+    if(key==='焼石岳|中沼ルート'){
+      defs=[
+        ['trailhead','中沼登山口','登山口'],
+        ['hut','銀明水避難小屋','避難小屋'],
+        ['peak','焼石岳','山頂'],
+        ['hut','銀明水避難小屋','避難小屋'],
+        ['trailhead','中沼登山口','下山口']
+      ];
+    }
+
+    // Togakushi's standard route is not an out-and-back. The official tourism guide
+    // describes Okusha -> Togakushiyama -> Ichifudo -> Togakushi pasture as the usual traverse.
+    if(key==='戸隠山|戸隠神社奥社ルート'){
+      defs=[
+        ['trailhead','戸隠神社奥社登山口','登山口'],
+        ['peak','戸隠山','山頂'],
+        ['hut','一不動避難小屋','避難小屋'],
+        ['trailhead','戸隠キャンプ場・戸隠牧場','下山口']
+      ];
+    }
+    return defs;
+  };
+}
+try{if(typeof rebuildRouteDerivedCaches==='function')rebuildRouteDerivedCaches();}catch(_){ }
+window.TRATEN_THREE_POINT_REDUCTION_V15141=Object.freeze({
+  version:VERSION,
+  reducedThreePointRoutes:['焼石岳|中沼ルート','戸隠山|戸隠神社奥社ルート'],
+  policy:'published named points + published directional CT only; no guessed coordinate/estimated CT'
+});
+})();
+
+
+/* === V1.5.142: bulk 3-point representative-route reduction (Fuji + major routes) === */
+(()=>{
+'use strict';
+const VERSION='1.5.142';
+function addFixed142(mountain,point){
+  try{
+    const k=canonicalMountainName(mountain);
+    if(!Array.isArray(BUILTIN_ROUTE_CATALOG[k]))BUILTIN_ROUTE_CATALOG[k]=[];
+    const arr=BUILTIN_ROUTE_CATALOG[k];
+    if(!arr.some(p=>p?.id===point.id||String(p?.name||'')===point.name))arr.push(Object.freeze(point));
+  }catch(_){ }
+}
+
+// Fuji summit-gate waypoints reuse existing summit-area fixed coordinates; no interpolated coordinate.
+addFixed142('富士山',{id:'v15142-fuji-yoshida-subashiri-summit',type:'pass',name:'吉田・須走ルート山頂',lat:35.365000,lon:138.733056,elevation:3715,source:'既存固定地点「頂上山口屋」座標をルート山頂ゲートとして再利用。富士登山オフィシャルサイトの吉田・須走山頂（久須志神社側）と照合'});
+addFixed142('富士山',{id:'v15142-fuji-fujinomiya-summit',type:'pass',name:'富士宮ルート山頂',lat:35.359444,lon:138.730833,elevation:3720,source:'既存固定地点「頂上富士館」座標を富士宮ルート山頂ゲートとして再利用。富士登山オフィシャルサイトの浅間大社奥宮側と照合'});
+
+// Major named midpoints.
+addFixed142('塔ノ岳',{id:'v15142-tonodake-horiyama',type:'hut',name:'堀山の家',lat:35.436111,lon:139.162500,elevation:938,source:'PORTALFIELD掲載位置 北緯35度26分10秒 東経139度9分45秒 / 938m'});
+addFixed142('金峰山',{id:'v15142-kinpu-asahidake',type:'peak',name:'朝日岳（奥秩父）',lat:35.874444,lon:138.642500,elevation:2579,source:'国土地理院「日本の主な山岳」朝日岳 35°52′28″N 138°38′33″E / 2579m'});
+// YAMAP model identifies 前国師岳 as the principal intermediate summit. Position is tied to the published mountain point, not route interpolation.
+addFixed142('国師ヶ岳',{id:'v15142-kokushi-maekokushi',type:'peak',name:'前国師岳',lat:35.87055,lon:138.66795,elevation:2570,source:'YAMAP 前国師岳（2570m）公開山岳地点。大弛峠-国師ヶ岳モデルの主要中間ピーク'});
+addFixed142('美ヶ原',{id:'v15142-utsukushi-tower',type:'pass',name:'美しの塔',lat:36.224150,lon:138.121714,elevation:1990,source:'Wikimedia Commons位置情報 36.224150,138.121714 + 長和町観光協会「美しの塔」照合'});
+addFixed142('宝剣岳',{id:'v15142-hoken-senjojiki',type:'trailhead',name:'千畳敷',lat:35.779700,lon:137.814700,elevation:2612,source:'既存中央アルプス固定候補を宝剣岳代表ルート用にも登録'});
+addFixed142('宝剣岳',{id:'v15142-hoken-peak',type:'peak',name:'宝剣岳',lat:35.781389,lon:137.809167,elevation:2931,source:'既存中央アルプス固定候補・宝剣岳'});
+addFixed142('宝剣岳',{id:'v15142-hoken-gokurakudaira',type:'pass',name:'極楽平',lat:35.770333,lon:137.807500,elevation:2827,source:'公開山行資料の極楽平 GPS 35°46.22′N,137°48.45′E / 2827m（千畳敷-宝剣岳周回ルート上）'});
+
+const CT142=Object.freeze({
+  // Fuji: established official route graph, with reverse Fujinomiya summit-to-Kengamine added explicitly.
+  '富士山（剣ヶ峰）→富士宮ルート山頂':{minutes:20,source:'富士登山オフィシャルサイト・富士宮モデル（富士宮ルート山頂⇄剣ヶ峰 約20分）',sourceType:'official'},
+
+  // Tanzawa / Tonodake. YAMAP model-course checkpoints, direction specific.
+  '大倉登山口→堀山の家':{minutes:189,source:'YAMAP 塔ノ岳大倉尾根モデル YAMA CAFE 08:00→堀山の家11:09',sourceType:'yamap'},
+  '堀山の家→塔ノ岳':{minutes:84,source:'YAMAP 塔ノ岳大倉尾根モデル 堀山の家11:09→塔ノ岳12:33',sourceType:'yamap'},
+  '塔ノ岳→堀山の家':{minutes:102,source:'YAMAP 塔ノ岳大倉尾根モデル 塔ノ岳12:33→堀山の家14:15',sourceType:'yamap'},
+  '堀山の家→大倉登山口':{minutes:112,source:'YAMAP 塔ノ岳大倉尾根モデル 堀山の家14:15→YAMA CAFE16:07',sourceType:'yamap'},
+
+  // Oku-Chichibu. YAMAP published model-course checkpoint deltas.
+  '大弛峠→朝日岳（奥秩父）':{minutes:80,source:'YAMAP 金峰山モデル 大弛峠→朝日峠45分＋朝日峠→朝日岳35分',sourceType:'yamap'},
+  '朝日岳（奥秩父）→金峰山':{minutes:77,source:'YAMAP 金峰山モデル 朝日岳09:20→金峰山10:37',sourceType:'yamap'},
+  '金峰山→朝日岳（奥秩父）':{minutes:80,source:'YAMAP 金峰山周回モデル 金峰山11:13→朝日岳12:33',sourceType:'yamap'},
+  '朝日岳（奥秩父）→大弛峠':{minutes:42,source:'YAMAP 金峰山周回モデル 朝日岳12:33→大弛峠13:15',sourceType:'yamap'},
+  '大弛峠→前国師岳':{minutes:44,source:'YAMAP 国師ヶ岳モデル 大弛峠08:00→前国師岳08:44',sourceType:'yamap'},
+  '前国師岳→国師ヶ岳':{minutes:14,source:'YAMAP 国師ヶ岳モデル 前国師岳08:44→国師ヶ岳08:58',sourceType:'yamap'},
+  '国師ヶ岳→前国師岳':{minutes:19,source:'YAMAP 国師ヶ岳モデル 国師ヶ岳08:58→前国師岳09:17',sourceType:'yamap'},
+  '前国師岳→大弛峠':{minutes:20,source:'YAMAP 国師ヶ岳モデル 前国師岳09:17→大弛峠09:37',sourceType:'yamap'},
+
+  // Utsukushigahara: main promenade via Utsukushi-no-to.
+  '山本小屋ふる里館・町営駐車場→美しの塔':{minutes:17,source:'YAMAP 美ヶ原モデル 山本小屋ふる里館08:37→美しの塔08:54',sourceType:'yamap'},
+  '美しの塔→美ヶ原（王ヶ頭）':{minutes:46,source:'YAMAP 美ヶ原モデル 美しの塔08:54→王ヶ頭09:40',sourceType:'yamap'},
+
+  // Houkendake loop: Senjojiki -> Gokurakudaira -> Houken -> Senjojiki.
+  '千畳敷→極楽平':{minutes:35,source:'YAMAP 千畳敷駅-宝剣岳周回モデル 千畳敷08:00→極楽平08:35',sourceType:'yamap'},
+  '極楽平→宝剣岳':{minutes:45,source:'YAMAP 千畳敷駅-宝剣岳周回モデル 極楽平08:35→宝剣岳09:20',sourceType:'yamap'},
+  '宝剣岳→千畳敷':{minutes:50,source:'YAMAP 千畳敷駅-宝剣岳周回モデル 宝剣岳09:20→千畳敷10:10',sourceType:'yamap'}
+});
+try{
+  if(typeof courseTimeInfo==='function'){
+    const old=courseTimeInfo;
+    courseTimeInfo=function(a,b){return CT142[`${String(a?.name||'').trim()}→${String(b?.name||'').trim()}`]||old(a,b);};
+  }
+  if(typeof directCourseTimeInfoByNames==='function'){
+    const oldD=directCourseTimeInfoByNames;
+    directCourseTimeInfoByNames=function(a,b){return CT142[`${String(a||'').trim()}→${String(b||'').trim()}`]||oldD(a,b);};
+  }
+}catch(_){ }
+
+if(typeof representativeCourseExpandedPointDefs==='function'){
+  const old=representativeCourseExpandedPointDefs;
+  representativeCourseExpandedPointDefs=function(mountain,course){
+    let defs=old(mountain,course)||[];
+    let m=String(mountain||'').trim(); try{m=canonicalMountainName(m);}catch(_){ }
+    const key=`${m}|${course?.label||''}`;
+    const replacements={
+      '富士山|富士宮ルート':[
+        ['trailhead','富士宮口五合目','登山口'],['pass','富士宮ルート山頂','山頂ゲート'],['peak','富士山（剣ヶ峰）','山頂'],['pass','富士宮ルート山頂','山頂ゲート'],['trailhead','富士宮口五合目','下山口']
+      ],
+      '富士山|富士スバルライン五合目（吉田口）ルート':[
+        ['trailhead','富士スバルライン五合目（吉田口）','登山口'],['pass','吉田・須走ルート山頂','山頂ゲート'],['peak','富士山（剣ヶ峰）','山頂'],['pass','吉田・須走ルート山頂','山頂ゲート'],['trailhead','富士スバルライン五合目（吉田口）','下山口']
+      ],
+      '富士山|須走口五合目ルート':[
+        ['trailhead','須走口五合目','登山口'],['pass','吉田・須走ルート山頂','山頂ゲート'],['peak','富士山（剣ヶ峰）','山頂'],['pass','吉田・須走ルート山頂','山頂ゲート'],['trailhead','須走口五合目','下山口']
+      ],
+      '塔ノ岳|大倉ルート':[
+        ['trailhead','大倉登山口','登山口'],['hut','堀山の家','山小屋'],['peak','塔ノ岳','山頂'],['hut','堀山の家','山小屋'],['trailhead','大倉登山口','下山口']
+      ],
+      '金峰山|大弛峠ルート':[
+        ['trailhead','大弛峠','登山口'],['peak','朝日岳（奥秩父）','中間ピーク'],['peak','金峰山','山頂'],['peak','朝日岳（奥秩父）','中間ピーク'],['trailhead','大弛峠','下山口']
+      ],
+      '国師ヶ岳|大弛峠ルート':[
+        ['trailhead','大弛峠','登山口'],['peak','前国師岳','中間ピーク'],['peak','国師ヶ岳','山頂'],['peak','前国師岳','中間ピーク'],['trailhead','大弛峠','下山口']
+      ],
+      '美ヶ原|山本小屋・王ヶ頭ルート':[
+        ['trailhead','山本小屋ふる里館・町営駐車場','登山口'],['pass','美しの塔','主要地点'],['peak','美ヶ原（王ヶ頭）','山頂'],['trailhead','山本小屋ふる里館・町営駐車場','下山口']
+      ],
+      '宝剣岳|千畳敷・宝剣岳ルート':[
+        ['trailhead','千畳敷','登山口'],['pass','極楽平','稜線'],['peak','宝剣岳','山頂'],['trailhead','千畳敷','下山口']
+      ]
+    };
+    return replacements[key]||defs;
+  };
+}
+try{if(typeof rebuildRouteDerivedCaches==='function')rebuildRouteDerivedCaches();}catch(_){ }
+window.TRATEN_BULK_THREE_POINT_REDUCTION_V15142=Object.freeze({
+ version:VERSION,
+ reducedThreePointRoutes:[
+  '富士山|富士宮ルート','富士山|富士スバルライン五合目（吉田口）ルート','富士山|須走口五合目ルート',
+  '塔ノ岳|大倉ルート','金峰山|大弛峠ルート','国師ヶ岳|大弛峠ルート','美ヶ原|山本小屋・王ヶ頭ルート','宝剣岳|千畳敷・宝剣岳ルート'
+ ],
+ policy:'major meaningful published waypoints; fixed/published coordinates and directional CT only; no guessed CT'
+});
+})();
+
+
+/* === V1.5.143: bulk 3-point reduction batch 2 === */
+(()=>{
+'use strict';
+const VERSION='1.5.143';
+function addFixed143(mountain,point){
+  try{
+    const k=canonicalMountainName(mountain);
+    if(!Array.isArray(BUILTIN_ROUTE_CATALOG[k]))BUILTIN_ROUTE_CATALOG[k]=[];
+    const arr=BUILTIN_ROUTE_CATALOG[k];
+    if(!arr.some(p=>p?.id===point.id||String(p?.name||'')===point.name))arr.push(Object.freeze(point));
+  }catch(_){ }
+}
+
+// All new points below are named, published trail checkpoints. No geometric interpolation.
+addFixed143('至仏山',{id:'v15143-shibutsu-koshibutsu',type:'peak',name:'小至仏山',lat:36.895729,lon:139.171769,elevation:2162,source:'公開山岳地点・小至仏山 36.895729,139.171769 / 2162m。至仏山-鳩待峠標準ルート上の主要ピーク'});
+addFixed143('入笠山',{id:'v15143-nyukasa-wetland',type:'pass',name:'入笠湿原',lat:35.905414,lon:138.174750,elevation:1734,source:'公開位置情報・入笠湿原 35°54′19.49″N 138°10′29.1″E。沢入ルートの主要地点'});
+addFixed143('二王子岳',{id:'v15143-ninoji-ichioji',type:'hut',name:'一王子小屋',lat:37.905000,lon:139.465556,elevation:723,source:'公開位置情報・一王子小屋 37°54′18″N 139°27′56″E / 約723m'});
+addFixed143('乾徳山',{id:'v15143-kentoku-ogidaira',type:'pass',name:'扇平',lat:35.818670,lon:138.719220,elevation:1763,source:'公開山岳地点・扇平 35.81867,138.71922 / 1763m。徳和-乾徳山標準ルートの主要地点'});
+addFixed143('大山（神奈川）',{id:'v15143-oyama-afuri-shimosha',type:'pass',name:'大山阿夫利神社下社',lat:35.431729,lon:139.238581,elevation:696,source:'大山阿夫利神社下社の公開位置 35.4317286,139.2385811 / 約696m'});
+
+const CT143=Object.freeze({
+  // Oze / Shibutsusan. Published route schedule keeps the one-way-only Yamano-hana ascent restriction.
+  '至仏山→小至仏山':{minutes:40,source:'公開山行計画・至仏山12:00→小至仏山12:40',sourceType:'published'},
+  '小至仏山→鳩待峠':{minutes:105,source:'公開山行計画・小至仏山12:40→鳩待峠14:25',sourceType:'published'},
+
+  // Akagi standard loop. Existing fixed Akagi-Komagatake and Onoko points are reused.
+  '赤城山（黒檜山）→赤城駒ヶ岳':{minutes:45,source:'YAMAP公開モデル・黒檜山09:15→駒ヶ岳10:00',sourceType:'yamap'},
+  '赤城駒ヶ岳→おのこ駐車場・駒ヶ岳登山口':{minutes:52,source:'YAMAP公開モデル・駒ヶ岳10:00→あかぎ広場駐車場10:52',sourceType:'yamap'},
+
+  // Nyukasayama: published same-route ascent checkpoints; descent retains the already verified direct edge.
+  '沢入登山口→入笠湿原':{minutes:49,source:'公開山行記録・沢入登山口10:46→入笠湿原11:35',sourceType:'published'},
+  '入笠湿原→入笠山':{minutes:93,source:'公開山行記録・入笠湿原11:37→入笠山13:10',sourceType:'published'},
+
+  // Ninojidake. Shibata City official route gives 90 min to Ichioji and another 150 min to summit.
+  '二王子神社登山口→一王子小屋':{minutes:90,source:'新発田市公式登山案内・二王子神社→一王子小屋 約90分',sourceType:'official'},
+  '一王子小屋→二王子岳':{minutes:150,source:'新発田市公式登山案内・一王子小屋→定高山50分→油コボシ50分→お花畑25分→山頂25分',sourceType:'official'},
+
+  // Kentokusan: standard Tokawa ascent via Ogi-daira; verified direct descent edge is retained.
+  '徳和・乾徳山登山口→扇平':{minutes:105,source:'公開コース案内・登山口→国師ヶ原70分→月見岩30分→扇平5分',sourceType:'published'},
+  '扇平→乾徳山':{minutes:65,source:'公開コース案内・扇平→乾徳山山頂 約65分',sourceType:'published'},
+
+  // Tanzawa Oyama: bus/municipal parking vicinity -> Afuri-shimosha -> summit -> parking.
+  '大山ケーブル口・市営第二駐車場→大山阿夫利神社下社':{minutes:80,source:'YAMAP公開モデル・大山ケーブルバス停07:00→阿夫利神社駅08:20（市営第二駐車場は同登山口エリア）',sourceType:'yamap'},
+  '大山阿夫利神社下社→大山（神奈川）':{minutes:108,source:'YAMAP公開モデル・阿夫利神社駅08:11→大山09:59',sourceType:'yamap'},
+  '大山（神奈川）→大山ケーブル口・市営第二駐車場':{minutes:139,source:'YAMAP公開モデル・大山11:03→大山ケーブルバス停13:22',sourceType:'yamap'}
+});
+try{
+  if(typeof courseTimeInfo==='function'){
+    const old=courseTimeInfo;
+    courseTimeInfo=function(a,b){return CT143[`${String(a?.name||'').trim()}→${String(b?.name||'').trim()}`]||old(a,b);};
+  }
+  if(typeof directCourseTimeInfoByNames==='function'){
+    const oldD=directCourseTimeInfoByNames;
+    directCourseTimeInfoByNames=function(a,b){return CT143[`${String(a||'').trim()}→${String(b||'').trim()}`]||oldD(a,b);};
+  }
+}catch(_){ }
+
+if(typeof representativeCourseExpandedPointDefs==='function'){
+  const old=representativeCourseExpandedPointDefs;
+  representativeCourseExpandedPointDefs=function(mountain,course){
+    let defs=old(mountain,course)||[];
+    let m=String(mountain||'').trim(); try{m=canonicalMountainName(m);}catch(_){ }
+    const key=`${m}|${course?.label||''}`;
+    const replacements={
+      '至仏山|山ノ鼻・東面登山道ルート':[
+        ['trailhead','山ノ鼻（至仏山東面登山道入口・登り専用）','登山口'],
+        ['peak','至仏山','山頂'],
+        ['peak','小至仏山','中間ピーク'],
+        ['trailhead','鳩待峠','下山口']
+      ],
+      '赤城山（黒檜山）|黒檜山ルート':[
+        ['trailhead','黒檜山登山口','登山口'],
+        ['peak','赤城山（黒檜山）','山頂'],
+        ['peak','赤城駒ヶ岳','中間ピーク'],
+        ['trailhead','おのこ駐車場・駒ヶ岳登山口','下山口']
+      ],
+      '入笠山|沢入ルート':[
+        ['trailhead','沢入登山口','登山口'],
+        ['pass','入笠湿原','主要地点'],
+        ['peak','入笠山','山頂'],
+        ['trailhead','沢入登山口','下山口']
+      ],
+      '二王子岳|二王子神社ルート':[
+        ['trailhead','二王子神社登山口','登山口'],
+        ['hut','一王子小屋','避難小屋'],
+        ['peak','二王子岳','山頂'],
+        ['trailhead','二王子神社登山口','下山口']
+      ],
+      '乾徳山|徳和・乾徳山ルート':[
+        ['trailhead','徳和・乾徳山登山口','登山口'],
+        ['pass','扇平','主要地点'],
+        ['peak','乾徳山','山頂'],
+        ['trailhead','徳和・乾徳山登山口','下山口']
+      ],
+      '大山（神奈川）|大山ケーブル・阿夫利神社下社ルート':[
+        ['trailhead','大山ケーブル口・市営第二駐車場','登山口'],
+        ['pass','大山阿夫利神社下社','主要地点'],
+        ['peak','大山（神奈川）','山頂'],
+        ['trailhead','大山ケーブル口・市営第二駐車場','下山口']
+      ]
+    };
+    return replacements[key]||defs;
+  };
+}
+try{if(typeof rebuildRouteDerivedCaches==='function')rebuildRouteDerivedCaches();}catch(_){ }
+window.TRATEN_BULK_THREE_POINT_REDUCTION_V15143=Object.freeze({
+  version:VERSION,
+  reducedThreePointRoutes:[
+    '至仏山|山ノ鼻・東面登山道ルート','赤城山（黒檜山）|黒檜山ルート','入笠山|沢入ルート',
+    '二王子岳|二王子神社ルート','乾徳山|徳和・乾徳山ルート','大山（神奈川）|大山ケーブル・阿夫利神社下社ルート'
+  ],
+  policy:'meaningful named route checkpoints only; published/fixed coordinates and published CT; no guessed coordinates or estimated CT'
+});
+})();
+
+
+/* === V1.5.144: mobile representative-course single-tap fix === */
+try{
+  window.TRATEN_MOBILE_REPRESENTATIVE_SINGLE_TAP_V15144=Object.freeze({
+    version:'1.5.144',
+    change:'remove touch-triggered focus/mouseenter DOM rerender around representative-course load button; pointer hover refresh remains mouse-only',
+    audit:{totalRepresentativeCourses:215,threePointCourses:72,v15141ThreePointCourses:86,v15142ThreePointCourses:78,v15143ThreePointCourses:72}
+  });
+}catch(_){ }
