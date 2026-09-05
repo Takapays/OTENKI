@@ -37,8 +37,8 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-# V1.5.98: keep Pillow + ffmpeg design and force fresh Reel delivery after redesign.
-APP_VERSION = "1.5.98"
+# V1.5.99: keep Pillow + ffmpeg design and force fresh Reel delivery after redesign.
+APP_VERSION = "1.5.99"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -120,7 +120,7 @@ NOAA_GFS_FILTER = os.environ.get(
 NOAA_GFS_TIMEOUT = int(os.environ.get("NOAA_GFS_TIMEOUT", "35"))
 NOAA_GFS_CACHE_TTL = int(os.environ.get("NOAA_GFS_CACHE_TTL", "1800"))
 
-# V1.5.98: still no Playwright/Chromium startup. Keep Render Free below the 512 MB cap.
+# V1.5.99: still no Playwright/Chromium startup. Keep Render Free below the 512 MB cap.
 REEL_RENDERER_STATUS = {"engine": "pillow+ffmpeg", "browser": False, "memoryProfile": "low"}
 
 app = Flask(__name__, static_folder=None)
@@ -2628,11 +2628,11 @@ def instagram_national_reel(date_text: str):
         return jsonify(error="fresh nationwide cache is incomplete", count=len(rows), minimum=instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS), 409
     try:
         path = instagram_bot.render_national_reel(date_text, rows, logo_path=os.path.join(BASE, "traten-logo.png"))
-        response = send_file(path, mimetype="video/mp4", conditional=False, download_name=f"traten-{date_text}-v1598.mp4")
+        response = send_file(path, mimetype="video/mp4", conditional=False, download_name=f"traten-{date_text}-v1599.mp4")
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
-        response.headers["X-Traten-Reel-Version"] = "1598"
+        response.headers["X-Traten-Reel-Version"] = "1599"
         return response
     except Exception as exc:
         app.logger.exception("instagram_national_reel_failed date=%s", date_text)

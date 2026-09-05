@@ -68,7 +68,7 @@ def image_url(date_text: str) -> str:
     return f"{PUBLIC_BASE_URL}/api/instagram/national-image/{urllib.parse.quote(date_text)}?sig={urllib.parse.quote(sig)}"
 
 
-REEL_ASSET_VERSION = "1598"
+REEL_ASSET_VERSION = "1599"
 
 def reel_signature(date_text: str) -> str:
     if not image_secret():
@@ -274,35 +274,40 @@ def _fetch_gsi_tile(z: int, x: int, y: int) -> "Image.Image":
 
 
 def _render_japan_map(results: list[dict[str, Any]], width: int, height: int) -> "Image.Image":
-    # Bundled Japan base map guarantees a usable Reel even if an external tile server is unavailable.
-    north, south, west, east = 46.2, 29.0, 127.0, 146.8
+    """Render the bundled Japan silhouette and overlay dynamic A/B/C markers."""
     base_path = os.path.join(os.path.dirname(__file__), "instagram-japan-base.png")
     if os.path.exists(base_path):
-        crop = Image.open(base_path).convert("RGB").resize((width, height), Image.Resampling.LANCZOS)
+        with Image.open(base_path) as src:
+            src = src.convert("RGB")
+            # Crop to the main Japanese archipelago while keeping Hokkaido and Kyushu visible.
+            crop = src.crop((70, 35, 620, 430)).resize((width, height), Image.Resampling.LANCZOS)
     else:
-        crop = Image.new("RGB", (width, height), (207, 234, 245))
+        crop = Image.new("RGB", (width, height), (228, 242, 249))
+
     d = ImageDraw.Draw(crop, "RGBA")
-    grade_colors = {"A": (22, 142, 83, 255), "B": (220, 153, 12, 255), "C": (205, 62, 62, 255)}
-    font = _load_font(max(22, width // 25))
-    r = max(17, width // 36)
+    d.rectangle((0, 0, width, height), fill=(223, 241, 250, 72))
+    grade_colors = {"A": (25,145,82,255), "B": (226,164,14,255), "C": (211,63,64,255)}
+    font = _load_font(max(18, width // 31))
+    r = max(12, width // 45)
+    north, south, west, east = 46.5, 29.5, 128.3, 146.7
+    pad_x, pad_y = width * 0.02, height * 0.02
     for row in results:
         try:
             lat, lon = float(row.get("lat")), float(row.get("lon"))
             grade = str(row.get("grade") or "")
         except Exception:
             continue
-        if grade not in grade_colors: continue
-        px = int((lon-west)/(east-west)*width)
-        py = int((north-lat)/(north-south)*height)
-        if not (-r <= px <= width+r and -r <= py <= height+r): continue
-        d.ellipse((px-r-3,py-r-3,px+r+3,py+r+3), fill=(255,255,255,235))
-        d.ellipse((px-r,py-r,px+r,py+r), fill=grade_colors[grade])
-        bbox=d.textbbox((0,0), grade, font=font)
-        d.text((px-(bbox[2]-bbox[0])/2, py-(bbox[3]-bbox[1])/2-2), grade, font=font, fill=(255,255,255,255))
-    d.rounded_rectangle((12,height-36,142,height-10), radius=8, fill=(255,255,255,205))
-    d.text((22,height-34), "全国マップ", font=_load_font(18), fill=(50,70,84,255))
+        if grade not in grade_colors:
+            continue
+        px = int(pad_x + (lon-west)/(east-west) * (width - pad_x*2))
+        py = int(pad_y + (north-lat)/(north-south) * (height - pad_y*2))
+        if not (-r <= px <= width+r and -r <= py <= height+r):
+            continue
+        d.ellipse((px-r-3, py-r-3, px+r+3, py+r+3), fill=(255,255,255,235))
+        d.ellipse((px-r, py-r, px+r, py+r), fill=grade_colors[grade])
+        bbox = d.textbbox((0,0), grade, font=font)
+        d.text((px-(bbox[2]-bbox[0])/2, py-(bbox[3]-bbox[1])/2-1), grade, font=font, fill=(255,255,255,255))
     return crop
-
 
 
 def _render_gsi_japan_background(path: str, width: int = 1080, height: int = 1590) -> str:
@@ -377,201 +382,125 @@ def _write_original_bgm(path: str, seconds: int) -> None:
 
 def _render_reel_scenes_pillow(*, rows: list[dict[str, Any]], counts: dict[str, int], target: date,
                                 logo_path: str | None, out_dir: str) -> list[str]:
-    """Render a lighter but more polished 9:16 Reel concept with Pillow only."""
+    """V1.5.99: reproduce the approved dark-blue/yellow mock in Pillow, not the old dashboard-card look."""
     if Image is None or ImageDraw is None:
         raise RuntimeError("Pillow is not installed")
 
     W, H = 720, 1280
-    navy = (8, 37, 66)
-    navy2 = (12, 57, 99)
-    sky = (235, 246, 252)
-    sky2 = (212, 233, 244)
-    white = (255, 255, 255)
-    ink = (19, 53, 86)
-    muted = (92, 110, 125)
-    line = (220, 231, 238)
-    yellow = (255, 210, 43)
-    green = (30, 149, 85)
-    amber = (225, 165, 20)
-    red = (212, 74, 74)
-    grade_colors = {"A": green, "B": amber, "C": red}
-    grade_bg = {"A": (233, 247, 238), "B": (255, 246, 225), "C": (253, 236, 236)}
-
+    NAVY=(4,39,73); NAVY2=(7,69,116); WHITE=(255,255,255); YELLOW=(255,207,35)
+    GREEN=(24,142,79); AMBER=(224,158,15); RED=(207,57,60); INK=(7,47,83); MUTED=(78,92,104)
+    grade_colors={"A":GREEN,"B":AMBER,"C":RED}
     os.makedirs(out_dir, exist_ok=True)
-    scene_paths: list[str] = []
-    a_names = [str(r.get("name") or "") for r in rows if r.get("grade") == "A"][:3]
-    b_names = [str(r.get("name") or "") for r in rows if r.get("grade") == "B"][:3]
-    c_names = [str(r.get("name") or "") for r in rows if r.get("grade") == "C"][:3]
+    scene_paths=[]
 
-    def paste_logo(img, max_size=(180, 86), xy=(24, 18)):
-        if not logo_path or not os.path.exists(logo_path):
-            return
-        try:
-            with Image.open(logo_path) as src:
-                logo = src.convert("RGBA")
-                logo.thumbnail(max_size)
-                img.paste(logo, xy, logo)
-        except Exception:
-            pass
+    def save(img,name):
+        path=os.path.join(out_dir,name); img.save(path,"JPEG",quality=92,optimize=True); img.close(); scene_paths.append(path); return path
 
-    def save_scene(img, name: str) -> str:
-        path = os.path.join(out_dir, name)
-        img.save(path, format="JPEG", quality=91, optimize=True, progressive=False)
-        img.close()
-        scene_paths.append(path)
-        return path
-
-    def vgrad(img, top, bottom):
-        dr = ImageDraw.Draw(img)
+    def gradient(img, top=NAVY, bottom=NAVY2):
+        dr=ImageDraw.Draw(img)
         for y in range(H):
-            t = y / max(1, H - 1)
-            rgb = tuple(int(top[i] * (1.0 - t) + bottom[i] * t) for i in range(3))
-            dr.line((0, y, W, y), fill=rgb)
+            t=y/(H-1); c=tuple(int(top[i]*(1-t)+bottom[i]*t) for i in range(3)); dr.line((0,y,W,y),fill=c)
 
-    def shadow(d, box, radius=28, offset=10, alpha=52):
-        x1, y1, x2, y2 = box
-        d.rounded_rectangle((x1, y1 + offset, x2, y2 + offset), radius=radius, fill=(8, 37, 66, alpha))
+    def mountains(d, base_y=1190):
+        # layered silhouettes evoke the approved mountain poster without photo assets
+        d.polygon([(0,base_y),(70,base_y-80),(130,base_y-35),(210,base_y-120),(290,base_y-45),(380,base_y-150),(470,base_y-70),(570,base_y-135),(720,base_y-50),(720,H),(0,H)], fill=(4,30,58,255))
+        d.polygon([(0,base_y+25),(95,base_y-25),(180,base_y+5),(270,base_y-50),(360,base_y+12),(475,base_y-60),(585,base_y+4),(720,base_y-36),(720,H),(0,H)], fill=(3,24,46,255))
 
-    def chip(d, x, y, grade, count, subtitle):
-        w, h = 205, 106
-        c = grade_colors[grade]
-        bg = grade_bg[grade]
-        shadow(d, (x, y, x + w, y + h), radius=26, offset=8, alpha=38)
-        d.rounded_rectangle((x, y, x + w, y + h), radius=26, fill=white, outline=line, width=2)
-        d.ellipse((x + 18, y + 19, x + 72, y + 73), fill=c)
-        d.text((x + 36, y + 28), grade, font=_load_font(26), fill=white)
-        d.text((x + 90, y + 16), str(count), font=_load_font(36), fill=c)
-        d.text((x + 92, y + 56), "座", font=_load_font(17), fill=muted)
-        d.rounded_rectangle((x + 16, y + 78, x + 188, y + 96), radius=9, fill=bg)
-        d.text((x + 28, y + 76), subtitle, font=_load_font(16), fill=muted)
+    def contour(d):
+        for k in range(8):
+            pts=[]
+            for x in range(-20,741,30):
+                yy=40+k*42 + 12*math.sin((x+k*17)/85)
+                pts.append((x,yy))
+            d.line(pts, fill=(255,255,255,18), width=1)
 
-    def list_card(d, x, y, grade, title, names):
-        c = grade_colors[grade]
-        bg = white if grade != "C" else (255, 249, 249)
-        shadow(d, (x, y, x + 320, y + 170), radius=24, offset=8, alpha=32)
-        d.rounded_rectangle((x, y, x + 320, y + 170), radius=24, fill=bg, outline=line, width=2)
-        d.ellipse((x + 18, y + 18, x + 66, y + 66), fill=c)
-        d.text((x + 35, y + 26), grade, font=_load_font(22), fill=white)
-        d.text((x + 80, y + 22), title, font=_load_font(22), fill=ink)
-        yy = y + 74
-        entries = names if names else ["—", "—", "—"]
-        for nm in entries[:3]:
-            d.text((x + 22, yy), f"・{nm or '—'}", font=_fit_text(d, f"・{nm or '—'}", 284, 21, 16), fill=(58, 74, 88))
-            yy += 29
+    # Scene 1: approved nationwide-analysis mock
+    img=Image.new("RGB",(W,H),WHITE); d=ImageDraw.Draw(img,"RGBA")
+    d.rectangle((0,0,W,120),fill=NAVY)
+    d.text((34,30),"まったく新しい",font=_load_font(25),fill=WHITE)
+    d.text((255,30),"登山天気ツール",font=_load_font(25),fill=YELLOW)
+    d.text((28,145),"日本三百名山 全国分析",font=_fit_text(d,"日本三百名山 全国分析",665,45,34),fill=INK)
+    d.text((32,202),f"{target.month}/{target.day}  明日の登山コンディション",font=_load_font(26),fill=(15,111,56))
+    # Map dominates the frame, like the approved mock
+    map_img=_render_japan_map(rows,720,760)
+    img.paste(map_img,(0,250)); map_img.close()
+    # navy headline card
+    d.rounded_rectangle((30,278,430,474),radius=30,fill=NAVY)
+    d.text((58,302),"明日の",font=_load_font(64),fill=YELLOW)
+    d.text((60,386),"全国コンディション",font=_load_font(29),fill=WHITE)
+    # free badge
+    d.ellipse((44,500,250,706),fill=YELLOW,outline=(255,255,255,235),width=5)
+    d.text((90,540),"全部",font=_load_font(35),fill=NAVY)
+    d.text((77,591),"無料!",font=_load_font(47),fill=NAVY)
+    # legend bottom-right
+    d.rounded_rectangle((356,805,694,998),radius=24,fill=(255,255,255,240),outline=(220,225,230,255),width=2)
+    labels={"A":("良い","絶好の登山日和!"),"B":("まずまず","注意して楽しめる"),"C":("注意","無理せず計画を再検討")}
+    yy=828
+    for g in "ABC":
+        c=grade_colors[g]; d.ellipse((378,yy,426,yy+48),fill=c); d.text((393,yy+7),g,font=_load_font(22),fill=WHITE)
+        d.text((440,yy+3),labels[g][0],font=_load_font(22),fill=c)
+        d.text((520,yy+7),labels[g][1],font=_fit_text(d,labels[g][1],150,15,12),fill=INK); yy+=56
+    d.rectangle((0,1018,W,H),fill=NAVY)
+    d.text((32,1045),"トラテン",font=_load_font(48),fill=WHITE)
+    d.text((254,1060),"登る前に、トラテン。",font=_load_font(24),fill=(235,240,245))
+    d.text((32,1120),f"A {counts.get('A',0)}座   B {counts.get('B',0)}座   C {counts.get('C',0)}座",font=_load_font(29),fill=YELLOW)
+    d.text((32,1170),"山ごとの風・雨・気温・CTは otenki.onrender.com",font=_fit_text(d,"山ごとの風・雨・気温・CTは otenki.onrender.com",650,20,15),fill=WHITE)
+    save(img,"scene-map.jpg")
 
-    # Scene 1: polished hero
-    img = Image.new("RGB", (W, H), sky)
-    vgrad(img, (242, 248, 252), (221, 238, 247))
-    d = ImageDraw.Draw(img, "RGBA")
-    d.rounded_rectangle((24, 22, 696, 142), radius=30, fill=(255, 255, 255, 236))
-    paste_logo(img, max_size=(150, 72), xy=(34, 34))
-    d.text((198, 38), "まったく新しい登山天気ツール", font=_load_font(19), fill=amber)
-    d.text((198, 66), "トラテン", font=_load_font(36), fill=ink)
-    d.text((198, 105), f"{target.month}/{target.day} 明日の登山コンディション", font=_load_font(18), fill=green)
+    # Scene 2: approved feature-poster mock
+    img=Image.new("RGB",(W,H),NAVY); gradient(img); d=ImageDraw.Draw(img,"RGBA"); contour(d); mountains(d,1165)
+    d.text((40,45),"まったく新しい",font=_load_font(29),fill=WHITE)
+    d.text((278,45),"登山天気ツール",font=_load_font(29),fill=YELLOW)
+    d.text((38,105),"トラテン",font=_load_font(70),fill=YELLOW)
+    d.text((330,120),"でできること",font=_load_font(43),fill=WHITE)
+    d.rounded_rectangle((205,210,515,290),radius=40,fill=YELLOW)
+    d.text((280,228),"全部無料!",font=_load_font(34),fill=NAVY)
+    features=[("全国分析","三百名山を2週間先まで"),("自分専用天気予報","通過ポイントを入れたらルート分析"),("登山判断サポート","時間帯別の風・雨・気温・視界"),("登山ポータル","登山口アクセス・ライブカメラ・山小屋HP・水場")]
+    y=330
+    for i,(ttl,desc) in enumerate(features,1):
+        d.rounded_rectangle((38,y,682,y+165),radius=28,fill=WHITE)
+        d.ellipse((58,y+46,116,y+104),fill=(18,126,70)); d.text((79,y+57),str(i),font=_load_font(24),fill=WHITE)
+        # icon circle reminiscent of mock
+        d.ellipse((134,y+26,254,y+146),fill=(241,246,247))
+        if i==1:
+            d.ellipse((176,y+58,194,y+76),fill=(15,83,101)); d.line((182,y+69,214,y+98),fill=(15,126,70),width=5); d.ellipse((207,y+91,225,y+109),fill=(236,139,29))
+        elif i==2:
+            d.line((163,y+104,210,y+66,238,y+107),fill=(15,126,70),width=5); d.ellipse((168,y+58,184,y+74),fill=(15,83,101)); d.ellipse((222,y+47,240,y+65),fill=(15,126,70))
+        elif i==3:
+            d.ellipse((164,y+50,210,y+82),fill=(16,78,104)); d.line((168,y+84,168,y+108),fill=(43,121,177),width=4); d.line((190,y+84,190,y+112),fill=(43,121,177),width=4); d.line((215,y+57,239,y+57),fill=(43,121,177),width=4)
+            d.ellipse((222,y+92,238,y+108),outline=(205,73,46),width=4); d.line((230,y+65,230,y+96),fill=(205,73,46),width=4)
+        else:
+            d.rectangle((165,y+83,206,y+112),fill=(24,126,77)); d.polygon([(160,y+83),(186,y+58),(213,y+83)],fill=(15,83,101)); d.ellipse((216,y+47,242,y+73),outline=(15,83,101),width=4)
+        d.text((275,y+34),ttl,font=_fit_text(d,ttl,370,31,23),fill=INK)
+        d.text((275,y+92),desc,font=_fit_text(d,desc,365,21,16),fill=MUTED)
+        y+=180
+    d.text((45,1080),"登る前に、トラテン。",font=_load_font(42),fill=YELLOW)
+    d.rounded_rectangle((115,1145,605,1220),radius=36,fill=WHITE)
+    d.text((188,1166),"otenki.onrender.com",font=_load_font(27),fill=(11,108,63))
+    save(img,"scene-features.jpg")
 
-    hero = (24, 168, 696, 454)
-    shadow(d, hero, radius=34, offset=12, alpha=46)
-    d.rounded_rectangle(hero, radius=34, fill=navy)
-    d.rounded_rectangle((48, 194, 220, 234), radius=20, fill=(255, 255, 255, 28), outline=(255,255,255,42), width=1)
-    d.text((68, 201), "全国分析 Reel", font=_load_font(17), fill=(233, 243, 251))
-    d.text((48, 256), "明日の山選びを", font=_load_font(50), fill=yellow)
-    d.text((48, 319), "A / B / Cで一目判断", font=_load_font(34), fill=white)
-    d.text((48, 371), "全国の山を比較して、行き先選びをもっと早く。", font=_fit_text(d, "全国の山を比較して、行き先選びをもっと早く。", 430, 22, 18), fill=(220, 234, 244))
-    d.rounded_rectangle((522, 220, 648, 342), radius=32, fill=yellow)
-    d.text((546, 241), "全部", font=_load_font(22), fill=navy)
-    d.text((533, 278), "無料!", font=_load_font(31), fill=navy)
-    d.rounded_rectangle((498, 358, 652, 412), radius=22, fill=(255,255,255,20), outline=(255,255,255,35), width=2)
-    d.text((521, 374), "A/B/C マップ搭載", font=_load_font(18), fill=(240, 247, 251))
-
-    chip(d, 24, 486, "A", counts.get("A", 0), "比較的好条件")
-    chip(d, 257, 486, "B", counts.get("B", 0), "注意条件あり")
-    chip(d, 490, 486, "C", counts.get("C", 0), "厳しい条件")
-
-    map_box = (24, 618, 696, 1136)
-    shadow(d, map_box, radius=30, offset=12, alpha=42)
-    d.rounded_rectangle(map_box, radius=30, fill=white)
-    d.rounded_rectangle((48, 640, 210, 682), radius=18, fill=(233, 242, 248))
-    d.text((66, 649), "全国マップで比較", font=_load_font(20), fill=ink)
-    map_img = _render_japan_map(rows, 624, 424)
-    img.paste(map_img, (48, 694))
-    map_img.close()
-    d.rounded_rectangle((62, 1085, 658, 1120), radius=16, fill=(242, 248, 252))
-    d.text((90, 1092), "山ごとの詳細はトラテンで。風・雨・気温・CTも確認。", font=_fit_text(d, "山ごとの詳細はトラテンで。風・雨・気温・CTも確認。", 540, 18, 15), fill=muted)
-    d.rounded_rectangle((24, 1162, 696, 1234), radius=30, fill=white)
-    d.text((86, 1184), "山ごとの時間帯・風・雨・気温はトラテンへ", font=_fit_text(d, "山ごとの時間帯・風・雨・気温はトラテンへ", 570, 24, 18), fill=ink)
-    save_scene(img, "scene-hero.jpg")
-
-    # Scene 2: marker-centric map + examples
-    img = Image.new("RGB", (W, H), sky2)
-    vgrad(img, (231, 244, 250), (214, 232, 242))
-    d = ImageDraw.Draw(img, "RGBA")
-    d.text((28, 42), "日本三百名山 全国マップ", font=_load_font(40), fill=ink)
-    d.text((28, 88), f"{target.month}/{target.day}  A / B / C を全国で比較", font=_load_font(20), fill=muted)
-    legend_y = 132
-    for i, grade in enumerate("ABC"):
-        x = 28 + i * 160
-        c = grade_colors[grade]
-        d.ellipse((x, legend_y, x + 36, legend_y + 36), fill=c)
-        d.text((x + 12, legend_y + 6), grade, font=_load_font(16), fill=white)
-        d.text((x + 48, legend_y + 5), str(counts.get(grade, 0)), font=_load_font(26), fill=c)
-        d.text((x + 84, legend_y + 13), "座", font=_load_font(14), fill=muted)
-
-    map_box = (24, 190, 696, 780)
-    shadow(d, map_box, radius=30, offset=12, alpha=40)
-    d.rounded_rectangle(map_box, radius=30, fill=white)
-    map_img = _render_japan_map(rows, 632, 550)
-    img.paste(map_img, (44, 210))
-    map_img.close()
-    d.rounded_rectangle((470, 230, 656, 272), radius=18, fill=(255,255,255,235), outline=line, width=1)
-    d.text((492, 240), "ABCマークを主役に", font=_load_font(18), fill=ink)
-
-    list_card(d, 24, 824, "A", "A判定の山 例", a_names)
-    list_card(d, 376, 824, "C", "C判定の山 例", c_names)
-
-    summary = (24, 1020, 696, 1226)
-    shadow(d, summary, radius=28, offset=10, alpha=36)
-    d.rounded_rectangle(summary, radius=28, fill=white)
-    d.text((48, 1052), "トラテンなら、比較だけで終わらない。", font=_load_font(28), fill=ink)
-    d.text((48, 1102), "各山の詳細ページで、風・雨・気温・視界・通過時刻を確認。", font=_fit_text(d, "各山の詳細ページで、風・雨・気温・視界・通過時刻を確認。", 612, 21, 17), fill=muted)
-    d.rounded_rectangle((48, 1158, 660, 1202), radius=18, fill=(236, 245, 250))
-    d.text((70, 1169), "※全国判定は登山可否を保証するものではありません", font=_load_font(16), fill=(92, 110, 125))
-    save_scene(img, "scene-map.jpg")
-
-    # Scene 3: premium feature / CTA
-    img = Image.new("RGB", (W, H), navy)
-    vgrad(img, (8, 36, 64), (12, 62, 105))
-    d = ImageDraw.Draw(img, "RGBA")
-    d.text((34, 42), "登る前に、トラテン。", font=_load_font(48), fill=yellow)
-    d.text((36, 102), "全国分析から、ルート上の時間帯予報まで。", font=_fit_text(d, "全国分析から、ルート上の時間帯予報まで。", 630, 24, 18), fill=(228, 239, 246))
-
-    features = [
-        ("全国分析", "三百名山をA / B / Cで一覧比較"),
-        ("ルート分析", "通過ポイントごとの予報とCTに対応"),
-        ("登山判断", "風・雨・気温・視界を時間帯で確認"),
-        ("登山ポータル", "登山口・ライブカメラ・山小屋・水場"),
-    ]
-    y = 184
-    for idx, (ttl, desc) in enumerate(features, 1):
-        box = (34, y, 686, y + 144)
-        shadow(d, box, radius=26, offset=10, alpha=40)
-        d.rounded_rectangle(box, radius=26, fill=(255, 255, 255, 242))
-        d.ellipse((54, y + 32, 116, y + 94), fill=green)
-        d.text((78, y + 42), str(idx), font=_load_font(24), fill=white)
-        d.text((140, y + 24), ttl, font=_load_font(28), fill=ink)
-        d.text((140, y + 76), desc, font=_fit_text(d, desc, 500, 21, 16), fill=muted)
-        y += 164
-
-    d.rounded_rectangle((34, 876, 686, 1006), radius=34, fill=yellow)
-    d.text((112, 902), "山ごとの詳しい予報は無料でチェック", font=_fit_text(d, "山ごとの詳しい予報は無料でチェック", 500, 28, 20), fill=navy)
-    d.rounded_rectangle((34, 1042, 686, 1124), radius=34, fill=white)
-    d.text((177, 1065), "otenki.onrender.com", font=_load_font(28), fill=green)
-    d.text((36, 1178), "気になる山の風・雨・気温・CTを、登る前に。", font=_fit_text(d, "気になる山の風・雨・気温・CTを、登る前に。", 650, 24, 18), fill=(235, 244, 249))
-    save_scene(img, "scene-features.jpg")
+    # Scene 3: clean CTA, deliberately simple after two information-rich scenes
+    img=Image.new("RGB",(W,H),NAVY); gradient(img,(3,31,58),(6,75,124)); d=ImageDraw.Draw(img,"RGBA"); contour(d); mountains(d,1090)
+    d.text((42,72),"明日の山、どこにする?",font=_load_font(45),fill=WHITE)
+    d.text((42,135),"全国のA / B / Cを見てから決める。",font=_load_font(27),fill=(226,236,244))
+    for idx,g in enumerate("ABC"):
+        x=55+idx*215; c=grade_colors[g]
+        d.ellipse((x,250,x+150,400),fill=c,outline=WHITE,width=5)
+        d.text((x+52,278),g,font=_load_font(54),fill=WHITE)
+        d.text((x+42,418),f"{counts.get(g,0)}座",font=_load_font(27),fill=WHITE)
+    d.rounded_rectangle((55,515,665,700),radius=34,fill=WHITE)
+    d.text((92,552),"風・雨・気温・視界・CT",font=_load_font(33),fill=INK)
+    d.text((103,610),"山ごとの詳細まで無料で確認",font=_load_font(24),fill=MUTED)
+    d.rounded_rectangle((95,760,625,850),radius=42,fill=YELLOW)
+    d.text((171,785),"今すぐトラテンへ",font=_load_font(34),fill=NAVY)
+    d.text((150,905),"otenki.onrender.com",font=_load_font(31),fill=WHITE)
+    d.text((110,972),"登る前に、トラテン。",font=_load_font(38),fill=YELLOW)
+    save(img,"scene-cta.jpg")
     return scene_paths
 
 
 def render_national_reel(date_text: str, results: list[dict[str, Any]], *, logo_path: str | None = None) -> str:
-    """Render a polished 9:16 Reel without Playwright/Chromium (V1.5.98)."""
+    """Render a polished 9:16 Reel without Playwright/Chromium (V1.5.99)."""
     if Image is None or ImageDraw is None:
         raise RuntimeError("Pillow is not installed")
     rows = [dict(r) for r in results if isinstance(r, dict) and str(r.get("grade") or "") in {"A", "B", "C"}]
@@ -580,9 +509,9 @@ def render_national_reel(date_text: str, results: list[dict[str, Any]], *, logo_
 
     target = date.fromisoformat(date_text)
     counts = {g: sum(1 for r in rows if r.get("grade") == g) for g in "ABC"}
-    outdir = os.path.join(tempfile.gettempdir(), "traten-instagram-reels-v1598")
+    outdir = os.path.join(tempfile.gettempdir(), "traten-instagram-reels-v1599")
     os.makedirs(outdir, exist_ok=True)
-    out = os.path.join(outdir, f"traten-{date_text}-v1598.mp4")
+    out = os.path.join(outdir, f"traten-{date_text}-v1599.mp4")
     if os.path.exists(out) and os.path.getsize(out) > 100000:
         return out
 
