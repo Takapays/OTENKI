@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.110';
+const APP_VERSION = '1.5.112';
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
@@ -4140,7 +4140,7 @@ const BUILTIN_ROUTE_CATALOG = {
   ],
   '赤岳': [
     {id:'builtin-aka-minoto',type:'trailhead',name:'美濃戸口',lat:35.9978,lon:138.3079,elevation:1490},
-    {id:'builtin-aka-akadakekosen',type:'hut',name:'赤岳鉱泉',lat:35.9861,lon:138.3504,elevation:2220},
+    {id:'builtin-aka-akadakekosen',type:'hut',name:'赤岳鉱泉',lat:35.98678,lon:138.36025,elevation:2212},
     {id:'builtin-aka-gyojagoya',type:'hut',name:'行者小屋',lat:35.9772,lon:138.3572,elevation:2350},
     {id:'builtin-aka-peak',type:'peak',name:'赤岳',lat:35.9708,lon:138.3701,elevation:2899}
   ],
@@ -4655,7 +4655,7 @@ REGIONAL_CATALOG.yatsu_south = [
   {id:'area-ys-minoto2',type:'trailhead',name:'美濃戸',lat:35.9888,lon:138.3298,elevation:1720},
   {id:'area-ys-fujimi',type:'trailhead',name:'富士見高原登山口',lat:35.9240,lon:138.3320,elevation:1350},
   {id:'area-ys-kannon',type:'trailhead',name:'観音平',lat:35.9300,lon:138.3600,elevation:1560},
-  {id:'area-ys-akakosen',type:'hut',name:'赤岳鉱泉',lat:35.9861,lon:138.3504,elevation:2220},
+  {id:'area-ys-akakosen',type:'hut',name:'赤岳鉱泉',lat:35.98678,lon:138.36025,elevation:2212},
   {id:'area-ys-gyoja',type:'hut',name:'行者小屋',lat:35.9779,lon:138.3572,elevation:2350},
   {id:'area-ys-aka',type:'peak',name:'赤岳',lat:35.9708,lon:138.3701,elevation:2899},
   {id:'area-ys-tenbou',type:'hut',name:'赤岳天望荘',lat:35.9760,lon:138.3710,elevation:2722},
@@ -5893,7 +5893,7 @@ const FIXED_YATSUGATAKE_CHUSHIN_V11223 = {
     {id:'fixed23-yatsu-aka-peak',type:'peak',name:'赤岳（八ヶ岳最高峰）',lat:35.970833,lon:138.370000,elevation:2899,source:'固定候補'},
     {id:'fixed23-yatsu-minotoguchi',type:'trailhead',name:'美濃戸口',lat:35.997800,lon:138.307900,elevation:1490,source:'固定候補'},
     {id:'fixed23-yatsu-minoto',type:'trailhead',name:'美濃戸',lat:35.988800,lon:138.329800,elevation:1720,source:'固定候補'},
-    {id:'fixed23-yatsu-akakosen',type:'hut',name:'赤岳鉱泉',lat:35.986100,lon:138.350400,elevation:2220,source:'固定候補'},
+    {id:'fixed23-yatsu-akakosen',type:'hut',name:'赤岳鉱泉',lat:35.986780,lon:138.360250,elevation:2212,source:'固定候補'},
     {id:'fixed23-yatsu-gyoja',type:'hut',name:'行者小屋',lat:35.977900,lon:138.357200,elevation:2350,source:'固定候補'},
     {id:'fixed23-yatsu-tenbo',type:'hut',name:'赤岳天望荘',lat:35.976000,lon:138.371000,elevation:2722,source:'固定候補'}
   ],
@@ -5921,7 +5921,7 @@ const FIXED_YATSUGATAKE_CHUSHIN_V11223 = {
   '赤岳': [
     {id:'fixed23-aka-peak',type:'peak',name:'赤岳',lat:35.970833,lon:138.370000,elevation:2899,source:'固定候補'},
     {id:'fixed23-aka-minoto',type:'trailhead',name:'美濃戸口',lat:35.997800,lon:138.307900,elevation:1490,source:'固定候補'},
-    {id:'fixed23-aka-kosen',type:'hut',name:'赤岳鉱泉',lat:35.986100,lon:138.350400,elevation:2220,source:'固定候補'},
+    {id:'fixed23-aka-kosen',type:'hut',name:'赤岳鉱泉',lat:35.986780,lon:138.360250,elevation:2212,source:'固定候補'},
     {id:'fixed23-aka-gyoja',type:'hut',name:'行者小屋',lat:35.977900,lon:138.357200,elevation:2350,source:'固定候補'}
   ],
   '横岳（八ヶ岳）': [
@@ -5932,7 +5932,7 @@ const FIXED_YATSUGATAKE_CHUSHIN_V11223 = {
   '硫黄岳（八ヶ岳）': [
     {id:'fixed23-iou-peak',type:'peak',name:'硫黄岳（八ヶ岳）',lat:35.998611,lon:138.370000,elevation:2760,source:'固定候補'},
     {id:'fixed23-iou-minoto',type:'trailhead',name:'美濃戸口',lat:35.997800,lon:138.307900,elevation:1490,source:'固定候補'},
-    {id:'fixed23-iou-kosen',type:'hut',name:'赤岳鉱泉',lat:35.986100,lon:138.350400,elevation:2220,source:'固定候補'},
+    {id:'fixed23-iou-kosen',type:'hut',name:'赤岳鉱泉',lat:35.986780,lon:138.360250,elevation:2212,source:'固定候補'},
     {id:'fixed23-iou-hut',type:'hut',name:'硫黄岳山荘',lat:35.994800,lon:138.372000,elevation:2650,source:'固定候補'}
   ],
   '阿弥陀岳': [
@@ -9233,11 +9233,11 @@ async function applyRepresentativeCourse(){
   if(btn){btn.disabled=true;btn.textContent='代表コースを準備中…';}
   try{
     let expandedDefs=representativeCourseExpandedPointDefs(mountain,course);
-    let resolved=expandedDefs.map(([type,name,role])=>({type,name,role,p:representativeCandidate(type,name)}));
+    let resolved=expandedDefs.map(([type,name,role])=>({type,name,role,p:representativeCandidate(type,name,mountain)}));
     if(resolved.some(x=>!x.p)){
       await loadCandidates();
       expandedDefs=representativeCourseExpandedPointDefs(mountain,course);
-      resolved=expandedDefs.map(([type,name,role])=>({type,name,role,p:representativeCandidate(type,name)}));
+      resolved=expandedDefs.map(([type,name,role])=>({type,name,role,p:representativeCandidate(type,name,mountain)}));
     }
     const missing=resolved.filter(x=>!x.p).map(x=>x.name);
     if(missing.length)return setStatus(`代表コースを読み込めませんでした。固定ポイント不足：${missing.join('、')}`,true);
@@ -13212,8 +13212,8 @@ window.TratenDataAudit = (()=>{
   };
   return {build};
 })();
-// ===== V1.5.110 EMBEDDED REPRESENTATIVE ROUTE ENRICHMENT =====
-// Traten V1.5.110 embedded consolidated representative-route enrichment.
+// ===== V1.5.111 EMBEDDED REPRESENTATIVE ROUTE ENRICHMENT =====
+// Traten V1.5.111 embedded consolidated representative-route enrichment.
 // Self-contained bundle: V1.5.100-V1.5.104. Prevents missing old diff scripts from silently reverting routes to trailhead-summit-trailhead.
 // Traten V1.5.100: 全国代表コース細分化フェーズ1。
 // 初回対象: 仙丈ヶ岳。既存の「北沢峠→山頂→北沢峠」だけの粗い代表コースを、

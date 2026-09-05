@@ -38,7 +38,7 @@ import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 # V1.5.109: keep Pillow + ffmpeg design and force fresh Reel delivery after redesign.
-APP_VERSION = "1.5.110"
+APP_VERSION = "1.5.112"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -517,7 +517,7 @@ NATIONAL_OUTLOOK_REFRESH_INTERVAL = int(os.environ.get("NATIONAL_OUTLOOK_REFRESH
 NATIONAL_OUTLOOK_AUTO_REFRESH = os.environ.get("NATIONAL_OUTLOOK_AUTO_REFRESH", "1").lower() not in {"0", "false", "no"}
 NATIONAL_OUTLOOK_BOOT_GRACE = int(os.environ.get("NATIONAL_OUTLOOK_BOOT_GRACE", "45"))
 NATIONAL_CACHE_REFRESH_TOKEN = os.environ.get("NATIONAL_CACHE_REFRESH_TOKEN", "")
-# V1.5.7: proactively keep the next seven days of Japan 100 Famous Mountains
+# V1.5.112: proactively keep the next seven days of all Japan 300 Famous Mountains
 # in the persistent Supabase cache. One forecast date is refreshed per cycle to
 # avoid API bursts; the 15-minute worker interval still completes a full sweep
 # comfortably inside the four-hour TTL.
@@ -526,7 +526,7 @@ NATIONAL_100_ROLLING_AUTO_CACHE = os.environ.get(
 ).lower() not in {"0", "false", "no"}
 NATIONAL_100_ROLLING_DAYS = max(1, min(9, int(os.environ.get("NATIONAL_100_ROLLING_DAYS", "7"))))
 NATIONAL_100_ROLLING_DATES_PER_CYCLE = max(1, min(3, int(os.environ.get("NATIONAL_100_ROLLING_DATES_PER_CYCLE", "1"))))
-NATIONAL_100_POINTS_FILE = os.path.join(BASE, "national-100-points.json")
+NATIONAL_100_POINTS_FILE = os.path.join(BASE, "national-300-points.json")
 NATIONAL_REFRESH_STATUS_FILE = os.path.join(tempfile.gettempdir(), "traten-national-refresh-status.json")
 _national_last_refresh_report: dict[str, Any] = {}
 _national_refresh_runtime: dict[str, Any] = {
@@ -1600,7 +1600,7 @@ def _national_100_date_cache_status(date_text: str, points: list[dict[str, Any]]
 
 
 def _refresh_rolling_100_cache(*, force: bool=False, max_dates: int | None=None) -> dict[str, Any]:
-    """Maintain a rolling 7-day Supabase cache for Japan's 100 Famous Mountains.
+    """Maintain a rolling 7-day Supabase cache for all Japan 300 Famous Mountains.
 
     The window is tomorrow through NATIONAL_100_ROLLING_DAYS days ahead.
     To protect upstream weather APIs, only the earliest due forecast date(s) are
@@ -1615,8 +1615,8 @@ def _refresh_rolling_100_cache(*, force: bool=False, max_dates: int | None=None)
         "datesInspected":0,"datesDue":0,"datesProcessed":0,"pointsDue":0,"pointsUpdated":0,
         "dateReports":[],"errors":[],
     }
-    if len(points)!=100:
-        report.update(ok=False,error=f"百名山固定座標が100件ではありません: {len(points)}")
+    if len(points)!=300:
+        report.update(ok=False,error=f"三百名山固定座標が300件ではありません: {len(points)}")
         return report
     if not _national_supabase_enabled():
         report.update(ok=False,error="Supabase national cache is not configured")
@@ -1632,7 +1632,7 @@ def _refresh_rolling_100_cache(*, force: bool=False, max_dates: int | None=None)
             report["datesDue"]+=1
             due_dates.append((date_text,due,date_report))
 
-    # V1.5.65: incomplete dates are repaired before moving on.  Within a date,
+    # V1.5.112: incomplete dates are repaired before moving on. Within a date,
     # fetch in small blocks and persist every successful block immediately.
     # This prevents a partial upstream response (for example 58/100) from being
     # treated as the day's finished refresh and makes progress survive timeouts.
@@ -1670,7 +1670,7 @@ def _refresh_rolling_100_cache(*, force: bool=False, max_dates: int | None=None)
                 except Exception as exc:
                     chunk_report["error"]=str(exc)[:200]
                     date_report["chunks"].append(chunk_report)
-                    app.logger.exception("national_rolling_100_chunk_failed date=%s start=%s",date_text,start)
+                    app.logger.exception("national_rolling_300_chunk_failed date=%s start=%s",date_text,start)
 
             date_report["pointsUpdated"]=len(updated_names)
             report["pointsUpdated"]+=len(updated_names)
@@ -1685,7 +1685,7 @@ def _refresh_rolling_100_cache(*, force: bool=False, max_dates: int | None=None)
                 date_report["error"]=f'fresh cache incomplete: {len(fresh_after)}/{len(points)}'
                 report["errors"].append({"date":date_text,"error":date_report["error"]})
         except Exception as exc:
-            app.logger.exception("national_rolling_100_refresh_failed date=%s",date_text)
+            app.logger.exception("national_rolling_300_refresh_failed date=%s",date_text)
             date_report["ok"]=False; date_report["error"]=str(exc)[:200]
             report["errors"].append({"date":date_text,"error":str(exc)[:200]})
         finally:
