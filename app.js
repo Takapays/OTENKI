@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.172';
+const APP_VERSION = '1.5.174';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -10456,7 +10456,7 @@ async function fetchMetNoFallback(point){
   const targetMs=new Date(`${point.date}T${point.time}:00+09:00`).getTime();
   const timeline=metNoRows(payload)
     .filter(x=>x?.time&&Math.abs(new Date(x.time).getTime()-targetMs)<=6*3600000)
-    .map(x=>({time:x.time,rain:numberOrNaN(x.rain),wind:numberOrNaN(x.wind),cape:NaN}))
+    .map(x=>({time:x.time,rain:numberOrNaN(x.rain),wind:numberOrNaN(x.wind),cape:NaN,thunderRisk:x.thunderRisk||'LOW'}))
     .filter(x=>Number.isFinite(x.rain)||Number.isFinite(x.wind));
   return {...row,timeline};
 }
@@ -10595,6 +10595,7 @@ async function scrollToSummaryResult(){
 let activeAnalysisRun=0;
 async function analyze(){
   const runId=++activeAnalysisRun;
+  resetWeatherApiAudit();
   const started=performance.now(); let points=[];
   try{
     points=collectPoints(); if(points.length<1)throw new Error('分析する地点を1つ以上選択してください。');
@@ -10705,7 +10706,10 @@ async function analyze(){
     if(!gfsState.ok)notes.push(`GFS取得失敗: ${gfsState.error?.message||'取得失敗'}`);
     if(!longRangeState.ok)notes.push(`追加モデル取得失敗: ${longRangeState.error?.message||'取得失敗'}`);
     if(overnightState.warning)notes.push(overnightState.warning.replace(/^ \/ /,''));
-    setStatus(notes.length?`先行分析は完了。${notes.join(' / ')}`:`分析完了：${points.length}地点${stayPoints.length?` / 宿泊 ${stayPoints.length}泊`:''}（モデル並列・キャッシュ利用）`,false);
+    const apiAudit=weatherApiAuditSnapshot();
+    const apiAuditText=`Open-Meteo ${apiAudit.openMeteoRequests}回${apiAudit.openMeteo429?` / 429:${apiAudit.openMeteo429}`:''}${apiAudit.deduped?` / 重複抑制:${apiAudit.deduped}`:''}${apiAudit.circuitSkipped?` / 429後抑制:${apiAudit.circuitSkipped}`:''}`;
+    logEvent('weather_api_audit',{success:true,mountain,route_points:points.length,metadata:apiAudit});
+    setStatus(notes.length?`先行分析は完了。${notes.join(' / ')} / ${apiAuditText}`:`分析完了：${points.length}地点${stayPoints.length?` / 宿泊 ${stayPoints.length}泊`:''}（${apiAuditText}）`,false);
   }catch(e){
     if(runId===activeAnalysisRun)setStatus(e.message||String(e),true);
     logEvent('weather_analysis',{success:false,duration_ms:performance.now()-started,mountain:currentMountainLabel(),route_points:points.length,error_message:e.message||String(e)});
@@ -10738,6 +10742,12 @@ function analyzeOvernightJson(point,nightNo,j){
   const dawnVisual=dawnRow?weatherVisual({cloud:dawnRow.cloud,rain:dawnRow.rain,thunder:'LOW'}):{icon:'',label:'--',cls:'partly'};
   return {nightNo,point,sunset,sunrise,sunsetView,sunriseView,minTemp,morningMinTemp,minApp,maxWind,maxGust,maxRain,avgCloud,avgWind,maxRh,minVis,fogRisk,moon,best,score,_allRows:allRows,_astroRows:astroRows,_morningRows:morningRows,_eveningRows:eveningRows,_darkStart:darkStart,_darkEnd:darkEnd,dawn:{time:dawnRow?.time||dawnTarget,temp:dawnRow?.temp,rain:dawnRow?.rain,cloud:dawnRow?.cloud,wind:dawnRow?.wind,label:dawnVisual.label,cls:dawnVisual.cls},milkyLabel:score>=75?'期待大':score>=55?'見える可能性あり':score>=35?'条件次第':'厳しい'};
 }
+function metNoThunderRisk(item){
+  const code=String(item?.data?.next_1_hours?.summary?.symbol_code||item?.data?.next_6_hours?.summary?.symbol_code||'').toLowerCase();
+  if(!code.includes('thunder'))return 'LOW';
+  if(/heavy|heavyrain|heavysleet|heavysnow/.test(code))return 'HIGH';
+  return 'MEDIUM';
+}
 function metNoRows(payload){
   const ts=payload?.properties?.timeseries;
   if(!Array.isArray(ts))return [];
@@ -10746,7 +10756,7 @@ function metNoRows(payload){
     const temp=numberOrNaN(d.air_temperature), wind=numberOrNaN(d.wind_speed), rh=numberOrNaN(d.relative_humidity);
     let rain=numberOrNaN(n1.precipitation_amount);
     if(!Number.isFinite(rain)){const r6=numberOrNaN(n6.precipitation_amount); rain=Number.isFinite(r6)?r6/6:NaN;}
-    const cloud=numberOrNaN(d.cloud_area_fraction),lowCloud=numberOrNaN(d.cloud_area_fraction_low),midCloud=numberOrNaN(d.cloud_area_fraction_medium),highCloud=numberOrNaN(d.cloud_area_fraction_high);return {time:item.time,temp,apparent:apparentTempApprox(temp,wind),rh,dew:dewPointApprox(temp,rh),rain,cloud,lowCloud:Number.isFinite(lowCloud)?lowCloud:cloud,midCloud,highCloud,wind,gust:numberOrNaN(d.wind_speed_of_gust),visibility:NaN};
+    const cloud=numberOrNaN(d.cloud_area_fraction),lowCloud=numberOrNaN(d.cloud_area_fraction_low),midCloud=numberOrNaN(d.cloud_area_fraction_medium),highCloud=numberOrNaN(d.cloud_area_fraction_high),thunderRisk=metNoThunderRisk(item);return {time:item.time,temp,apparent:apparentTempApprox(temp,wind),rh,dew:dewPointApprox(temp,rh),rain,cloud,lowCloud:Number.isFinite(lowCloud)?lowCloud:cloud,midCloud,highCloud,wind,gust:numberOrNaN(d.wind_speed_of_gust),visibility:NaN,thunderRisk};
   }).filter(x=>x.time);
 }
 function apparentTempApprox(temp,wind){
@@ -11434,7 +11444,10 @@ function renderMilkyDetail(o){
   </section>`;
 }
 
-function timelineThunder(cape,rain){
+function timelineThunder(cape,rain,directRisk='LOW'){
+  const direct=String(directRisk||'LOW').toUpperCase();
+  if(direct==='HIGH'||direct==='EXTREME')return {label:'高',cls:'high',show:true,color:'#ef4444'};
+  if(direct==='MEDIUM')return {label:'中',cls:'medium',show:true,color:'#f59e0b'};
   const c=Number(cape),p=Number(rain);
   if((Number.isFinite(c)&&c>=1200)||(Number.isFinite(c)&&c>=700&&p>=1))return {label:'高',cls:'high',show:true,color:'#ef4444'};
   if((Number.isFinite(c)&&c>=350)||(Number.isFinite(c)&&c>=150&&p>=0.2))return {label:'中',cls:'medium',show:true,color:'#f59e0b'};
@@ -11487,7 +11500,7 @@ function renderWeatherTimeline(rows,arrivalMs,departureMs=null){
       <text class="wx-axis-unit rain" x="${L-7}" y="44" text-anchor="end">mm/h</text><text class="wx-axis-unit wind" x="${W-R+7}" y="44">m/s</text><text class="wx-th-label" x="4" y="179">雷</text>
       ${data.map((d,i)=>Number(d.rain)>axisMax?`<text class="wx-over-value rain" x="${xs[i]}" y="46" text-anchor="middle">${num(d.rain,1)}</text>`:'').join('')}
       ${data.map((d,i)=>Number(d.wind)>axisMax?`<text class="wx-over-value wind" x="${xs[i]}" y="38" text-anchor="middle">${num(d.wind,1)}</text>`:'').join('')}
-      ${data.map((d,i)=>{const q=timelineThunder(d.cape,d.rain);if(!q.show)return '';return `<text class="wx-thunder-mark ${q.cls}" x="${xs[i]}" y="${thY+6}" text-anchor="middle" style="fill:${q.color}">⚡<title>${timeOnly(d.time)} 雷リスク ${q.label}</title></text>`;}).join('')}${ticks}
+      ${data.map((d,i)=>{const q=timelineThunder(d.cape,d.rain,d.thunderRisk);if(!q.show)return '';return `<text class="wx-thunder-mark ${q.cls}" x="${xs[i]}" y="${thY+6}" text-anchor="middle" style="fill:${q.color}">⚡<title>${timeOnly(d.time)} 雷リスク ${q.label}</title></text>`;}).join('')}${ticks}
     </svg>
   </div>`;
 }
@@ -12372,7 +12385,67 @@ function renderAll(points,overnight=[]){
   $('modelDetails').innerHTML=points.map(r=>`<article class="model-block"><h3>${esc(r.point.name)} <small>${r.point.date} ${r.point.time}</small></h3><div class="table-wrap"><table><thead><tr><th>モデル</th><th>気温</th><th>体感</th><th>風</th><th>突風</th><th>雨</th><th>雲</th><th>大気不安定度</th><th>視程</th></tr></thead><tbody>${r.providerRows.map(x=>`<tr><td>${x.provider.name}</td><td>${num(x.row.temp)}℃</td><td>${num(apparentTemperatureMountain(x.row.temp,x.row.rh,x.row.wind))}℃</td><td>${num(x.row.wind)}m/s</td><td>${num(x.row.gust)}m/s</td><td>${num(x.row.rain)}mm</td><td>${num(x.row.cloud,0)}%</td><td>${num(x.row.cape,0)} J/kg</td><td>${Number.isFinite(x.row.visibility)?Math.round(x.row.visibility)+'m':'–'}</td></tr>`).join('')}</tbody></table></div></article>`).join('');
   $('updatedAt').textContent=new Date().toLocaleString('ja-JP');
 }
-async function proxyFetch(url){return fetch(`/api/proxy?url=${encodeURIComponent(url)}`);}
+// V1.5.174: upstream-call audit + duplicate coalescing + short 429 circuit breaker.
+// Open-Meteo calls are already batched across route points by fetchProviderBatch().
+// This layer prevents identical concurrent calls and avoids hammering Open-Meteo
+// again for a short period after a 429 response.
+const WEATHER_PROXY_INFLIGHT=new Map();
+const WEATHER_PROXY_RECENT=new Map();
+const WEATHER_PROXY_RECENT_TTL_MS=2*60*1000;
+let OPEN_METEO_BLOCKED_UNTIL=0;
+let WEATHER_API_AUDIT={openMeteoRequests:0,openMeteo429:0,openMeteo5xx:0,deduped:0,recentCacheHits:0,circuitSkipped:0,metNoRequests:0,otherProxyRequests:0};
+function isOpenMeteoUrl(url){const s=String(url||'').toLowerCase();return s.includes('api.open-meteo.com/')||s.includes('air-quality-api.open-meteo.com/');}
+function isMetNoUrl(url){return String(url||'').toLowerCase().includes('api.met.no/');}
+function resetWeatherApiAudit(){
+  WEATHER_API_AUDIT={openMeteoRequests:0,openMeteo429:0,openMeteo5xx:0,deduped:0,recentCacheHits:0,circuitSkipped:0,metNoRequests:0,otherProxyRequests:0};
+}
+function weatherApiAuditSnapshot(){return {...WEATHER_API_AUDIT,openMeteoCircuitSeconds:Math.max(0,Math.ceil((OPEN_METEO_BLOCKED_UNTIL-Date.now())/1000))};}
+async function proxyFetch(url){
+  const upstream=String(url||'');
+  const openMeteo=isOpenMeteoUrl(upstream);
+  const metNo=isMetNoUrl(upstream);
+  const now=Date.now();
+  if(openMeteo&&now<OPEN_METEO_BLOCKED_UNTIL){
+    WEATHER_API_AUDIT.circuitSkipped++;
+    return new Response(JSON.stringify({reason:'Open-Meteo 429 circuit breaker'}),{status:429,headers:{'Content-Type':'application/json','X-Traten-Circuit':'open-meteo-429'}});
+  }
+  const recent=WEATHER_PROXY_RECENT.get(upstream);
+  if(recent&&now-recent.savedAt<WEATHER_PROXY_RECENT_TTL_MS){
+    WEATHER_API_AUDIT.recentCacheHits++;
+    return new Response(recent.body.slice(0),{status:recent.status,statusText:recent.statusText,headers:new Headers(recent.headers)});
+  }
+  if(recent)WEATHER_PROXY_RECENT.delete(upstream);
+  const inflight=WEATHER_PROXY_INFLIGHT.get(upstream);
+  if(inflight){
+    WEATHER_API_AUDIT.deduped++;
+    const snap=await inflight;
+    return new Response(snap.body.slice(0),{status:snap.status,statusText:snap.statusText,headers:new Headers(snap.headers)});
+  }
+  if(openMeteo)WEATHER_API_AUDIT.openMeteoRequests++;
+  else if(metNo)WEATHER_API_AUDIT.metNoRequests++;
+  else WEATHER_API_AUDIT.otherProxyRequests++;
+  const task=(async()=>{
+    const response=await fetch(`/api/proxy?url=${encodeURIComponent(upstream)}`);
+    const body=await response.arrayBuffer();
+    const headers=[...response.headers.entries()];
+    const snap={status:response.status,statusText:response.statusText,headers,body};
+    if(openMeteo){
+      if(response.status===429){
+        WEATHER_API_AUDIT.openMeteo429++;
+        OPEN_METEO_BLOCKED_UNTIL=Math.max(OPEN_METEO_BLOCKED_UNTIL,Date.now()+60*1000);
+      }else if(response.status>=500){WEATHER_API_AUDIT.openMeteo5xx++;}
+    }
+    // Cache only successful GET-like proxy responses. Failed/429 responses are
+    // deliberately not cached; the circuit breaker handles 429 separately.
+    if(response.ok)WEATHER_PROXY_RECENT.set(upstream,{...snap,savedAt:Date.now()});
+    return snap;
+  })();
+  WEATHER_PROXY_INFLIGHT.set(upstream,task);
+  try{
+    const snap=await task;
+    return new Response(snap.body.slice(0),{status:snap.status,statusText:snap.statusText,headers:new Headers(snap.headers)});
+  }finally{WEATHER_PROXY_INFLIGHT.delete(upstream);}
+}
 function setStatus(t,e=false){const els=[$('statusDesktop'),$('statusMobile')].filter(Boolean);if(!els.length){console.warn('status elements missing:',t);return;}els.forEach(el=>{el.textContent=t;el.classList.remove('hidden');el.classList.toggle('error',e);});}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);}
 function todayLocal(){const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10);}
