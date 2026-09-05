@@ -1,0 +1,12 @@
+{
+  "version": "1.5.128",
+  "improved_three_point_courses": 4,
+  "routes": [
+    {"mountain":"三ッ峠山","label":"三ツ峠登山口ルート","points":["三ツ峠登山口","四季楽園","三ッ峠山","四季楽園","三ツ峠登山口"],"ct_minutes":[76,18,5,66],"missing":0,"estimated":0},
+    {"mountain":"武奈ヶ岳","label":"イン谷口ルート","points":["イン谷口","金糞峠","武奈ヶ岳","金糞峠","イン谷口"],"ct_minutes":[98,97,76,85],"missing":0,"estimated":0},
+    {"mountain":"阿蘇山（高岳）","label":"仙酔峡駐車場・仙酔峡登山口ルート","action":"remove redundant 3-point alias route; refined same-coordinate route retained"},
+    {"mountain":"霧島山（韓国岳）","label":"えびの高原・韓国岳登山口ルート","action":"remove redundant 3-point alias route; refined same-coordinate route retained"}
+  ],
+  "no_guessed_coordinates": true,
+  "no_estimated_ct_added": true
+}
