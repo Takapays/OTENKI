@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.113';
+const APP_VERSION = '1.5.118';
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
@@ -9225,6 +9225,32 @@ function representativeCandidate(type,name,mountain=''){
   }
   return candidates.find(p=>p.type===type&&p.name===name&&hasResolvedCoord(p))||null;
 }
+
+// V1.5.118: loading a representative course must not collapse the manual waypoint
+// dropdown to only the points used by that representative route.  Merge the full
+// verified/selectable fixed candidate set for the selected mountain first, then let
+// representative-route-only points (for example 小仙丈ヶ岳) be injected below.
+function mergeSelectableFixedCandidatesForMountain(mountain){
+  const key=canonicalMountainName(String(mountain||'').trim());
+  if(!key)return;
+  const embedded=[
+    ...(BUILTIN_ROUTE_CATALOG[key]||[]),
+    ...(TRAVERSE_CATALOG[key]||[]),
+    ...regionalCandidates(key)
+  ].filter(p=>p&&Object.prototype.hasOwnProperty.call(TYPE_LABEL,p.type)&&hasResolvedCoord(p));
+  const sanitized=sanitizeFixedCustomRouteCandidates(key,embedded);
+  const pool=(sanitized&&Array.isArray(sanitized.points))?sanitized.points:embedded;
+  for(const p of pool){
+    const exact=candidates.find(c=>c?.id===p.id);
+    if(exact)continue;
+    const equivalent=candidates.find(c=>
+      c?.type===p.type&&String(c?.name||'')===String(p.name||'')&&
+      hasResolvedCoord(c)&&hasResolvedCoord(p)&&
+      haversineMeters(Number(c.lat),Number(c.lon),Number(p.lat),Number(p.lon))<=120
+    );
+    if(!equivalent)candidates.push(p);
+  }
+}
 async function applyRepresentativeCourse(){
   const mountain=currentMountainLabel();
   const course=representativeCourseFor(mountain);
@@ -9232,6 +9258,10 @@ async function applyRepresentativeCourse(){
   const btn=$('representativeCourseBtn');
   if(btn){btn.disabled=true;btn.textContent='代表コースを準備中…';}
   try{
+    // V1.5.118: keep the mountain/area-wide selectable candidate catalog available
+    // even when the user enters through "代表コースを読み込む" without first
+    // opening the manual route designer.
+    mergeSelectableFixedCandidatesForMountain(mountain);
     let expandedDefs=representativeCourseExpandedPointDefs(mountain,course);
     let resolved=expandedDefs.map(([type,name,role])=>({type,name,role,p:representativeCandidate(type,name,mountain)}));
     if(resolved.some(x=>!x.p)){
