@@ -71,8 +71,8 @@
     ]
   }
   </script>
-    <link rel="stylesheet" href="styles.css?v=1.5.174">
-    <link rel="stylesheet" href="ui-v1.4.254.css?v=1.5.174">
+    <link rel="stylesheet" href="styles.css?v=1.5.176">
+    <link rel="stylesheet" href="ui-v1.4.254.css?v=1.5.176">
     <style>
       /* V1.4.250: mobile TOP explainer is intentionally moved to guide.html.
          Inline fallback prevents an old/missing override stylesheet from leaving it visible. */
@@ -86,6 +86,71 @@
       @media (max-width:760px){
         .dashboard-stage > .dashboard-welcome{display:none !important;}
       }
+
+      /* V1.5.176: resource navigation simplified and made responsive. */
+      .topbar-resource-nav{
+        display:grid !important;
+        grid-template-columns:repeat(4,minmax(0,1fr)) !important;
+        gap:8px !important;
+        align-items:stretch !important;
+      }
+      .topbar-resource-nav .topbar-nav-link{
+        min-width:0 !important;
+        min-height:46px !important;
+        padding:8px 12px !important;
+        border:1px solid rgba(38,91,76,.16) !important;
+        border-radius:12px !important;
+        background:#fff !important;
+        box-shadow:none !important;
+        transform:none !important;
+        display:flex !important;
+        align-items:center !important;
+        justify-content:center !important;
+        gap:8px !important;
+        overflow:hidden !important;
+      }
+      .topbar-resource-nav .topbar-nav-link::before,
+      .topbar-resource-nav .topbar-nav-link::after{display:none !important;}
+      .topbar-resource-nav .resource-nav-icon{
+        width:auto !important;
+        min-width:22px !important;
+        height:auto !important;
+        padding:0 !important;
+        border:0 !important;
+        background:transparent !important;
+        box-shadow:none !important;
+        font-size:20px !important;
+        line-height:1 !important;
+      }
+      .topbar-resource-nav .resource-nav-copy{
+        min-width:0 !important;
+        display:block !important;
+      }
+      .topbar-resource-nav .resource-nav-copy b{
+        display:block !important;
+        font-size:14px !important;
+        line-height:1.2 !important;
+        white-space:nowrap !important;
+        overflow:hidden !important;
+        text-overflow:ellipsis !important;
+      }
+      .topbar-resource-nav .resource-nav-copy small{display:none !important;}
+      .topbar-resource-nav .topbar-guide-link{
+        grid-column:1/-1 !important;
+        min-height:38px !important;
+        margin-top:0 !important;
+        border-radius:12px !important;
+        box-shadow:none !important;
+      }
+      @media (max-width:1180px){
+        .topbar-resource-nav{grid-template-columns:repeat(2,minmax(0,1fr)) !important;}
+      }
+      @media (max-width:760px){
+        .topbar-resource-nav{grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:7px !important;}
+        .topbar-resource-nav .topbar-nav-link{min-height:44px !important;padding:7px 9px !important;gap:6px !important;}
+        .topbar-resource-nav .resource-nav-icon{font-size:18px !important;min-width:20px !important;}
+        .topbar-resource-nav .resource-nav-copy b{font-size:13px !important;}
+      }
     </style>
   
 </head>
@@ -98,7 +163,7 @@
     <div class="topbar-center">
       <h1>全国から探す。自分の山行を読む。</h1>
       <div class="topbar-badges">
-        <span data-app-version>V1.5.174</span>
+        <span data-app-version>V1.5.176</span>
         <span>日本三百名山 網羅</span>
         <span>5系統アラート</span>
         <span>全国一括簡易判定</span>
@@ -106,7 +171,7 @@
       </div>
     </div>
     <div class="mobile-topbar-copy">全国から探す。自分の山行を読む。</div>
-    <span class="mobile-topbar-version" data-app-version>V1.5.174</span>
+    <span class="mobile-topbar-version" data-app-version>V1.5.176</span>
     <div class="mobile-topbar-badges" aria-label="トラテン機能"><span>日本三百名山 網羅</span><span>5系統アラート</span><span>全国一括簡易判定</span><span>登山口アクセス情報</span></div>
     <nav class="topbar-nav topbar-resource-nav" aria-label="トラテン主要メニュー">
       <a class="topbar-nav-link trailhead" href="trailheads.html" aria-label="登山口一覧を開く"><span class="resource-nav-icon" aria-hidden="true">⛰</span><span class="resource-nav-copy"><b>登山口</b><small>アクセス情報</small></span></a>
@@ -477,42 +542,42 @@
     </a>
   </div>
 </footer>
-<script src="app.js?v=1.5.174" defer></script>
-<script src="asama-route-v1578.js?v=1.5.174" defer></script>
-<script src="hyakumeizan-route-enrichment-v1579.js?v=1.5.174" defer></script>
-<script src="hyakumeizan-route-enrichment-v1580.js?v=1.5.174" defer></script>
-<script src="hyakumeizan-route-enrichment-v1581.js?v=1.5.174" defer></script>
-<script src="hyakumeizan-route-enrichment-v1582.js?v=1.5.174" defer></script>
-<script src="hyakumeizan-route-enrichment-v1583.js?v=1.5.174" defer></script>
-<script src="hyakumeizan-route-enrichment-v1584.js?v=1.5.174" defer></script>
-<script src="hyakumeizan-route-enrichment-v1585.js?v=1.5.174" defer></script>
-<script src="west-japan-route-enrichment-v1586.js?v=1.5.174" defer></script>
-<script src="west-japan-route-enrichment-v1588.js?v=1.5.174" defer></script>
-<script src="west-japan-route-enrichment-v1590.js?v=1.5.174" defer></script>
-<script src="west-japan-route-enrichment-v1591.js?v=1.5.174" defer></script>
-<script src="representative-route-enrichment-v15132.js?v=1.5.174" defer></script>
-<script src="representative-route-enrichment-v15134.js?v=1.5.174" defer></script>
-<script src="representative-route-cleanup-v15128.js?v=1.5.174" defer></script>
-<script src="representative-route-enrichment-v15145.js?v=1.5.174" defer></script>
-<script src="representative-route-enrichment-v15146.js?v=1.5.174" defer></script>
-<script src="representative-route-enrichment-v15147.js?v=1.5.174" defer></script>
-<script src="representative-route-enrichment-v15148.js?v=1.5.174" defer></script>
-<script src="representative-route-enrichment-v15149.js?v=1.5.174" defer></script>
-<script src="representative-route-enrichment-v15150.js?v=1.5.174" defer></script>
-<script src="representative-route-enrichment-v15151.js?v=1.5.174" defer></script>
-<script src="representative-route-enrichment-v15152.js?v=1.5.174" defer></script>
-<script src="representative-route-enrichment-v15153.js?v=1.5.174" defer></script>
-<script src="representative-route-enrichment-v15154.js?v=1.5.174" defer></script>
-<script src="representative-route-enrichment-v15155.js?v=1.5.174" defer></script>
-<script src="representative-route-enrichment-v15156.js?v=1.5.174" defer></script>
-<script src="representative-route-enrichment-v15157.js?v=1.5.174" defer></script>
-<script src="representative-route-enrichment-v15158.js?v=1.5.174" defer></script>
-<script src="representative-route-enrichment-v15159.js?v=1.5.174" defer></script>
-<script src="representative-route-enrichment-v15160.js?v=1.5.174" defer></script>
-<script src="representative-route-enrichment-v15161.js?v=1.5.174" defer></script>
-<script src="representative-route-enrichment-v15162.js?v=1.5.174" defer></script>
-<script src="representative-route-enrichment-v15163.js?v=1.5.174" defer></script>
-<script src="representative-route-enrichment-v15164.js?v=1.5.174" defer></script>
-<script src="representative-route-enrichment-v15165.js?v=1.5.174" defer></script>
+<script src="app.js?v=1.5.176" defer></script>
+<script src="asama-route-v1578.js?v=1.5.176" defer></script>
+<script src="hyakumeizan-route-enrichment-v1579.js?v=1.5.176" defer></script>
+<script src="hyakumeizan-route-enrichment-v1580.js?v=1.5.176" defer></script>
+<script src="hyakumeizan-route-enrichment-v1581.js?v=1.5.176" defer></script>
+<script src="hyakumeizan-route-enrichment-v1582.js?v=1.5.176" defer></script>
+<script src="hyakumeizan-route-enrichment-v1583.js?v=1.5.176" defer></script>
+<script src="hyakumeizan-route-enrichment-v1584.js?v=1.5.176" defer></script>
+<script src="hyakumeizan-route-enrichment-v1585.js?v=1.5.176" defer></script>
+<script src="west-japan-route-enrichment-v1586.js?v=1.5.176" defer></script>
+<script src="west-japan-route-enrichment-v1588.js?v=1.5.176" defer></script>
+<script src="west-japan-route-enrichment-v1590.js?v=1.5.176" defer></script>
+<script src="west-japan-route-enrichment-v1591.js?v=1.5.176" defer></script>
+<script src="representative-route-enrichment-v15132.js?v=1.5.176" defer></script>
+<script src="representative-route-enrichment-v15134.js?v=1.5.176" defer></script>
+<script src="representative-route-cleanup-v15128.js?v=1.5.176" defer></script>
+<script src="representative-route-enrichment-v15145.js?v=1.5.176" defer></script>
+<script src="representative-route-enrichment-v15146.js?v=1.5.176" defer></script>
+<script src="representative-route-enrichment-v15147.js?v=1.5.176" defer></script>
+<script src="representative-route-enrichment-v15148.js?v=1.5.176" defer></script>
+<script src="representative-route-enrichment-v15149.js?v=1.5.176" defer></script>
+<script src="representative-route-enrichment-v15150.js?v=1.5.176" defer></script>
+<script src="representative-route-enrichment-v15151.js?v=1.5.176" defer></script>
+<script src="representative-route-enrichment-v15152.js?v=1.5.176" defer></script>
+<script src="representative-route-enrichment-v15153.js?v=1.5.176" defer></script>
+<script src="representative-route-enrichment-v15154.js?v=1.5.176" defer></script>
+<script src="representative-route-enrichment-v15155.js?v=1.5.176" defer></script>
+<script src="representative-route-enrichment-v15156.js?v=1.5.176" defer></script>
+<script src="representative-route-enrichment-v15157.js?v=1.5.176" defer></script>
+<script src="representative-route-enrichment-v15158.js?v=1.5.176" defer></script>
+<script src="representative-route-enrichment-v15159.js?v=1.5.176" defer></script>
+<script src="representative-route-enrichment-v15160.js?v=1.5.176" defer></script>
+<script src="representative-route-enrichment-v15161.js?v=1.5.176" defer></script>
+<script src="representative-route-enrichment-v15162.js?v=1.5.176" defer></script>
+<script src="representative-route-enrichment-v15163.js?v=1.5.176" defer></script>
+<script src="representative-route-enrichment-v15164.js?v=1.5.176" defer></script>
+<script src="representative-route-enrichment-v15165.js?v=1.5.176" defer></script>
 </body>
 </html>

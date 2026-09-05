@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.174';
+const APP_VERSION = '1.5.176';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -10580,6 +10580,11 @@ function mergeAnalysisResults(baseResults,extraResults){
     return {point:base.point,providerRows,errors,timelineRows:blendTimelineRows(providerRows),...avg,grade:assessGrade(avg),confidence:(providerRows.length===1&&providerRows[0].provider?.kind==='fallback'?'FALLBACK':assessConfidence(providerRows.map(x=>x.row))),thunder:thunderLevel(avg),hazards:assessHazards(avg)};
   });
 }
+function analysisHasProvider(results,providerId){
+  return Array.isArray(results)&&results.some(r=>(r?.providerRows||[]).some(x=>x?.provider?.id===providerId));
+}
+function providerEligibleForAny(provider,points){return (points||[]).some(point=>providerEligible(provider,point));}
+
 
 async function scrollToSummaryResult(){
   const target=$('summaryResult');
@@ -10604,39 +10609,46 @@ async function analyze(){
     await ensureElevations(points);
     const stayPoints=points.filter(p=>p.stay);
     const maxAhead=Math.max(...points.map(p=>daysAhead(p.date)));
-    // V1.4.248: keep the fast first paint from JMA/ECMWF, but start ICON at
-    // the same time so visibility can be merged as soon as ICON returns.
-    // GFS remains the later deterioration-scenario guard.
+
+    // V1.5.176: send exactly one Open-Meteo model request first.
+    // Only after that request succeeds do we start the remaining Open-Meteo models.
+    // If it returns 429, analyzePointsBatch immediately falls back to MET Norway / NOAA GFS,
+    // the 10-minute circuit opens, and no further real Open-Meteo requests are sent.
+    const preferredProbeId=maxAhead<=4?'jma':maxAhead<=15?'ecmwf':maxAhead<=16?'gfs':null;
+    const probeProvider=providers.find(p=>p.id===preferredProbeId&&providerEligibleForAny(p,points));
+    if(!probeProvider)throw new Error('指定日の予報に対応する気象モデルがありません。');
+    setStatus(`Open-Meteo接続確認：${probeProvider.name} を1本だけ先行取得中…`);
+    let firstState;
+    try{
+      const probeResults=await analyzePointsBatch(points,[probeProvider],`${probeProvider.name}接続確認`);
+      firstState={provider:probeProvider,results:probeResults};
+    }catch(error){
+      throw new Error(`${probeProvider.name}先行取得に失敗しました：${error?.message||'取得失敗'}`);
+    }
+    const openMeteoProbeSucceeded=analysisHasProvider(firstState.results,probeProvider.id)&&!openMeteoCircuitActive();
+    const allowMoreOpenMeteo=openMeteoProbeSucceeded;
+    if(!allowMoreOpenMeteo){
+      setStatus(openMeteoCircuitActive()
+        ? `Open-Meteo 429を検知：残りモデルは送信せず、予備モデルへ切替（10分間抑制）…`
+        : `Open-Meteo取得失敗：残りモデルは送信せず、予備モデルへ切替…`);
+    }
+
+    // Start overnight analysis only after the probe. When the circuit is open,
+    // its Open-Meteo call is skipped locally and it falls through to MET Norway.
     const overnightPromise=stayPoints.length
       ? analyzeOvernightsBatch(stayPoints).then(v=>({items:v,warning:''})).catch(e=>({items:[],warning:` / 宿泊詳細は取得できませんでした（${e?.message||'取得失敗'}）`}))
       : Promise.resolve({items:[],warning:''});
 
-    let firstState;
     let earlyProviderPromises=new Map();
-    if(maxAhead<=15){
-      const earlyProviders=providers.filter(p=>p.id==='jma'||p.id==='ecmwf'||p.id==='icon');
+    if(allowMoreOpenMeteo){
+      const earlyProviders=providers.filter(p=>p.id!=='gfs'&&p.id!==probeProvider.id&&providerEligibleForAny(p,points));
       earlyProviders.forEach(provider=>{
         earlyProviderPromises.set(provider.id,
-          analyzePointsBatch(points,[provider],`${provider.name}先行取得`)
+          analyzePointsBatch(points,[provider],`${provider.name}追加取得`)
             .then(results=>({ok:true,provider,results}))
             .catch(error=>({ok:false,provider,error}))
         );
       });
-      const decisionIds=['jma','ecmwf'];
-      const decisionPromises=decisionIds.map(id=>earlyProviderPromises.get(id).then(state=>{
-        if(state.ok)return {provider:state.provider,results:state.results};
-        return Promise.reject({provider:state.provider,error:state.error});
-      }));
-      try{
-        firstState=await Promise.any(decisionPromises);
-      }catch(aggregate){
-        const errs=Array.isArray(aggregate?.errors)?aggregate.errors:[];
-        const msg=errs.map(x=>`${x?.provider?.name||'モデル'}: ${x?.error?.message||'取得失敗'}`).join(' / ');
-        throw new Error(msg||'JMA/ECMWF先行モデルの取得に失敗しました。');
-      }
-    }else{
-      // Preserve the existing long-range fallback behavior.
-      firstState=await analyzePointsFirstAvailable(points,providers,'先行モデル');
     }
     let latestResults=firstState.results;
     const primaryProviders=[firstState.provider];
@@ -10654,7 +10666,7 @@ async function analyze(){
     requestAnimationFrame(()=>{if(runId===activeAnalysisRun)renderAll(latestResults,latestOvernight);});
     saveLastRouteSnapshot(mountain,points);
     points.forEach(p=>logEvent('route_point_used',{success:true,mountain,metadata:{point_name:p.name||'',point_type:p.type||'other',point_role:p.role||'',source:p.source||''}}));
-    logEvent('weather_analysis',{success:true,duration_ms:initialMs,mountain,route_points:points.length,stay_count:stayPoints.length,metadata:{provider_count:primaryProviders.length,provider_count_final:providers.length,manual_datetime:true,batch_weather:true,parallel_models:true,point_cache:true,progressive:true,first_provider:firstState.provider.id}});
+    logEvent('weather_analysis',{success:true,duration_ms:initialMs,mountain,route_points:points.length,stay_count:stayPoints.length,metadata:{provider_count:primaryProviders.length,provider_count_final:providers.length,manual_datetime:true,batch_weather:true,parallel_models:allowMoreOpenMeteo,open_meteo_probe_gate:true,point_cache:true,progressive:true,first_provider:firstState.provider.id}});
 
     // V1.4.248: every early model is merged independently when it arrives.
     // This guarantees that ICON visibility repaints the analysis screen without
@@ -10676,7 +10688,7 @@ async function analyze(){
     }
 
     const gfsProvider=providers.find(p=>p.id==='gfs');
-    const gfsVisiblePromise=(maxAhead<=15&&gfsProvider)
+    const gfsVisiblePromise=(allowMoreOpenMeteo&&gfsProvider&&gfsProvider.id!==probeProvider.id&&providerEligibleForAny(gfsProvider,points))
       ? analyzePointsBatch(points,[gfsProvider],'GFS悪化監視').then(results=>({ok:true,provider:gfsProvider,results})).catch(error=>({ok:false,provider:gfsProvider,error})).then(state=>{
           if(runId!==activeAnalysisRun)return state;
           if(state.ok&&state.results?.length){latestResults=mergeAnalysisResults(latestResults,state.results);renderAll(latestResults,latestOvernight);}
@@ -10686,13 +10698,7 @@ async function analyze(){
 
     // For >15 days the legacy first-available path is retained; fetch the
     // providers not used for the first result as one background batch.
-    const longRangeSecondaryPromise=maxAhead>15
-      ? analyzePointsBatch(points,providers.filter(p=>p.id!==firstState.provider.id),'追加モデル').then(results=>({ok:true,results})).catch(error=>({ok:false,error})).then(state=>{
-          if(runId!==activeAnalysisRun)return state;
-          if(state.ok&&state.results?.length){latestResults=mergeAnalysisResults(latestResults,state.results);renderAll(latestResults,latestOvernight);}
-          return state;
-        })
-      : Promise.resolve({ok:true,results:[]});
+    const longRangeSecondaryPromise=Promise.resolve({ok:true,results:[]});
 
     const overnightVisiblePromise=overnightPromise.then(state=>{
       if(runId!==activeAnalysisRun)return state;
@@ -10707,7 +10713,7 @@ async function analyze(){
     if(!longRangeState.ok)notes.push(`追加モデル取得失敗: ${longRangeState.error?.message||'取得失敗'}`);
     if(overnightState.warning)notes.push(overnightState.warning.replace(/^ \/ /,''));
     const apiAudit=weatherApiAuditSnapshot();
-    const apiAuditText=`Open-Meteo ${apiAudit.openMeteoRequests}回${apiAudit.openMeteo429?` / 429:${apiAudit.openMeteo429}`:''}${apiAudit.deduped?` / 重複抑制:${apiAudit.deduped}`:''}${apiAudit.circuitSkipped?` / 429後抑制:${apiAudit.circuitSkipped}`:''}`;
+    const apiAuditText=`Open-Meteo ${apiAudit.openMeteoRequests}回${apiAudit.openMeteo429?` / 429:${apiAudit.openMeteo429}`:''}${apiAudit.deduped?` / 重複抑制:${apiAudit.deduped}`:''}${apiAudit.circuitSkipped?` / 429後抑制:${apiAudit.circuitSkipped}`:''}${apiAudit.openMeteoCircuitSeconds?` / 抑制残:${Math.ceil(apiAudit.openMeteoCircuitSeconds/60)}分`:''}`;
     logEvent('weather_api_audit',{success:true,mountain,route_points:points.length,metadata:apiAudit});
     setStatus(notes.length?`先行分析は完了。${notes.join(' / ')} / ${apiAuditText}`:`分析完了：${points.length}地点${stayPoints.length?` / 宿泊 ${stayPoints.length}泊`:''}（${apiAuditText}）`,false);
   }catch(e){
@@ -12385,15 +12391,22 @@ function renderAll(points,overnight=[]){
   $('modelDetails').innerHTML=points.map(r=>`<article class="model-block"><h3>${esc(r.point.name)} <small>${r.point.date} ${r.point.time}</small></h3><div class="table-wrap"><table><thead><tr><th>モデル</th><th>気温</th><th>体感</th><th>風</th><th>突風</th><th>雨</th><th>雲</th><th>大気不安定度</th><th>視程</th></tr></thead><tbody>${r.providerRows.map(x=>`<tr><td>${x.provider.name}</td><td>${num(x.row.temp)}℃</td><td>${num(apparentTemperatureMountain(x.row.temp,x.row.rh,x.row.wind))}℃</td><td>${num(x.row.wind)}m/s</td><td>${num(x.row.gust)}m/s</td><td>${num(x.row.rain)}mm</td><td>${num(x.row.cloud,0)}%</td><td>${num(x.row.cape,0)} J/kg</td><td>${Number.isFinite(x.row.visibility)?Math.round(x.row.visibility)+'m':'–'}</td></tr>`).join('')}</tbody></table></div></article>`).join('');
   $('updatedAt').textContent=new Date().toLocaleString('ja-JP');
 }
-// V1.5.174: upstream-call audit + duplicate coalescing + short 429 circuit breaker.
+// V1.5.176: upstream-call audit + duplicate coalescing + persistent 429 circuit breaker.
 // Open-Meteo calls are already batched across route points by fetchProviderBatch().
 // This layer prevents identical concurrent calls and avoids hammering Open-Meteo
 // again for a short period after a 429 response.
 const WEATHER_PROXY_INFLIGHT=new Map();
 const WEATHER_PROXY_RECENT=new Map();
 const WEATHER_PROXY_RECENT_TTL_MS=2*60*1000;
-let OPEN_METEO_BLOCKED_UNTIL=0;
+const OPEN_METEO_BLOCK_MS=10*60*1000;
+const OPEN_METEO_BLOCK_STORAGE='traten:open-meteo-blocked-until:v15175';
+let OPEN_METEO_BLOCKED_UNTIL=(()=>{try{const v=Number(sessionStorage.getItem(OPEN_METEO_BLOCK_STORAGE)||0);return Number.isFinite(v)&&v>Date.now()?v:0;}catch(_){return 0;}})();
 let WEATHER_API_AUDIT={openMeteoRequests:0,openMeteo429:0,openMeteo5xx:0,deduped:0,recentCacheHits:0,circuitSkipped:0,metNoRequests:0,otherProxyRequests:0};
+function setOpenMeteoBlockedUntil(until){
+  OPEN_METEO_BLOCKED_UNTIL=Math.max(OPEN_METEO_BLOCKED_UNTIL,Number(until)||0);
+  try{sessionStorage.setItem(OPEN_METEO_BLOCK_STORAGE,String(OPEN_METEO_BLOCKED_UNTIL));}catch(_){ }
+}
+function openMeteoCircuitActive(){return Date.now()<OPEN_METEO_BLOCKED_UNTIL;}
 function isOpenMeteoUrl(url){const s=String(url||'').toLowerCase();return s.includes('api.open-meteo.com/')||s.includes('air-quality-api.open-meteo.com/');}
 function isMetNoUrl(url){return String(url||'').toLowerCase().includes('api.met.no/');}
 function resetWeatherApiAudit(){
@@ -12432,7 +12445,7 @@ async function proxyFetch(url){
     if(openMeteo){
       if(response.status===429){
         WEATHER_API_AUDIT.openMeteo429++;
-        OPEN_METEO_BLOCKED_UNTIL=Math.max(OPEN_METEO_BLOCKED_UNTIL,Date.now()+60*1000);
+        setOpenMeteoBlockedUntil(Date.now()+OPEN_METEO_BLOCK_MS);
       }else if(response.status>=500){WEATHER_API_AUDIT.openMeteo5xx++;}
     }
     // Cache only successful GET-like proxy responses. Failed/429 responses are
