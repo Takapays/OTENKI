@@ -158,7 +158,15 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.120';
+const APP_VERSION = '1.5.121';
+// V1.5.121: keep desktop/mobile visible version badges synchronized with the JS build.
+// The HTML still carries a fallback value so the version is visible before JS executes.
+function syncVisibleAppVersion(){
+  const text=`V${APP_VERSION}`;
+  document.querySelectorAll('[data-app-version], .mobile-topbar-version').forEach(el=>{el.textContent=text;});
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',syncVisibleAppVersion,{once:true});
+else syncVisibleAppVersion();
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
