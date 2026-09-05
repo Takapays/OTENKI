@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.146';
+const APP_VERSION = '1.5.170';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -10451,15 +10451,47 @@ async function fetchMetNoPayload(point){
 }
 async function fetchMetNoFallback(point){
   const payload=await fetchMetNoPayload(point);
-  return payload?extractMetNoRow(payload,point):null;
+  const row=payload?extractMetNoRow(payload,point):null;
+  if(!row)return null;
+  const targetMs=new Date(`${point.date}T${point.time}:00+09:00`).getTime();
+  const timeline=metNoRows(payload)
+    .filter(x=>x?.time&&Math.abs(new Date(x.time).getTime()-targetMs)<=6*3600000)
+    .map(x=>({time:x.time,rain:numberOrNaN(x.rain),wind:numberOrNaN(x.wind),cape:NaN}))
+    .filter(x=>Number.isFinite(x.rain)||Number.isFinite(x.wind));
+  return {...row,timeline};
 }
-async function fetchNoaaGfsFallback(point){
-  if(daysAhead(point.date)>16)return null;
-  const q=new URLSearchParams({lat:String(point.lat),lon:String(point.lon),date:point.date,time:point.time});
+async function fetchNoaaGfsRowAt(point,date,time){
+  const q=new URLSearchParams({lat:String(point.lat),lon:String(point.lon),date,time});
   const r=await fetch(`/api/noaa-gfs?${q}`,{headers:{Accept:'application/json'}});
   const payload=await r.json().catch(()=>null);
   if(!r.ok)throw new Error(payload?.error||`NOAA GFS HTTP ${r.status}`);
   return payload?.row||null;
+}
+function fallbackJstParts(ms){
+  const d=new Date(ms+9*3600000);
+  return {
+    date:`${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`,
+    time:`${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}`
+  };
+}
+async function fetchNoaaGfsFallback(point){
+  if(daysAhead(point.date)>16)return null;
+  const targetMs=new Date(`${point.date}T${point.time}:00+09:00`).getTime();
+  const offsets=[-6,-3,0,3,6];
+  const settled=await Promise.allSettled(offsets.map(async h=>{
+    const p=fallbackJstParts(targetMs+h*3600000);
+    return await fetchNoaaGfsRowAt(point,p.date,p.time);
+  }));
+  const rows=settled.filter(x=>x.status==='fulfilled'&&x.value?.time).map(x=>x.value).sort((a,b)=>new Date(a.time)-new Date(b.time));
+  if(!rows.length)return null;
+  let best=rows[0],bestDiff=Math.abs(new Date(best.time).getTime()-targetMs);
+  for(const r of rows){const d=Math.abs(new Date(r.time).getTime()-targetMs);if(d<bestDiff){best=r;bestDiff=d;}}
+  if(bestDiff>3*3600000)return null;
+  const timeline=rows.map(r=>({time:r.time,rain:numberOrNaN(r.rain),wind:numberOrNaN(r.wind),cape:numberOrNaN(r.cape)}));
+  return {...best,timeline};
+}
+function fallbackableWeatherErrors(errors){
+  return Array.isArray(errors)&&errors.some(v=>/HTTP\s*(429|5\d\d)|Failed to fetch|NetworkError|Load failed|network|timeout|タイムアウト|取得失敗/i.test(String(v||'')));
 }
 
 async function analyzePointsBatch(points,providerList=providers,statusLabel='気象モデル'){
@@ -10482,22 +10514,33 @@ async function analyzePointsBatch(points,providerList=providers,statusLabel='気
       });
     });
   }
-  // Open-Meteo 429 fallback is uncommon, but when needed fetch all affected
-  // points in parallel, and MET Norway / NOAA GFS in parallel per point.
+  // V1.5.170: when normal Open-Meteo rows are unavailable because of
+  // congestion/server/network errors, preserve passage-point TIMESERIES too.
+  // Priority is Open-Meteo -> MET Norway -> NOAA GFS.
   const metnoProvider={id:'metno',name:'MET Norway（予備）',kind:'fallback'};
   const noaaProvider={id:'noaa-gfs',name:'NOAA GFS（直取得）',kind:'fallback'};
-  const fallbackIndexes=buckets.map((bucket,index)=>({bucket,index})).filter(x=>!x.bucket.rows.length&&x.bucket.errors.some(v=>v.includes('HTTP 429'))).map(x=>x.index);
+  const fallbackIndexes=buckets.map((bucket,index)=>({bucket,index})).filter(x=>!x.bucket.rows.length&&fallbackableWeatherErrors(x.bucket.errors)).map(x=>x.index);
   if(fallbackIndexes.length){
-    setStatus(`Open-Meteoが混雑中：${fallbackIndexes.length}地点を予備データで並列取得中…`);
+    setStatus(`Open-Meteo取得困難：${fallbackIndexes.length}地点を予備時系列で取得中…`);
     await Promise.all(fallbackIndexes.map(async index=>{
       const bucket=buckets[index], point=points[index];
-      const [met,noaa]=await Promise.allSettled([fetchMetNoFallback(point),fetchNoaaGfsFallback(point)]);
-      if(met.status==='fulfilled'&&met.value){bucket.rows.push({provider:metnoProvider,row:met.value});bucket.errors.push('Open-Meteo: HTTP 429 → MET Norway予備へ切替');}
-      else if(met.status==='rejected')bucket.errors.push(met.reason?.message||'MET Norway取得失敗');
-      else bucket.errors.push('MET Norway: 指定時刻の予報なし（約9日先まで）');
-      if(noaa.status==='fulfilled'&&noaa.value){bucket.rows.push({provider:noaaProvider,row:noaa.value});bucket.errors.push('NOAA GFS: NOMADS GRIB2を直接取得');}
-      else if(noaa.status==='rejected')bucket.errors.push(noaa.reason?.message||'NOAA GFS取得失敗');
-      else bucket.errors.push('NOAA GFS: 指定時刻の予報なし（約16日先まで）');
+      let row=null;
+      try{
+        row=await fetchMetNoFallback(point);
+        if(row){
+          bucket.rows.push({provider:metnoProvider,row});
+          bucket.errors.push('Open-Meteo取得困難 → MET Norwayへ自動切替（時系列含む）');
+        }
+      }catch(e){bucket.errors.push(e?.message||'MET Norway取得失敗');}
+      if(!row){
+        try{
+          row=await fetchNoaaGfsFallback(point);
+          if(row){
+            bucket.rows.push({provider:noaaProvider,row});
+            bucket.errors.push('MET Norway取得不可 → NOAA GFSへ自動切替（時系列含む）');
+          }
+        }catch(e){bucket.errors.push(e?.message||'NOAA GFS取得失敗');}
+      }
     }));
   }
   return points.map((point,index)=>{
