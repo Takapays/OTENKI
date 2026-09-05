@@ -38,7 +38,7 @@ import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 # V1.5.114: locked two-page Reel artwork; only date and A/B/C markers are dynamic.
-APP_VERSION = "1.5.118"
+APP_VERSION = "1.5.120"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
@@ -2645,7 +2645,7 @@ def instagram_national_reel(date_text: str):
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
-        response.headers["X-Traten-Reel-Version"] = "15117"
+        response.headers["X-Traten-Reel-Version"] = "15119"
         return response
     except Exception as exc:
         app.logger.exception("instagram_national_reel_failed date=%s", date_text)

@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.118';
+const APP_VERSION = '1.5.120';
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
@@ -9238,8 +9238,11 @@ function mergeSelectableFixedCandidatesForMountain(mountain){
     ...(TRAVERSE_CATALOG[key]||[]),
     ...regionalCandidates(key)
   ].filter(p=>p&&Object.prototype.hasOwnProperty.call(TYPE_LABEL,p.type)&&hasResolvedCoord(p));
-  const sanitized=sanitizeFixedCustomRouteCandidates(key,embedded);
-  const pool=(sanitized&&Array.isArray(sanitized.points))?sanitized.points:embedded;
+  // V1.5.120: manual route design is a traverse planner. Do not require every
+  // selectable waypoint to have a verified CT to every other waypoint. A point
+  // with a fixed coordinate must remain selectable; adjacent CT is validated only
+  // after the user actually connects two points.
+  const pool=dedupeCandidateList(embedded.filter(hasResolvedCoord));
   for(const p of pool){
     const exact=candidates.find(c=>c?.id===p.id);
     if(exact)continue;
@@ -9696,13 +9699,18 @@ async function loadCandidates(){
     // 確定済み固定候補が1件でもあれば、それを即時出力して外部の追加候補探索は行わない。
     // 日本三百名山は固定登山口300/300を整備済みのため、通常はこちらを通る。
     if(resolvedStaticBase.length){
-      const sanitized=sanitizeFixedCustomRouteCandidates(mountain,resolvedStaticBase);
-      candidates=[...sanitized.points];
+      // V1.5.120: candidate visibility must support traverses. Previously this
+      // branch reduced the fixed catalog to a CT-complete clique, so legitimate
+      // neighboring summits/huts disappeared (e.g. 赤岳→横岳/阿弥陀岳,
+      // 仙丈ヶ岳→甲斐駒ヶ岳). Keep every coordinate-resolved fixed point in the
+      // mountain corridor. Missing/estimated CT is handled per selected adjacent
+      // segment by the existing row warning logic; it must not hide the point.
+      candidates=dedupeCandidateList(resolvedStaticBase.filter(hasResolvedCoord));
       renderCandidateRows(label,center,{resetPoints:true});
       setLoadedRouteStartToTomorrow();
-      $('candidateState').textContent=(candidates.length<2&&sanitized.hidden.length)?'確認済みCTで接続できる設計ポイントがまだ不足しています。未確認のポイントは表示していません。':'';
+      $('candidateState').textContent='';
       updateLoadButtonAppearance(!!candidates.length);
-      logEvent('route_candidates_loaded',{success:!!candidates.length,mountain:label,metadata:{candidate_count:candidates.length,hidden_unresolved_count:staticBase.length-resolvedStaticBase.length,hidden_ct_disconnected_count:sanitized.hidden.length,source:'fixed',external_search:false}});
+      logEvent('route_candidates_loaded',{success:!!candidates.length,mountain:label,metadata:{candidate_count:candidates.length,hidden_unresolved_count:staticBase.length-resolvedStaticBase.length,hidden_ct_disconnected_count:0,source:'fixed',external_search:false,traverse_candidates_preserved:true}});
       return;
     }
 
@@ -14023,4 +14031,3 @@ if(typeof representativeCourseExpandedPointDefs==='function'){
 try{if(typeof rebuildRouteDerivedCaches==='function')rebuildRouteDerivedCaches();}catch(_){ }
 window.TRATEN_REPRESENTATIVE_ENRICHMENT_V15109=Object.freeze({version:VERSION,phase:'large 3-point route reduction',routeCount:Object.keys(RULES).length,policy:'official/public model route order + explicit published coordinates/CT only; no inferred coordinates/CT'});
 })();
-

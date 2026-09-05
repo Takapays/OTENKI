@@ -68,7 +68,7 @@ def image_url(date_text: str) -> str:
     return f"{PUBLIC_BASE_URL}/api/instagram/national-image/{urllib.parse.quote(date_text)}?sig={urllib.parse.quote(sig)}"
 
 
-REEL_ASSET_VERSION = "15117"
+REEL_ASSET_VERSION = "15119"
 
 def reel_signature(date_text: str) -> str:
     if not image_secret():
@@ -440,7 +440,10 @@ def _render_reel_scenes_pillow(*, rows: list[dict[str, Any]], counts: dict[str, 
         if grade not in grade_colors: continue
         source_x=54.17*lon-6910.0
         source_y=-81.65*lat+3957.0
-        x=max(30,min(W-25,source_x*sx)); y=max(274,min(1160,source_y*sy))
+        # V1.5.119: the locked relief artwork sits slightly left of the affine
+        # calibration used for the markers. Shift every marker 18 px left as a
+        # single map-registration correction; relative geography is unchanged.
+        x=max(30,min(W-25,source_x*sx-18)); y=max(274,min(1160,source_y*sy))
         candidates.append([x,y,grade])
 
     # Mild collision relaxation: preserve location, but keep labels readable in dense ranges.
@@ -491,9 +494,9 @@ def render_national_reel(date_text: str, results: list[dict[str, Any]], *, logo_
 
     target = date.fromisoformat(date_text)
     counts = {g: sum(1 for r in rows if r.get("grade") == g) for g in "ABC"}
-    outdir = os.path.join(tempfile.gettempdir(), "traten-instagram-reels-v15117")
+    outdir = os.path.join(tempfile.gettempdir(), "traten-instagram-reels-v15119")
     os.makedirs(outdir, exist_ok=True)
-    out = os.path.join(outdir, f"traten-{date_text}-v15117.mp4")
+    out = os.path.join(outdir, f"traten-{date_text}-v15119.mp4")
     if os.path.exists(out) and os.path.getsize(out) > 100000:
         return out
 
