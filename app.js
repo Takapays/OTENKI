@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.133';
+const APP_VERSION = '1.5.138';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -2859,6 +2859,35 @@ const V1583_PRIORITY_B_COURSE_TIMES = Object.freeze({
   '甲武信小屋→毛木平登山口':{minutes:148,source:'既存確認済み下山168分から山頂→甲武信小屋20分を差引',sourceType:'derived-verified'}
 });
 
+// V1.5.137: repair two more representative routes with published point coordinates
+// and published directional CT. No interpolation, proportional split, or estimated CT.
+const V15137_THREE_POINT_REPAIR_COURSE_TIMES = Object.freeze({
+  '八甲田ロープウェー山頂公園駅→大岳避難小屋（八甲田）': {minutes:113, source:'ヤマレコ公開計画 p5532169（山頂公園駅09:45→大岳避難小屋11:38、行動時間合算113分）', sourceType:'yamareco'},
+  '大岳避難小屋（八甲田）→八甲田山（大岳）': {minutes:34, source:'ヤマレコ公開計画 p5532169（大岳避難小屋11:48→大岳12:22）', sourceType:'yamareco'},
+  '八甲田山（大岳）→大岳避難小屋（八甲田）': {minutes:19, source:'ヤマレコ公開計画 p5532169（大岳12:32→大岳避難小屋12:51）', sourceType:'yamareco'},
+  '大岳避難小屋（八甲田）→八甲田ロープウェー山頂公園駅': {minutes:94, source:'ヤマレコ公開計画 p5532169（大岳避難小屋12:51→山頂公園駅14:25、行動時間合算94分）', sourceType:'yamareco'},
+  '市房山キャンプ場（市房山登山口アクセス起点）→市房神社': {minutes:80, source:'ヤマレコ公開計画 p5452598（市房山キャンプ場→登山口10分＋登山口→市房神社70分）', sourceType:'yamareco'},
+  '市房神社→市房山': {minutes:182, source:'ヤマレコ公開計画 p5452598（市房神社→六合目61分＋六合目→市房山121分）', sourceType:'yamareco'},
+  '市房山→市房神社': {minutes:101, source:'ヤマレコ公開計画 p5452598（市房山→六合目68分＋六合目→市房神社33分）', sourceType:'yamareco'},
+  '市房神社→市房山キャンプ場（市房山登山口アクセス起点）': {minutes:48, source:'ヤマレコ公開計画 p5452598（市房神社→登山口40分＋登山口→キャンプ場8分）', sourceType:'yamareco'}
+});
+
+// V1.5.136: repair verified split CT for three representative routes whose
+// intermediate points were added earlier without complete route data.
+// All values below come from published YAMAP model-course checkpoints; no CT is estimated.
+const V15136_THREE_POINT_REPAIR_COURSE_TIMES = Object.freeze({
+  '奥岳登山口・あだたら山ロープウェイ→薬師岳（安達太良）': {minutes:113, source:'YAMAP 奥岳-薬師岳-安達太良山 往復モデル（奥岳登山口08:04→薬師岳09:57）', sourceType:'yamap'},
+  '薬師岳（安達太良）→安達太良山': {minutes:98, source:'YAMAP 奥岳-薬師岳-安達太良山 往復モデル（薬師岳09:57→安達太良山11:35）', sourceType:'yamap'},
+  '安達太良山→薬師岳（安達太良）': {minutes:78, source:'YAMAP 奥岳-薬師岳-安達太良山 往復モデル（安達太良山11:35→薬師岳12:53）', sourceType:'yamap'},
+  '薬師岳（安達太良）→奥岳登山口・あだたら山ロープウェイ': {minutes:19, source:'YAMAP 奥岳-薬師岳-安達太良山 往復モデル（薬師岳12:53→奥岳登山口13:12）', sourceType:'yamap'},
+  '菅平牧場登山口→中四阿': {minutes:125, source:'YAMAP 四阿山登山口-小四阿-中四阿-四阿山 往復モデル（登山口08:05→中四阿10:10）', sourceType:'yamap'},
+  '中四阿→四阿山': {minutes:60, source:'YAMAP 四阿山登山口-小四阿-中四阿-四阿山 往復モデル（中四阿10:10→四阿山11:10）', sourceType:'yamap'},
+  '四阿山→中四阿': {minutes:55, source:'YAMAP 四阿山登山口-小四阿-中四阿-四阿山 往復モデル（四阿山11:10→中四阿12:05）', sourceType:'yamap'},
+  '中四阿→菅平牧場登山口': {minutes:80, source:'YAMAP 四阿山登山口-小四阿-中四阿-四阿山 往復モデル（中四阿12:05→登山口13:25）', sourceType:'yamap'},
+  '峠の茶屋・那須岳登山口→峰の茶屋跡避難小屋': {minutes:50, source:'YAMAP 峠の茶屋-茶臼岳 往復モデル（峠の茶屋登山口→峰の茶屋跡区間）', sourceType:'yamap'},
+  '峰の茶屋跡避難小屋→峠の茶屋・那須岳登山口': {minutes:35, source:'YAMAP 峠の茶屋-茶臼岳 往復モデル（峰の茶屋跡→峠の茶屋登山口区間）', sourceType:'yamap'}
+});
+
 // V1.5.128: verified split CT for remaining 3-point routes.
 // Mitsutoge values are summed from YAMAP model-course checkpoints around Shikirakuen.
 // Buna values are summed from the YAMAP Inatani/Kanakuso model route. No estimated CT is used.
@@ -2891,6 +2920,8 @@ const V15127_THREE_POINT_SPLIT_COURSE_TIMES = Object.freeze({
 });
 
 const COURSE_TIME_TABLES = Object.freeze([
+  V15137_THREE_POINT_REPAIR_COURSE_TIMES,
+  V15136_THREE_POINT_REPAIR_COURSE_TIMES,
   V15128_THREE_POINT_SPLIT_COURSE_TIMES,
   V15127_THREE_POINT_SPLIT_COURSE_TIMES,
   V1584_PRIORITY_B_COURSE_TIMES,
@@ -10306,7 +10337,7 @@ function extractProviderRow(hourly,point){
   if(idx<0)return null;
   const get=k=>numberOrNaN(hourly[k]?.[idx]);
   const targetMs=new Date(`${point.date}T${point.time}:00+09:00`).getTime();
-  const timeline=(hourly.time||[]).map((time,i)=>({time,rain:numberOrNaN(hourly.precipitation?.[i]),wind:numberOrNaN(hourly.wind_speed_10m?.[i]),cape:numberOrNaN(hourly.cape?.[i])})).filter(x=>Math.abs(new Date(x.time).getTime()-targetMs)<=8*3600000);
+  const timeline=(hourly.time||[]).map((time,i)=>({time,rain:numberOrNaN(hourly.precipitation?.[i]),wind:numberOrNaN(hourly.wind_speed_10m?.[i]),cape:numberOrNaN(hourly.cape?.[i])})).filter(x=>Math.abs(new Date(x.time).getTime()-targetMs)<=6*3600000);
   return {time:hourly.time[idx],temp:get('temperature_2m'),rh:get('relative_humidity_2m'),rain:get('precipitation'),cloud:get('cloud_cover'),wind:get('wind_speed_10m'),gust:get('wind_gusts_10m'),windDir:get('wind_direction_10m'),cape:get('cape'),visibility:get('visibility'),freezing:get('freezing_level_height'),timeline};
 }
 function blendTimelineRows(providerRows){
@@ -11245,7 +11276,7 @@ function timeOnly(s){
     const d=new Date(str);
     if(Number.isFinite(d.getTime()))return new Intl.DateTimeFormat('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit',hour12:false}).format(d);
   }
-  return str.slice(11,13);
+  return str.slice(11,16);
 }
 function horizonVisibility(row){
   if(!row) return {label:'判定不可',mark:'–',score:0};
@@ -11359,9 +11390,15 @@ function renderMilkyDetail(o){
 
 function timelineThunder(cape,rain){
   const c=Number(cape),p=Number(rain);
-  if((Number.isFinite(c)&&c>=1200)||(Number.isFinite(c)&&c>=700&&p>=1))return {label:'高',cls:'high'};
-  if((Number.isFinite(c)&&c>=350)||(Number.isFinite(c)&&c>=150&&p>=0.2))return {label:'中',cls:'medium'};
-  return {label:'低',cls:'low'};
+  if((Number.isFinite(c)&&c>=1200)||(Number.isFinite(c)&&c>=700&&p>=1))return {label:'高',cls:'high',show:true,color:'#ef4444'};
+  if((Number.isFinite(c)&&c>=350)||(Number.isFinite(c)&&c>=150&&p>=0.2))return {label:'中',cls:'medium',show:true,color:'#f59e0b'};
+  return {label:'低',cls:'low',show:false,color:'transparent'};
+}
+function timelineHourLabel(s){
+  const t=timeOnly(s);
+  if(!t||t==='–')return t;
+  const h=Number(String(t).split(':')[0]);
+  return Number.isFinite(h)?String(h):String(t).replace(/:00$/,'');
 }
 function renderWeatherTimeline(rows,arrivalMs,departureMs=null){
   const data=(rows||[]).filter(x=>x?.time&&[x.rain,x.wind,x.cape].some(Number.isFinite)).sort((a,b)=>new Date(a.time)-new Date(b.time));
@@ -11371,7 +11408,8 @@ function renderWeatherTimeline(rows,arrivalMs,departureMs=null){
   const windPoints=data.map((d,i)=>Number.isFinite(d.wind)?`${x(i).toFixed(1)},${windY(d.wind).toFixed(1)}`:null).filter(Boolean).join(' ');
   const times=data.map(d=>new Date(d.time).getTime()),nearest=ms=>times.reduce((best,t,i)=>Math.abs(t-ms)<Math.abs(times[best]-ms)?i:best,0);
   const ai=nearest(arrivalMs),di=departureMs?nearest(departureMs):ai,hx=Math.max(L,x(Math.min(ai,di))-step/2),hw=Math.max(8,x(Math.max(ai,di))-x(Math.min(ai,di))+step),bandLabel=departureMs?'滞在':'到着';
-  const ticks=data.map((d,i)=>i%Math.max(1,Math.ceil(data.length/6))===0||i===data.length-1?`<text x="${x(i)}" y="211" text-anchor="middle">${timeOnly(d.time)}</text>`:'').join('');
+  const tickEvery=Math.max(1,Math.ceil(data.length/9));
+  const ticks=data.map((d,i)=>i%tickEvery===0||i===data.length-1?`<text x="${x(i)}" y="211" text-anchor="middle">${timelineHourLabel(d.time)}</text>`:'').join('');
   return `<div class="wx-timeline" role="img" aria-label="降水量、平均風速、雷リスクの時系列">
     <div class="wx-timeline-head"><b>前後の気象推移</b><span><i class="rain"></i>降水量 <i class="wind"></i>平均風速 <i class="stay"></i>${bandLabel}</span></div>
     <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
@@ -11385,7 +11423,7 @@ function renderWeatherTimeline(rows,arrivalMs,departureMs=null){
       <text class="wx-axis-unit rain" x="${L-7}" y="44" text-anchor="end">mm/h</text><text class="wx-axis-unit wind" x="${W-R+7}" y="44">m/s</text><text class="wx-th-label" x="4" y="179">雷</text>
       ${data.map((d,i)=>Number(d.rain)>axisMax?`<text class="wx-over-value rain" x="${x(i)}" y="46" text-anchor="middle">${num(d.rain,1)}</text>`:'').join('')}
       ${data.map((d,i)=>Number(d.wind)>axisMax?`<text class="wx-over-value wind" x="${x(i)}" y="38" text-anchor="middle">${num(d.wind,1)}</text>`:'').join('')}
-      ${data.map((d,i)=>{const q=timelineThunder(d.cape,d.rain);return q.cls==='low'?'':`<text class="wx-thunder-mark ${q.cls}" x="${x(i)}" y="${thY+6}" text-anchor="middle">⚡<title>${timeOnly(d.time)} 雷リスク ${q.label}</title></text>`;}).join('')}${ticks}
+      ${data.map((d,i)=>{const q=timelineThunder(d.cape,d.rain);if(!q.show)return '';return `<text class="wx-thunder-mark ${q.cls}" x="${x(i)}" y="${thY+6}" text-anchor="middle" style="fill:${q.color}">⚡<title>${timeOnly(d.time)} 雷リスク ${q.label}</title></text>`;}).join('')}${ticks}
     </svg>
   </div>`;
 }
@@ -14331,7 +14369,6 @@ const RULES=Object.freeze({
   '利尻山|利尻北麓野営場（鴛泊コース）ルート':Object.freeze([{after:'利尻北麓野営場（鴛泊コース）',before:'利尻山',points:[['peak','長官山','通過ピーク']]}]),
   '斜里岳|清岳荘登山口ルート':Object.freeze([{after:'清岳荘登山口',before:'斜里岳',points:[['pass','上二股','主要分岐']]}]),
   '八甲田山|八甲田ロープウェー山頂公園駅ルート':Object.freeze([{after:'八甲田ロープウェー山頂公園駅',before:'八甲田山（大岳）',points:[['hut','大岳避難小屋（八甲田）','避難小屋']]}]),
-  '岩木山|岩木山八合目ルート':Object.freeze([{after:'岩木山八合目',before:'岩木山',points:[['hut','鳳鳴ヒュッテ','避難小屋']]}]),
   '月山|姥沢 月山リフトルート':Object.freeze([{after:'姥沢 月山リフト',before:'月山',points:[['pass','牛首（月山）','主要分岐']]}]),
   '安達太良山|奥岳・あだたら山ロープウェイルート':Object.freeze([{after:'奥岳登山口・あだたら山ロープウェイ',before:'安達太良山',points:[['peak','薬師岳（安達太良）','通過ピーク']]}]),
   '茶臼岳（那須岳）|峠の茶屋・茶臼岳ルート':Object.freeze([{after:'峠の茶屋・那須岳登山口',before:'茶臼岳（那須岳）',points:[['hut','峰の茶屋跡避難小屋','避難小屋']]}]),
@@ -14399,4 +14436,77 @@ if(typeof representativeCourseExpandedPointDefs==='function'){
 }
 try{if(typeof rebuildRouteDerivedCaches==='function')rebuildRouteDerivedCaches();}catch(_){}
 window.TRATEN_REPRESENTATIVE_ENRICHMENT_V15128=Object.freeze({version:VERSION,routeCount:2,policy:'verified public route order + published coordinates + published directional CT; no guessed coordinate/CT'});
+})();
+
+
+// Traten V1.5.137: restore route integrity for Hakkoda and Ichifusa.
+(function(){'use strict';
+const VERSION='1.5.137';
+function addFixed(mountain,point){
+  try{
+    const k=canonicalMountainName(mountain);
+    const arr=BUILTIN_ROUTE_CATALOG[k];
+    if(Array.isArray(arr)&&!arr.some(p=>p?.id===point.id||String(p?.name||'')===point.name))arr.push(Object.freeze(point));
+  }catch(_){}
+}
+addFixed('八甲田山',{id:'v15137-hakkoda-oodake-hut',type:'hut',name:'大岳避難小屋（八甲田）',lat:40.6625,lon:140.877778,elevation:1436,source:'PORTALFIELD/mikketa公開位置（北緯40°39′45″ 東経140°52′40″、標高1436m）'});
+addFixed('市房山',{id:'v15137-ichifusa-jinja',type:'hut',name:'市房神社',lat:32.31494,lon:131.08571,elevation:800,source:'Mapcarta/GeoNames公開位置（32.31494, 131.08571）＋九州森林管理局 市房神社標高約800m'});
+try{if(typeof rebuildRouteDerivedCaches==='function')rebuildRouteDerivedCaches();}catch(_){}
+window.TRATEN_REPRESENTATIVE_REPAIR_V15137=Object.freeze({version:VERSION,restoredRoutes:2,addedFixedPoints:2,policy:'published coordinates + published directional CT only; no guessed coordinate/CT'});
+})();
+
+// Traten V1.5.136: restore route integrity for three verified 3-point reductions.
+// Coordinates are published point coordinates; no coordinate is interpolated.
+(function(){'use strict';
+const VERSION='1.5.136';
+function addFixed(mountain,point){
+  try{
+    const k=canonicalMountainName(mountain);
+    const arr=BUILTIN_ROUTE_CATALOG[k];
+    if(Array.isArray(arr)&&!arr.some(p=>p?.id===point.id||String(p?.name||'')===point.name))arr.push(Object.freeze(point));
+  }catch(_){}
+}
+addFixed('安達太良山',{id:'v15136-adatara-yakushidake',type:'peak',name:'薬師岳（安達太良）',lat:37.620833,lon:140.308889,elevation:1322,source:'産総研 地質学雑誌 安達太良火山巡検 Stop 7（北緯37°37′15″ 東経140°18′32″）'});
+addFixed('茶臼岳（那須岳）',{id:'v15136-nasu-minenochaya',type:'hut',name:'峰の茶屋跡避難小屋',lat:37.130556,lon:139.962222,elevation:1726,source:'PORTALFIELD/mikketa公開位置（北緯37°7′50″ 東経139°57′44″）'});
+addFixed('四阿山',{id:'v15136-azumaya-nakaazumaya',type:'peak',name:'中四阿',lat:36.538056,lon:138.399722,elevation:2106,source:'ヤマレコ山のデータ公開位置（北緯36°32′17″ 東経138°23′59″）'});
+try{if(typeof rebuildRouteDerivedCaches==='function')rebuildRouteDerivedCaches();}catch(_){}
+window.TRATEN_REPRESENTATIVE_REPAIR_V15136=Object.freeze({version:VERSION,restoredRoutes:4,addedFixedPoints:3,policy:'published coordinates + published directional CT only; unsafe Iwaki insertion removed'});
+})();
+
+
+// Traten V1.5.138: repair the Bonomura representative route for Bunagatake.
+// The waypoint coordinate and all four directional segment CT values are from published sources.
+// No coordinate interpolation or CT estimation is used.
+(function(){'use strict';
+const VERSION='1.5.138';
+function addFixed(mountain,point){
+  try{
+    const k=canonicalMountainName(mountain);
+    const arr=BUILTIN_ROUTE_CATALOG[k];
+    if(Array.isArray(arr)&&!arr.some(p=>p?.id===point.id||String(p?.name||'')===point.name))arr.push(Object.freeze(point));
+  }catch(_){}
+}
+addFixed('武奈ヶ岳',{
+  id:'v15138-buna-gotenyama',type:'peak',name:'御殿山（武奈ヶ岳）',
+  lat:35.151977,lon:135.532393,elevation:1097,
+  source:'まめ登山部・標高データ滋賀県 公開座標（御殿山1097m: 35.151977, 135.532393）'
+});
+const CT=Object.freeze({
+  '坊村 武奈ヶ岳登山口→御殿山（武奈ヶ岳）':{minutes:95,source:'好日山荘 登山レポート「御殿山～武奈ヶ岳」坊村・駐車場→御殿山95分',sourceType:'kojitusanso'},
+  '御殿山（武奈ヶ岳）→武奈ヶ岳':{minutes:35,source:'好日山荘 登山レポート「御殿山～武奈ヶ岳」御殿山→武奈ヶ岳35分',sourceType:'kojitusanso'},
+  '武奈ヶ岳→御殿山（武奈ヶ岳）':{minutes:25,source:'好日山荘 登山レポート「御殿山～武奈ヶ岳」武奈ヶ岳→御殿山25分',sourceType:'kojitusanso'},
+  '御殿山（武奈ヶ岳）→坊村 武奈ヶ岳登山口':{minutes:65,source:'好日山荘 登山レポート「御殿山～武奈ヶ岳」御殿山→坊村・駐車場65分',sourceType:'kojitusanso'}
+});
+try{
+  if(typeof courseTimeInfo==='function'){
+    const old=courseTimeInfo;
+    courseTimeInfo=function(a,b){return CT[`${String(a?.name||'').trim()}→${String(b?.name||'').trim()}`]||old(a,b);};
+  }
+  if(typeof directCourseTimeInfoByNames==='function'){
+    const oldD=directCourseTimeInfoByNames;
+    directCourseTimeInfoByNames=function(a,b){return CT[`${String(a||'').trim()}→${String(b||'').trim()}`]||oldD(a,b);};
+  }
+}catch(_){}
+try{if(typeof rebuildRouteDerivedCaches==='function')rebuildRouteDerivedCaches();}catch(_){}
+window.TRATEN_REPRESENTATIVE_REPAIR_V15138=Object.freeze({version:VERSION,restoredRoutes:1,addedFixedPoints:1,policy:'published coordinate + published directional CT only; no guessed coordinate/CT'});
 })();

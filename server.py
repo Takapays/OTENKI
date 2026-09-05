@@ -38,7 +38,7 @@ import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 # V1.5.114: locked two-page Reel artwork; only date and A/B/C markers are dynamic.
-APP_VERSION = "1.5.133"
+APP_VERSION = "1.5.137"
 PORT = int(os.environ.get("PORT", "8000"))
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
