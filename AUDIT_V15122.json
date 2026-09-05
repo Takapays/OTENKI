@@ -1,0 +1,170 @@
+[
+  {
+    "m": "御嶽山",
+    "l": "田の原登山口ルート",
+    "defs": [
+      "田の原登山口",
+      "二の池ヒュッテ",
+      "御嶽山（剣ヶ峰）",
+      "田の原登山口"
+    ],
+    "error": null,
+    "segments": [
+      {
+        "minutes": 220,
+        "estimated": false,
+        "missing": false
+      },
+      {
+        "minutes": 15,
+        "estimated": false,
+        "missing": false
+      },
+      {
+        "minutes": 116,
+        "estimated": false,
+        "missing": false
+      }
+    ]
+  },
+  {
+    "m": "西穂高岳",
+    "l": "新穂高ロープウェイ・西穂山荘ルート",
+    "defs": [
+      "新穂高ロープウェイ 西穂高口駅",
+      "西穂山荘",
+      "西穂高岳",
+      "新穂高ロープウェイ 西穂高口駅"
+    ],
+    "error": null,
+    "segments": [
+      {
+        "minutes": 79,
+        "estimated": false,
+        "missing": false
+      },
+      {
+        "minutes": 142,
+        "estimated": false,
+        "missing": false
+      },
+      {
+        "minutes": 144,
+        "estimated": false,
+        "missing": false
+      }
+    ]
+  },
+  {
+    "m": "西穂高岳",
+    "l": "上高地ルート",
+    "defs": [
+      "上高地",
+      "西穂山荘",
+      "西穂高岳",
+      "上高地"
+    ],
+    "error": null,
+    "segments": [
+      {
+        "minutes": 360,
+        "estimated": false,
+        "missing": false
+      },
+      {
+        "minutes": 142,
+        "estimated": false,
+        "missing": false
+      },
+      {
+        "minutes": 733,
+        "estimated": false,
+        "missing": false
+      }
+    ]
+  },
+  {
+    "m": "横岳（八ヶ岳）",
+    "l": "美濃戸口ルート",
+    "defs": [
+      "美濃戸口",
+      "赤岳鉱泉",
+      "横岳（八ヶ岳）",
+      "美濃戸口"
+    ],
+    "error": null,
+    "segments": [
+      {
+        "minutes": 187,
+        "estimated": false,
+        "missing": false
+      },
+      {
+        "minutes": 190,
+        "estimated": false,
+        "missing": false
+      },
+      {
+        "minutes": 215,
+        "estimated": false,
+        "missing": false
+      }
+    ]
+  },
+  {
+    "m": "硫黄岳（八ヶ岳）",
+    "l": "美濃戸口ルート",
+    "defs": [
+      "美濃戸口",
+      "赤岳鉱泉",
+      "硫黄岳（八ヶ岳）",
+      "美濃戸口"
+    ],
+    "error": null,
+    "segments": [
+      {
+        "minutes": 187,
+        "estimated": false,
+        "missing": false
+      },
+      {
+        "minutes": 128,
+        "estimated": false,
+        "missing": false
+      },
+      {
+        "minutes": 159,
+        "estimated": false,
+        "missing": false
+      }
+    ]
+  },
+  {
+    "m": "阿弥陀岳",
+    "l": "美濃戸口ルート",
+    "defs": [
+      "美濃戸口",
+      "行者小屋",
+      "阿弥陀岳",
+      "美濃戸口"
+    ],
+    "error": null,
+    "segments": [
+      {
+        "minutes": 223,
+        "estimated": false,
+        "missing": false
+      },
+      {
+        "minutes": 91,
+        "estimated": false,
+        "missing": false
+      },
+      {
+        "minutes": 201,
+        "estimated": false,
+        "missing": false
+      }
+    ]
+  }
+]

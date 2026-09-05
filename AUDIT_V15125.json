@@ -1,0 +1,462 @@
+{
+  "total": 436,
+  "n3": 216,
+  "rows": [
+    {
+      "m": "利尻山",
+      "label": "利尻北麓野営場（鴛泊コース）ルート",
+      "points": [
+        "利尻北麓野営場（鴛泊コース）",
+        "長官山",
+        "利尻山",
+        "長官山",
+        "利尻北麓野営場（鴛泊コース）"
+      ],
+      "error": null,
+      "segments": [
+        {
+          "minutes": 205,
+          "estimated": false,
+          "missing": false,
+          "source": "環境省・利尻山鴛泊コース登山モデル（休憩を除く歩行時間）"
+        },
+        {
+          "minutes": 105,
+          "estimated": false,
+          "missing": false,
+          "source": "環境省・利尻山鴛泊コース登山モデル（休憩を除く歩行時間）"
+        },
+        {
+          "minutes": 85,
+          "estimated": false,
+          "missing": false,
+          "source": "環境省・利尻山鴛泊コース登山モデル（休憩を除く歩行時間）"
+        },
+        {
+          "minutes": 135,
+          "estimated": false,
+          "missing": false,
+          "source": "環境省・利尻山鴛泊コース登山モデル（休憩を除く歩行時間）"
+        }
+      ]
+    },
+    {
+      "m": "斜里岳",
+      "label": "清岳荘登山口ルート",
+      "points": [
+        "清岳荘登山口",
+        "上二股",
+        "斜里岳",
+        "上二股",
+        "清岳荘登山口"
+      ],
+      "error": null,
+      "segments": [
+        {
+          "minutes": 120,
+          "estimated": false,
+          "missing": false,
+          "source": "既存確認済み登り180分から北海道公開上二股→山頂60分を差引"
+        },
+        {
+          "minutes": 60,
+          "estimated": false,
+          "missing": false,
+          "source": "北海道・斜里岳道立自然公園案内"
+        },
+        {
+          "minutes": 30,
+          "estimated": false,
+          "missing": false,
+          "source": "北海道・斜里岳道立自然公園案内"
+        },
+        {
+          "minutes": 100,
+          "estimated": false,
+          "missing": false,
+          "source": "既存確認済み下り130分から公開山頂→上二股30分を差引"
+        }
+      ]
+    },
+    {
+      "m": "八甲田山",
+      "label": "八甲田ロープウェー山頂公園駅ルート",
+      "points": [
+        "八甲田ロープウェー山頂公園駅",
+        "大岳避難小屋（八甲田）",
+        "八甲田山（大岳）",
+        "大岳避難小屋（八甲田）",
+        "八甲田ロープウェー山頂公園駅"
+      ],
+      "error": null,
+      "segments": [
+        {
+          "minutes": 133,
+          "estimated": false,
+          "missing": false,
+          "source": "既存確認済み登り148分から大岳避難小屋→大岳15分を差引"
+        },
+        {
+          "minutes": 15,
+          "estimated": false,
+          "missing": false,
+          "source": "公開八甲田モデル・大岳避難小屋→大岳"
+        },
+        {
+          "minutes": 10,
+          "estimated": false,
+          "missing": false,
+          "source": "公開八甲田モデル・大岳→大岳避難小屋"
+        },
+        {
+          "minutes": 110,
+          "estimated": false,
+          "missing": false,
+          "source": "既存確認済み下り120分から山頂→避難小屋10分を差引"
+        }
+      ]
+    },
+    {
+      "m": "岩木山",
+      "label": "岩木山八合目ルート",
+      "points": [
+        "岩木山八合目",
+        "鳳鳴ヒュッテ",
+        "岩木山",
+        "鳳鳴ヒュッテ",
+        "岩木山八合目"
+      ],
+      "error": null,
+      "segments": [
+        {
+          "minutes": 60,
+          "estimated": false,
+          "missing": false,
+          "source": "既存確認済み登り86分から鳳鳴ヒュッテ→山頂26分を差引"
+        },
+        {
+          "minutes": 26,
+          "estimated": false,
+          "missing": false,
+          "source": "公開岩木山八合目モデル・鳳鳴ヒュッテ→山頂"
+        },
+        {
+          "minutes": 20,
+          "estimated": false,
+          "missing": false,
+          "source": "公開岩木山八合目モデル・山頂→鳳鳴ヒュッテ"
+        },
+        {
+          "minutes": 29,
+          "estimated": false,
+          "missing": false,
+          "source": "既存確認済み下り49分から山頂→鳳鳴ヒュッテ20分を差引"
+        }
+      ]
+    },
+    {
+      "m": "月山",
+      "label": "姥沢 月山リフトルート",
+      "points": [
+        "姥沢 月山リフト",
+        "牛首（月山）",
+        "月山",
+        "牛首（月山）",
+        "姥沢 月山リフト"
+      ],
+      "error": null,
+      "segments": [
+        {
+          "minutes": 193,
+          "estimated": false,
+          "missing": false,
+          "source": "既存確認済み姥沢→月山208分から公開モデル牛首→山頂15分を差引"
+        },
+        {
+          "minutes": 15,
+          "estimated": false,
+          "missing": false,
+          "source": "YAMAP公開モデル・牛首→月山"
+        },
+        {
+          "minutes": 76,
+          "estimated": false,
+          "missing": false,
+          "source": "YAMAP公開モデル・月山→牛首"
+        },
+        {
+          "minutes": 50,
+          "estimated": false,
+          "missing": false,
+          "source": "既存確認済み月山→姥沢126分から公開モデル月山→牛首76分を差引"
+        }
+      ]
+    },
+    {
+      "m": "安達太良山",
+      "label": "奥岳・あだたら山ロープウェイルート",
+      "points": [
+        "奥岳登山口・あだたら山ロープウェイ",
+        "薬師岳（安達太良）",
+        "安達太良山",
+        "薬師岳（安達太良）",
+        "奥岳登山口・あだたら山ロープウェイ"
+      ],
+      "error": null,
+      "segments": [
+        {
+          "minutes": 98,
+          "estimated": false,
+          "missing": false,
+          "source": "YAMAP公開モデル・奥岳登山口→薬師岳"
+        },
+        {
+          "minutes": 98,
+          "estimated": false,
+          "missing": false,
+          "source": "YAMAP公開モデル・薬師岳→安達太良山"
+        },
+        {
+          "minutes": 78,
+          "estimated": false,
+          "missing": false,
+          "source": "YAMAP公開モデル・安達太良山→薬師岳"
+        },
+        {
+          "minutes": 19,
+          "estimated": false,
+          "missing": false,
+          "source": "YAMAP公開モデル・薬師岳→奥岳登山口"
+        }
+      ]
+    },
+    {
+      "m": "茶臼岳（那須岳）",
+      "label": "峠の茶屋・茶臼岳ルート",
+      "points": [
+        "峠の茶屋・那須岳登山口",
+        "峰の茶屋跡避難小屋",
+        "茶臼岳（那須岳）",
+        "峰の茶屋跡避難小屋",
+        "峠の茶屋・那須岳登山口"
+      ],
+      "error": null,
+      "segments": [
+        {
+          "minutes": 50,
+          "estimated": false,
+          "missing": false,
+          "source": "YAMAP公開モデル・峠の茶屋→峰の茶屋跡避難小屋"
+        },
+        {
+          "minutes": 51,
+          "estimated": false,
+          "missing": false,
+          "source": "既存確認済み登り101分から登山口→峰の茶屋50分を差引"
+        },
+        {
+          "minutes": 27,
+          "estimated": false,
+          "missing": false,
+          "source": "既存確認済み下り62分から峰の茶屋→登山口35分を差引"
+        },
+        {
+          "minutes": 35,
+          "estimated": false,
+          "missing": false,
+          "source": "YAMAP公開モデル・峰の茶屋跡→峠の茶屋"
+        }
+      ]
+    },
+    {
+      "m": "四阿山",
+      "label": "菅平牧場ルート",
+      "points": [
+        "菅平牧場登山口",
+        "中四阿",
+        "四阿山",
+        "中四阿",
+        "菅平牧場登山口"
+      ],
+      "error": null,
+      "segments": [
+        {
+          "minutes": 155,
+          "estimated": false,
+          "missing": false,
+          "source": "YAMAP公開モデル・菅平牧場→中四阿"
+        },
+        {
+          "minutes": 25,
+          "estimated": false,
+          "missing": false,
+          "source": "既存確認済み登り180分から中四阿まで155分を差引"
+        },
+        {
+          "minutes": 55,
+          "estimated": false,
+          "missing": false,
+          "source": "YAMAP公開モデル・四阿山→中四阿"
+        },
+        {
+          "minutes": 80,
+          "estimated": false,
+          "missing": false,
+          "source": "YAMAP公開モデル・中四阿→菅平牧場"
+        }
+      ]
+    },
+    {
+      "m": "伊吹山",
+      "label": "伊吹山ドライブウェイ山頂駐車場ルート",
+      "points": [
+        "伊吹山ドライブウェイ山頂駐車場",
+        "西登山道中間分岐（伊吹山）",
+        "伊吹山",
+        "西登山道中間分岐（伊吹山）",
+        "伊吹山ドライブウェイ山頂駐車場"
+      ],
+      "error": null,
+      "segments": [
+        {
+          "minutes": 29,
+          "estimated": false,
+          "missing": false,
+          "source": "YAMAP現行西登山道モデル・山頂駐車場→中間分岐"
+        },
+        {
+          "minutes": 22,
+          "estimated": false,
+          "missing": false,
+          "source": "YAMAP現行西登山道モデル・中間分岐→山頂"
+        },
+        {
+          "minutes": 20,
+          "estimated": false,
+          "missing": false,
+          "source": "YAMAP現行西登山道往復モデル・山頂→分岐"
+        },
+        {
+          "minutes": 20,
+          "estimated": false,
+          "missing": false,
+          "source": "YAMAP現行西登山道往復71分から他3区間を差引"
+        }
+      ]
+    },
+    {
+      "m": "武奈ヶ岳",
+      "label": "坊村 武奈ヶ岳登山口ルート",
+      "points": [
+        "坊村 武奈ヶ岳登山口",
+        "御殿山（武奈ヶ岳）",
+        "武奈ヶ岳",
+        "御殿山（武奈ヶ岳）",
+        "坊村 武奈ヶ岳登山口"
+      ],
+      "error": null,
+      "segments": [
+        {
+          "minutes": 147,
+          "estimated": false,
+          "missing": false,
+          "source": "YAMAP西南稜モデル・坊村登山口→御殿山 95+30+15+7分"
+        },
+        {
+          "minutes": 46,
+          "estimated": false,
+          "missing": false,
+          "source": "YAMAP西南稜モデル・御殿山→ワサビ峠40+分岐3+山頂3分"
+        },
+        {
+          "minutes": 54,
+          "estimated": false,
+          "missing": false,
+          "source": "YAMAP西南稜モデル・山頂→分岐30+ワサビ峠9+御殿山15分"
+        },
+        {
+          "minutes": 109,
+          "estimated": false,
+          "missing": false,
+          "source": "YAMAP西南稜モデル・御殿山→分岐25+80+登山口4分"
+        }
+      ]
+    },
+    {
+      "m": "東赤石山",
+      "label": "瀬場登山口 東赤石山ルート",
+      "points": [
+        "瀬場登山口 東赤石山",
+        "赤石山荘",
+        "東赤石山",
+        "赤石山荘",
+        "瀬場登山口 東赤石山"
+      ],
+      "error": null,
+      "segments": [
+        {
+          "minutes": 215,
+          "estimated": false,
+          "missing": false,
+          "source": "公開登山記録・瀬場登山口07:05→赤石山荘10:40（215分）"
+        },
+        {
+          "minutes": 115,
+          "estimated": false,
+          "missing": false,
+          "source": "公開登山記録・赤石山荘10:40→八巻山11:50→東赤石山12:35（115分）"
+        },
+        {
+          "minutes": 45,
+          "estimated": false,
+          "missing": false,
+          "source": "公開登山記録・東赤石山12:35→赤石山荘13:20（45分）"
+        },
+        {
+          "minutes": 140,
+          "estimated": false,
+          "missing": false,
+          "source": "公開登山記録・赤石山荘13:20→瀬場登山口15:40（140分）"
+        }
+      ]
+    },
+    {
+      "m": "市房山",
+      "label": "市房山キャンプ場（市房山登山口アクセス起点）ルート",
+      "points": [
+        "市房山キャンプ場（市房山登山口アクセス起点）",
+        "市房神社",
+        "市房山",
+        "市房神社",
+        "市房山キャンプ場（市房山登山口アクセス起点）"
+      ],
+      "error": null,
+      "segments": [
+        {
+          "minutes": 65,
+          "estimated": false,
+          "missing": false,
+          "source": "YAMAP・市房神社参道往復モデル 標高572m地点08:00→市房神社09:05"
+        },
+        {
+          "minutes": 195,
+          "estimated": false,
+          "missing": false,
+          "source": "YAMAP・市房神社参道往復モデル 市房神社09:05→市房山12:20（6合目・8合目経由）"
+        },
+        {
+          "minutes": 97,
+          "estimated": false,
+          "missing": false,
+          "source": "YAMAP・市房神社参道往復モデル 市房山12:20→市房神社13:57"
+        },
+        {
+          "minutes": 37,
+          "estimated": false,
+          "missing": false,
+          "source": "YAMAP・市房神社参道往復モデル 市房神社13:57→標高572m地点14:34"
+        }
+      ]
+    }
+  ]
+}

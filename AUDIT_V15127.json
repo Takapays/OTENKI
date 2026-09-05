@@ -1,0 +1,142 @@
+{
+  "total": 424,
+  "n3": 201,
+  "rows": [
+    {
+      "m": "茶臼岳（那須岳）",
+      "label": "那須ロープウェイ・峠の茶屋側ルート",
+      "defs": [
+        "那須ロープウェイ・峠の茶屋側",
+        "峰の茶屋跡避難小屋",
+        "茶臼岳（那須岳）",
+        "峰の茶屋跡避難小屋",
+        "那須ロープウェイ・峠の茶屋側"
+      ],
+      "resolved": [
+        "那須ロープウェイ・峠の茶屋側",
+        "峰の茶屋跡避難小屋",
+        "茶臼岳（那須岳）",
+        "峰の茶屋跡避難小屋",
+        "那須ロープウェイ・峠の茶屋側"
+      ],
+      "error": null,
+      "missing": 0,
+      "estimated": 0,
+      "segments": [
+        {
+          "minutes": 50,
+          "estimated": false,
+          "source": "YAMAP峠の茶屋登山口-茶臼岳モデル + 既存同一起点CTを区間化"
+        },
+        {
+          "minutes": 51,
+          "estimated": false,
+          "source": "既存確認済み登り101分から登山口→峰の茶屋50分を差引"
+        },
+        {
+          "minutes": 27,
+          "estimated": false,
+          "source": "既存確認済み下り62分から峰の茶屋→登山口35分を差引"
+        },
+        {
+          "minutes": 35,
+          "estimated": false,
+          "source": "YAMAP峠の茶屋登山口-茶臼岳モデル + 既存同一起点CTを区間化"
+        }
+      ]
+    },
+    {
+      "m": "荒島岳",
+      "label": "中出コースルート",
+      "defs": [
+        "中出コース登山口",
+        "シャクナゲ平",
+        "荒島岳",
+        "シャクナゲ平",
+        "中出コース登山口"
+      ],
+      "resolved": [
+        "中出コース登山口",
+        "シャクナゲ平",
+        "荒島岳",
+        "シャクナゲ平",
+        "中出コース登山口"
+      ],
+      "error": null,
+      "missing": 0,
+      "estimated": 0,
+      "segments": [
+        {
+          "minutes": 137,
+          "estimated": false,
+          "source": "既存V1.5.82/YAMAP中出コース確認済み区間"
+        },
+        {
+          "minutes": 83,
+          "estimated": false,
+          "source": "YAMAP・勝原コース公開チェックポイント合算"
+        },
+        {
+          "minutes": 61,
+          "estimated": false,
+          "source": "YAMAP・勝原コース公開チェックポイント合算"
+        },
+        {
+          "minutes": 99,
+          "estimated": false,
+          "source": "既存V1.5.82/YAMAP中出コース確認済み区間"
+        }
+      ]
+    },
+    {
+      "m": "六甲山",
+      "label": "芦屋川 高座の滝ルート",
+      "defs": [
+        "芦屋川 高座の滝",
+        "風吹岩",
+        "雨ヶ峠",
+        "一軒茶屋",
+        "六甲山",
+        "芦屋川 高座の滝"
+      ],
+      "resolved": [
+        "芦屋川 高座の滝",
+        "風吹岩",
+        "雨ヶ峠",
+        "一軒茶屋",
+        "六甲山",
+        "芦屋川 高座の滝"
+      ],
+      "error": null,
+      "missing": 0,
+      "estimated": 0,
+      "segments": [
+        {
+          "minutes": 40,
+          "estimated": false,
+          "source": "山と高原地図Web・高座の滝→風吹岩40分"
+        },
+        {
+          "minutes": 60,
+          "estimated": false,
+          "source": "山と高原地図Web・風吹岩→雨ヶ峠60分"
+        },
+        {
+          "minutes": 90,
+          "estimated": false,
+          "source": "山と高原地図Web・雨ヶ峠→一軒茶屋90分"
+        },
+        {
+          "minutes": 10,
+          "estimated": false,
+          "source": "山と高原地図Web・一軒茶屋→六甲山最高峰10分"
+        },
+        {
+          "minutes": 220,
+          "estimated": false,
+          "source": "ユーザー確定・V1.4.252表示推定CTを採用（V1.4.253）"
+        }
+      ]
+    }
+  ]
+}

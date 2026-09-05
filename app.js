@@ -158,8 +158,8 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.121';
-// V1.5.121: keep desktop/mobile visible version badges synchronized with the JS build.
+const APP_VERSION = '1.5.127';
+// V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
   const text=`V${APP_VERSION}`;
@@ -2524,6 +2524,11 @@ const V1550_CUSTOM_ROUTE_COURSE_TIMES = Object.freeze({
   '諏蛾守越→三俣山': {minutes:47, source:'YAMAPモデルコース・諏蛾守越→三俣山西峰→三俣山本峰 47分（2026-08-31確認）', sourceType:'yamap'},
   '三俣山→諏蛾守越': {minutes:72, source:'YAMAPモデルコース・三俣山本峰→IV峰側周回→諏蛾守越 1時間12分（公開モデル代表経路、2026-08-31確認）', sourceType:'yamap'},
 
+  // Hyounosen representative-route splits. Route order confirmed by the official Tottori climbing map and public Yamareco plan.
+  '福定親水公園 氷ノ山登山口→氷ノ山越避難小屋': {minutes:189, source:'ヤマレコ公開山行計画 p5706965・福定親水公園→地蔵堂→木地屋跡→氷ノ山越 189分（2026-09-05確認）', sourceType:'yamareco'},
+  '氷ノ山越避難小屋→氷ノ山': {minutes:99, source:'ヤマレコ公開山行計画 p5706965・氷ノ山越→仙谷分岐→氷ノ山 99分（2026-09-05確認）', sourceType:'yamareco'},
+  'わかさ氷ノ山登山口→氷ノ山越避難小屋': {minutes:75, source:'鳥取県公式・氷ノ山登山マップ 氷ノ越コース 登山口側→氷ノ越 1時間15分（2026-09-05確認）', sourceType:'official'},
+
   // Ontake Kurozawa-route selectable-point links.
   '中の湯登山口（黒沢口）→女人堂': {minutes:148, source:'ヤマレコ公開山行計画 p5776496・中の湯→女人堂 2時間28分（2026-08-31確認）', sourceType:'yamareco'},
   '女人堂→中の湯登山口（黒沢口）': {minutes:84, source:'ヤマレコ公開山行計画 p5776496・女人堂→中の湯 1時間24分（2026-08-31確認）', sourceType:'yamareco'},
@@ -2854,7 +2859,25 @@ const V1583_PRIORITY_B_COURSE_TIMES = Object.freeze({
   '甲武信小屋→毛木平登山口':{minutes:148,source:'既存確認済み下山168分から山頂→甲武信小屋20分を差引',sourceType:'derived-verified'}
 });
 
+// V1.5.127: verified segment splits for three remaining 3-point representative routes.
+// Values are from already accepted public route totals/checkpoints; no estimation or distance apportionment.
+const V15127_THREE_POINT_SPLIT_COURSE_TIMES = Object.freeze({
+  '那須ロープウェイ・峠の茶屋側→峰の茶屋跡避難小屋': {minutes:50, source:'YAMAP峠の茶屋登山口-茶臼岳モデル + 既存同一起点CTを区間化', sourceType:'yamap'},
+  '峰の茶屋跡避難小屋→茶臼岳（那須岳）': {minutes:51, source:'既存確認済み那須岳CT（峰の茶屋経由）', sourceType:'yamap'},
+  '茶臼岳（那須岳）→峰の茶屋跡避難小屋': {minutes:27, source:'既存確認済み那須岳CT（峰の茶屋経由）', sourceType:'yamap'},
+  '峰の茶屋跡避難小屋→那須ロープウェイ・峠の茶屋側': {minutes:35, source:'YAMAP峠の茶屋登山口-茶臼岳モデル + 既存同一起点CTを区間化', sourceType:'yamap'},
+  '中出コース登山口→シャクナゲ平': {minutes:137, source:'既存V1.5.82/YAMAP中出コース確認済み区間', sourceType:'yamap'},
+  'シャクナゲ平→荒島岳': {minutes:83, source:'既存V1.5.82 YAMAP荒島岳モデル', sourceType:'yamap'},
+  '荒島岳→シャクナゲ平': {minutes:61, source:'既存V1.5.82 YAMAP荒島岳モデル', sourceType:'yamap'},
+  'シャクナゲ平→中出コース登山口': {minutes:99, source:'既存V1.5.82/YAMAP中出コース確認済み区間', sourceType:'yamap'},
+  '芦屋川 高座の滝→風吹岩': {minutes:40, source:'山と高原地図Web・高座の滝→風吹岩40分', sourceType:'yamakei'},
+  '風吹岩→雨ヶ峠': {minutes:60, source:'山と高原地図Web・風吹岩→雨ヶ峠60分', sourceType:'yamakei'},
+  '雨ヶ峠→一軒茶屋': {minutes:90, source:'山と高原地図Web・雨ヶ峠→一軒茶屋90分', sourceType:'yamakei'},
+  '一軒茶屋→六甲山': {minutes:10, source:'山と高原地図Web・一軒茶屋→六甲山最高峰10分', sourceType:'yamakei'}
+});
+
 const COURSE_TIME_TABLES = Object.freeze([
+  V15127_THREE_POINT_SPLIT_COURSE_TIMES,
   V1584_PRIORITY_B_COURSE_TIMES,
   V1583_PRIORITY_B_COURSE_TIMES,
   V1555_ROUTE_RESTORE_COURSE_TIMES,
@@ -8898,6 +8921,21 @@ const REPRESENTATIVE_COURSE_ENRICHMENTS_V14158 = Object.freeze({
   ],
   '白木峰|白木峰8合目駐車場ルート': [
     {after:'白木峰8合目駐車場',before:'白木峰',points:[['hut','白木山荘（避難小屋）','山小屋']]}
+  ],
+  // V1.5.124: continue removing 3-point courses with route-order verified waypoints only.
+  // 編笠山: 青年小屋 lies immediately beyond the summit on the classic return loop, so insert it on descent, not ascent.
+  '編笠山|観音平ルート': [
+    {after:'編笠山',before:'観音平',points:[['hut','青年小屋','山小屋']]}
+  ],
+  '編笠山|富士見高原ルート': [
+    {after:'編笠山',before:'富士見高原登山口',points:[['hut','青年小屋','山小屋']]}
+  ],
+  // 氷ノ山: 氷ノ越避難小屋 is on the actual ascent line before the summit for both representative approaches.
+  '氷ノ山|福定親水公園 氷ノ山登山口ルート': [
+    {after:'福定親水公園 氷ノ山登山口',before:'氷ノ山',points:[['hut','氷ノ山越避難小屋','山小屋']]}
+  ],
+  '氷ノ山|わかさ氷ノ山登山口ルート': [
+    {after:'わかさ氷ノ山登山口',before:'氷ノ山',points:[['hut','氷ノ山越避難小屋','山小屋']]}
   ]
 });
 
@@ -14038,4 +14076,242 @@ if(typeof representativeCourseExpandedPointDefs==='function'){
 }
 try{if(typeof rebuildRouteDerivedCaches==='function')rebuildRouteDerivedCaches();}catch(_){ }
 window.TRATEN_REPRESENTATIVE_ENRICHMENT_V15109=Object.freeze({version:VERSION,phase:'large 3-point route reduction',routeCount:Object.keys(RULES).length,policy:'official/public model route order + explicit published coordinates/CT only; no inferred coordinates/CT'});
+})();
+
+// Traten V1.5.122: verified 3-point representative-route reduction batch.
+// Uses only existing fixed points and existing non-estimated CT in the current data.
+(function(){'use strict';
+const VERSION='1.5.122';
+const RULES=Object.freeze({
+  '御嶽山|田の原登山口ルート':Object.freeze([
+    {after:'田の原登山口',before:'御嶽山（剣ヶ峰）',points:[['hut','二の池ヒュッテ','山小屋']],directional:true}
+  ]),
+  '西穂高岳|新穂高ロープウェイ・西穂山荘ルート':Object.freeze([
+    {after:'新穂高ロープウェイ 西穂高口駅',before:'西穂高岳',points:[['hut','西穂山荘','山小屋']],directional:true}
+  ]),
+  '西穂高岳|上高地ルート':Object.freeze([
+    {after:'上高地',before:'西穂高岳',points:[['hut','西穂山荘','山小屋']],directional:true}
+  ]),
+  '横岳（八ヶ岳）|美濃戸口ルート':Object.freeze([
+    {after:'美濃戸口',before:'横岳（八ヶ岳）',points:[['hut','赤岳鉱泉','山小屋']],directional:true}
+  ]),
+  '硫黄岳（八ヶ岳）|美濃戸口ルート':Object.freeze([
+    {after:'美濃戸口',before:'硫黄岳（八ヶ岳）',points:[['hut','赤岳鉱泉','山小屋']],directional:true}
+  ]),
+  '阿弥陀岳|美濃戸口ルート':Object.freeze([
+    {after:'美濃戸口',before:'阿弥陀岳',points:[['hut','行者小屋','山小屋']],directional:true}
+  ])
+});
+function expand(defs,rules){let out=defs.map(p=>[...p]);for(const r of rules){const next=[];for(let i=0;i<out.length;i++){const cur=out[i];next.push(cur);const n=out[i+1];if(!n)continue;if(cur[1]===r.after&&n[1]===r.before)next.push(...r.points.map(p=>[...p]));}out=next;}return out;}
+if(typeof representativeCourseExpandedPointDefs==='function'){
+  const old=representativeCourseExpandedPointDefs;
+  representativeCourseExpandedPointDefs=function(mountain,course){const defs=old(mountain,course)||[];let m=String(mountain||'').trim();try{m=canonicalMountainName(m);}catch(_){ }const rules=RULES[`${m}|${course?.label||''}`];return rules?expand(defs,rules):defs;};
+}
+try{if(typeof rebuildRouteDerivedCaches==='function')rebuildRouteDerivedCaches();}catch(_){ }
+window.TRATEN_REPRESENTATIVE_ENRICHMENT_V15122=Object.freeze({version:VERSION,routeCount:Object.keys(RULES).length,policy:'existing fixed points + existing verified CT only; no guessed coordinate/CT'});
+})();
+
+// Traten V1.5.124: continued verified reduction of 3-point representative courses.
+// Mix of existing fixed/verified route points and newly verified public model-course points.
+(function(){'use strict';
+const VERSION='1.5.124';
+function ensurePoint(mountain,p){
+  try{
+    if(!BUILTIN_ROUTE_CATALOG[mountain]) BUILTIN_ROUTE_CATALOG[mountain]=[];
+    if(!BUILTIN_ROUTE_CATALOG[mountain].some(x=>x&&x.name===p.name)) BUILTIN_ROUTE_CATALOG[mountain].push(Object.freeze(p));
+  }catch(_){ }
+}
+// Published coordinates only. No interpolated route geometry.
+ensurePoint('天城山（万三郎岳）',{id:'v15124-banjiro',type:'peak',name:'万二郎岳（天城山）',lat:34.86003,lon:139.02072,elevation:1295,source:'OpenStreetMap/Mapcarta published coordinate; YAMAP elevation'});
+ensurePoint('高千穂峰',{id:'v15124-ohachi',type:'peak',name:'御鉢',lat:31.885452,lon:130.909808,elevation:1408,source:'Outdooractive published coordinate / public summit data'});
+ensurePoint('羅臼岳',{id:'v15124-rausudaira',type:'pass',name:'羅臼平',lat:44.08175,lon:145.12853,elevation:1345,source:'既存V1.5.80公開地形・位置情報照合; Wikimedia/SummitPost公開位置で再確認'});
+ensurePoint('越後駒ヶ岳',{id:'v15124-echigokoma-ogura',type:'peak',name:'小倉山',lat:37.080611,lon:139.055150,elevation:1378,source:'既存V1.5.81 国土地理院三角点公開値'});
+ensurePoint('平ヶ岳',{id:'v15124-hiragatake-shimodaikura',type:'peak',name:'下台倉山',lat:37.014416,lon:139.131927,elevation:1610,source:'既存V1.5.81 国土地理院地形・公開標高座標'});
+ensurePoint('平ヶ岳',{id:'v15124-hiragatake-daikura',type:'peak',name:'台倉山',lat:37.010678,lon:139.130567,elevation:1695,source:'既存V1.5.81 国土地理院三角点公開値'});
+ensurePoint('平ヶ岳',{id:'v15124-hiragatake-ikenodake',type:'peak',name:'池ノ岳',lat:37.003868,lon:139.103973,elevation:2080,source:'既存V1.5.81 国土地理院地形・公開標高座標'});
+ensurePoint('後方羊蹄山',{id:'v15124-yotei-makkari',type:'peak',name:'真狩岳',lat:42.828233,lon:140.811180,elevation:1893,source:'既存V1.5.81 国土地理院一等三角点・真狩岳公開値'});
+ensurePoint('武尊山',{id:'v15124-hotaka-maehotaka',type:'peak',name:'前武尊',lat:36.789940,lon:139.146280,elevation:2040,source:'既存V1.5.81 公開地形座標・前武尊'});
+ensurePoint('両神山',{id:'v15124-ryokami-kiyotaki',type:'hut',name:'清滝避難小屋',lat:36.021111,lon:138.850833,elevation:1290,source:'既存V1.5.81 清滝避難小屋公開位置情報'});
+ensurePoint('西吾妻山',{id:'v15124-nishiazuma-nishidaiten',type:'peak',name:'西大巓',lat:37.7338,lon:140.1275,elevation:1982,source:'既存V1.5.82 公開地形座標・西大巓'});
+ensurePoint('荒島岳',{id:'v15124-arashima-shakunage',type:'pass',name:'シャクナゲ平',lat:35.9506,lon:136.5967,elevation:1204,source:'既存V1.5.82 公開登山地図・シャクナゲ平'});
+ensurePoint('磐梯山',{id:'v15124-bandai-koboshimizu',type:'waypoint',name:'弘法清水小屋',lat:37.60495,lon:140.07195,elevation:1630,source:'既存V1.5.84 磐梯山公式登山マップ・弘法清水小屋位置'});
+ensurePoint('雨飾山',{id:'v15124-amakazari-arasugesawa',type:'waypoint',name:'荒菅沢',lat:36.8924,lon:137.9707,elevation:1448,source:'既存V1.5.84 環境省公開ルート図・雨飾山 荒菅沢'});
+ensurePoint('男体山',{id:'v15124-nantai-takino8',type:'waypoint',name:'八合目 瀧尾神社',lat:36.7579,lon:139.4896,elevation:2200,source:'既存V1.5.84 YAMAP公開モデル・男体山 八合目 瀧尾神社'});
+
+
+
+const EXTRA_CT=Object.freeze({
+  // YAMAP model: 天城高原駐車場08:00 -> 万二郎岳09:21 -> 万三郎岳10:36,
+  // return 万三郎岳11:11 -> 万二郎岳12:01 -> 駐車場13:12.
+  '天城高原ハイカー専用駐車場→万二郎岳（天城山）':{minutes:81,source:'YAMAP公開モデル・天城縦走登山口-万二郎岳-石楠立-万三郎岳往復（2026-09-05確認）',sourceType:'yamap'},
+  '万二郎岳（天城山）→天城山（万三郎岳）':{minutes:75,source:'YAMAP公開モデル・万二郎岳09:21→万三郎岳10:36（2026-09-05確認）',sourceType:'yamap'},
+  '天城山（万三郎岳）→万二郎岳（天城山）':{minutes:50,source:'YAMAP公開モデル・万三郎岳11:11→万二郎岳12:01（2026-09-05確認）',sourceType:'yamap'},
+  '万二郎岳（天城山）→天城高原ハイカー専用駐車場':{minutes:71,source:'YAMAP公開モデル・万二郎岳12:01→天城高原駐車場13:12（2026-09-05確認）',sourceType:'yamap'},
+  // YAMAP model: 高千穂河原駐車場08:00 -> 御鉢10:03 -> 高千穂峰10:38,
+  // return 高千穂峰12:30 -> 御鉢13:25 -> 駐車場13:43.
+  '高千穂河原駐車場・高千穂峰登山口→御鉢':{minutes:123,source:'YAMAP公開モデル・高千穂河原-御鉢-高千穂峰（2026-09-05確認）',sourceType:'yamap'},
+  '御鉢→高千穂峰':{minutes:35,source:'YAMAP公開モデル・御鉢10:03→高千穂峰10:38（2026-09-05確認）',sourceType:'yamap'},
+  '高千穂峰→御鉢':{minutes:55,source:'YAMAP公開モデル・高千穂峰12:30→御鉢13:25（2026-09-05確認）',sourceType:'yamap'},
+  '御鉢→高千穂河原駐車場・高千穂峰登山口':{minutes:18,source:'YAMAP公開モデル・御鉢13:25→高千穂河原駐車場13:43（2026-09-05確認）',sourceType:'yamap'},
+  '枝折峠→小倉山':{minutes:140,source:'既存V1.5.81 公開標準コース・明神峠/道行山経由区間合算',sourceType:'other'},
+  '小倉山→越後駒ヶ岳':{minutes:140,source:'既存V1.5.81 公開標準コース・百草ノ池/駒の小屋経由区間合算',sourceType:'other'},
+  '越後駒ヶ岳→小倉山':{minutes:100,source:'既存V1.5.81 公開標準コース',sourceType:'other'},
+  '小倉山→枝折峠':{minutes:130,source:'既存V1.5.81 公開標準コース',sourceType:'other'},
+  '鷹ノ巣・平ヶ岳登山口→下台倉山':{minutes:179,source:'既存V1.5.81 ヤマレコ公開山行計画 p5602548',sourceType:'yamareco'},
+  '下台倉山→台倉山':{minutes:49,source:'既存V1.5.81 ヤマレコ公開山行計画 p5602548',sourceType:'yamareco'},
+  '台倉山→池ノ岳':{minutes:148,source:'既存V1.5.81 ヤマレコ公開山行計画 p5602548',sourceType:'yamareco'},
+  '池ノ岳→平ヶ岳':{minutes:34,source:'既存V1.5.81 ヤマレコ公開山行計画 p5602548',sourceType:'yamareco'},
+  '平ヶ岳→池ノ岳':{minutes:29,source:'既存V1.5.81 ヤマレコ公開山行計画 p5602548',sourceType:'yamareco'},
+  '池ノ岳→台倉山':{minutes:108,source:'既存V1.5.81 ヤマレコ公開山行計画 p5602548',sourceType:'yamareco'},
+  '台倉山→下台倉山':{minutes:39,source:'既存V1.5.81 ヤマレコ公開山行計画 p5602548',sourceType:'yamareco'},
+  '下台倉山→鷹ノ巣・平ヶ岳登山口':{minutes:104,source:'既存V1.5.81 ヤマレコ公開山行計画 p5602548',sourceType:'yamareco'},
+  '京極登山口→真狩岳':{minutes:287,source:'既存V1.5.81 YAMAP標準モデル・京極コース',sourceType:'yamap'},
+  '真狩岳→後方羊蹄山（羊蹄山）':{minutes:10,source:'既存V1.5.81 YAMAP標準モデル・京極コース',sourceType:'yamap'},
+  '後方羊蹄山（羊蹄山）→真狩岳':{minutes:2,source:'既存V1.5.81 YAMAP標準モデル・京極コース',sourceType:'yamap'},
+  '真狩岳→京極登山口':{minutes:195,source:'既存V1.5.81 YAMAP標準モデル・京極コース',sourceType:'yamap'},
+  '川場谷野営場登山口→前武尊':{minutes:225,source:'既存V1.5.81 YAMAP標準モデル・川場谷野営場ルート',sourceType:'yamap'},
+  '前武尊→武尊山':{minutes:85,source:'既存V1.5.81 YAMAP標準モデル',sourceType:'yamap'},
+  '武尊山→前武尊':{minutes:100,source:'既存V1.5.81 YAMAP標準モデル',sourceType:'yamap'},
+  '前武尊→川場谷野営場登山口':{minutes:75,source:'既存V1.5.81 YAMAP標準モデル',sourceType:'yamap'},
+  '日向大谷口→清滝避難小屋':{minutes:125,source:'既存V1.5.81 公開標準コース',sourceType:'other'},
+  '清滝避難小屋→両神山':{minutes:80,source:'既存V1.5.81 公開標準コース',sourceType:'other'},
+  '両神山→清滝避難小屋':{minutes:55,source:'既存V1.5.81 公開標準コース',sourceType:'other'},
+  '清滝避難小屋→日向大谷口':{minutes:100,source:'既存V1.5.81 公開標準コース',sourceType:'other'},
+  '白布峠登山口→西大巓':{minutes:185,source:'既存V1.5.82 YAMAP白布峠往復モデル',sourceType:'yamap'},
+  '西大巓→西吾妻山':{minutes:66,source:'既存V1.5.82 YAMAP白布峠往復モデル',sourceType:'yamap'},
+  '西吾妻山→西大巓':{minutes:140,source:'既存V1.5.82 YAMAP白布峠往復モデル',sourceType:'yamap'},
+  '西大巓→白布峠登山口':{minutes:60,source:'既存V1.5.82 YAMAP白布峠往復モデル',sourceType:'yamap'},
+  '勝原コース登山口→シャクナゲ平':{minutes:165,source:'既存V1.5.82 YAMAP勝原モデル',sourceType:'yamap'},
+  'シャクナゲ平→荒島岳':{minutes:83,source:'既存V1.5.82 YAMAP勝原モデル',sourceType:'yamap'},
+  '荒島岳→シャクナゲ平':{minutes:61,source:'既存V1.5.82 YAMAP勝原モデル',sourceType:'yamap'},
+  'シャクナゲ平→勝原コース登山口':{minutes:159,source:'既存V1.5.82 YAMAP勝原モデル',sourceType:'yamap'},
+  '八方台登山口→弘法清水小屋':{minutes:105,source:'既存V1.5.84 猪苗代観光協会公式・磐梯山登山マップ',sourceType:'official'},
+  '弘法清水小屋→磐梯山':{minutes:30,source:'既存V1.5.84 猪苗代観光協会公式・磐梯山登山マップ',sourceType:'official'},
+  '磐梯山→弘法清水小屋':{minutes:20,source:'既存V1.5.84 猪苗代観光協会公式・磐梯山登山マップ',sourceType:'official'},
+  '弘法清水小屋→八方台登山口':{minutes:80,source:'既存V1.5.84 猪苗代観光協会公式・磐梯山登山マップ',sourceType:'official'},
+  '雨飾高原キャンプ場登山口→荒菅沢':{minutes:110,source:'既存V1.5.84 環境省・妙高戸隠連山国立公園 雨飾山',sourceType:'official'},
+  '荒菅沢→雨飾山':{minutes:130,source:'既存V1.5.84 確認済み総CTと環境省公式区間からの差分',sourceType:'derived-verified'},
+  '雨飾山→荒菅沢':{minutes:90,source:'既存V1.5.84 確認済み総CTと環境省公式区間からの差分',sourceType:'derived-verified'},
+  '荒菅沢→雨飾高原キャンプ場登山口':{minutes:95,source:'既存V1.5.84 環境省・妙高戸隠連山国立公園 雨飾山',sourceType:'official'},
+  '二荒山神社中宮祠登山口→八合目 瀧尾神社':{minutes:175,source:'既存V1.5.84 YAMAP公開モデル・二荒山神社-男体山往復',sourceType:'yamap'},
+  '八合目 瀧尾神社→男体山':{minutes:62,source:'既存V1.5.84 YAMAP公開モデル・男体山',sourceType:'yamap'},
+  '男体山→八合目 瀧尾神社':{minutes:37,source:'既存V1.5.84 YAMAP公開モデル・男体山',sourceType:'yamap'},
+  '八合目 瀧尾神社→二荒山神社中宮祠登山口':{minutes:130,source:'既存V1.5.84 YAMAP公開モデル・男体山',sourceType:'yamap'}
+});
+try{
+  if(typeof courseTimeInfo==='function'){
+    const old=courseTimeInfo;
+    courseTimeInfo=function(a,b){return EXTRA_CT[`${String(a?.name||'').trim()}→${String(b?.name||'').trim()}`]||old(a,b);};
+  }
+  if(typeof directCourseTimeInfoByNames==='function'){
+    const oldD=directCourseTimeInfoByNames;
+    directCourseTimeInfoByNames=function(a,b){return EXTRA_CT[`${String(a||'').trim()}→${String(b||'').trim()}`]||oldD(a,b);};
+  }
+}catch(_){ }
+
+const RULES=Object.freeze({
+  '羅臼岳|岩尾別温泉・木下小屋登山口ルート':Object.freeze([
+    {after:'岩尾別温泉・木下小屋登山口',before:'羅臼岳',points:[['pass','羅臼平','峠・分岐']]}
+  ]),
+  '羅臼岳|羅臼温泉登山口ルート':Object.freeze([
+    {after:'羅臼温泉登山口',before:'羅臼岳',points:[['pass','羅臼平','峠・分岐']]}
+  ]),
+  '越後駒ヶ岳|枝折峠ルート':Object.freeze([
+    {after:'枝折峠',before:'越後駒ヶ岳',points:[['peak','小倉山','中間ピーク']]}
+  ]),
+  '平ヶ岳|鷹ノ巣・平ヶ岳ルート':Object.freeze([
+    {after:'鷹ノ巣・平ヶ岳登山口',before:'平ヶ岳',points:[['peak','下台倉山','通過ピーク'],['peak','台倉山','通過ピーク'],['peak','池ノ岳','湿原手前']]}
+  ]),
+  '後方羊蹄山|京極登山口ルート':Object.freeze([
+    {after:'京極登山口',before:'後方羊蹄山（羊蹄山）',points:[['peak','真狩岳','外輪山']]}
+  ]),
+  '武尊山|川場谷野営場ルート':Object.freeze([
+    {after:'川場谷野営場登山口',before:'武尊山',points:[['peak','前武尊','通過ピーク']]}
+  ]),
+  '両神山|日向大谷口ルート':Object.freeze([
+    {after:'日向大谷口',before:'両神山',points:[['hut','清滝避難小屋','避難小屋']]}
+  ]),
+  '西吾妻山|白布峠登山口ルート':Object.freeze([
+    {after:'白布峠登山口',before:'西吾妻山',points:[['peak','西大巓','通過ピーク']]}
+  ]),
+  '荒島岳|勝原コースルート':Object.freeze([
+    {after:'勝原コース登山口',before:'荒島岳',points:[['pass','シャクナゲ平','主要分岐']]}
+  ]),
+  '磐梯山|八方台登山口ルート':Object.freeze([
+    {after:'八方台登山口',before:'磐梯山',points:[['waypoint','弘法清水小屋','山小屋']]}
+  ]),
+  '雨飾山|雨飾高原キャンプ場ルート':Object.freeze([
+    {after:'雨飾高原キャンプ場登山口',before:'雨飾山',points:[['waypoint','荒菅沢','通過ポイント']]}
+  ]),
+  '男体山|二荒山神社中宮祠ルート':Object.freeze([
+    {after:'二荒山神社中宮祠登山口',before:'男体山',points:[['waypoint','八合目 瀧尾神社','通過ポイント']]}
+  ]),
+  '天城山（万三郎岳）|天城高原ハイカー専用駐車場ルート':Object.freeze([
+    {after:'天城高原ハイカー専用駐車場',before:'天城山（万三郎岳）',points:[['peak','万二郎岳（天城山）','通過ピーク']]}
+  ]),
+  '高千穂峰|高千穂河原駐車場・高千穂峰登山口ルート':Object.freeze([
+    {after:'高千穂河原駐車場・高千穂峰登山口',before:'高千穂峰',points:[['peak','御鉢','通過ピーク']]}
+  ])
+});
+function rev(points){return [...points].reverse().map(p=>[...p]);}
+function expand(defs,rules){let out=defs.map(p=>[...p]);for(const r of rules){const next=[];for(let i=0;i<out.length;i++){const cur=out[i];next.push(cur);const n=out[i+1];if(!n)continue;if(cur[1]===r.after&&n[1]===r.before)next.push(...r.points.map(p=>[...p]));else if(cur[1]===r.before&&n[1]===r.after)next.push(...rev(r.points));}out=next;}return out;}
+if(typeof representativeCourseExpandedPointDefs==='function'){
+  const old=representativeCourseExpandedPointDefs;
+  representativeCourseExpandedPointDefs=function(mountain,course){const defs=old(mountain,course)||[];let m=String(mountain||'').trim();try{m=canonicalMountainName(m);}catch(_){ }const rules=RULES[`${m}|${course?.label||''}`];return rules?expand(defs,rules):defs;};
+}
+try{if(typeof rebuildRouteDerivedCaches==='function')rebuildRouteDerivedCaches();}catch(_){ }
+window.TRATEN_REPRESENTATIVE_ENRICHMENT_V15124=Object.freeze({version:VERSION,routeCount:Object.keys(RULES).length,policy:'verified public route order/CT + published coordinates; no guessed coordinate/CT'});
+})();
+
+// Traten V1.5.125: large verified one-hop reduction of remaining 3-point representative courses.
+// Reuses fixed points and directional CT already shipped in the V1.5.80/85/88/90/91 route-enrichment data.
+// No new coordinates or CT estimates are introduced here.
+(function(){'use strict';
+const VERSION='1.5.125';
+const RULES=Object.freeze({
+  '利尻山|利尻北麓野営場（鴛泊コース）ルート':Object.freeze([{after:'利尻北麓野営場（鴛泊コース）',before:'利尻山',points:[['peak','長官山','通過ピーク']]}]),
+  '斜里岳|清岳荘登山口ルート':Object.freeze([{after:'清岳荘登山口',before:'斜里岳',points:[['pass','上二股','主要分岐']]}]),
+  '八甲田山|八甲田ロープウェー山頂公園駅ルート':Object.freeze([{after:'八甲田ロープウェー山頂公園駅',before:'八甲田山（大岳）',points:[['hut','大岳避難小屋（八甲田）','避難小屋']]}]),
+  '岩木山|岩木山八合目ルート':Object.freeze([{after:'岩木山八合目',before:'岩木山',points:[['hut','鳳鳴ヒュッテ','避難小屋']]}]),
+  '月山|姥沢 月山リフトルート':Object.freeze([{after:'姥沢 月山リフト',before:'月山',points:[['pass','牛首（月山）','主要分岐']]}]),
+  '安達太良山|奥岳・あだたら山ロープウェイルート':Object.freeze([{after:'奥岳登山口・あだたら山ロープウェイ',before:'安達太良山',points:[['peak','薬師岳（安達太良）','通過ピーク']]}]),
+  '茶臼岳（那須岳）|峠の茶屋・茶臼岳ルート':Object.freeze([{after:'峠の茶屋・那須岳登山口',before:'茶臼岳（那須岳）',points:[['hut','峰の茶屋跡避難小屋','避難小屋']]}]),
+  '四阿山|菅平牧場ルート':Object.freeze([{after:'菅平牧場登山口',before:'四阿山',points:[['peak','中四阿','通過ピーク']]}]),
+  '伊吹山|伊吹山ドライブウェイ山頂駐車場ルート':Object.freeze([{after:'伊吹山ドライブウェイ山頂駐車場',before:'伊吹山',points:[['pass','西登山道中間分岐（伊吹山）','主要分岐']]}]),
+  '武奈ヶ岳|坊村 武奈ヶ岳登山口ルート':Object.freeze([{after:'坊村 武奈ヶ岳登山口',before:'武奈ヶ岳',points:[['peak','御殿山（武奈ヶ岳）','通過ピーク']]}]),
+  '東赤石山|瀬場登山口 東赤石山ルート':Object.freeze([{after:'瀬場登山口 東赤石山',before:'東赤石山',points:[['hut','赤石山荘','山小屋']]}]),
+  '市房山|市房山キャンプ場（市房山登山口アクセス起点）ルート':Object.freeze([{after:'市房山キャンプ場（市房山登山口アクセス起点）',before:'市房山',points:[['hut','市房神社','神社・避難地点']]}])
+});
+function rev(points){return [...points].reverse().map(p=>[...p]);}
+function expand(defs,rules){let out=defs.map(p=>[...p]);for(const r of rules){const next=[];for(let i=0;i<out.length;i++){const cur=out[i];next.push(cur);const n=out[i+1];if(!n)continue;if(cur[1]===r.after&&n[1]===r.before)next.push(...r.points.map(p=>[...p]));else if(cur[1]===r.before&&n[1]===r.after)next.push(...rev(r.points));}out=next;}return out;}
+if(typeof representativeCourseExpandedPointDefs==='function'){
+  const old=representativeCourseExpandedPointDefs;
+  representativeCourseExpandedPointDefs=function(mountain,course){const defs=old(mountain,course)||[];let m=String(mountain||'').trim();try{m=canonicalMountainName(m);}catch(_){ }const rules=RULES[`${m}|${course?.label||''}`];return rules?expand(defs,rules):defs;};
+}
+try{if(typeof rebuildRouteDerivedCaches==='function')rebuildRouteDerivedCaches();}catch(_){ }
+window.TRATEN_REPRESENTATIVE_ENRICHMENT_V15125=Object.freeze({version:VERSION,routeCount:Object.keys(RULES).length,policy:'reuse existing verified fixed points + existing directional CT only; no guessed coordinate/CT'});
+})();
+
+
+
+// Traten V1.5.127: continue large-batch reduction of 3-point representative courses.
+// Route order is verified from public model routes. Six Rokko points are inserted on ascent only
+// because the current return leg intentionally keeps its existing confirmed whole-leg CT.
+(function(){'use strict';
+const VERSION='1.5.127';
+const RULES_BIDIR=Object.freeze({
+  '茶臼岳（那須岳）|那須ロープウェイ・峠の茶屋側ルート':Object.freeze([{after:'那須ロープウェイ・峠の茶屋側',before:'茶臼岳（那須岳）',points:[['hut','峰の茶屋跡避難小屋','避難小屋']]}]),
+  '荒島岳|中出コースルート':Object.freeze([{after:'中出コース登山口',before:'荒島岳',points:[['pass','シャクナゲ平','主要分岐']]}])
+});
+const RULES_FORWARD=Object.freeze({
+  '六甲山|芦屋川 高座の滝ルート':Object.freeze([{after:'芦屋川 高座の滝',before:'六甲山',points:[['pass','風吹岩','主要通過点'],['pass','雨ヶ峠','主要通過点'],['pass','一軒茶屋','主要通過点']]}])
+});
+function rev(points){return [...points].reverse().map(p=>[...p]);}
+function expand(defs,rules,bidir){let out=defs.map(p=>[...p]);for(const r of rules){const next=[];for(let i=0;i<out.length;i++){const cur=out[i];next.push(cur);const n=out[i+1];if(!n)continue;if(cur[1]===r.after&&n[1]===r.before)next.push(...r.points.map(p=>[...p]));else if(bidir&&cur[1]===r.before&&n[1]===r.after)next.push(...rev(r.points));}out=next;}return out;}
+if(typeof representativeCourseExpandedPointDefs==='function'){
+  const old=representativeCourseExpandedPointDefs;
+  representativeCourseExpandedPointDefs=function(mountain,course){const defs=old(mountain,course)||[];let m=String(mountain||'').trim();try{m=canonicalMountainName(m);}catch(_){ }const k=`${m}|${course?.label||''}`;let out=defs;const b=RULES_BIDIR[k];if(b)out=expand(out,b,true);const f=RULES_FORWARD[k];if(f)out=expand(out,f,false);return out;};
+}
+try{if(typeof rebuildRouteDerivedCaches==='function')rebuildRouteDerivedCaches();}catch(_){ }
+window.TRATEN_REPRESENTATIVE_ENRICHMENT_V15127=Object.freeze({version:VERSION,routeCount:3,policy:'verified public route order/CT; no guessed coordinate/CT; Rokko ascent-only split preserves existing confirmed return leg'});
 })();

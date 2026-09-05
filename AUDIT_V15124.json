@@ -1,0 +1,18 @@
+{
+  "version": "1.5.124",
+  "baseline_app_only_3pt": 240,
+  "current_app_only_3pt": 227,
+  "baseline_index_loaded_3pt": 233,
+  "current_index_loaded_3pt": 227,
+  "newly_resolved_index_loaded": 6,
+  "newly_resolved": [
+    "羅臼岳|羅臼温泉登山口ルート",
+    "天城山（万三郎岳）|天城高原ハイカー専用駐車場ルート",
+    "高千穂峰|高千穂河原駐車場・高千穂峰登山口ルート",
+    "磐梯山|八方台登山口ルート",
+    "雨飾山|雨飾高原キャンプ場ルート",
+    "男体山|二荒山神社中宮祠ルート"
+  ],
+  "regression": "PASS",
+  "target_segment_ct": "PASS"
+}

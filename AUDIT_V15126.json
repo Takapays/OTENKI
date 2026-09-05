@@ -1,0 +1,462 @@
+{
+  "total": 424,
+  "n3": 204,
+  "rows": [
+    {
+      "m": "雄阿寒岳",
+      "label": "滝口・五合目ルート",
+      "points": [
+        "滝口・雄阿寒岳登山口",
+        "五合目（雄阿寒岳）",
+        "雄阿寒岳",
+        "五合目（雄阿寒岳）",
+        "滝口・雄阿寒岳登山口"
+      ],
+      "error": null,
+      "missing": 0,
+      "estimated": 0,
+      "segments": [
+        {
+          "minutes": 135,
+          "estimated": false,
+          "source": "環境省・雄阿寒岳登山コース（登山口→太郎湖10→次郎湖10→五合目115分）"
+        },
+        {
+          "minutes": 65,
+          "estimated": false,
+          "source": "環境省・雄阿寒岳登山コース"
+        },
+        {
+          "minutes": 40,
+          "estimated": false,
+          "source": "環境省・雄阿寒岳登山コース"
+        },
+        {
+          "minutes": 100,
+          "estimated": false,
+          "source": "環境省・雄阿寒岳登山コース"
+        }
+      ]
+    },
+    {
+      "m": "八幡平",
+      "label": "山頂レストハウス・めがね沼周回ルート",
+      "points": [
+        "八幡平見返峠・山頂レストハウス",
+        "鏡池・見返峠分岐",
+        "めがね沼",
+        "八幡平",
+        "見返峠",
+        "鏡池・見返峠分岐",
+        "八幡平見返峠・山頂レストハウス"
+      ],
+      "error": null,
+      "missing": 0,
+      "estimated": 0,
+      "segments": [
+        {
+          "minutes": 16,
+          "estimated": false,
+          "source": "YAMAP八幡平山頂周回（駐車場6＋分岐10）"
+        },
+        {
+          "minutes": 8,
+          "estimated": false,
+          "source": "YAMAP八幡平山頂周回"
+        },
+        {
+          "minutes": 9,
+          "estimated": false,
+          "source": "YAMAP八幡平山頂周回（めがね沼→分岐1＋山頂8）"
+        },
+        {
+          "minutes": 18,
+          "estimated": false,
+          "source": "YAMAP八幡平山頂周回（山頂→ガマ沼分岐10＋見返峠8）"
+        },
+        {
+          "minutes": 6,
+          "estimated": false,
+          "source": "YAMAP八幡平山頂周回"
+        },
+        {
+          "minutes": 6,
+          "estimated": false,
+          "source": "YAMAP八幡平山頂周回"
+        }
+      ]
+    },
+    {
+      "m": "早池峰山",
+      "label": "小田越・五合目御金蔵ルート",
+      "points": [
+        "小田越登山口",
+        "五合目 御金蔵",
+        "早池峰山",
+        "五合目 御金蔵",
+        "小田越登山口"
+      ],
+      "error": null,
+      "missing": 0,
+      "estimated": 0,
+      "segments": [
+        {
+          "minutes": 110,
+          "estimated": false,
+          "source": "YAMAP小田越モデルの公開チェックポイントを小田越起点へ整理"
+        },
+        {
+          "minutes": 50,
+          "estimated": false,
+          "source": "公開小田越コース往路160分から五合目まで110分を差引"
+        },
+        {
+          "minutes": 90,
+          "estimated": false,
+          "source": "YAMAP小田越モデル・山頂→分岐群→五合目"
+        },
+        {
+          "minutes": 40,
+          "estimated": false,
+          "source": "公開小田越コース復路130分から山頂→五合目90分を差引"
+        }
+      ]
+    },
+    {
+      "m": "奥白根山",
+      "label": "菅沼・弥陀ヶ池ルート",
+      "points": [
+        "菅沼登山口",
+        "弥陀ヶ池",
+        "奥白根山（日光白根山）",
+        "弥陀ヶ池",
+        "菅沼登山口"
+      ],
+      "error": null,
+      "missing": 0,
+      "estimated": 0,
+      "segments": [
+        {
+          "minutes": 111,
+          "estimated": false,
+          "source": "YAMAP菅沼-弥陀ヶ池モデル・分岐105＋弥陀ヶ池6"
+        },
+        {
+          "minutes": 64,
+          "estimated": false,
+          "source": "既存確認済み登り175分から菅沼→弥陀ヶ池111分を差引"
+        },
+        {
+          "minutes": 79,
+          "estimated": false,
+          "source": "YAMAP公開モデル・日光白根山→弥陀ヶ池（公開チェックポイント合算）"
+        },
+        {
+          "minutes": 75,
+          "estimated": false,
+          "source": "YAMAP弥陀ヶ池往復モデル・弥陀ヶ池→菅沼側分岐75分"
+        }
+      ]
+    },
+    {
+      "m": "赤城山（黒檜山）",
+      "label": "黒檜山・駒ヶ岳周回ルート",
+      "points": [
+        "黒檜山登山口",
+        "赤城山（黒檜山）",
+        "駒ヶ岳（赤城）",
+        "おのこ駐車場・駒ヶ岳登山口",
+        "黒檜山登山口"
+      ],
+      "error": null,
+      "missing": 0,
+      "estimated": 0,
+      "segments": [
+        {
+          "minutes": 97,
+          "estimated": false,
+          "source": "YAMAP黒檜山・駒ヶ岳周回モデル"
+        },
+        {
+          "minutes": 64,
+          "estimated": false,
+          "source": "YAMAP黒檜山・駒ヶ岳周回モデル"
+        },
+        {
+          "minutes": 39,
+          "estimated": false,
+          "source": "YAMAP黒檜山・駒ヶ岳周回モデル"
+        },
+        {
+          "minutes": 15,
+          "estimated": false,
+          "source": "大沼湖畔登山口間の公開歩行接続目安"
+        }
+      ]
+    },
+    {
+      "m": "霧ヶ峰（車山）",
+      "label": "車山肩・蝶々深山周回ルート",
+      "points": [
+        "車山肩",
+        "霧ヶ峰（車山）",
+        "車山乗越",
+        "蝶々深山",
+        "コロボックルヒュッテ",
+        "車山肩"
+      ],
+      "error": null,
+      "missing": 0,
+      "estimated": 0,
+      "segments": [
+        {
+          "minutes": 45,
+          "estimated": false,
+          "source": "YAMAP車山肩周回・肩バス停→車山"
+        },
+        {
+          "minutes": 29,
+          "estimated": false,
+          "source": "YAMAP車山肩周回モデル"
+        },
+        {
+          "minutes": 25,
+          "estimated": false,
+          "source": "YAMAP車山肩周回モデル"
+        },
+        {
+          "minutes": 25,
+          "estimated": false,
+          "source": "YAMAP車山肩周回モデル"
+        },
+        {
+          "minutes": 5,
+          "estimated": false,
+          "source": "YAMAP車山肩周回モデル"
+        }
+      ]
+    },
+    {
+      "m": "美ヶ原",
+      "label": "山本小屋・美しの塔ルート",
+      "points": [
+        "山本小屋ふる里館・町営駐車場",
+        "美しの塔",
+        "美ヶ原（王ヶ頭）",
+        "美しの塔",
+        "山本小屋ふる里館・町営駐車場"
+      ],
+      "error": null,
+      "missing": 0,
+      "estimated": 0,
+      "segments": [
+        {
+          "minutes": 15,
+          "estimated": false,
+          "source": "信州山学ガイド・山本小屋→美しの塔"
+        },
+        {
+          "minutes": 25,
+          "estimated": false,
+          "source": "信州山学ガイド・美しの塔→王ヶ頭"
+        },
+        {
+          "minutes": 15,
+          "estimated": false,
+          "source": "信州山学ガイド・王ヶ頭→美しの塔"
+        },
+        {
+          "minutes": 15,
+          "estimated": false,
+          "source": "信州山学ガイド・美しの塔→山本小屋"
+        }
+      ]
+    },
+    {
+      "m": "焼岳",
+      "label": "新中の湯・下堀沢出合ルート",
+      "points": [
+        "新中の湯登山口",
+        "下堀沢出合",
+        "焼岳",
+        "下堀沢出合",
+        "新中の湯登山口"
+      ],
+      "error": null,
+      "missing": 0,
+      "estimated": 0,
+      "segments": [
+        {
+          "minutes": 110,
+          "estimated": false,
+          "source": "YAMAP公開モデル・新中の湯→下堀沢出合"
+        },
+        {
+          "minutes": 84,
+          "estimated": false,
+          "source": "YAMAP公開モデル・下堀沢出合→焼岳北峰"
+        },
+        {
+          "minutes": 60,
+          "estimated": false,
+          "source": "YAMAP公開モデル・焼岳北峰→下堀沢出合"
+        },
+        {
+          "minutes": 90,
+          "estimated": false,
+          "source": "YAMAP公開モデル・下堀沢出合→新中の湯"
+        }
+      ]
+    },
+    {
+      "m": "金峰山",
+      "label": "大弛峠・朝日岳ルート",
+      "points": [
+        "大弛峠",
+        "朝日峠（奥秩父）",
+        "朝日岳（奥秩父）",
+        "金峰山",
+        "朝日岳（奥秩父）",
+        "朝日峠（奥秩父）",
+        "大弛峠"
+      ],
+      "error": null,
+      "missing": 0,
+      "estimated": 0,
+      "segments": [
+        {
+          "minutes": 45,
+          "estimated": false,
+          "source": "既存V1.5.48確認済みYAMAP CT"
+        },
+        {
+          "minutes": 35,
+          "estimated": false,
+          "source": "既存V1.5.48確認済みYAMAP CT"
+        },
+        {
+          "minutes": 44,
+          "estimated": false,
+          "source": "既存V1.5.48確認済みYAMAP CT"
+        },
+        {
+          "minutes": 30,
+          "estimated": false,
+          "source": "既存確認済み下り105分から朝日岳→朝日峠35＋朝日峠→大弛40を差引"
+        },
+        {
+          "minutes": 35,
+          "estimated": false,
+          "source": "既存V1.5.48確認済みYAMAP CT"
+        },
+        {
+          "minutes": 40,
+          "estimated": false,
+          "source": "既存V1.5.48確認済みYAMAP CT"
+        }
+      ]
+    },
+    {
+      "m": "日出ヶ岳",
+      "label": "大台ヶ原・日出ヶ岳展望台ルート",
+      "points": [
+        "大台ヶ原ビジターセンター",
+        "日出ヶ岳展望台下分岐",
+        "日出ヶ岳",
+        "日出ヶ岳展望台下分岐",
+        "大台ヶ原ビジターセンター"
+      ],
+      "error": null,
+      "missing": 0,
+      "estimated": 0,
+      "segments": [
+        {
+          "minutes": 33,
+          "estimated": false,
+          "source": "既存確認済み登り40分から展望台直下→山頂7分を差引"
+        },
+        {
+          "minutes": 7,
+          "estimated": false,
+          "source": "公開東大台モデル・展望台直下→日出ヶ岳"
+        },
+        {
+          "minutes": 7,
+          "estimated": false,
+          "source": "公開東大台モデル・日出ヶ岳→展望台直下"
+        },
+        {
+          "minutes": 21,
+          "estimated": false,
+          "source": "既存確認済み下り28分から山頂直下7分を差引"
+        }
+      ]
+    },
+    {
+      "m": "湧蓋山",
+      "label": "八丁原・一目山・湧蓋山周回ルート",
+      "points": [
+        "八丁原登山口",
+        "一目山",
+        "湧蓋山",
+        "八丁原登山口"
+      ],
+      "error": null,
+      "missing": 0,
+      "estimated": 0,
+      "segments": [
+        {
+          "minutes": 28,
+          "estimated": false,
+          "source": "YAMAP・涌蓋山周回モデル 八丁原登山口駐車場08:00→一目山08:28"
+        },
+        {
+          "minutes": 180,
+          "estimated": false,
+          "source": "YAMAP・涌蓋山周回モデル 一目山08:28→涌蓋山11:28（確認済みチェックポイント区間合算）"
+        },
+        {
+          "minutes": 143,
+          "estimated": false,
+          "source": "YAMAP・涌蓋山周回モデル 涌蓋山11:28→八丁原登山口駐車場13:51（確認済みチェックポイント区間合算）"
+        }
+      ]
+    },
+    {
+      "m": "開聞岳",
+      "label": "ふれあい公園・五合目ルート",
+      "points": [
+        "かいもん山麓ふれあい公園駐車場・開聞岳登山口アクセス",
+        "五合目展望所（開聞岳）",
+        "開聞岳",
+        "五合目展望所（開聞岳）",
+        "かいもん山麓ふれあい公園駐車場・開聞岳登山口アクセス"
+      ],
+      "error": null,
+      "missing": 0,
+      "estimated": 0,
+      "segments": [
+        {
+          "minutes": 115,
+          "estimated": false,
+          "source": "YAMAP公開モデル・ふれあい公園側→五合目チェックポイント"
+        },
+        {
+          "minutes": 80,
+          "estimated": false,
+          "source": "既存確認済み登り195分から五合目まで115分を差引"
+        },
+        {
+          "minutes": 60,
+          "estimated": false,
+          "source": "YAMAP公開モデル・山頂→仙人洞→五合目"
+        },
+        {
+          "minutes": 53,
+          "estimated": false,
+          "source": "既存確認済み下り113分から山頂→五合目60分を差引"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,126 @@
+[
+  {
+    "m": "編笠山",
+    "l": "観音平ルート",
+    "defs": [
+      "観音平",
+      "編笠山",
+      "青年小屋",
+      "観音平"
+    ],
+    "error": null,
+    "segments": [
+      {
+        "minutes": 174,
+        "estimated": false,
+        "missing": false,
+        "source": "ヤマレコ・編笠山/権現岳 山行計画（標準CT補完）"
+      },
+      {
+        "minutes": 14,
+        "estimated": false,
+        "missing": false,
+        "source": "ヤマレコ・編笠山/権現岳 山行計画（標準CT補完）"
+      },
+      {
+        "minutes": 202,
+        "estimated": false,
+        "missing": false,
+        "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）"
+      }
+    ]
+  },
+  {
+    "m": "編笠山",
+    "l": "富士見高原ルート",
+    "defs": [
+      "富士見高原登山口",
+      "編笠山",
+      "青年小屋",
+      "富士見高原登山口"
+    ],
+    "error": null,
+    "segments": [
+      {
+        "minutes": 268,
+        "estimated": false,
+        "missing": false,
+        "source": "YAMAPモデルコース・富士見高原登山口→編笠山 4時間28分（2026-08-31確認）"
+      },
+      {
+        "minutes": 14,
+        "estimated": false,
+        "missing": false,
+        "source": "ヤマレコ・編笠山/権現岳 山行計画（標準CT補完）"
+      },
+      {
+        "minutes": 167,
+        "estimated": false,
+        "missing": false,
+        "source": "確認済みCT（複数公開資料・区間合算・最短既知経路）"
+      }
+    ]
+  },
+  {
+    "m": "氷ノ山",
+    "l": "福定親水公園 氷ノ山登山口ルート",
+    "defs": [
+      "福定親水公園 氷ノ山登山口",
+      "氷ノ山越避難小屋",
+      "氷ノ山",
+      "福定親水公園 氷ノ山登山口"
+    ],
+    "error": null,
+    "segments": [
+      {
+        "minutes": 189,
+        "estimated": false,
+        "missing": false,
+        "source": "ヤマレコ公開山行計画 p5706965・福定親水公園→地蔵堂→木地屋跡→氷ノ山越 189分（2026-09-05確認）"
+      },
+      {
+        "minutes": 99,
+        "estimated": false,
+        "missing": false,
+        "source": "ヤマレコ公開山行計画 p5706965・氷ノ山越→仙谷分岐→氷ノ山 99分（2026-09-05確認）"
+      },
+      {
+        "minutes": 133,
+        "estimated": false,
+        "missing": false,
+        "source": "ヤマレコ・氷ノ山 山行計画（標準CT補完）"
+      }
+    ]
+  },
+  {
+    "m": "氷ノ山",
+    "l": "わかさ氷ノ山登山口ルート",
+    "defs": [
+      "わかさ氷ノ山登山口",
+      "氷ノ山越避難小屋",
+      "氷ノ山",
+      "わかさ氷ノ山登山口"
+    ],
+    "error": null,
+    "segments": [
+      {
+        "minutes": 75,
+        "estimated": false,
+        "missing": false,
+        "source": "鳥取県公式・氷ノ山登山マップ 氷ノ越コース 登山口側→氷ノ越 1時間15分（2026-09-05確認）"
+      },
+      {
+        "minutes": 99,
+        "estimated": false,
+        "missing": false,
+        "source": "ヤマレコ公開山行計画 p5706965・氷ノ山越→仙谷分岐→氷ノ山 99分（2026-09-05確認）"
+      },
+      {
+        "minutes": 95,
+        "estimated": false,
+        "missing": false,
+        "source": "YAMAP標準モデル・わかさ氷ノ山側往復（氷ノ山10:45→キャンプ場側登山口12:20、1時間35分）"
+      }
+    ]
+  }
+]
