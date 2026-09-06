@@ -40,7 +40,7 @@ INSTAGRAM_MIN_NATIONAL_RESULTS = max(1, min(100, int(os.environ.get("INSTAGRAM_M
 INSTAGRAM_AUTO_MEDIA = (os.environ.get("INSTAGRAM_AUTO_MEDIA", "reel").strip().lower() or "reel")
 INSTAGRAM_REEL_FPS = max(8, min(20, int(os.environ.get("INSTAGRAM_REEL_FPS", "12"))))
 INSTAGRAM_REEL_SECONDS = max(6, min(12, int(os.environ.get("INSTAGRAM_REEL_SECONDS", "12"))))
-REEL_RENDER_REV = "classic-20260906-v4-lowmem"
+REEL_RENDER_REV = "classic-20260906-v6-staticpair"
 
 _STATE_FILE = os.path.join(tempfile.gettempdir(), "traten-instagram-state.json")
 
@@ -80,6 +80,27 @@ def valid_image_signature(date_text: str, supplied: str) -> bool:
 def image_url(date_text: str) -> str:
     sig = image_signature(date_text)
     return f"{PUBLIC_BASE_URL}/api/instagram/national-image/{urllib.parse.quote(date_text)}?sig={urllib.parse.quote(sig)}"
+
+
+def static_image_signature(date_text: str, page: int) -> str:
+    if not image_secret():
+        return ""
+    payload = f"traten-national-static:{date_text}:{int(page)}"
+    return hmac.new(image_secret(), payload.encode("utf-8"), hashlib.sha256).hexdigest()[:32]
+
+
+def valid_static_image_signature(date_text: str, page: int, supplied: str) -> bool:
+    expected = static_image_signature(date_text, page)
+    return bool(expected and supplied and hmac.compare_digest(expected, supplied))
+
+
+def static_image_url(date_text: str, page: int) -> str:
+    sig = static_image_signature(date_text, page)
+    return f"{PUBLIC_BASE_URL}/api/instagram/national-static/{urllib.parse.quote(date_text)}/{int(page)}?sig={urllib.parse.quote(sig)}"
+
+
+def static_image_urls(date_text: str) -> list[str]:
+    return [static_image_url(date_text, 1), static_image_url(date_text, 2)]
 
 
 def reel_signature(date_text: str) -> str:
@@ -537,6 +558,53 @@ def reel_cache_path(date_text: str) -> str:
 def reel_cache_ready(date_text: str) -> bool:
     path=reel_cache_path(date_text)
     return os.path.exists(path) and os.path.getsize(path)>100000
+
+def static_image_cache_path(date_text: str, page: int) -> str:
+    outdir=os.path.join(tempfile.gettempdir(),"traten-instagram-static")
+    return os.path.join(outdir,f"traten-{date_text}-{REEL_RENDER_REV}-p{int(page)}.jpg")
+
+
+def static_image_cache_ready(date_text: str) -> bool:
+    return all(os.path.exists(static_image_cache_path(date_text, i)) and os.path.getsize(static_image_cache_path(date_text, i)) > 100000 for i in (1,2))
+
+
+def render_national_static_images(date_text: str, results: list[dict[str, Any]], *, logo_path: str | None = None) -> list[str]:
+    if Image is None or ImageDraw is None:
+        raise RuntimeError("Pillow is not installed")
+    rows=[dict(r) for r in results if isinstance(r,dict) and str(r.get("grade") or "") in {"A","B","C"}]
+    if len(rows) < INSTAGRAM_MIN_NATIONAL_RESULTS:
+        raise RuntimeError(f"national static images require at least {INSTAGRAM_MIN_NATIONAL_RESULTS} results, got {len(rows)}")
+    outdir=os.path.join(tempfile.gettempdir(),"traten-instagram-static")
+    os.makedirs(outdir,exist_ok=True)
+    out1=static_image_cache_path(date_text,1)
+    out2=static_image_cache_path(date_text,2)
+    if os.path.exists(out1) and os.path.getsize(out1)>100000 and os.path.exists(out2) and os.path.getsize(out2)>100000:
+        return [out1,out2]
+    target=date.fromisoformat(date_text)
+    lock=_reel_render_lock(f"static:{date_text}")
+    with lock:
+        if os.path.exists(out1) and os.path.getsize(out1)>100000 and os.path.exists(out2) and os.path.getsize(out2)>100000:
+            return [out1,out2]
+        scene1=_build_reel_scene1(target, rows, 1080, 1920)
+        try:
+            tmp1=out1+f".{os.getpid()}.tmp.jpg"
+            scene1.save(tmp1, quality=91, optimize=True, progressive=False)
+            os.replace(tmp1,out1)
+        finally:
+            try: scene1.close()
+            except Exception: pass
+            del scene1
+        scene2=_build_reel_scene2(target, 1080, 1920)
+        try:
+            tmp2=out2+f".{os.getpid()}.tmp.jpg"
+            scene2.save(tmp2, quality=91, optimize=True, progressive=False)
+            os.replace(tmp2,out2)
+        finally:
+            try: scene2.close()
+            except Exception: pass
+            del scene2
+        gc.collect()
+        return [out1,out2]
 
 def render_national_reel(date_text: str, results: list[dict[str, Any]], *, logo_path: str | None = None) -> str:
     """Render the 9:16 Reel using a low-memory still-scene pipeline."""

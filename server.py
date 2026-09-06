@@ -31,7 +31,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.5.197"
+APP_VERSION = "1.5.199"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
@@ -1841,7 +1841,7 @@ video{display:block;width:min(100%,540px);height:auto;max-height:76vh;border-rad
 <button onclick="preview()">静止画をプレビュー</button>
 <button onclick="previewReelVideo()">リールをプレビュー</button>
 <div id="previewMsg" class="small"></div>
-<img id="previewImg" alt="Instagram投稿画像プレビュー" hidden>
+<div id="previewStaticWrap" hidden style="display:grid;gap:12px;margin-top:10px"><img id="previewImg1" alt="Instagram投稿画像プレビュー 1枚目" hidden><img id="previewImg2" alt="Instagram投稿画像プレビュー 2枚目" hidden></div>
 <div id="reelControls" hidden style="margin-top:10px"><button id="reelPlayBtn" class="secondary" type="button" onclick="playPreviewReel()" disabled>▶ リールを再生</button> <a id="reelOpenLink" href="#" target="_blank" rel="noopener" style="display:none;margin-left:8px">別タブで開く</a></div>
 <video id="previewReelVideo" controls playsinline preload="metadata" hidden style="min-height:360px;aspect-ratio:9/16;pointer-events:auto"></video>
 </section>
@@ -1876,7 +1876,7 @@ async function loadStatus(){
   try{
     const j=await api('/api/instagram/status');show('out',j);$('date').value=j.tomorrow||'';
     $('summary').innerHTML=`<span class="pill">configured: ${j.configured}</span><span class="pill">autoPost: ${j.autoPost}</span><span class="pill">autoMedia: ${j.autoMedia}</span><span class="pill">fresh: ${j.tomorrowFreshCount}</span>`;
-    if(j.previewImageUrl){$('previewImg').src=j.previewImageUrl;$('previewImg').hidden=false}
+    if(Array.isArray(j.previewImageUrls) && j.previewImageUrls.length){$('previewStaticWrap').hidden=false;$('previewImg1').src=j.previewImageUrls[0];$('previewImg1').hidden=false;if(j.previewImageUrls[1]){$('previewImg2').src=j.previewImageUrls[1];$('previewImg2').hidden=false;}}
   }catch(e){$('out').textContent=e.message}
 }
 async function testConnection(){
@@ -1888,14 +1888,19 @@ async function preview(){
     const d=$('date').value;if(!d)throw new Error('予報日を選択してください');
     const r=await api('/api/instagram/preview-url?date='+encodeURIComponent(d));
     $('previewReelVideo').pause();$('previewReelVideo').hidden=true;$('reelControls').hidden=true;$('reelPlayBtn').disabled=true;$('reelOpenLink').style.display='none';
-    $('previewImg').src=r.previewImageUrl+'&t='+Date.now();$('previewImg').hidden=false;
-    $('previewMsg').textContent=`静止画: ${r.date} / ${r.count}座`;
+    $('previewStaticWrap').hidden=false;$('previewImg1').hidden=true;$('previewImg2').hidden=true;
+    const urls=Array.isArray(r.previewImageUrls)&&r.previewImageUrls.length?r.previewImageUrls:(r.previewImageUrl?[r.previewImageUrl]:[]);
+    if(!urls.length) throw new Error('静止画URLを取得できませんでした');
+    if(urls[0]){$('previewImg1').src=urls[0]+'&t='+Date.now();$('previewImg1').hidden=false;}
+    if(urls[1]){$('previewImg2').src=urls[1]+'&t='+Date.now();$('previewImg2').hidden=false;}
+    $('previewMsg').textContent=`静止画: ${r.date} / ${r.count}座 / ${urls.length}枚（リールと同デザイン）`;
   }catch(e){$('previewMsg').textContent=e.message}
 }
 async function previewReelVideo(){
   try{
     const d=$('date').value;if(!d)throw new Error('予報日を選択してください');
     $('previewMsg').textContent='リール生成を開始しています…';
+    $('previewStaticWrap').hidden=true;$('previewImg1').hidden=true;$('previewImg2').hidden=true;
     $('reelControls').hidden=true;$('reelPlayBtn').disabled=true;$('reelOpenLink').style.display='none';
     const start=await api('/api/instagram/reel-preview-url?date='+encodeURIComponent(d));
     let r=start;
@@ -1948,7 +1953,7 @@ def instagram_preview_url():
     rows = _instagram_load_fresh_100_results(date_text)
     if len(rows) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
         return jsonify(error="fresh nationwide cache is incomplete", count=len(rows), minimum=instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS, date=date_text), 409
-    return jsonify(date=date_text, count=len(rows), previewImageUrl=instagram_bot.image_url(date_text))
+    return jsonify(date=date_text, count=len(rows), previewImageUrls=instagram_bot.static_image_urls(date_text), previewImageUrl=instagram_bot.static_image_url(date_text, 1))
 
 
 _instagram_reel_jobs_lock = threading.Lock()
@@ -2043,6 +2048,27 @@ def instagram_national_image(date_text: str):
     return response
 
 
+@app.get("/api/instagram/national-static/<date_text>/<int:page>")
+def instagram_national_static(date_text: str, page: int):
+    try:
+        datetime.strptime(date_text, "%Y-%m-%d")
+    except ValueError:
+        return jsonify(error="invalid date"), 400
+    if page not in (1, 2):
+        return jsonify(error="invalid page"), 400
+    if not instagram_bot.valid_static_image_signature(date_text, page, request.args.get("sig", "")):
+        return jsonify(error="unauthorized"), 401
+    rows = _instagram_load_fresh_100_results(date_text)
+    if len(rows) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
+        return jsonify(error="fresh nationwide cache is incomplete", count=len(rows), minimum=instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS), 409
+    try:
+        paths = instagram_bot.render_national_static_images(date_text, rows, logo_path=os.path.join(BASE, "traten-logo.png"))
+        return send_file(paths[page-1], mimetype="image/jpeg", conditional=True, download_name=f"traten-{date_text}-p{page}.jpg")
+    except Exception as exc:
+        app.logger.exception("instagram_national_static_failed date=%s page=%s", date_text, page)
+        return jsonify(error=str(exc)[:500]), 500
+
+
 @app.get("/api/instagram/national-reel/<date_text>")
 def instagram_national_reel(date_text: str):
     try:
@@ -2073,7 +2099,8 @@ def instagram_status():
     status["tomorrow"] = target
     status["tomorrowFreshCount"] = len(_instagram_load_fresh_100_results(target))
     if instagram_bot.configured():
-        status["previewImageUrl"] = instagram_bot.image_url(target)
+        status["previewImageUrl"] = instagram_bot.static_image_url(target, 1)
+        status["previewImageUrls"] = instagram_bot.static_image_urls(target)
     return jsonify(status)
 
 
