@@ -31,7 +31,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.5.196"
+APP_VERSION = "1.5.197"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
@@ -1954,13 +1954,26 @@ def instagram_preview_url():
 _instagram_reel_jobs_lock = threading.Lock()
 _instagram_reel_jobs: dict[str, dict[str, Any]] = {}
 
+
+def _process_rss_mb() -> float | None:
+    try:
+        with open("/proc/self/status", "r", encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("VmRSS:"):
+                    return round(int(line.split()[1]) / 1024.0, 1)
+    except Exception:
+        pass
+    return None
+
 def _instagram_reel_background(date_text: str, rows: list[dict[str, Any]]) -> None:
     try:
+        app.logger.warning("instagram_reel_start date=%s rss_mb=%s rows=%s", date_text, _process_rss_mb(), len(rows))
         instagram_bot.render_national_reel(date_text, rows, logo_path=os.path.join(BASE, "traten-logo.png"))
+        app.logger.warning("instagram_reel_done date=%s rss_mb=%s", date_text, _process_rss_mb())
         with _instagram_reel_jobs_lock:
             _instagram_reel_jobs[date_text] = {"running": False, "error": None, "finished": time.time()}
     except Exception as exc:
-        app.logger.exception("instagram_reel_preview_prepare_failed date=%s", date_text)
+        app.logger.exception("instagram_reel_preview_prepare_failed date=%s rss_mb=%s", date_text, _process_rss_mb())
         with _instagram_reel_jobs_lock:
             _instagram_reel_jobs[date_text] = {"running": False, "error": str(exc)[:500], "finished": time.time()}
 
@@ -2043,7 +2056,7 @@ def instagram_national_reel(date_text: str):
         return jsonify(error="fresh nationwide cache is incomplete", count=len(rows), minimum=instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS), 409
     try:
         if not instagram_bot.reel_cache_ready(date_text):
-            return jsonify(error="reel is not ready yet"), 503
+            return jsonify(error="reel is not ready yet", hint="preview generation must finish on the same Render worker before the MP4 is requested"), 503
         path = instagram_bot.reel_cache_path(date_text)
         return send_file(path, mimetype="video/mp4", conditional=True, download_name=f"traten-{date_text}.mp4")
     except Exception as exc:

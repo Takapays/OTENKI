@@ -13,6 +13,7 @@ import os
 import tempfile
 import time
 import threading
+import gc
 import urllib.parse
 import urllib.request
 from datetime import date, datetime
@@ -39,7 +40,7 @@ INSTAGRAM_MIN_NATIONAL_RESULTS = max(1, min(100, int(os.environ.get("INSTAGRAM_M
 INSTAGRAM_AUTO_MEDIA = (os.environ.get("INSTAGRAM_AUTO_MEDIA", "reel").strip().lower() or "reel")
 INSTAGRAM_REEL_FPS = max(8, min(20, int(os.environ.get("INSTAGRAM_REEL_FPS", "12"))))
 INSTAGRAM_REEL_SECONDS = max(6, min(12, int(os.environ.get("INSTAGRAM_REEL_SECONDS", "12"))))
-REEL_RENDER_REV = "classic-20260906-v3-lowmem"
+REEL_RENDER_REV = "classic-20260906-v4-lowmem"
 
 _STATE_FILE = os.path.join(tempfile.gettempdir(), "traten-instagram-state.json")
 
@@ -497,6 +498,7 @@ def _render_reel_stills(work: str, target: date, rows: list[dict[str, Any]], W: 
         try: scene2.close()
         except Exception: pass
         del scene2
+    gc.collect()
     return scene1_path, scene2_path
 
 
@@ -519,8 +521,10 @@ def _compose_reel_from_stills(scene1_path: str, scene2_path: str, wav_path: str,
         "-i",wav_path,
         "-filter_complex",f"[0:v]fps={fps},format=yuv420p[v0];[1:v]fps={fps},format=yuv420p[v1];[v0][v1]concat=n=2:v=1:a=0[v]",
         "-map","[v]","-map","2:a",
-        "-c:v","libx264","-profile:v","high","-level","4.0","-pix_fmt","yuv420p","-r",str(fps),
-        "-c:a","aac","-b:a","160k","-shortest","-movflags","+faststart",tmp
+        "-c:v","libx264","-preset","ultrafast","-tune","stillimage","-threads","1",
+        "-x264-params","ref=1:bframes=0:rc-lookahead=0:sync-lookahead=0",
+        "-profile:v","high","-level","4.0","-pix_fmt","yuv420p","-r",str(fps),
+        "-c:a","aac","-b:a","128k","-shortest","-movflags","+faststart",tmp
     ]
     subprocess.run(cmd,check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=180)
     os.replace(tmp,out_path)
@@ -561,7 +565,9 @@ def render_national_reel(date_text: str, results: list[dict[str, Any]], *, logo_
             scene1_path, scene2_path = _render_reel_stills(work, target, rows, W, H)
             wav=os.path.join(work,"bgm.wav")
             _write_original_bgm(wav,sec)
+            gc.collect()
             _compose_reel_from_stills(scene1_path, scene2_path, wav, out, fps=fps, seconds=sec, scene_cut=scene_cut)
+            gc.collect()
             return out
         finally:
             shutil.rmtree(work,ignore_errors=True)
