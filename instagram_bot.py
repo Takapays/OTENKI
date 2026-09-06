@@ -40,7 +40,7 @@ INSTAGRAM_MIN_NATIONAL_RESULTS = max(1, min(100, int(os.environ.get("INSTAGRAM_M
 INSTAGRAM_AUTO_MEDIA = (os.environ.get("INSTAGRAM_AUTO_MEDIA", "reel").strip().lower() or "reel")
 INSTAGRAM_REEL_FPS = max(8, min(20, int(os.environ.get("INSTAGRAM_REEL_FPS", "12"))))
 INSTAGRAM_REEL_SECONDS = max(6, min(12, int(os.environ.get("INSTAGRAM_REEL_SECONDS", "12"))))
-REEL_RENDER_REV = "master-20260905-scenes-v4-fixedslots-calibrated"
+REEL_RENDER_REV = "master-20260905-scenes-v5-namefixed-restored"
 
 _STATE_FILE = os.path.join(tempfile.gettempdir(), "traten-instagram-state.json")
 
@@ -105,6 +105,22 @@ def _fixed_marker_positions() -> dict[str, tuple[int, int]]:
             out[name] = (x, y)
     if len(out) < INSTAGRAM_MIN_NATIONAL_RESULTS:
         raise RuntimeError(f"fixed marker master is incomplete: {len(out)} positions")
+    # Guard against an accidentally shuffled name-to-position table.  These anchor mountains
+    # must remain in their expected broad parts of the approved artwork.
+    anchors = {
+        "利尻山": (560, 330, 700, 390),
+        "羅臼岳": (740, 380, 840, 450),
+        "岩木山": (540, 600, 650, 700),
+        "富士山": (430, 950, 520, 1040),
+        "大山（鳥取）": (280, 970, 360, 1060),
+        "石鎚山": (180, 1080, 270, 1180),
+        "阿蘇山（高岳）": (90, 1130, 180, 1235),
+        "宮ノ浦岳": (80, 1290, 150, 1360),
+    }
+    for name, (xmin, ymin, xmax, ymax) in anchors.items():
+        pos = out.get(name)
+        if pos is None or not (xmin <= pos[0] <= xmax and ymin <= pos[1] <= ymax):
+            raise RuntimeError(f"fixed marker master sanity check failed: {name}={pos}")
     _fixed_marker_positions_cache = out
     return out
 
