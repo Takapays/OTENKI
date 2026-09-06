@@ -42,7 +42,47 @@ INSTAGRAM_REEL_FPS = max(8, min(20, int(os.environ.get("INSTAGRAM_REEL_FPS", "12
 INSTAGRAM_REEL_SECONDS = max(6, min(12, int(os.environ.get("INSTAGRAM_REEL_SECONDS", "12"))))
 REEL_RENDER_REV = "master-20260906-scenes-v10-huge-date-no-created-label"
 
-_STATE_FILE = os.path.join(tempfile.gettempdir(), "traten-instagram-state.json")
+def _resolve_persist_root() -> tuple[str, bool]:
+    """Return storage root and whether it is expected to survive Render restarts.
+
+    Priority:
+    1. INSTAGRAM_PERSIST_DIR / TRATEN_PERSIST_DIR
+    2. Render persistent disk conventional mount /var/data
+    3. /tmp fallback (works, but is not restart-persistent)
+    """
+    explicit = (os.environ.get("INSTAGRAM_PERSIST_DIR") or os.environ.get("TRATEN_PERSIST_DIR") or "").strip()
+    candidates = []
+    if explicit:
+        # An explicit path is treated as the operator-configured durable store.
+        candidates.append((explicit, True))
+    # Render persistent disks are commonly mounted under /var/data.  Only mark
+    # this as durable when /var/data is an actual mount point; otherwise the
+    # directory may be part of Render's ephemeral root filesystem.
+    render_disk_persistent = os.path.ismount("/var/data")
+    candidates.append(("/var/data/traten-instagram", render_disk_persistent))
+    candidates.append((os.path.join(tempfile.gettempdir(), "traten-instagram"), False))
+    for root, persistent in candidates:
+        try:
+            os.makedirs(root, exist_ok=True)
+            probe = os.path.join(root, ".write-test")
+            with open(probe, "w", encoding="utf-8") as f:
+                f.write("ok")
+            os.remove(probe)
+            return root, persistent
+        except Exception:
+            continue
+    root = os.path.join(tempfile.gettempdir(), "traten-instagram")
+    os.makedirs(root, exist_ok=True)
+    return root, False
+
+
+_PERSIST_ROOT, _PERSISTENT_STORAGE = _resolve_persist_root()
+_STATE_FILE = os.path.join(_PERSIST_ROOT, "state.json")
+_DRAFTS_FILE = os.path.join(_PERSIST_ROOT, "drafts.json")
+_STATIC_DIR = os.path.join(_PERSIST_ROOT, "static")
+_REELS_DIR = os.path.join(_PERSIST_ROOT, "reels")
+os.makedirs(_STATIC_DIR, exist_ok=True)
+os.makedirs(_REELS_DIR, exist_ok=True)
 
 _reel_render_locks_lock = threading.Lock()
 _reel_render_locks: dict[str, threading.Lock] = {}
@@ -749,7 +789,7 @@ def _compose_reel_from_stills(scene1_path: str, scene2_path: str, wav_path: str,
 
 
 def reel_cache_path(date_text: str) -> str:
-    outdir=os.path.join(tempfile.gettempdir(),"traten-instagram-reels")
+    outdir=_REELS_DIR
     return os.path.join(outdir,f"traten-{date_text}-{REEL_RENDER_REV}.mp4")
 
 def reel_cache_ready(date_text: str) -> bool:
@@ -757,7 +797,7 @@ def reel_cache_ready(date_text: str) -> bool:
     return os.path.exists(path) and os.path.getsize(path)>100000
 
 def static_image_cache_path(date_text: str, page: int) -> str:
-    outdir=os.path.join(tempfile.gettempdir(),"traten-instagram-static")
+    outdir=_STATIC_DIR
     return os.path.join(outdir,f"traten-{date_text}-{REEL_RENDER_REV}-p{int(page)}.png")
 
 
@@ -770,7 +810,7 @@ def render_national_static_images(date_text: str, results: list[dict[str, Any]],
     if len(rows) < INSTAGRAM_MIN_NATIONAL_RESULTS:
         raise RuntimeError(f"national static images require at least {INSTAGRAM_MIN_NATIONAL_RESULTS} results, got {len(rows)}")
     target=date.fromisoformat(date_text)
-    outdir=os.path.join(tempfile.gettempdir(),"traten-instagram-static")
+    outdir=_STATIC_DIR
     os.makedirs(outdir,exist_ok=True)
     out_paths=[static_image_cache_path(date_text,1), static_image_cache_path(date_text,2)]
     if all(os.path.exists(x) and os.path.getsize(x)>100000 for x in out_paths):
@@ -799,7 +839,7 @@ def render_national_reel(date_text: str, results: list[dict[str, Any]], *, logo_
     rows=[dict(r) for r in results if isinstance(r,dict) and str(r.get("grade") or "") in {"A","B","C"}]
     if len(rows) < INSTAGRAM_MIN_NATIONAL_RESULTS:
         raise RuntimeError(f"national reel requires at least {INSTAGRAM_MIN_NATIONAL_RESULTS} results, got {len(rows)}")
-    outdir=os.path.join(tempfile.gettempdir(),"traten-instagram-reels")
+    outdir=_REELS_DIR
     os.makedirs(outdir,exist_ok=True)
     out=reel_cache_path(date_text)
     if os.path.exists(out) and os.path.getsize(out)>100000:
@@ -895,6 +935,46 @@ def _already_posted_remote(date_text: str) -> bool:
     return False
 
 
+def _load_drafts() -> dict[str, Any]:
+    try:
+        with open(_DRAFTS_FILE, "r", encoding="utf-8") as f:
+            obj = json.load(f)
+        return obj if isinstance(obj, dict) else {}
+    except Exception:
+        return {}
+
+
+def _save_drafts(drafts: dict[str, Any]) -> None:
+    os.makedirs(os.path.dirname(_DRAFTS_FILE), exist_ok=True)
+    tmp = _DRAFTS_FILE + f".{os.getpid()}.tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(drafts, f, ensure_ascii=False, indent=2)
+        f.flush()
+        try:
+            os.fsync(f.fileno())
+        except Exception:
+            pass
+    os.replace(tmp, _DRAFTS_FILE)
+
+
+def _persist_post_draft(date_text: str, counts: dict[str, int], *, media_type: str) -> str:
+    caption = caption_for(date_text, counts)
+    drafts = _load_drafts()
+    drafts[date_text] = {
+        "forecastDate": date_text,
+        "mediaType": media_type,
+        "caption": caption,
+        "counts": {g: int(counts.get(g, 0)) for g in "ABC"},
+        "savedAt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "renderRevision": REEL_RENDER_REV,
+    }
+    # keep a bounded history so the persistent file never grows without limit
+    keys = sorted(drafts.keys(), reverse=True)
+    drafts = {k: drafts[k] for k in keys[:45]}
+    _save_drafts(drafts)
+    return caption
+
+
 def _load_local_state() -> dict[str, Any]:
     try:
         with open(_STATE_FILE, "r", encoding="utf-8") as f:
@@ -905,9 +985,15 @@ def _load_local_state() -> dict[str, Any]:
 
 
 def _save_local_state(state: dict[str, Any]) -> None:
+    os.makedirs(os.path.dirname(_STATE_FILE), exist_ok=True)
     tmp = _STATE_FILE + f".{os.getpid()}.tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(state, f, ensure_ascii=False, separators=(",", ":"))
+        f.flush()
+        try:
+            os.fsync(f.fileno())
+        except Exception:
+            pass
     os.replace(tmp, _STATE_FILE)
 
 
@@ -944,6 +1030,34 @@ def _finalize_reel_container(date_text: str, creation_id: str) -> None:
         _save_local_state(state)
 
 
+def _resume_pending_reel_if_needed(state: dict[str, Any] | None = None) -> bool:
+    """Resume a pending Instagram Reel publish after a process restart.
+
+    The creation id is persisted before the background finalizer starts.  If a
+    Render restart kills that thread, the next status/post cycle starts a new
+    finalizer so the pending post does not remain stuck forever.
+    """
+    state = dict(state or _load_local_state())
+    date_text = str(state.get("pendingForecastDate") or "")
+    creation_id = str(state.get("pendingCreationId") or "")
+    if not date_text or not creation_id:
+        return False
+    key = f"resume:{date_text}:{creation_id}"
+    lock = _reel_render_lock(key)
+    if not lock.acquire(blocking=False):
+        return False
+    def _run():
+        try:
+            _finalize_reel_container(date_text, creation_id)
+        finally:
+            try:
+                lock.release()
+            except Exception:
+                pass
+    threading.Thread(target=_run, daemon=True, name=f"instagram-reel-resume-{date_text}").start()
+    return True
+
+
 def post_national(date_text: str, results: list[dict[str, Any]], *, force: bool = False) -> dict[str, Any]:
     if not configured():
         return {"ok": False, "skipped": True, "reason": "not-configured"}
@@ -954,7 +1068,8 @@ def post_national(date_text: str, results: list[dict[str, Any]], *, force: bool 
 
     local = _load_local_state()
     if not force and local.get("pendingForecastDate") == date_text and local.get("pendingCreationId"):
-        return {"ok": True, "skipped": True, "reason": "reel-pending", "creationId": local.get("pendingCreationId")}
+        resumed = _resume_pending_reel_if_needed(local)
+        return {"ok": True, "skipped": True, "reason": "reel-pending", "creationId": local.get("pendingCreationId"), "resumeStarted": resumed}
     if not force and local.get("lastForecastDate") == date_text and local.get("lastMediaId"):
         return {"ok": True, "skipped": True, "reason": "already-posted-local", "mediaId": local.get("lastMediaId")}
     if not force and _already_posted_remote(date_text):
@@ -962,16 +1077,21 @@ def post_national(date_text: str, results: list[dict[str, Any]], *, force: bool 
         _save_local_state(local)
         return {"ok": True, "skipped": True, "reason": "already-posted-instagram"}
 
+    # Persist the exact posting copy before any network call.  This is the
+    # restart-safe source of truth for the Bot manuscript/caption.
+    media_type = "reel" if INSTAGRAM_AUTO_MEDIA == "reel" else "image"
+    caption = _persist_post_draft(date_text, counts, media_type=media_type)
+
     if INSTAGRAM_AUTO_MEDIA == "reel":
         render_national_reel(date_text, results, logo_path=os.path.join(os.path.dirname(__file__), "traten-logo.png"))
         create_params = {
             "media_type": "REELS",
             "video_url": reel_url(date_text),
-            "caption": caption_for(date_text, counts),
+            "caption": caption,
             "share_to_feed": "true",
         }
     else:
-        create_params = {"image_url": image_url(date_text), "caption": caption_for(date_text, counts)}
+        create_params = {"image_url": image_url(date_text), "caption": caption}
     create = _graph_request(
         f"{INSTAGRAM_USER_ID}/media",
         create_params,
@@ -1032,6 +1152,7 @@ def maybe_post_tomorrow(*, now_jst: datetime, load_results: Callable[[str], list
 
 def status() -> dict[str, Any]:
     local = _load_local_state()
+    pending_resumed = _resume_pending_reel_if_needed(local) if local.get("pendingCreationId") else False
     return {
         "configured": configured(),
         "autoPost": INSTAGRAM_AUTO_POST,
@@ -1049,4 +1170,9 @@ def status() -> dict[str, Any]:
         "pendingForecastDate": local.get("pendingForecastDate"),
         "pendingCreationId": local.get("pendingCreationId"),
         "lastReelError": local.get("lastReelError"),
+        "storageRoot": _PERSIST_ROOT,
+        "storagePersistent": _PERSISTENT_STORAGE,
+        "latestDraftDate": next(iter(sorted(_load_drafts().keys(), reverse=True)), None),
+        "pendingResumeStarted": pending_resumed,
+        "storageWarning": None if _PERSISTENT_STORAGE else "Instagram Bot storage is ephemeral; mount a Render Persistent Disk or set INSTAGRAM_PERSIST_DIR.",
     }

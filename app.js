@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.217';
+const APP_VERSION = '1.5.219';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -6806,6 +6806,32 @@ const externalWeatherLinkConfig={
 const externalWeatherLinkMemory=new Map();
 const externalWeatherLinkTokens={tenkura:0,weathernews:0,tenkijp:0};
 const externalWeatherLinkPending={tenkura:'',weathernews:'',tenkijp:''};
+
+// V1.5.219: shared resolver used by both the analysis result cross-check block
+// and the national mountain introduction/detail page.
+async function resolveExternalWeatherLink(service,mountain){
+  const cfg=externalWeatherLinkConfig[service];
+  mountain=String(mountain||'').trim();
+  if(!cfg||!mountain)return {available:false,result:null};
+  const area=cfg.includeArea?mountainUiArea(mountain):'';
+  const key=`${service}|${mountain}|${area}`;
+  const cached=externalWeatherLinkMemory.get(key);
+  if(cached)return cached;
+  try{
+    const params=new URLSearchParams({mountain});
+    if(cfg.includeArea)params.set('area',area);
+    const res=await fetch(`${cfg.endpoint}?${params}`,{cache:'force-cache'});
+    const data=await res.json().catch(()=>null);
+    const normalized={available:!!(res.ok&&data?.available&&data?.result?.url),result:data?.result||null};
+    externalWeatherLinkMemory.set(key,normalized);
+    return normalized;
+  }catch(_){
+    const normalized={available:false,result:null};
+    externalWeatherLinkMemory.set(key,normalized);
+    return normalized;
+  }
+}
+
 function setExternalWeatherLinkState(service,state,data={}){
   const cfg=externalWeatherLinkConfig[service];if(!cfg)return;
   const link=$(cfg.linkId),status=$(cfg.statusId);if(!link||!status)return;
@@ -7261,6 +7287,45 @@ function nationalSelectNearby(name){
   showNationalOutlookDetail(p,r);
   if(nationalOutlookMap){nationalOutlookMap.panTo([p.lat,p.lon],{animate:true});}
 }
+function nationalExternalWeatherLinksHtml(name){
+  return `<section class="national-rich-section national-weather-section">
+    <div class="national-rich-section-head"><div><span>WEATHER LINKS</span><h4>外部の山岳天気</h4></div></div>
+    <div class="national-weather-link-grid" aria-label="${esc(name)}の外部山岳天気">
+      <a class="national-weather-link service-tenkura is-loading" data-national-weather-service="tenkura" aria-disabled="true"><b><span aria-hidden="true">天</span>てんくら</b><small>対応ページを確認中…</small><em>↗</em></a>
+      <a class="national-weather-link service-weathernews is-loading" data-national-weather-service="weathernews" aria-disabled="true"><b><span aria-hidden="true">W</span>ウェザーニュース</b><small>対応ページを確認中…</small><em>↗</em></a>
+      <a class="national-weather-link service-tenkijp is-loading" data-national-weather-service="tenkijp" aria-disabled="true"><b><span aria-hidden="true">気</span>tenki.jp</b><small>対応ページを確認中…</small><em>↗</em></a>
+    </div>
+  </section>`;
+}
+async function hydrateNationalExternalWeatherLinks(box,name){
+  if(!box||!name)return;
+  const expected=String(name);
+  const tasks=[...box.querySelectorAll('[data-national-weather-service]')].map(async link=>{
+    const service=link.dataset.nationalWeatherService;
+    const resolved=await resolveExternalWeatherLink(service,expected);
+    if(box.querySelector('.national-rich-hero h3')?.textContent?.trim()!==expected)return;
+    const small=link.querySelector('small');
+    link.classList.remove('is-loading');
+    if(resolved.available&&resolved.result?.url){
+      link.classList.add('is-ready');
+      link.classList.remove('is-unavailable');
+      link.href=resolved.result.url;
+      link.target='_blank';
+      link.rel='noopener noreferrer';
+      link.setAttribute('aria-disabled','false');
+      if(small)small.textContent=`${resolved.result.name||expected}のページを開く`;
+    }else{
+      link.classList.add('is-unavailable');
+      link.classList.remove('is-ready');
+      link.removeAttribute('href');
+      link.removeAttribute('target');
+      link.setAttribute('aria-disabled','true');
+      if(small)small.textContent='対応ページを確認できませんでした';
+    }
+  });
+  await Promise.allSettled(tasks);
+}
+
 function showNationalOutlookDetail(p,result){
   const box=$('nationalOutlookDetail');if(!box)return;
   const grade=result?.grade||'?';
@@ -7300,11 +7365,13 @@ function showNationalOutlookDetail(p,result){
       ${result?`<div class="national-rich-metrics">${metrics}</div>`:''}
       ${guideHtml}
       ${courseHtml}
+      ${nationalExternalWeatherLinksHtml(p.name)}
       <div class="national-rich-actions"><button type="button" class="primary national-detail-open national-rich-cta">この山を山行設定に入力</button><button type="button" class="national-extra-action mountain-water-action hidden" data-mountain-water="1">💧 水場情報</button><button type="button" class="national-extra-action mountain-camera-action hidden" data-mountain-camera="1">📹 ライブカメラ</button><a class="national-wikipedia-link" href="${wikipediaArticleUrl(p.name)}" target="_blank" rel="noopener noreferrer">Wikipedia ↗</a></div>
       ${nearbyHtml}
       <p class="national-rich-footnote">主要山のみ実写真を表示しています。写真は Wikimedia Commons の公開画像を利用しています。全国一括簡易判定は候補地選び用です。山行設定では通過時刻・地点・複数モデルを使って詳しく確認できます。</p>
     </div>`;
   box.classList.add('is-open');
+  void hydrateNationalExternalWeatherLinks(box,p.name);
   box.querySelector('.national-detail-open')?.addEventListener('click',()=>openMountainFromNationalMap(p.name));
   box.querySelector('.national-detail-close')?.addEventListener('click',()=>box.classList.remove('is-open'));
   box.querySelector('[data-mountain-water]')?.addEventListener('click',()=>loadMountainWaterReports(p.name,p));
