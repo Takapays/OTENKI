@@ -39,7 +39,7 @@ INSTAGRAM_MIN_NATIONAL_RESULTS = max(1, min(100, int(os.environ.get("INSTAGRAM_M
 INSTAGRAM_AUTO_MEDIA = (os.environ.get("INSTAGRAM_AUTO_MEDIA", "reel").strip().lower() or "reel")
 INSTAGRAM_REEL_FPS = max(8, min(20, int(os.environ.get("INSTAGRAM_REEL_FPS", "12"))))
 INSTAGRAM_REEL_SECONDS = max(6, min(12, int(os.environ.get("INSTAGRAM_REEL_SECONDS", "12"))))
-REEL_RENDER_REV = "classic-20260906"
+REEL_RENDER_REV = "classic-20260906-v2"
 
 _STATE_FILE = os.path.join(tempfile.gettempdir(), "traten-instagram-state.json")
 
@@ -406,6 +406,14 @@ def _draw_reel_feature_icon(draw, kind: int, cx: int, cy: int):
         draw.rectangle((cx-5,cy+7,cx+7,cy+24),fill=(255,255,255,255))
 
 
+def reel_cache_path(date_text: str) -> str:
+    outdir=os.path.join(tempfile.gettempdir(),"traten-instagram-reels")
+    return os.path.join(outdir,f"traten-{date_text}-{REEL_RENDER_REV}.mp4")
+
+def reel_cache_ready(date_text: str) -> bool:
+    path=reel_cache_path(date_text)
+    return os.path.exists(path) and os.path.getsize(path)>100000
+
 def render_national_reel(date_text: str, results: list[dict[str, Any]], *, logo_path: str | None = None) -> str:
     """Render the 9:16 Reel using the approved 2026-09-05 visual direction."""
     if Image is None or ImageDraw is None:
@@ -417,7 +425,7 @@ def render_national_reel(date_text: str, results: list[dict[str, Any]], *, logo_
     outdir=os.path.join(tempfile.gettempdir(),"traten-instagram-reels")
     os.makedirs(outdir,exist_ok=True)
     # Include the renderer revision in the cache file. A style/code update must never reuse an older preview.
-    out=os.path.join(outdir,f"traten-{date_text}-{REEL_RENDER_REV}.mp4")
+    out=reel_cache_path(date_text)
     if os.path.exists(out) and os.path.getsize(out)>100000:
         return out
     work=os.path.join(outdir,f"work-{date_text}-{REEL_RENDER_REV}-{os.getpid()}")

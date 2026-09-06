@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.194';
+const APP_VERSION = '1.5.195';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -11858,7 +11858,7 @@ function renderWeatherTimeline(rows,arrivalMs,departureMs=null){
   const maxFinite=arr=>max(arr.filter(Number.isFinite));
   const niceAxis=v=>{const n=Math.max(0,Number(v)||0);if(n<=7)return 7;if(n<=10)return 10;if(n<=15)return 15;if(n<=20)return 20;return Math.ceil(n/10)*10;};
   const rainAxisMax=niceAxis(maxFinite(data.map(d=>d.rain)));
-  const windAxisMax=niceAxis(maxFinite(data.flatMap(d=>[d.wind,d.gust])));
+  const windAxisMax=10; // V1.5.195: fixed wind/gust display ceiling requested by user
   const rainY=v=>base-(Math.min(rainAxisMax,Math.max(0,v))/rainAxisMax)*92;
   const windY=v=>base-(Math.min(windAxisMax,Math.max(0,v))/windAxisMax)*92;
   const windPoints=data.map((d,i)=>Number.isFinite(d.wind)?`${xs[i].toFixed(1)},${windY(d.wind).toFixed(1)}`:null).filter(Boolean).join(' ');
@@ -11871,7 +11871,7 @@ function renderWeatherTimeline(rows,arrivalMs,departureMs=null){
   if(hx2<hx){const t=hx;hx=hx2;hx2=t;}
   let hw=Math.max(8,hx2-hx);
   if(hw===8){const cx=clamp(xMs(arrivalMs));hx=Math.max(L,Math.min(W-R-8,cx-4));}
-  // V1.5.194: show every available hour. With a 13-hour window this remains readable
+  // V1.5.195: show every available hour. With a 13-hour window this remains readable
   // and avoids hiding alternating hours on mobile.
   const ticks=data.map((d,i)=>`<text class="wx-hour-tick" x="${xs[i]}" y="219" text-anchor="middle">${timelineHourLabel(d.time)}</text>`).join('');
   const rainHalf=num(rainAxisMax/2,1),windHalf=num(windAxisMax/2,1);
@@ -12363,7 +12363,7 @@ function gridLines(w,h,left,right,top,bottom,steps=4){
 function renderImpactChart(points){
   const w=720,h=270,left=42,right=42,top=24,bottom=58;
   const rainMax=niceMax(max(points.map(p=>p.rain)));
-  const windMax=niceMax(max(points.flatMap(p=>[p.wind,p.gust])));
+  const windMax=10; // V1.5.195: fixed wind/gust chart ceiling
   const x=i=>points.length===1?w/2:left+i*(w-left-right)/(points.length-1);
   const yRain=v=>h-bottom-(v/rainMax)*(h-top-bottom);
   const yWind=v=>h-bottom-(v/windMax)*(h-top-bottom);

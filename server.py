@@ -31,7 +31,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.5.194"
+APP_VERSION = "1.5.195"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
@@ -1862,8 +1862,13 @@ function clearToken(){sessionStorage.removeItem('tratenIgAdminToken');$('token')
 function h(json=false){const x={};if(token())x['X-Traten-Cache-Token']=token();if(json)x['Content-Type']='application/json';return x}
 async function api(url,opt={}){
   const r=await fetch(url,{...opt,headers:{...(opt.headers||{}),...h(!!opt.body)}});
-  let j;try{j=await r.json()}catch{j={error:'response parse error'}}
-  if(!r.ok)throw new Error((j&&j.error)||('HTTP '+r.status));
+  const raw=await r.text();
+  let j=null;try{j=raw?JSON.parse(raw):{}}catch{}
+  if(!r.ok){
+    const detail=(j&&j.error)||raw.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,180)||('HTTP '+r.status);
+    throw new Error(detail);
+  }
+  if(!j)throw new Error('サーバー応答をJSONとして読み取れませんでした。HTTP '+r.status);
   return j;
 }
 function show(id,obj){$(id).textContent=JSON.stringify(obj,null,2)}
@@ -1890,15 +1895,23 @@ async function preview(){
 async function previewReelVideo(){
   try{
     const d=$('date').value;if(!d)throw new Error('予報日を選択してください');
-    $('previewMsg').textContent='リールを生成しています。初回は少し時間がかかります…';
+    $('previewMsg').textContent='リール生成を開始しています…';
     $('reelControls').hidden=true;$('reelPlayBtn').disabled=true;$('reelOpenLink').style.display='none';
-    const r=await api('/api/instagram/reel-preview-url?date='+encodeURIComponent(d));
+    const start=await api('/api/instagram/reel-preview-url?date='+encodeURIComponent(d));
+    let r=start;
+    for(let i=0;i<90 && !r.ready;i++){
+      $('previewMsg').textContent=`リールを生成しています… ${Math.min(99,Math.max(1,Math.round((i+1)/90*100)))}%`;
+      await new Promise(resolve=>setTimeout(resolve,2000));
+      r=await api('/api/instagram/reel-preview-status?date='+encodeURIComponent(d));
+      if(r.error)throw new Error(r.error);
+    }
+    if(!r.ready)throw new Error('リール生成がタイムアウトしました。少し待って再度お試しください。');
     $('previewImg').hidden=true;
     const v=$('previewReelVideo');
     const url=r.previewReelUrl+'&t='+Date.now();
     v.hidden=false;v.controls=true;v.src=url;
     $('reelOpenLink').href=url;$('reelOpenLink').style.display='inline';$('reelControls').hidden=false;
-    v.onerror=()=>{ $('previewMsg').textContent='リール動画の生成または読込に失敗しました。別タブで開く、またはRenderログの instagram_national_reel_failed を確認してください。'; $('reelPlayBtn').disabled=true; };
+    v.onerror=()=>{ $('previewMsg').textContent='リール動画の読込に失敗しました。「別タブで開く」をお試しください。'; $('reelPlayBtn').disabled=true; };
     v.onloadedmetadata=()=>{ $('previewMsg').textContent=`リール生成完了: ${r.date} / ${r.count}座 / ${Math.round(v.duration||0)}秒。下の「▶ リールを再生」を押してください。`; };
     v.oncanplay=()=>{ $('reelPlayBtn').disabled=false; $('previewMsg').textContent=`リール再生準備完了: ${r.date} / ${r.count}座 / ${Math.round(v.duration||0)}秒`; };
     v.onwaiting=()=>{ $('previewMsg').textContent='動画データを読み込み中です…'; };
@@ -1938,6 +1951,19 @@ def instagram_preview_url():
     return jsonify(date=date_text, count=len(rows), previewImageUrl=instagram_bot.image_url(date_text))
 
 
+_instagram_reel_jobs_lock = threading.Lock()
+_instagram_reel_jobs: dict[str, dict[str, Any]] = {}
+
+def _instagram_reel_background(date_text: str, rows: list[dict[str, Any]]) -> None:
+    try:
+        instagram_bot.render_national_reel(date_text, rows, logo_path=os.path.join(BASE, "traten-logo.png"))
+        with _instagram_reel_jobs_lock:
+            _instagram_reel_jobs[date_text] = {"running": False, "error": None, "finished": time.time()}
+    except Exception as exc:
+        app.logger.exception("instagram_reel_preview_prepare_failed date=%s", date_text)
+        with _instagram_reel_jobs_lock:
+            _instagram_reel_jobs[date_text] = {"running": False, "error": str(exc)[:500], "finished": time.time()}
+
 @app.get("/api/instagram/reel-preview-url")
 def instagram_reel_preview_url():
     if not _instagram_admin_authorized():
@@ -1950,15 +1976,32 @@ def instagram_reel_preview_url():
     rows = _instagram_load_fresh_100_results(date_text)
     if len(rows) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
         return jsonify(error="fresh nationwide cache is incomplete", count=len(rows), minimum=instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS, date=date_text), 409
-    # Generate/cache the MP4 before returning the URL. Previously the API returned
-    # immediately and the <video> element itself triggered a long render request,
-    # so the browser controls looked disabled while ffmpeg was still working.
+    if instagram_bot.reel_cache_ready(date_text):
+        return jsonify(date=date_text, count=len(rows), ready=True, previewReelUrl=instagram_bot.reel_url(date_text))
+    with _instagram_reel_jobs_lock:
+        job = _instagram_reel_jobs.get(date_text) or {}
+        if not job.get("running"):
+            _instagram_reel_jobs[date_text] = {"running": True, "error": None, "started": time.time()}
+            threading.Thread(target=_instagram_reel_background, args=(date_text, rows), daemon=True, name=f"instagram-reel-{date_text}").start()
+    # Important: return JSON immediately. Rendering 1080x1920/12s synchronously can exceed
+    # the reverse-proxy request timeout and previously surfaced as `response parse error`.
+    return jsonify(date=date_text, count=len(rows), ready=False, generating=True), 202
+
+@app.get("/api/instagram/reel-preview-status")
+def instagram_reel_preview_status():
+    if not _instagram_admin_authorized():
+        return jsonify(error="unauthorized"), 401
+    date_text = str(request.args.get("date") or _national_nextday_date_text())[:10]
     try:
-        instagram_bot.render_national_reel(date_text, rows, logo_path=os.path.join(BASE, "traten-logo.png"))
-    except Exception as exc:
-        app.logger.exception("instagram_reel_preview_prepare_failed date=%s", date_text)
-        return jsonify(error=str(exc)[:500]), 500
-    return jsonify(date=date_text, count=len(rows), previewReelUrl=instagram_bot.reel_url(date_text))
+        datetime.strptime(date_text, "%Y-%m-%d")
+    except ValueError:
+        return jsonify(error="invalid date"), 400
+    rows = _instagram_load_fresh_100_results(date_text)
+    if instagram_bot.reel_cache_ready(date_text):
+        return jsonify(date=date_text, count=len(rows), ready=True, previewReelUrl=instagram_bot.reel_url(date_text))
+    with _instagram_reel_jobs_lock:
+        job = dict(_instagram_reel_jobs.get(date_text) or {})
+    return jsonify(date=date_text, count=len(rows), ready=False, generating=bool(job.get("running")), error=job.get("error"))
 
 
 @app.get("/api/instagram/national-image/<date_text>")
