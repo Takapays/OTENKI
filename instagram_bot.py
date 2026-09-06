@@ -81,12 +81,15 @@ def _dynamic_scene1_template_path() -> str:
 
 def _latlon_to_scene1_px(lat: float, lon: float, W: int, H: int) -> tuple[int, int]:
     # Recalibrated for the approved scene-1 template image (Japan area only).
-    # The full-page template already contains a wide sea margin around Japan,
-    # so markers must be projected into the broader map footprint, not a tight inner box.
-    north, south, west, east = 46.2, 29.0, 127.0, 146.8
-    x1, x2 = int(W * 0.023), int(W * 0.984)
-    y1, y2 = int(H * 0.182), int(H * 0.892)
-    px = int(x1 + (lon - west) / (east - west) * (x2 - x1))
+    # A simple lon/lat rectangle still left Honshu/Kyushu markers slightly east of the coastline,
+    # because the artwork's Japan map is not a perfect equirectangular crop.
+    # Use the broad map footprint first, then apply a latitude-based westward correction so
+    # southern/central Japan shifts inland while Hokkaido stays nearly unchanged.
+    north, south, west, east = 46.2, 30.0, 128.0, 146.0
+    x1, x2 = int(W * 0.023), int(W * 0.972)
+    y1, y2 = int(H * 0.195), int(H * 0.882)
+    base_x = x1 + (lon - west) / (east - west) * (x2 - x1)
+    px = int(base_x - (W / 864.0) * 4.0 * (45.0 - lat))
     py = int(y1 + (north - lat) / (north - south) * (y2 - y1))
     return px, py
 
