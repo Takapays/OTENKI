@@ -40,7 +40,7 @@ INSTAGRAM_MIN_NATIONAL_RESULTS = max(1, min(100, int(os.environ.get("INSTAGRAM_M
 INSTAGRAM_AUTO_MEDIA = (os.environ.get("INSTAGRAM_AUTO_MEDIA", "reel").strip().lower() or "reel")
 INSTAGRAM_REEL_FPS = max(8, min(20, int(os.environ.get("INSTAGRAM_REEL_FPS", "12"))))
 INSTAGRAM_REEL_SECONDS = max(6, min(12, int(os.environ.get("INSTAGRAM_REEL_SECONDS", "12"))))
-REEL_RENDER_REV = "master-20260906-scenes-v8-approved-abc-upshift-timestamps"
+REEL_RENDER_REV = "master-20260906-scenes-v9-large-date-weekday"
 
 _STATE_FILE = os.path.join(tempfile.gettempdir(), "traten-instagram-state.json")
 
@@ -199,8 +199,11 @@ def build_dynamic_scene1(target: date, rows: list[dict[str, Any]]) -> "Image.Ima
     base = Image.open(_dynamic_scene1_template_path()).convert("RGBA").resize((864, 1536), Image.Resampling.LANCZOS)
     draw = ImageDraw.Draw(base, "RGBA")
 
-    date_text = f"{target.month}/{target.day} 明日の登山コンディション"
-    draw.text((48, 278), date_text, font=_load_font(33), fill=(14, 117, 63, 255))
+    # Instagram first-slide date: date only, deliberately large and prominent.
+    # Weekday is derived from the target forecast date, so the Bot stays correct every day.
+    weekday_ja = "月火水木金土日"[target.weekday()]
+    date_text = f"{target.month}/{target.day}（{weekday_ja}）"
+    draw.text((48, 258), date_text, font=_load_font(62), fill=(14, 145, 70, 255))
 
     # Render-time metadata is burned into page 1 so it survives cache, Reel
     # composition, and automated Instagram publishing. Times are JST.
@@ -636,7 +639,8 @@ def _build_reel_scene1(target: date, rows: list[dict[str, Any]], W: int, H: int)
     d.text((323,30),"登山天気ツール",font=_load_font(30),fill=(234,173,8,255))
     d.text((675,30),"／",font=_load_font(30),fill=(8,54,92,255))
     d.text((38,82),"日本三百名山 全国分析",font=_load_font(56),fill=(7,48,83,255))
-    d.text((38,153),f"{target.month}/{target.day} 明日の登山コンディション",font=_load_font(29),fill=(25,127,79,255))
+    weekday_ja="月火水木金土日"[target.weekday()]
+    d.text((38,145),f"{target.month}/{target.day}（{weekday_ja}）",font=_load_font(58),fill=(14,145,70,255))
     d.rounded_rectangle((34,360,520,575),radius=32,fill=(4,35,66,245))
     d.text((64,378),"明日の",font=_load_font(88),fill=(255,222,45,255))
     d.text((67,500),"全国コンディション",font=_load_font(31),fill=(255,255,255,255))
