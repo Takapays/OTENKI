@@ -24,6 +24,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import tempfile
 from datetime import datetime, timezone, timedelta
 from collections import OrderedDict
+from html.parser import HTMLParser
+import html as html_lib
+import re
+import unicodedata
 from typing import Any
 
 from flask import Flask, Response, jsonify, request, send_from_directory, send_file
@@ -31,7 +35,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.5.219"
+APP_VERSION = "1.5.221"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
@@ -2372,6 +2376,299 @@ def trail_route():
     response.headers["X-Trail-Source"] = "MISS"
     return response, 404
 
+
+
+# V1.5.221: external mountain-weather link resolver shared by the analysis
+# result panel and the national mountain introduction/detail page.
+_EXTERNAL_WEATHER_CACHE_TTL = 6 * 3600
+_external_weather_cache_lock = threading.Lock()
+_external_weather_cache: dict[str, tuple[float, dict[str, Any]]] = {}
+
+class _AnchorCollector(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.anchors: list[tuple[str, str]] = []
+        self._href = ""
+        self._text: list[str] = []
+        self._in_a = False
+
+    def handle_starttag(self, tag, attrs):
+        if tag.lower() != "a":
+            return
+        self._in_a = True
+        self._text = []
+        self._href = dict(attrs).get("href") or ""
+
+    def handle_data(self, data):
+        if self._in_a:
+            self._text.append(data)
+
+    def handle_endtag(self, tag):
+        if tag.lower() == "a" and self._in_a:
+            text = " ".join("".join(self._text).split())
+            if self._href and text:
+                self.anchors.append((self._href, text))
+            self._in_a = False
+            self._href = ""
+            self._text = []
+
+
+def _weather_link_cache_get(key: str) -> dict[str, Any] | None:
+    now = time.time()
+    with _external_weather_cache_lock:
+        hit = _external_weather_cache.get(key)
+        if not hit:
+            return None
+        ts, value = hit
+        if now - ts > _EXTERNAL_WEATHER_CACHE_TTL:
+            _external_weather_cache.pop(key, None)
+            return None
+        return dict(value)
+
+
+def _weather_link_cache_put(key: str, value: dict[str, Any]) -> dict[str, Any]:
+    with _external_weather_cache_lock:
+        _external_weather_cache[key] = (time.time(), dict(value))
+    return value
+
+
+def _decode_html_bytes(body: bytes, content_type: str = "") -> str:
+    charsets = []
+    m = re.search(r"charset=([A-Za-z0-9._-]+)", content_type or "", re.I)
+    if m:
+        charsets.append(m.group(1))
+    head = body[:4096].decode("ascii", errors="ignore")
+    m = re.search(r"charset\s*=\s*[\"']?([A-Za-z0-9._-]+)", head, re.I)
+    if m:
+        charsets.append(m.group(1))
+    charsets.extend(["utf-8", "cp932", "shift_jis", "euc_jp"])
+    tried = set()
+    for enc in charsets:
+        enc = enc.lower()
+        if enc in tried:
+            continue
+        tried.add(enc)
+        try:
+            return body.decode(enc)
+        except Exception:
+            pass
+    return body.decode("utf-8", errors="replace")
+
+
+def _fetch_external_html(url: str, timeout: int = 12) -> str:
+    req = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": "Mozilla/5.0 (compatible; Traten/1.5.221; +https://otenki.onrender.com/)",
+            "Accept": "text/html,application/xhtml+xml",
+            "Accept-Language": "ja,en;q=0.7",
+        },
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        body = resp.read(2 * 1024 * 1024)
+        return _decode_html_bytes(body, resp.headers.get("Content-Type", ""))
+
+
+def _mountain_key(name: str) -> str:
+    s = unicodedata.normalize("NFKC", str(name or "")).strip()
+    # App-side disambiguators are useful for UI but external services often use
+    # a different parenthetical label. Compare both the full and base forms.
+    s = s.replace("ヶ", "ケ").replace("ケ岳", "ヶ岳")
+    s = re.sub(r"[\s・･\-‐‑‒–—―]+", "", s)
+    return s.casefold()
+
+
+def _mountain_base_key(name: str) -> str:
+    s = _mountain_key(name)
+    s = re.sub(r"[（(\[].*?[）)\]]", "", s)
+    aliases = {
+        "宮ノ浦岳": "宮之浦岳",
+        "後方羊蹄山": "羊蹄山",
+        "大菩薩岳": "大菩薩嶺",
+        "大台ケ原山": "大台ヶ原山",
+        "八甲田山": "大岳",
+        "阿蘇山": "高岳",
+        "九重山": "久住山",
+        "霧島山": "韓国岳",
+        "立山": "雄山",
+        "穂高岳": "奥穂高岳",
+    }
+    return _mountain_key(aliases.get(s, s))
+
+
+def _candidate_name_keys(name: str) -> list[str]:
+    full = _mountain_key(name)
+    base = _mountain_base_key(name)
+    out = [full]
+    if base and base != full:
+        out.append(base)
+    # Service naming variants found on the public mountain lists.
+    raw = unicodedata.normalize("NFKC", str(name or "")).strip()
+    variants = {
+        "宮ノ浦岳": ["宮之浦岳"],
+        "大山（鳥取）": ["大山", "大山（弥山）"],
+        "阿蘇山（高岳）": ["阿蘇山", "高岳", "阿蘇山（高岳）"],
+        "八甲田山": ["八甲田山", "大岳", "大岳（八甲田山）"],
+        "九重山": ["九重山", "久住山", "久住山（九重山）"],
+        "霧島山": ["霧島山", "韓国岳", "韓国岳（霧島山）"],
+        "立山": ["立山", "雄山", "雄山（立山）"],
+        "穂高岳": ["穂高岳", "奥穂高岳"],
+        "羊蹄山": ["羊蹄山", "後方羊蹄山", "後方羊蹄山（羊蹄山）"],
+    }
+    for v in variants.get(raw, []):
+        k = _mountain_key(v)
+        if k and k not in out:
+            out.append(k)
+        bk = _mountain_base_key(v)
+        if bk and bk not in out:
+            out.append(bk)
+    return out
+
+
+def _parse_anchors(page_html: str, base_url: str) -> list[tuple[str, str]]:
+    parser = _AnchorCollector()
+    try:
+        parser.feed(page_html)
+    except Exception:
+        return []
+    return [(urllib.parse.urljoin(base_url, href), html_lib.unescape(text)) for href, text in parser.anchors]
+
+
+def _pick_mountain_anchor(anchors: list[tuple[str, str]], mountain: str, url_must_contain: str = "") -> dict[str, Any] | None:
+    keys = _candidate_name_keys(mountain)
+    best = None
+    best_score = -1
+    for url, text in anchors:
+        if url_must_contain and url_must_contain not in url:
+            continue
+        tk = _mountain_key(text)
+        tb = _mountain_base_key(text)
+        score = -1
+        for k in keys:
+            if tk == k:
+                score = max(score, 100)
+            elif tb == k:
+                score = max(score, 90)
+            elif len(k) >= 3 and (k in tk or tk in k):
+                score = max(score, 60)
+        if score > best_score:
+            best_score = score
+            best = {"url": url, "name": text.strip(), "direct": True}
+    return best if best_score >= 60 else None
+
+
+def _tenkura_area_code(area: str) -> str | None:
+    a = unicodedata.normalize("NFKC", str(area or ""))
+    if "北海道" in a: return "hk"
+    if "東北" in a: return "th"
+    if "北陸" in a: return "hr"
+    if any(x in a for x in ("関東", "甲信", "上信越", "秩父", "多摩", "富士", "八ヶ岳", "中央アルプス", "南アルプス", "北アルプス")): return "kk"
+    if "東海" in a: return "tk"
+    if "近畿" in a: return "kn"
+    if "中国" in a: return "cg"
+    if "四国" in a: return "sk"
+    if any(x in a for x in ("九州", "沖縄")): return "ks"
+    return None
+
+
+def _external_weather_fallback(service: str, mountain: str) -> dict[str, Any]:
+    if service == "tenkura":
+        url = "https://tenkura.n-kishou.co.jp/tk/kanko/ka_type.html?type=15"
+        label = "てんくらの山検索を開く"
+        name = "てんくら 山検索"
+    elif service == "weathernews":
+        url = "https://weathernews.jp/mountain/"
+        label = "ウェザーニュースの山検索を開く"
+        name = "ウェザーニュース 山検索"
+    else:
+        url = "https://tenki.jp/mountain/"
+        label = "tenki.jpの山検索を開く"
+        name = "tenki.jp 山検索"
+    return {"url": url, "name": name, "label": label, "direct": False, "requested": mountain}
+
+
+def _resolve_external_weather_link(service: str, mountain: str, area: str = "") -> dict[str, Any]:
+    mountain = str(mountain or "").strip()
+    area = str(area or "").strip()
+    if not mountain:
+        raise ValueError("mountain is required")
+    key = f"external-weather:v15220:{service}:{mountain}:{area}"
+    cached = _weather_link_cache_get(key)
+    if cached is not None:
+        return cached
+
+    result = None
+    try:
+        if service == "weathernews":
+            base = "https://weathernews.jp/mountain/"
+            page = _fetch_external_html(base)
+            result = _pick_mountain_anchor(_parse_anchors(page, base), mountain, "/mountain/")
+        elif service == "tenkijp":
+            base = "https://tenki.jp/mountain/"
+            page = _fetch_external_html(base)
+            result = _pick_mountain_anchor(_parse_anchors(page, base), mountain, "/mountain/")
+        elif service == "tenkura":
+            preferred = _tenkura_area_code(area)
+            # Public list page contains the individual kad.html links. Try the
+            # selected mountain area first, then the remaining regions to avoid
+            # false negatives caused by different area nomenclature.
+            codes = [preferred] if preferred else []
+            codes.extend(c for c in ("hk", "th", "hr", "kk", "tk", "kn", "cg", "sk", "ks") if c and c not in codes)
+            for code in codes:
+                base = f"https://tenkura.n-kishou.co.jp/tk/kanko/kasel.html?ba={code}&type=15"
+                try:
+                    page = _fetch_external_html(base)
+                except Exception:
+                    continue
+                found = _pick_mountain_anchor(_parse_anchors(page, base), mountain, "kad.html")
+                if found:
+                    result = found
+                    break
+    except Exception:
+        result = None
+
+    if not result:
+        result = _external_weather_fallback(service, mountain)
+    else:
+        result["label"] = f"{result.get('name') or mountain}のページを開く"
+        result["requested"] = mountain
+    return _weather_link_cache_put(key, result)
+
+
+def _external_weather_response(service: str):
+    mountain = request.args.get("mountain", "").strip()
+    area = request.args.get("area", "").strip()
+    if not mountain:
+        return jsonify(available=False, error="mountain is required"), 400
+    try:
+        result = _resolve_external_weather_link(service, mountain, area)
+        response = jsonify(available=bool(result.get("url")), result=result)
+        response.headers["Cache-Control"] = "public, max-age=21600"
+        return response
+    except Exception as exc:
+        # Even if a remote provider changes HTML or temporarily refuses our
+        # lookup, keep the button useful by linking to that provider's mountain
+        # search/list page instead of presenting a dead control.
+        result = _external_weather_fallback(service, mountain)
+        result["resolver_error"] = str(exc)[:160]
+        response = jsonify(available=True, result=result)
+        response.headers["Cache-Control"] = "public, max-age=900"
+        return response
+
+
+@app.get("/api/tenkura-link")
+def tenkura_link():
+    return _external_weather_response("tenkura")
+
+
+@app.get("/api/weathernews-link")
+def weathernews_link():
+    return _external_weather_response("weathernews")
+
+
+@app.get("/api/tenkijp-link")
+def tenkijp_link():
+    return _external_weather_response("tenkijp")
 
 
 

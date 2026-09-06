@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.219';
+const APP_VERSION = '1.5.221';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -6800,14 +6800,14 @@ function currentMountainLabel(){return $('mountainPreset')?.value?.trim()||$('mo
 // after results are visible, so these network lookups never block progressive rendering.
 const externalWeatherLinkConfig={
   tenkura:{linkId:'tenkuraLink',statusId:'tenkuraLinkStatus',endpoint:'/api/tenkura-link',includeArea:true},
-  weathernews:{linkId:'weathernewsLink',statusId:'weathernewsLinkStatus',endpoint:'/api/weathernews-link'},
-  tenkijp:{linkId:'tenkijpLink',statusId:'tenkijpLinkStatus',endpoint:'/api/tenkijp-link'}
+  weathernews:{linkId:'weathernewsLink',statusId:'weathernewsLinkStatus',endpoint:'/api/weathernews-link',includeArea:true},
+  tenkijp:{linkId:'tenkijpLink',statusId:'tenkijpLinkStatus',endpoint:'/api/tenkijp-link',includeArea:true}
 };
 const externalWeatherLinkMemory=new Map();
 const externalWeatherLinkTokens={tenkura:0,weathernews:0,tenkijp:0};
 const externalWeatherLinkPending={tenkura:'',weathernews:'',tenkijp:''};
 
-// V1.5.219: shared resolver used by both the analysis result cross-check block
+// V1.5.221: shared resolver used by both the analysis result cross-check block
 // and the national mountain introduction/detail page.
 async function resolveExternalWeatherLink(service,mountain){
   const cfg=externalWeatherLinkConfig[service];
@@ -6840,7 +6840,7 @@ function setExternalWeatherLinkState(service,state,data={}){
   link.classList.toggle('is-ready',state==='ready');
   if(state==='ready'&&data.url){
     link.href=data.url;link.setAttribute('aria-disabled','false');
-    status.textContent=`${data.name||currentMountainLabel()}のページを開く`;
+    status.textContent=data.label||`${data.name||currentMountainLabel()}のページを開く`;
   }else{
     link.removeAttribute('href');link.setAttribute('aria-disabled','true');
     status.textContent=state==='loading'?'選択した山を確認中…':'対応ページを確認できませんでした';
@@ -7313,7 +7313,7 @@ async function hydrateNationalExternalWeatherLinks(box,name){
       link.target='_blank';
       link.rel='noopener noreferrer';
       link.setAttribute('aria-disabled','false');
-      if(small)small.textContent=`${resolved.result.name||expected}のページを開く`;
+      if(small)small.textContent=resolved.result.label||`${resolved.result.name||expected}のページを開く`;
     }else{
       link.classList.add('is-unavailable');
       link.classList.remove('is-ready');
@@ -10842,10 +10842,10 @@ async function analyzePointsBatch(points,providerList=providers,statusLabel='気
   // independent backup sources: MET Norway + NOAA GFS + meteoblue.
   const metnoProvider={id:'metno',name:'MET Norway（予備）',kind:'fallback'};
   const noaaProvider={id:'noaa-gfs',name:'NOAA GFS（直取得）',kind:'fallback'};
-  const meteoblueProvider={id:'meteoblue',name:'meteoblue（予備）',kind:'fallback'};
+  const meteoblueProvider={id:'meteoblue',name:'meteoblue（複数モデル統合）',kind:'fallback',integratedEnsemble:true};
   const fallbackIndexes=buckets.map((bucket,index)=>({bucket,index})).filter(x=>!x.bucket.rows.length&&fallbackableWeatherErrors(x.bucket.errors)).map(x=>x.index);
   if(fallbackIndexes.length){
-    setStatus(`Open-Meteo取得困難：${fallbackIndexes.length}地点をMET Norway + NOAA GFS + meteoblueで取得中…`);
+    setStatus(`Open-Meteo取得困難：${fallbackIndexes.length}地点をmeteoblue複数モデル統合 + MET Norway + NOAA GFSで取得中…`);
     await Promise.all(fallbackIndexes.map(async index=>{
       const bucket=buckets[index], point=points[index];
       const [metState,noaaState,mbState]=await Promise.allSettled([
@@ -10864,7 +10864,7 @@ async function analyzePointsBatch(points,providerList=providers,statusLabel='気
       else bucket.errors.push('NOAA GFS: 対象期間外または指定時刻なし');
       if(mbRow)bucket.rows.push({provider:meteoblueProvider,row:mbRow});
       else if(mbState.status==='rejected')bucket.errors.push(mbState.reason?.message||'meteoblue取得失敗');
-      const got=[metRow&&'MET Norway',noaaRow&&'NOAA GFS',mbRow&&'meteoblue'].filter(Boolean);
+      const got=[mbRow&&'meteoblue複数モデル統合',metRow&&'MET Norway',noaaRow&&'NOAA GFS'].filter(Boolean);
       bucket.errors.push(`Open-Meteo取得困難 → ${got.length?got.join(' + '):'予備モデルなし'}${got.length>=2?'を統合（時系列含む）':'で継続'}`);
     }));
   }
@@ -10881,7 +10881,7 @@ async function analyzeIndependentSupportBatch(points,statusLabel='独立補強�
   // sources only: MET Norway + meteoblue. NOAA direct GFS is intentionally
   // reserved for an Open-Meteo failure/429 so GFS is not double-counted.
   const metnoProvider={id:'metno',name:'MET Norway（独立補強）',kind:'fallback'};
-  const meteoblueProvider={id:'meteoblue',name:'meteoblue（独立補強）',kind:'fallback'};
+  const meteoblueProvider={id:'meteoblue',name:'meteoblue（独立補強・複数モデル統合）',kind:'fallback',integratedEnsemble:true};
   setStatus(`${statusLabel}：MET Norway / meteoblue を独立取得中…`);
   return await Promise.all(points.map(async point=>{
     const errors=[],providerRows=[];
@@ -10978,8 +10978,8 @@ async function analyze(){
     const allowMoreOpenMeteo=openMeteoProbeSucceeded;
     if(!allowMoreOpenMeteo){
       setStatus(openMeteoCircuitActive()
-        ? `Open-Meteo 429を検知：残りモデルは送信せず、予備モデルへ切替（10分間抑制）…`
-        : `Open-Meteo取得失敗：残りモデルは送信せず、予備モデルへ切替…`);
+        ? `Open-Meteo 429を検知：残りモデルは送信せず、meteoblue複数モデル統合予報を軸に予備系へ切替（10分間抑制）…`
+        : `Open-Meteo取得失敗：残りモデルは送信せず、meteoblue / MET Norway / NOAA GFS の予備系へ切替…`);
     }
 
     // Start overnight analysis only after the probe. Normal operation supplements Open-Meteo with
@@ -12305,7 +12305,22 @@ function pointForecastConfidence(result){
     if(ag==='LOW')level='LOW';
     else if(ag==='MEDIUM'&&level==='HIGH')level='MEDIUM';
   }else if(fallbackOnly){
-    if(rows.length>=3){
+    const hasMeteoblue=rows.some(x=>x?.provider?.id==='meteoblue');
+    const openMeteo429=(result?.errors||[]).some(v=>/HTTP\s*429|429 circuit breaker|Open-Meteo 429/i.test(String(v||'')));
+    // V1.5.221: a 429 is a delivery/rate-limit problem, not evidence that the
+    // underlying forecast is less reliable. When meteoblue is available we do
+    // not mechanically downgrade confidence just because Open-Meteo was rate
+    // limited. meteoblue is treated as an integrated multi-model forecast;
+    // MET Norway / NOAA GFS, when present, remain independent cross-checks.
+    if(openMeteo429&&hasMeteoblue){
+      level=result?.confidence==='LOW'?'LOW':result?.confidence==='MEDIUM'?'MEDIUM':'HIGH';
+      reasons.push('meteoblue複数モデル統合');
+      if(rows.length>=2)reasons.push(`独立系${rows.length-1}モデル照合`);
+      else reasons.push('429による一律低下なし');
+      if(result?.confidence==='LOW')reasons.push('予報間の差が大きい');
+      else if(result?.confidence==='MEDIUM')reasons.push('予報間にばらつき');
+      else reasons.push('予報傾向は安定');
+    }else if(rows.length>=3){
       level=result?.confidence==='LOW'?'LOW':'MEDIUM';
       reasons.push('予備3モデル比較');
       if(result?.confidence==='LOW')reasons.push('モデル差が大きい');
@@ -12344,10 +12359,15 @@ function routeForecastConfidence(points){
   const minModels=modelCounts.length?Math.min(...modelCounts):0;
   const maxLead=Math.max(...items.map(x=>Number(x.lead)||0));
   const reasons=[];
+  const allMeteoblue429=items.length>0&&(Array.isArray(points)?points:[]).every(p=>{
+    const rs=Array.isArray(p?.providerRows)?p.providerRows:[];
+    return rs.some(x=>x?.provider?.id==='meteoblue')&&(p?.errors||[]).some(v=>/HTTP\s*429|429 circuit breaker|Open-Meteo 429/i.test(String(v||'')));
+  });
   if(level==='LOW')reasons.push('一部地点の不確実性が高め');
   else if(level==='MEDIUM')reasons.push('一部地点に予報のばらつき');
   else reasons.push('ルート全体で予報傾向が比較的一致');
-  if(minModels>0)reasons.push(`最少${minModels}モデル比較`);
+  if(allMeteoblue429)reasons.push('meteoblue複数モデル統合で継続');
+  else if(minModels>0)reasons.push(`最少${minModels}モデル比較`);
   reasons.push(maxLead===0?'当日予報':`${maxLead}日先を含む`);
   return {level,label:{HIGH:'高',MEDIUM:'中',LOW:'低'}[level]||'中',reason:reasons.join('・'),items,worstItems};
 }
