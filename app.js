@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.230';
+const APP_VERSION = '1.6.1';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -7492,18 +7492,24 @@ async function openMountainFromNationalMap(name){
   }
   $('mountainPreset')?.scrollIntoView({behavior:'smooth',block:'center'});
 }
-const NATIONAL_OUTLOOK_BROWSER_CACHE_KEY='traten:national-outlook:v6';
+const NATIONAL_OUTLOOK_BROWSER_CACHE_KEY='traten:national-outlook:v7-conservative-231';
 const NATIONAL_OUTLOOK_BROWSER_CACHE_TTL=4*60*60*1000;
+const NATIONAL_OUTLOOK_CACHE_ENGINE='metno-gfs-v4-conservative-recovered';
 function readNationalOutlookBrowserCache(date){
   try{
-    const raw=localStorage.getItem(NATIONAL_OUTLOOK_BROWSER_CACHE_KEY);
-    const obj=raw?JSON.parse(raw):null;
-    if(!obj||obj.date!==date||Date.now()-Number(obj.savedAt||0)>NATIONAL_OUTLOOK_BROWSER_CACHE_TTL||!Array.isArray(obj.results))return null;
+    const obj=JSON.parse(localStorage.getItem(NATIONAL_OUTLOOK_BROWSER_CACHE_KEY)||'null');
+    if(!obj||obj.date!==date||obj.engine!==NATIONAL_OUTLOOK_CACHE_ENGINE||!Number.isFinite(obj.expiresAt)||obj.expiresAt<=Date.now()||!Array.isArray(obj.results))return null;
     return obj.results;
   }catch(_){return null;}
 }
-function writeNationalOutlookBrowserCache(date,results){
-  try{localStorage.setItem(NATIONAL_OUTLOOK_BROWSER_CACHE_KEY,JSON.stringify({date,savedAt:Date.now(),results}));}catch(_){}
+function writeNationalOutlookBrowserCache(date,results,cache,engine){
+  try{
+    const expiresAt=Math.min(Date.parse(cache?.freshUntil||''),Date.now()+NATIONAL_OUTLOOK_BROWSER_CACHE_TTL);
+    if(engine!==NATIONAL_OUTLOOK_CACHE_ENGINE||!Number.isFinite(expiresAt)||expiresAt<=Date.now()){
+      localStorage.removeItem(NATIONAL_OUTLOOK_BROWSER_CACHE_KEY);return;
+    }
+    localStorage.setItem(NATIONAL_OUTLOOK_BROWSER_CACHE_KEY,JSON.stringify({date,engine,expiresAt,generatedAt:cache.generatedAt,results}));
+  }catch(_){}
 }
 async function loadNationalOutlookSharedCacheOnly({silentMiss=false}={}){
   const date=$('nationalOutlookDate')?.value, status=$('nationalOutlookStatus');
@@ -7538,7 +7544,7 @@ async function loadNationalOutlookSharedCacheOnly({silentMiss=false}={}){
     }
     nationalOutlookResults=new Map(results.map(x=>[x.name,x]));
     renderNationalOutlookMarkers();
-    writeNationalOutlookBrowserCache(date,results);
+    writeNationalOutlookBrowserCache(date,results,data.cache,data.engine);
     const counts={A:0,B:0,C:0};for(const r of nationalOutlookResults.values())if(counts[r.grade]!=null)counts[r.grade]++;
     const state=String(data.cache?.state||'');
     const freshness=state.includes('stale')?'保存済みの最新キャッシュ':'共有キャッシュ';
@@ -7587,7 +7593,7 @@ async function runNationalOutlook(){
     const counts={A:0,B:0,C:0};for(const r of nationalOutlookResults.values())if(counts[r.grade]!=null)counts[r.grade]++;
     const got=nationalOutlookResults.size;
     // V1.4.124: save partial results too. The next run can show them instantly and fill only missing mountains.
-    if(got)writeNationalOutlookBrowserCache(date,[...nationalOutlookResults.values()]);
+    if(got)writeNationalOutlookBrowserCache(date,[...nationalOutlookResults.values()],data.cache,data.engine);
     const state=String(data.cache?.state||'');
     const missing=Math.max(0,points.length-got);
     const rateLimited=!!data.rateLimited;
@@ -7613,7 +7619,7 @@ async function runNationalOutlook(){
         const remainMin=Math.max(0,Math.round(remainSec/60));
         note+=`<br><small class="national-cache-help">キャッシュ年齢 約${ageMin}分 / 4時間TTL残り 約${remainMin}分${data.cache?.cacheHit?'（キャッシュヒット）':''}</small>`;
       }else{
-        note+=`<br><small class="national-cache-help">百名山は翌日〜7日先を共有キャッシュへ先行保存し、各結果は4時間TTLで更新します。キャッシュがない対象は全国判定に1〜2分程度かかることがあります。</small>`;
+        note+=`<br><small class="national-cache-help">先行保存対象は翌日〜7日先を共有キャッシュへ保存し、各結果は4時間TTLで更新します。キャッシュがない対象は全国判定に1〜2分程度かかることがあります。</small>`;
       }
       const dualCount=Number(data.dualModelCount||0);
       const metnoOnly=Number(data.metnoOnlyCount||0), gfsOnly=Number(data.gfsOnlyCount||0);

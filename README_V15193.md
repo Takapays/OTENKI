@@ -1,8 +1,11 @@
 # Traten V1.5.193
 
-## Instagram Reel preview cache fix
-- `/api/instagram/reel-preview-url` no longer fails immediately just because the 4-hour nationwide cache is incomplete.
-- The Instagram path now fetches only missing/expired nationwide rows on demand, writes successful rows back to Supabase, and reuses them for the Reel.
-- If only a few rows still fail upstream, the existing unexpired stale cache (maximum 24 hours) can complete the set instead of dropping the entire preview.
-- `_instagram_load_fresh_100_results()` now returns the actual available rows instead of converting every sub-98 result to an empty list, so error counts are meaningful.
-- Minimum nationwide count remains 98; no threshold was lowered.
+## 変更
+- 「前後の気象推移」に瞬間最大風速（突風）を追加。
+- 時刻ラベルを間引かず、取得できた全時間を表示。
+- Open-Meteo / meteoblue のJST時刻と MET Norway のUTC時刻を同一実時刻で正規化して統合。
+  - 同じ1時間が別スロットとして二重描画されることで平均風速線が上下にギザギザする問題を修正。
+- 時系列統合に gust を追加。
+  - Open-Meteo / MET Norway / meteoblue / NOAA GFS の突風値を利用。
+  - 通常群と独立補強群の最終統合では安全側の最大値を採用。
+- 降水・風の縦軸上限を固定7からデータに応じた自動スケールへ変更。

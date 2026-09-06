@@ -30,12 +30,12 @@ import re
 import unicodedata
 from typing import Any
 
-from flask import Flask, Response, jsonify, request, send_from_directory, send_file
+from flask import Flask, Response, jsonify, request, send_from_directory, send_file, abort
 
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.5.230"
+APP_VERSION = "1.6.1"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
@@ -62,22 +62,9 @@ INDEXNOW_KEY = "5d55ce5ee953aa38b715681f5207ee3d"
 INDEXNOW_KEY_FILENAME = f"{INDEXNOW_KEY}.txt"
 INDEXNOW_ENDPOINT = "https://api.indexnow.org/IndexNow"
 INDEXNOW_HOST = "otenki.onrender.com"
-INDEXNOW_PUBLIC_URLS = [
-    "https://otenki.onrender.com/",
-    "https://otenki.onrender.com/guide.html",
-]
+INDEXNOW_PUBLIC_URLS = ['https://otenki.onrender.com/', 'https://otenki.onrender.com/guide.html', 'https://otenki.onrender.com/live-cameras.html', 'https://otenki.onrender.com/trailheads.html', 'https://otenki.onrender.com/huts.html', 'https://otenki.onrender.com/water-sources.html']
 
-ALLOWED_EVENT_NAMES = {
-    "page_view",
-    "route_candidates_loaded",
-    "route_created",
-    "trail_route_calculated",
-    "arrival_times_calculated",
-    "weather_analysis",
-    "mountain_selected",
-    "point_selected",
-    "route_point_used",
-}
+ALLOWED_EVENT_NAMES = {'trail_route_calculated', 'route_created', 'page_view', 'result_screenshot', 'route_camera', 'water_list', 'weather_api_audit', 'arrival_times_calculated', 'classic_route_loaded', 'planner_clear', 'representative_course_loaded', 'route_candidates_loaded', 'water_report', 'route_point_used', 'mountain_selected', 'point_selected', 'weather_analysis'}
 
 ALLOWED_HOSTS = {
     "api.open-meteo.com",
@@ -147,8 +134,8 @@ NATIONAL_OUTLOOK_REFRESH_INTERVAL = int(os.environ.get("NATIONAL_OUTLOOK_REFRESH
 NATIONAL_OUTLOOK_AUTO_REFRESH = os.environ.get("NATIONAL_OUTLOOK_AUTO_REFRESH", "1").lower() not in {"0", "false", "no"}
 NATIONAL_CACHE_REFRESH_TOKEN = os.environ.get("NATIONAL_CACHE_REFRESH_TOKEN", "")
 NATIONAL_100_POINTS_FILE = os.path.join(BASE, "national-100-points.json")
-NATIONAL_OUTLOOK_CHUNK_SIZE = int(os.environ.get("NATIONAL_OUTLOOK_CHUNK_SIZE", "50"))
-NATIONAL_OUTLOOK_ENGINE = "metno-gfs-v1"
+NATIONAL_OUTLOOK_CHUNK_SIZE = max(1, min(50, int(os.environ.get("NATIONAL_OUTLOOK_CHUNK_SIZE", "25"))))
+NATIONAL_OUTLOOK_ENGINE = "metno-gfs-v4-conservative-recovered"
 NATIONAL_GFS_MIN_INTERVAL = float(os.environ.get("NATIONAL_GFS_MIN_INTERVAL", "0.35"))
 _national_gfs_lock = threading.Lock()
 _national_gfs_last_request = 0.0
@@ -158,6 +145,27 @@ _national_point_cache: dict[str, tuple[float, dict[str, Any]]] = {}
 _national_point_cache_lock = threading.Lock()
 _national_refresh_thread_started = False
 _national_refresh_thread_lock = threading.Lock()
+
+# V1.6.1: preserve legacy environment names, separating proactive 300 and social 100.
+NATIONAL_OUTLOOK_BOOT_GRACE = max(0, int(os.environ.get("NATIONAL_OUTLOOK_BOOT_GRACE", "45")))
+NATIONAL_100_ROLLING_AUTO_CACHE = os.environ.get("NATIONAL_100_ROLLING_AUTO_CACHE", os.environ.get("NATIONAL_NEXTDAY_100_AUTO_CACHE", "1")).lower() not in {"0", "false", "no", "off", ""}
+NATIONAL_100_ROLLING_DAYS = max(1, min(15, int(os.environ.get("NATIONAL_100_ROLLING_DAYS", "7"))))
+NATIONAL_100_ROLLING_DATES_PER_CYCLE = max(1, min(15, int(os.environ.get("NATIONAL_100_ROLLING_DATES_PER_CYCLE", "1"))))
+NATIONAL_PREFETCH_COUNT = int(os.environ.get("NATIONAL_PREFETCH_COUNT", "300"))
+if NATIONAL_PREFETCH_COUNT not in {100, 300}:
+    raise ValueError("NATIONAL_PREFETCH_COUNT must be 100 or 300")
+NATIONAL_PREFETCH_POINTS_FILE = os.path.join(BASE, "national-runtime-points-v161.json")
+NATIONAL_REFRESH_STATUS_FILE = os.path.join(NATIONAL_OUTLOOK_CACHE_DIR, "refresh-status.json")
+_national_last_refresh_report = {}
+_national_refresh_worker_thread = None
+_national_refresh_worker_lock_handle = None
+_national_refresh_thread_pid = None
+_national_refresh_runtime = {"state":"not-started", "workerPid":None, "lastCheckAt":None,
+    "lastRunStartedAt":None, "lastRunFinishedAt":None, "lastRunOk":None, "lastError":None}
+_national_file_handles = {}
+_national_file_handles_lock = threading.Lock()
+_national_refresh_stop = threading.Event()
+
 
 TRAIL_DATA_DIR = os.path.join(BASE, "trail_data")
 TRAIL_GRAPH_CACHE_MAX = int(os.environ.get("TRAIL_GRAPH_CACHE_MAX", "2"))
@@ -1006,15 +1014,366 @@ def _bytes_response(status: int, ctype: str, body: bytes, *, cache_control: str 
     return response
 
 
+def _national_public_result(row):
+    return {k:v for k,v in row.items() if not k.startswith("_cache_")}
+
+def _national_meta(row, *, fetched_at=None):
+    meta = row.get("_cache_meta") if isinstance(row, dict) else None
+    if isinstance(meta, dict):
+        try:
+            gt, fu, su = (float(meta[k]) for k in ("generated_ts", "fresh_until", "stale_until"))
+            if all(math.isfinite(x) for x in (gt,fu,su)) and 0 < gt <= fu <= su:
+                return {"generated_ts":gt, "fresh_until":fu, "stale_until":su}
+        except (KeyError,TypeError,ValueError):
+            pass
+    if fetched_at is None:
+        return None
+    return {"generated_ts":fetched_at, "fresh_until":fetched_at + NATIONAL_OUTLOOK_CACHE_TTL,
+            "stale_until":fetched_at + max(NATIONAL_OUTLOOK_CACHE_TTL,NATIONAL_OUTLOOK_STALE_TTL)}
+
+def _national_valid_results(points, results, *, fetched_at=None):
+    wanted = {p["name"] for p in points}
+    rows = {}
+    for row in results or []:
+        if not isinstance(row, dict) or row.get("name") not in wanted or row.get("grade") not in {"A","B","C"}:
+            continue
+        meta = _national_meta(row, fetched_at=fetched_at)
+        if meta is None or meta["stale_until"] <= time.time():
+            continue
+        rows[row["name"]] = dict(row, _cache_meta=meta)
+    return rows
+
+def _national_snapshot(date_text, fingerprint, points, results):
+    rows = _national_valid_results(points,results)
+    ordered = [rows[p["name"]] for p in points if p["name"] in rows]
+    now = time.time(); metas = [r["_cache_meta"] for r in ordered]
+    gt = min((m["generated_ts"] for m in metas),default=now)
+    fu = min((m["fresh_until"] for m in metas),default=now)
+    su = max((m["stale_until"] for m in metas),default=now)
+    return {"date":date_text,"fingerprint":fingerprint,"engine":NATIONAL_OUTLOOK_ENGINE,
+        "generated_at":datetime.fromtimestamp(gt,timezone.utc).isoformat(),"generated_ts":gt,
+        "fresh_until":fu,"stale_until":su,"points":points,"results":ordered,
+        "complete":len(ordered)==len(points),"cached_count":len(ordered),"version":APP_VERSION}
+
+def _national_open_lock(name):
+    """Non-blocking process + thread lock. No timeout stealing of a live owner's lock."""
+    key = os.path.join(NATIONAL_OUTLOOK_CACHE_DIR,"lock-"+hashlib.sha256(name.encode()).hexdigest()+".lck")
+    with _national_file_handles_lock:
+        prev = _national_file_handles.get(key)
+        if prev and prev[0] == os.getpid():
+            return None
+        if prev:
+            # Inherited descriptors after a fork must not be unlocked on behalf of the parent.
+            prev[1].close(); _national_file_handles.pop(key,None)
+        handle = open(key,"a+b")
+        try:
+            if os.name == "nt":
+                import msvcrt
+                handle.seek(0); handle.write(b"0"); handle.flush(); handle.seek(0)
+                msvcrt.locking(handle.fileno(),msvcrt.LK_NBLCK,1)
+            else:
+                import fcntl
+                fcntl.flock(handle.fileno(),fcntl.LOCK_EX|fcntl.LOCK_NB)
+        except (OSError,ImportError):
+            handle.close(); return None
+        _national_file_handles[key] = (os.getpid(),handle)
+        return key
+
+def _national_close_lock(key):
+    if key is None:
+        return
+    with _national_file_handles_lock:
+        item = _national_file_handles.pop(key,None)
+        if item:
+            item[1].close()
+
+def _national_cached_snapshot(date_text, fingerprint, points):
+    read_error = None
+    try:
+        fresh, stale, meta = _national_supabase_read(date_text,points)
+    except RuntimeError as exc:
+        fresh, stale, meta = {}, {}, {}
+        read_error = str(exc)
+    disk,_ = _national_read_disk_cache(date_text,fingerprint)
+    rows = _national_valid_results(points,(disk or {}).get("results") or [])
+    for p in points:
+        name = p["name"]
+        if name in fresh:
+            rows[name] = dict(fresh[name],_cache_meta=meta[name])
+        elif name in stale:
+            local = rows.get(name)
+            if not local or local["_cache_meta"]["generated_ts"] < meta[name]["generated_ts"]:
+                rows[name] = dict(stale[name],_cache_meta=meta[name])
+    snap = _national_snapshot(date_text,fingerprint,points,list(rows.values()))
+    snap["supabase_fresh_count"] = len(fresh); snap["supabase_stale_count"] = len(stale)
+    if read_error:
+        snap["cacheReadError"] = read_error
+    return snap
+
+def _national_fetch_and_persist(date_text, points, due, initial=None):
+    """Fetch at most CHUNK_SIZE, checkpoint immediately and verify database writes."""
+    fp = _national_points_fingerprint(points)
+    rows = _national_valid_results(points,(initial or {}).get("results") or [])
+    fetched_names = set(); persisted_names = set(); errors = []; chunks = []; limited = False
+    persistent = _national_supabase_enabled()
+    for start in range(0,len(due),NATIONAL_OUTLOOK_CHUNK_SIZE):
+        if _national_refresh_stop.is_set():
+            errors.append("refresh interrupted"); break
+        batch = due[start:start+NATIONAL_OUTLOOK_CHUNK_SIZE]
+        cr = {"start":start,"requested":len(batch),"fetched":0,"persisted":0,"completeFetch":False,"error":None}
+        at = time.time()
+        try:
+            received,complete,limited,warning = _national_fetch_shared(date_text,batch)
+            valid = _national_valid_results(batch,received,fetched_at=at)
+            rows.update(valid); fetched_names.update(valid)
+            cr.update(fetched=len(valid),completeFetch=bool(complete and len(valid)==len(batch)),rateLimited=bool(limited))
+            if valid:
+                # Local checkpoint is independent of DB; a failed DB write is never counted as persisted.
+                try:
+                    _national_write_disk_cache(date_text,fp,points,list(rows.values()))
+                except OSError as exc:
+                    errors.append("local checkpoint failed: "+type(exc).__name__)
+                if persistent:
+                    wrote = _national_supabase_write(date_text,batch,list(valid.values()))
+                    if wrote:
+                        checked,_,_ = _national_supabase_read(date_text,batch)
+                        confirmed = {name for name in valid if name in checked
+                            and checked[name].get("_cache_meta",{}).get("generated_ts",0) >= valid[name]["_cache_meta"]["generated_ts"]
+                            and _national_public_result(checked[name]) == _national_public_result(valid[name])}
+                        persisted_names.update(confirmed); cr["persisted"] = len(confirmed)
+                        if len(confirmed) != len(valid):
+                            cr["error"] = "database read-back incomplete"
+                    else:
+                        cr["error"] = "database write failed"
+                else:
+                    cr["localSaved"] = len(valid)
+            if not cr["completeFetch"] and not cr["error"]:
+                cr["error"] = warning or "forecast acquisition incomplete"
+            if warning:
+                cr["warning"] = warning
+        except Exception as exc:
+            cr["error"] = type(exc).__name__+": "+str(exc)[:160]
+            app.logger.exception("national_chunk_failed date=%s start=%s",date_text,start)
+        if cr["error"]:
+            errors.append(cr["error"])
+        chunks.append(cr)
+        if limited:
+            break
+    snap = _national_snapshot(date_text,fp,points,list(rows.values()))
+    if persistent:
+        try:
+            fresh,stale,_ = _national_supabase_read(date_text,points)
+        except RuntimeError as exc:
+            fresh,stale = {},{}
+            errors.append(str(exc))
+        fresh_count = len(fresh); stored = len(set(fresh)|set(stale))
+    else:
+        fresh_count = sum(r["_cache_meta"]["fresh_until"] > time.time() for r in snap["results"])
+        stored = len(snap["results"])
+    remaining = max(0,len(points)-fresh_count)
+    report = {"ok":not errors and remaining==0,"requested":len(due),"pointsFetched":len(fetched_names),
+        "pointsUpdated":len(persisted_names) if persistent else fresh_count,
+        "persistedCount":len(persisted_names),"freshAfter":fresh_count,"missingAfter":max(0,len(points)-stored),
+        "remainingDueAfter":remaining,"chunkSize":NATIONAL_OUTLOOK_CHUNK_SIZE,"chunks":chunks,
+        "errors":list(dict.fromkeys(errors)),"rateLimited":limited,"backend":"supabase+local" if persistent else "local-only"}
+    if remaining and not report["errors"]:
+        report["errors"].append(f"fresh cache incomplete: {fresh_count}/{len(points)}")
+    snap["persistence"] = report; snap["rateLimited"] = limited
+    return snap,report
+
+def _national_load_prefetch_points():
+    try:
+        with open(NATIONAL_PREFETCH_POINTS_FILE,encoding="utf-8") as f:
+            raw = json.load(f)
+    except (OSError,ValueError):
+        return []
+    points = []; seen = set()
+    for p in raw if isinstance(raw,list) else []:
+        try:
+            name = str(p["name"]); lat = float(p["lat"]); lon = float(p["lon"])
+            elev = float(p["elevation"]) if p.get("elevation") is not None else None
+        except (KeyError,TypeError,ValueError):
+            return []
+        if name in seen or not (20<=lat<=50 and 120<=lon<=155) or (elev is not None and not math.isfinite(elev)):
+            return []
+        seen.add(name); points.append({"name":name,"lat":lat,"lon":lon,"elevation":elev})
+    if NATIONAL_PREFETCH_COUNT == 100:
+        members = _national_load_100_points()
+        wanted = {p["name"] for p in members}
+        points = [p for p in points if p["name"] in wanted]
+    return points
+
+def _national_rolling_100_date_texts():
+    today = (datetime.now(timezone.utc)+timedelta(hours=9)).date()
+    return [(today+timedelta(days=i)).isoformat() for i in range(1,NATIONAL_100_ROLLING_DAYS+1)]
+
+def _national_100_date_cache_status(date_text, points, *, force=False):
+    fresh,stale,_ = _national_supabase_read(date_text,points)
+    due = points if force else [p for p in points if p["name"] not in fresh]
+    return {"date":date_text,"seedCount":len(points),"freshBefore":len(fresh),"staleBefore":len(stale),
+        "missingBefore":max(0,len(points)-len(set(fresh)|set(stale))),"pointsDue":len(due),
+        "pointsUpdated":0,"ok":not due,"processed":False}, due
+
+def _refresh_rolling_100_cache(*, force=False, max_dates=None):
+    # Legacy function name is retained for compatibility, scope is explicit in the report.
+    points = _national_load_prefetch_points(); dates = _national_rolling_100_date_texts()
+    report = {"ok":True,"rollingDays":len(dates),"seedCount":len(points),"targetRows":len(points)*len(dates),
+        "windowStart":dates[0],"windowEnd":dates[-1],"datesInspected":0,"datesDue":0,"datesProcessed":0,
+        "pointsDue":0,"pointsUpdated":0,"dateReports":[],"errors":[],"windowComplete":False}
+    if len(points)!=NATIONAL_PREFETCH_COUNT or not _national_supabase_enabled():
+        report.update(ok=False,error=f"Seed count/configuration mismatch: {len(points)}/{NATIONAL_PREFETCH_COUNT}")
+        return report
+    due_dates = []
+    for d in dates:
+        status,due = _national_100_date_cache_status(d,points,force=force)
+        report["dateReports"].append(status); report["datesInspected"]+=1; report["pointsDue"]+=len(due)
+        if due:
+            due_dates.append((d,due,status))
+    report["datesDue"] = len(due_dates)
+    # Fill missing dates first; within equal deficit, earliest forecast day first.
+    due_dates.sort(key=lambda x:(-len(x[1]),x[0]))
+    for d,due,status in due_dates[:max(1,int(max_dates or NATIONAL_100_ROLLING_DATES_PER_CYCLE))]:
+        fp = _national_points_fingerprint(points)
+        if not _national_try_lock(d,fp):
+            status.update(locked=True,error="date refresh in progress"); report["errors"].append({"date":d,"error":"locked"}); continue
+        try:
+            initial = _national_cached_snapshot(d,fp,points)
+            # Re-read inside the lock so another request's new rows are not refetched.
+            _,due = _national_100_date_cache_status(d,points,force=force)
+            _,done = _national_fetch_and_persist(d,points,due,initial)
+            status.update(done,processed=True); report["datesProcessed"]+=1; report["pointsUpdated"]+=done["pointsUpdated"]
+            if not done["ok"]:
+                report["errors"].append({"date":d,"error":done["errors"]})
+            if done["rateLimited"]:
+                break
+        except Exception as exc:
+            status.update(ok=False,error=type(exc).__name__); report["errors"].append({"date":d,"error":type(exc).__name__})
+        finally:
+            _national_unlock(d,fp)
+    report["remainingDueAfter"] = sum(x.get("remainingDueAfter",x["pointsDue"]) for x in report["dateReports"])
+    report["windowComplete"] = report["remainingDueAfter"]==0
+    report["ok"] = not report["errors"]
+    report["state"] = "complete" if report["windowComplete"] else "incomplete" if report["errors"] else "scheduled-remaining"
+    return report
+
+def _instagram_maybe_post_after_refresh():
+    # Do not turn auto posting on. Honor the existing bot configuration/hour/remote deduplication.
+    if not instagram_bot.INSTAGRAM_AUTO_POST:
+        return {"ok":True,"skipped":True,"reason":"auto-post-disabled"}
+    key = _national_open_lock("instagram-publish")
+    if key is None:
+        return {"ok":True,"skipped":True,"reason":"posting-in-progress"}
+    try:
+        return instagram_bot.maybe_post_tomorrow(now_jst=datetime.now(timezone.utc)+timedelta(hours=9),
+            load_results=_instagram_load_fresh_100_results)
+    except Exception as exc:
+        app.logger.exception("instagram_auto_post_failed")
+        return {"ok":False,"error":type(exc).__name__}
+    finally:
+        _national_close_lock(key)
+
+def _instagram_post_with_lock(date_text, rows, *, force=False):
+    key = _national_open_lock("instagram-publish")
+    if key is None:
+        return {"ok":False,"skipped":True,"reason":"posting-in-progress"}
+    try:
+        return instagram_bot.post_national(date_text,rows,force=force)
+    finally:
+        _national_close_lock(key)
+
+def _refresh_national_local_cache():
+    report = {"ok":True,"pointsUpdated":0,"errors":[],"datesProcessed":0}
+    today = (datetime.now(timezone.utc)+timedelta(hours=9)).date()
+    for filename in sorted(os.listdir(NATIONAL_OUTLOOK_CACHE_DIR)):
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}-[a-f0-9]+\.json",filename):
+            continue
+        try:
+            with open(os.path.join(NATIONAL_OUTLOOK_CACHE_DIR,filename),encoding="utf-8") as f:
+                raw = json.load(f)
+            d = raw["date"]; fp = raw["fingerprint"]; ps = raw["points"]
+            if raw.get("engine")!=NATIONAL_OUTLOOK_ENGINE or not today<=datetime.strptime(d,"%Y-%m-%d").date()<=today+timedelta(days=15):
+                continue
+            snap,_ = _national_read_disk_cache(d,fp)
+            if not snap or (snap["complete"] and snap["fresh_until"]>time.time()):
+                continue
+            if not _national_try_lock(d,fp):
+                continue
+            try:
+                fresh = {r["name"] for r in snap["results"] if r["_cache_meta"]["fresh_until"]>time.time()}
+                _,done = _national_fetch_and_persist(d,ps,[p for p in ps if p["name"] not in fresh],snap)
+                report["datesProcessed"]+=1;report["pointsUpdated"]+=done["pointsUpdated"];report["errors"].extend(done["errors"])
+            finally:
+                _national_unlock(d,fp)
+            if report["datesProcessed"]>=NATIONAL_100_ROLLING_DATES_PER_CYCLE:
+                break
+        except (OSError,ValueError,KeyError,TypeError) as exc:
+            report["errors"].append(type(exc).__name__)
+    report["ok"] = not report["errors"]
+    return report
+
+def _save_national_refresh_runtime():
+    data = dict(_national_refresh_runtime,engine=NATIONAL_OUTLOOK_ENGINE,
+        lastReport=_national_last_refresh_report,workerThreadAlive=bool(_national_refresh_worker_thread and _national_refresh_worker_thread.is_alive()),
+        statusWrittenAt=datetime.now(timezone.utc).isoformat())
+    tmp = NATIONAL_REFRESH_STATUS_FILE+f".{os.getpid()}.{threading.get_ident()}.tmp"
+    try:
+        with open(tmp,"w",encoding="utf-8") as f:
+            json.dump(data,f,ensure_ascii=False,separators=(",", ":"))
+        os.replace(tmp,NATIONAL_REFRESH_STATUS_FILE)
+    except OSError:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+
+def _national_refresh_runtime_snapshot():
+    snap = dict(_national_refresh_runtime)
+    try:
+        with open(NATIONAL_REFRESH_STATUS_FILE,encoding="utf-8") as f:
+            shared = json.load(f)
+        if shared.get("engine")==NATIONAL_OUTLOOK_ENGINE:
+            snap.update(shared)
+    except (OSError,ValueError):
+        pass
+    if not NATIONAL_OUTLOOK_AUTO_REFRESH:
+        snap.update(state="disabled",workerThreadAlive=False)
+    elif snap.get("workerPid")==os.getpid():
+        snap["workerThreadAlive"] = bool(_national_refresh_worker_thread and _national_refresh_worker_thread.is_alive())
+    stamp = snap.get("lastRunFinishedAt") or snap.get("lastCheckAt")
+    try:
+        dt = datetime.fromisoformat(stamp)
+        snap["nextCheckAt"] = (dt+timedelta(seconds=max(300,NATIONAL_OUTLOOK_REFRESH_INTERVAL))).isoformat()
+        snap["statusAgeSeconds"] = max(0,int((datetime.now(timezone.utc)-dt).total_seconds()))
+    except (TypeError,ValueError):
+        snap["nextCheckAt"] = None
+    return snap
+
+def _run_national_refresh_cycle(trigger):
+    if not NATIONAL_OUTLOOK_AUTO_REFRESH:
+        _national_refresh_runtime["state"] = "disabled"
+        return
+    now = datetime.now(timezone.utc).isoformat()
+    _national_refresh_runtime.update(lastCheckAt=now,lastRunStartedAt=now,state="running",lastError=None,trigger=trigger)
+    _save_national_refresh_runtime()
+    try:
+        report = _refresh_national_persistent_cache(force=False) if _national_supabase_enabled() else _refresh_national_local_cache()
+        _national_refresh_runtime.update(lastRunOk=bool(report.get("ok")),lastError=None if report.get("ok") else str(report.get("errors"))[:500],state="sleeping")
+    except Exception as exc:
+        _national_refresh_runtime.update(lastRunOk=False,lastError=type(exc).__name__+": "+str(exc)[:200],state="error")
+        app.logger.exception("national_refresh_cycle_failed")
+    finally:
+        _national_refresh_runtime["lastRunFinishedAt"] = datetime.now(timezone.utc).isoformat()
+        _save_national_refresh_runtime()
+
 def _national_grade(max_wind: float, max_gust: float, max_rain: float, max_cape: float, min_temp: float, min_visibility: float | None, *, caution_hours: int = 0, severe_hours: int = 0, extreme_hours: int = 0):
-    # V1.4.79: 全国簡易判定は「てんくらの感覚」に近づけ、風・雨を主判定にする。
-    # 雷(CAPE)・視界・低温は詳細注意情報として残すが、それだけでABCをCへ落とさない。
-    # 6〜15時の10時間のうち、強い風雨の継続時間を重視する。
-    if extreme_hours >= 1 or severe_hours >= 4:
-        return "C", "6〜15時に強い風または雨が見込まれ、登山には厳しめの条件です。時間帯別の詳細を確認してください。"
-    if severe_hours >= 1 or caution_hours >= 3:
-        return "B", "6〜15時の一部で風または雨の影響が見込まれます。比較的よい時間帯を確認してください。"
-    return "A", "6〜15時は風雨の大きな影響が比較的少なく、登山候補にしやすい条件です。詳細分析で最終確認してください。"
+    # V1.5.64: nationwide A/B/C is intentionally conservative. A is reserved
+    # for a day with no caution hour during 06-15. Strong conditions sustained
+    # for two hours, or any extreme hour, are C.
+    if extreme_hours >= 1 or severe_hours >= 2:
+        return "C", "6〜15時に強い風・突風・雨・低視程などが見込まれ、登山には厳しめの条件です。時間帯別の詳細を確認してください。"
+    if severe_hours >= 1 or caution_hours >= 1:
+        return "B", "6〜15時の一部に風・突風・雨・低視程などの注意要素があります。詳細分析で通過時刻を確認してください。"
+    return "A", "6〜15時に主要な注意条件が見当たらない日です。詳細分析でルートと到着時刻を最終確認してください。"
 
 
 NATIONAL_SUPABASE_CACHE_TABLE = os.environ.get("NATIONAL_SUPABASE_CACHE_TABLE", "national_outlook_cache")
@@ -1027,94 +1386,84 @@ def _national_supabase_key(date_text: str, p: dict[str, Any]) -> str:
     raw=f'{NATIONAL_OUTLOOK_ENGINE}|{date_text}|{p["name"]}|{p["lat"]:.5f}|{p["lon"]:.5f}|{"" if p.get("elevation") is None else round(float(p["elevation"]))}'
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
-def _national_supabase_read(date_text: str, points: list[dict[str, Any]]) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
-    """Return (fresh_by_name, stale_by_name) from persistent shared cache.
-    Missing table/config fails open so national outlook still works with local fallback.
-    """
+def _national_supabase_read(date_text, points):
+    """Return fresh, stale and original per-row timestamps; never reset freshness on reads."""
     if not _national_supabase_enabled():
-        return {}, {}
-    params={
-        "select":"cache_key,mountain_name,result,generated_ts,fresh_until,stale_until",
-        "forecast_date":f"eq.{date_text}",
-        "engine":f"eq.{NATIONAL_OUTLOOK_ENGINE}",
-        "stale_until":f"gt.{time.time()}",
-        "limit":"1000",
-    }
-    url=f"{SUPABASE_URL}/rest/v1/{NATIONAL_SUPABASE_CACHE_TABLE}?"+urllib.parse.urlencode(params,safe=",.:+-")
-    req=urllib.request.Request(url,headers={**_supabase_headers(accept_json=True)})
+        return {}, {}, {}
+    params = {"select":"cache_key,mountain_name,result,generated_ts,fresh_until,stale_until",
+              "forecast_date":f"eq.{date_text}", "engine":f"eq.{NATIONAL_OUTLOOK_ENGINE}",
+              "stale_until":f"gt.{time.time()}", "limit":"1000"}
+    url = f"{SUPABASE_URL}/rest/v1/{NATIONAL_SUPABASE_CACHE_TABLE}?" + urllib.parse.urlencode(params, safe=",.:+-")
+    req = urllib.request.Request(url, headers=_supabase_headers(accept_json=True))
     try:
-        with urllib.request.urlopen(req,timeout=NATIONAL_SUPABASE_TIMEOUT) as resp:
-            rows=json.loads(resp.read().decode("utf-8"))
-    except Exception:
-        return {}, {}
-    wanted={_national_supabase_key(date_text,p):p["name"] for p in points}
-    now=time.time(); fresh={}; stale={}
-    for row in rows if isinstance(rows,list) else []:
-        key=str(row.get("cache_key") or "")
-        name=wanted.get(key)
-        result=row.get("result")
-        if not name or not isinstance(result,dict): continue
-        result=dict(result); result["name"]=name
-        try: fu=float(row.get("fresh_until") or 0); su=float(row.get("stale_until") or 0)
-        except (TypeError,ValueError): continue
-        if su<=now: continue
-        (fresh if fu>now else stale)[name]=result
-    return fresh,stale
-
-def _national_supabase_write(date_text: str, points: list[dict[str, Any]], results: list[dict[str, Any]]) -> bool:
-    if not _national_supabase_enabled() or not results:
-        return False
-    by_name={p["name"]:p for p in points}
-    now=time.time(); generated_at=datetime.now(timezone.utc).isoformat()
-    rows=[]
-    for r in results:
-        if not isinstance(r,dict) or not r.get("name"): continue
-        p=by_name.get(str(r.get("name")))
-        if not p: continue
-        rows.append({
-            "cache_key":_national_supabase_key(date_text,p),
-            "forecast_date":date_text,
-            "engine":NATIONAL_OUTLOOK_ENGINE,
-            "mountain_name":p["name"],
-            "lat":round(float(p["lat"]),5),
-            "lon":round(float(p["lon"]),5),
-            "elevation":None if p.get("elevation") is None else round(float(p["elevation"])),
-            "result":r,
-            "generated_at":generated_at,
-            "generated_ts":now,
-            "fresh_until":now+NATIONAL_OUTLOOK_CACHE_TTL,
-            "stale_until":now+NATIONAL_OUTLOOK_STALE_TTL,
-            "app_version":APP_VERSION,
-        })
-    if not rows: return False
-    url=f"{SUPABASE_URL}/rest/v1/{NATIONAL_SUPABASE_CACHE_TABLE}?on_conflict=cache_key"
-    body=json.dumps(rows,ensure_ascii=False,separators=(",", ":")).encode("utf-8")
-    req=urllib.request.Request(url,data=body,method="POST",headers={**_supabase_headers(),"Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=minimal"})
-    try:
-        with urllib.request.urlopen(req,timeout=NATIONAL_SUPABASE_TIMEOUT) as resp:
-            return 200<=resp.status<300
-    except Exception:
-        return False
-
-
-def _national_load_100_points() -> list[dict[str, Any]]:
-    try:
-        with open(NATIONAL_100_POINTS_FILE, "r", encoding="utf-8") as f:
-            rows = json.load(f)
+        with urllib.request.urlopen(req, timeout=NATIONAL_SUPABASE_TIMEOUT) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
     except Exception as exc:
-        app.logger.warning("national_100_seed_load_failed %s", exc)
+        app.logger.warning("national_cache_read_failed %s", type(exc).__name__)
+        raise RuntimeError("persistent cache read failed") from exc
+    wanted = {_national_supabase_key(date_text,p):p["name"] for p in points}
+    fresh, stale, meta_by_name = {}, {}, {}
+    for dbrow in data if isinstance(data,list) else []:
+        if not isinstance(dbrow,dict):
+            continue
+        name = wanted.get(str(dbrow.get("cache_key") or ""))
+        row = dbrow.get("result")
+        if not name or not isinstance(row,dict) or row.get("grade") not in {"A","B","C"}:
+            continue
+        meta = _national_meta({"_cache_meta":{k:dbrow.get(k) for k in ("generated_ts","fresh_until","stale_until")}})
+        if meta is None or meta["stale_until"] <= time.time():
+            continue
+        meta_by_name[name] = meta
+        (fresh if meta["fresh_until"] > time.time() else stale)[name] = dict(row, name=name, _cache_meta=meta)
+    return fresh, stale, meta_by_name
+
+def _national_supabase_write(date_text, points, results):
+    """Acknowledge writes; cached rows retain their source-generation timestamp."""
+    if not _national_supabase_enabled():
+        return False
+    by_name = {p["name"]:p for p in points}
+    valid = _national_valid_results(points,results)
+    rows = []
+    for name,r in valid.items():
+        p = by_name[name]; meta = r["_cache_meta"]
+        if meta["fresh_until"] <= time.time():
+            continue
+        rows.append({"cache_key":_national_supabase_key(date_text,p),"forecast_date":date_text,
+            "engine":NATIONAL_OUTLOOK_ENGINE,"mountain_name":name,"lat":round(float(p["lat"]),5),
+            "lon":round(float(p["lon"]),5),"elevation":None if p.get("elevation") is None else round(float(p["elevation"])),
+            "result":_national_public_result(r),"generated_at":datetime.fromtimestamp(meta["generated_ts"],timezone.utc).isoformat(),
+            **meta,"app_version":APP_VERSION})
+    if not rows:
+        return False
+    url = f"{SUPABASE_URL}/rest/v1/{NATIONAL_SUPABASE_CACHE_TABLE}?on_conflict=cache_key"
+    req = urllib.request.Request(url,data=json.dumps(rows,ensure_ascii=False,separators=(",", ":")).encode(),method="POST",
+        headers={**_supabase_headers(),"Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=minimal"})
+    try:
+        with urllib.request.urlopen(req,timeout=NATIONAL_SUPABASE_TIMEOUT) as resp:
+            return 200 <= resp.status < 300
+    except Exception as exc:
+        app.logger.warning("national_cache_write_failed %s", type(exc).__name__)
+        return False
+
+
+def _national_load_100_points():
+    """Keep the current social 100 membership, using exactly the UI/cache point identities.
+
+    This is a cache-key compatibility mapping, not a geographic coordinate correction.
+    Both original historical seed files remain untouched for further coordinate auditing.
+    """
+    try:
+        with open(NATIONAL_100_POINTS_FILE, encoding="utf-8") as f:
+            members = json.load(f)
+        with open(os.path.join(BASE,"national-runtime-points-v161.json"),encoding="utf-8") as f:
+            runtime = json.load(f)
+        by_name = {p["name"]:p for p in runtime}
+        names = [p["name"] for p in members]
+        if len(names)!=100 or len(set(names))!=100 or any(n not in by_name for n in names):
+            return []
+        return [dict(by_name[n]) for n in names]
+    except (OSError,ValueError,KeyError,TypeError):
         return []
-    out=[]; seen=set()
-    for row in rows if isinstance(rows,list) else []:
-        if not isinstance(row,dict): continue
-        name=str(row.get("name") or "")[:80]
-        try: lat=float(row.get("lat")); lon=float(row.get("lon"))
-        except (TypeError,ValueError): continue
-        if not name or name in seen or not (20 <= lat <= 50 and 120 <= lon <= 155): continue
-        try: elev=float(row.get("elevation")) if row.get("elevation") is not None else None
-        except (TypeError,ValueError): elev=None
-        seen.add(name); out.append({"name":name,"lat":lat,"lon":lon,"elevation":elev})
-    return out
 
 
 def _national_nextday_date_text() -> str:
@@ -1126,7 +1475,10 @@ def _instagram_load_fresh_100_results(date_text: str) -> list[dict[str, Any]]:
     points = _national_load_100_points()
     if len(points) != 100 or not _national_supabase_enabled():
         return []
-    fresh, _ = _national_supabase_read(date_text, points)
+    try:
+        fresh, _, _ = _national_supabase_read(date_text, points)
+    except RuntimeError:
+        return []
     ordered = []
     for p in points:
         row = fresh.get(p["name"])
@@ -1165,8 +1517,8 @@ def _national_supabase_refresh_candidates(force: bool = False) -> dict[str, list
         with urllib.request.urlopen(req, timeout=NATIONAL_SUPABASE_TIMEOUT) as resp:
             rows = json.loads(resp.read().decode("utf-8"))
     except Exception as exc:
-        app.logger.warning("national_refresh_seed_failed %s", exc)
-        return {}
+        app.logger.warning("national_refresh_seed_failed %s", type(exc).__name__)
+        raise RuntimeError("persistent cache candidate read failed") from exc
     groups: dict[str, list[dict[str, Any]]] = {}
     seen: set[tuple[str, str]] = set()
     for row in rows if isinstance(rows, list) else []:
@@ -1195,45 +1547,55 @@ def _national_supabase_refresh_candidates(force: bool = False) -> dict[str, list
     return groups
 
 
-def _refresh_national_persistent_cache(*, force: bool = False) -> dict[str, Any]:
-    """Refresh stale nationwide rows stored in Supabase.
-
-    The operation is intentionally stale-only by default: an hourly external wake-up
-    is cheap when nothing is due, while each row is actually fetched only after its
-    four-hour TTL has expired.
-    """
+def _refresh_national_persistent_cache(*, force=False):
+    global _national_last_refresh_report
+    key = _national_open_lock("national-refresh-cycle")
+    if key is None:
+        return {"ok":False,"skipped":True,"state":"running-elsewhere","pointsUpdated":0,"errors":["refresh cycle locked"]}
     started = time.time()
-    groups = _national_supabase_refresh_candidates(force=force)
-    report: dict[str, Any] = {
-        "ok": True, "force": force, "datesChecked": len(groups), "pointsDue": sum(len(v) for v in groups.values()),
-        "pointsUpdated": 0, "datesUpdated": 0, "errors": [],
-    }
-    for date_text in sorted(groups):
-        points = groups[date_text]
-        if not points:
-            continue
-        fingerprint = _national_points_fingerprint(points)
-        if not _national_try_lock(date_text, fingerprint):
-            continue
-        try:
-            results, complete, rate_limited, error = _national_fetch_shared(date_text, points)
-            if results:
-                _national_supabase_write(date_text, points, results)
-                report["pointsUpdated"] += len(results)
-                report["datesUpdated"] += 1
-            if error:
-                report["errors"].append({"date": date_text, "error": error})
-            if rate_limited:
-                report["errors"].append({"date": date_text, "error": "rate_limited"})
+    try:
+        rolling = _refresh_rolling_100_cache(force=force) if NATIONAL_100_ROLLING_AUTO_CACHE else {"ok":True,"disabled":True,"pointsUpdated":0,"errors":[],"dateReports":[]}
+        report = {"ok":rolling["ok"],"force":force,"rolling100":rolling,"rolling":rolling,
+            "datesChecked":rolling.get("datesInspected",0),"datesDue":rolling.get("datesDue",0),
+            "datesProcessed":rolling.get("datesProcessed",0),"pointsDue":rolling.get("pointsDue",0),
+            "pointsUpdated":rolling.get("pointsUpdated",0),"errors":list(rolling.get("errors",[])),
+            "backgroundScope":f"{NATIONAL_PREFETCH_COUNT}-mountains-next-{NATIONAL_100_ROLLING_DAYS}-days",
+            "onDemandReports":[]}
+        if rolling.get("error"):
+            report["errors"].append(rolling["error"])
+        # Preserve current stale maintenance for previously requested non-prefetch dates/points.
+        seeds = {p["name"] for p in _national_load_prefetch_points()} if NATIONAL_100_ROLLING_AUTO_CACHE else set()
+        dates = set(_national_rolling_100_date_texts())
+        groups = _national_supabase_refresh_candidates(force=force)
+        for d,ps in sorted(groups.items()):
+            ps = [p for p in ps if d not in dates or p["name"] not in seeds]
+            if not ps:
+                continue
+            if len(report["onDemandReports"])>=NATIONAL_100_ROLLING_DATES_PER_CYCLE:
                 break
-        except Exception as exc:
-            app.logger.exception("national_persistent_refresh_failed date=%s", date_text)
-            report["errors"].append({"date": date_text, "error": str(exc)[:200]})
-        finally:
-            _national_unlock(date_text, fingerprint)
-    report["elapsedSeconds"] = round(time.time() - started, 2)
-    report["ok"] = not report["errors"]
-    return report
+            fp = _national_points_fingerprint(ps)
+            if not _national_try_lock(d,fp):
+                continue
+            try:
+                initial = _national_cached_snapshot(d,fp,ps)
+                fresh = {r["name"] for r in initial["results"] if r["_cache_meta"]["fresh_until"]>time.time()}
+                due = ps if force else [p for p in ps if p["name"] not in fresh]
+                _,done = _national_fetch_and_persist(d,ps,due,initial)
+                report["onDemandReports"].append(dict(done,date=d));report["pointsUpdated"]+=done["pointsUpdated"]
+                report["pointsDue"]+=len(due);report["datesProcessed"]+=1
+                if not done["ok"]:
+                    report["errors"].append({"date":d,"error":done["errors"]})
+            finally:
+                _national_unlock(d,fp)
+        # Only independently verified fresh social rows are eligible, not the refresh count.
+        report["instagram"] = _instagram_maybe_post_after_refresh()
+        report["ok"] = not report["errors"]
+        report["elapsedSeconds"] = round(time.time()-started,2)
+        report["finishedAt"] = datetime.now(timezone.utc).isoformat()
+        _national_last_refresh_report = report
+        return report
+    finally:
+        _national_close_lock(key)
 
 
 def _national_points_fingerprint(points: list[dict[str, Any]]) -> str:
@@ -1248,76 +1610,49 @@ def _national_cache_file(date_text: str, fingerprint: str) -> str:
     return os.path.join(NATIONAL_OUTLOOK_CACHE_DIR, f"{date_text}-{fingerprint}.json")
 
 
-def _national_read_disk_cache(date_text: str, fingerprint: str) -> tuple[dict[str, Any] | None, str | None]:
-    path = _national_cache_file(date_text, fingerprint)
+def _national_read_disk_cache(date_text, fingerprint):
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(_national_cache_file(date_text,fingerprint),encoding="utf-8") as f:
             data = json.load(f)
-    except Exception:
-        return None, None
-    now = time.time()
-    fresh_until = float(data.get("fresh_until") or 0)
-    stale_until = float(data.get("stale_until") or 0)
-    if stale_until <= now:
-        try: os.unlink(path)
-        except OSError: pass
-        return None, None
-    return data, ("fresh" if fresh_until > now else "stale")
+        if data.get("engine") != NATIONAL_OUTLOOK_ENGINE or data.get("date") != date_text or data.get("fingerprint") != fingerprint:
+            return None, "incompatible"
+        snap = _national_snapshot(date_text,fingerprint,data.get("points") or [],data.get("results") or [])
+        if not snap["results"]:
+            return None, "missing"
+        return snap, "fresh" if snap["fresh_until"] > time.time() else "stale"
+    except (OSError,ValueError,TypeError,KeyError):
+        return None, "missing"
 
 
-def _national_write_disk_cache(date_text: str, fingerprint: str, points: list[dict[str, Any]], results: list[dict[str, Any]]) -> dict[str, Any]:
-    # V1.4.125: partial nationwide results are first-class shared cache entries.
-    # A cache does not need all mountains to be useful; later requests merge only newly obtained mountains.
-    now = time.time()
-    result_names = {str(r.get("name") or "") for r in results if isinstance(r, dict)}
-    data = {
-        "date": date_text,
-        "fingerprint": fingerprint,
-        "generated_at": datetime.now(timezone.utc).isoformat(),
-        "generated_ts": now,
-        "fresh_until": now + NATIONAL_OUTLOOK_CACHE_TTL,
-        "stale_until": now + NATIONAL_OUTLOOK_STALE_TTL,
-        "points": points,
-        "results": results,
-        "complete": len(result_names) >= len(points),
-        "cached_count": len(result_names),
-        "version": APP_VERSION,
-    }
-    path = _national_cache_file(date_text, fingerprint)
-    tmp = path + f".{os.getpid()}.tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
-    os.replace(tmp, path)
+def _national_write_disk_cache(date_text, fingerprint, points, results):
+    data = _national_snapshot(date_text,fingerprint,points,results)
+    path = _national_cache_file(date_text,fingerprint)
+    tmp = path + f".{os.getpid()}.{threading.get_ident()}.tmp"
+    try:
+        with open(tmp,"w",encoding="utf-8") as f:
+            json.dump(data,f,ensure_ascii=False,separators=(",", ":"))
+        os.replace(tmp,path)
+    finally:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
     return data
 
 
-def _national_lock_path(date_text: str, fingerprint: str) -> str:
-    return _national_cache_file(date_text, fingerprint) + ".lock"
+def _national_lock_path(date_text, fingerprint):
+    # A single date lock coordinates overlapping UI requests and 100/300 seed batches.
+    return f"national-date:{NATIONAL_OUTLOOK_ENGINE}:{date_text}"
 
 
-def _national_try_lock(date_text: str, fingerprint: str) -> bool:
-    path = _national_lock_path(date_text, fingerprint)
-    try:
-        os.mkdir(path)
-        with open(os.path.join(path, "owner"), "w", encoding="utf-8") as f:
-            f.write(f"{os.getpid()} {time.time()}")
-        return True
-    except FileExistsError:
-        try:
-            age = time.time() - os.path.getmtime(path)
-            if age > 180:
-                import shutil
-                shutil.rmtree(path, ignore_errors=True)
-                os.mkdir(path)
-                return True
-        except OSError:
-            pass
-        return False
+def _national_try_lock(date_text, fingerprint):
+    return _national_open_lock(_national_lock_path(date_text,fingerprint)) is not None
 
 
-def _national_unlock(date_text: str, fingerprint: str) -> None:
-    import shutil
-    shutil.rmtree(_national_lock_path(date_text, fingerprint), ignore_errors=True)
+def _national_unlock(date_text, fingerprint):
+    name = _national_lock_path(date_text,fingerprint)
+    key = os.path.join(NATIONAL_OUTLOOK_CACHE_DIR,"lock-"+hashlib.sha256(name.encode()).hexdigest()+".lck")
+    _national_close_lock(key)
 
 
 def _national_point_key(date_text: str, p: dict[str, Any]) -> str:
@@ -1337,13 +1672,17 @@ def _national_point_cache_get(date_text: str, p: dict[str, Any]) -> dict[str, An
         return dict(result)
 
 
-def _national_point_cache_put(date_text: str, p: dict[str, Any], result: dict[str, Any], ttl: int | None = None) -> None:
-    key = _national_point_key(date_text, p)
+def _national_point_cache_put(date_text, p, result, ttl=None):
+    meta = _national_meta(result, fetched_at=time.time())
+    expires = meta["fresh_until"]
+    if ttl is not None:
+        expires = min(expires,time.time()+max(1,int(ttl)))
+    row = dict(result,_cache_meta=dict(meta,fresh_until=expires))
     with _national_point_cache_lock:
-        _national_point_cache[key] = (time.time() + (NATIONAL_OUTLOOK_CACHE_TTL if ttl is None else max(60, int(ttl))), dict(result))
+        _national_point_cache[_national_point_key(date_text,p)] = (expires,row)
         if len(_national_point_cache) > 2500:
-            oldest = sorted(_national_point_cache.items(), key=lambda kv: kv[1][0])[:500]
-            for k, _ in oldest: _national_point_cache.pop(k, None)
+            for key,_ in sorted(_national_point_cache.items(),key=lambda kv:kv[1][0])[:500]:
+                _national_point_cache.pop(key,None)
 
 
 def _request_openmeteo_national_once(url: str, timeout: int = UPSTREAM_TIMEOUT):
@@ -1461,10 +1800,10 @@ def _national_result_from_metno(p: dict[str, Any], date_text: str, payload: dict
     if not rows: return None
     winds=[x[0] for x in rows]; gusts=[x[1] for x in rows]; rains=[x[2] for x in rows]; temps=[x[3] for x in rows]
     caution_hours=severe_hours=extreme_hours=0
-    for w,_,r,_ in rows:
-        if w>=18 or r>=8: extreme_hours+=1
-        if w>=13 or r>=3: severe_hours+=1
-        if w>=8 or r>=0.8: caution_hours+=1
+    for w,g,r,_ in rows:
+        if w>=15 or g>=25 or r>=6: extreme_hours+=1
+        if w>=9 or g>=18 or r>=1.5: severe_hours+=1
+        if w>=5 or g>=12 or r>=0.1: caution_hours+=1
     max_w=max(winds); max_g=max(gusts); max_r=max(rains); min_t=min(temps)
     grade,summary=_national_grade(max_w,max_g,max_r,0,min_t,None,caution_hours=caution_hours,severe_hours=severe_hours,extreme_hours=extreme_hours)
     return {"name":p["name"],"grade":grade,"summary":summary,"maxWind":round(max_w,1),"maxGust":round(max_g,1),"maxRain":round(max_r,1),"maxCape":0,"minTemp":round(min_t,1),"minVisibility":None,"thunder":"–","cautionHours":caution_hours,"severeHours":severe_hours,"source":"metno"}
@@ -1605,9 +1944,9 @@ def _national_gfs_results(date_text: str, points: list[dict[str, Any]]) -> dict[
         rr=rows.get(p["name"]) or []
         if len(rr)<4: continue
         winds=[x["wind"] for x in rr]; gusts=[x["gust"] for x in rr]; rains=[x["rain"] for x in rr]; temps=[x["temp"] for x in rr]
-        caution=sum(1 for x in rr if x["wind"]>=8 or x["rain"]>=0.8)
-        severe=sum(1 for x in rr if x["wind"]>=13 or x["rain"]>=3)
-        extreme=sum(1 for x in rr if x["wind"]>=18 or x["rain"]>=8)
+        caution=sum(1 for x in rr if x["wind"]>=5 or x.get("gust",x["wind"])>=12 or x["rain"]>=0.1)
+        severe=sum(1 for x in rr if x["wind"]>=9 or x.get("gust",x["wind"])>=18 or x["rain"]>=1.5)
+        extreme=sum(1 for x in rr if x["wind"]>=15 or x.get("gust",x["wind"])>=25 or x["rain"]>=6)
         grade,summary=_national_grade(max(winds),max(gusts),max(rains),0,min(temps),None,caution_hours=caution,severe_hours=severe,extreme_hours=extreme)
         results[p["name"]]={"name":p["name"],"grade":grade,"summary":summary,"maxWind":round(max(winds),1),"maxGust":round(max(gusts),1),"maxRain":round(max(rains),1),"maxCape":0,"minTemp":round(min(temps),1),"minVisibility":None,"thunder":"–","cautionHours":caution,"severeHours":severe,"source":"gfs"}
     return results
@@ -1663,135 +2002,135 @@ def _national_merge_two_models(p: dict[str, Any], met: dict[str, Any] | None, gf
         "source":"metno+gfs","modelGrades":{"metno":mg,"gfs":gg},"modelAgreement":"high" if diff==0 else "medium" if diff==1 else "low"}
 
 
-def _national_fetch_shared(date_text: str, points: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], bool, bool, str | None]:
-    # V1.4.113: nationwide simple outlook is isolated from Open-Meteo.
-    # Reuse per-point combined results first; then fetch MET Norway + NOAA GFS direct only.
-    results_by_name={}
-    missing=[]
+def _national_fetch_shared(date_text, points):
+    # National analysis never invokes Open-Meteo or the separate detailed forecast API.
+    rows = {}; missing = []; warnings = []; metno = {}; gfs = {}; stats = {}
     for p in points:
-        cached=_national_point_cache_get(date_text,p)
-        if cached and str(cached.get("source") or "") in {"metno+gfs","metno","gfs"}:
-            cached["name"]=p["name"]; results_by_name[p["name"]]=cached
-        else: missing.append(p)
-    warning_parts=[]
+        cached = _national_point_cache_get(date_text,p)
+        if cached and cached.get("source") in {"metno+gfs","metno","gfs"}:
+            rows[p["name"]] = dict(cached,name=p["name"])
+        else:
+            missing.append(p)
     if missing:
-        metno={}; gfs={}
-        # Fetch both independent sources. One can still complete if the other is temporarily unavailable.
+        fetched_at = time.time()
         try:
-            metno,metno_stats=_national_metno_results(date_text,missing)
-            if metno_stats.get("http_429"): warning_parts.append("MET Norwayが混雑したため一部は保存済み結果を利用しました")
-            elif metno_stats.get("http_403"): warning_parts.append("MET Norwayの認証ヘッダー確認が必要です")
-            elif metno_stats.get("http_5xx") or metno_stats.get("timeout"): warning_parts.append("MET Norwayの一部応答が不安定でした")
+            metno,stats = _national_metno_results(date_text,missing)
         except Exception as exc:
-            app.logger.warning("national_metno_failed kind=%s",_metno_error_kind(exc))
-            warning_parts.append("MET Norwayの一部を取得できませんでした")
-        try: gfs=_national_gfs_results(date_text,missing)
-        except Exception as exc: warning_parts.append(f"NOAA GFSの一部を取得できませんでした")
+            warnings.append("MET Norway unavailable")
+            app.logger.warning("national_metno_failed %s",type(exc).__name__)
+        try:
+            gfs = _national_gfs_results(date_text,missing)
+        except Exception as exc:
+            warnings.append("NOAA GFS unavailable")
+            app.logger.warning("national_gfs_failed %s",type(exc).__name__)
         for p in missing:
-            result=_national_merge_two_models(p,metno.get(p["name"]),gfs.get(p["name"]))
+            result = _national_merge_two_models(p,metno.get(p["name"]),gfs.get(p["name"]))
             if result:
-                results_by_name[p["name"]]=result
-                _national_point_cache_put(date_text,p,result)
-    ordered=[results_by_name[p["name"]] for p in points if p["name"] in results_by_name]
-    complete=len(ordered)==len(points)
-    if not complete: warning_parts.append(f"{len(points)-len(ordered)}座は現在データを取得できませんでした")
-    return ordered,complete,False,"。".join(dict.fromkeys(warning_parts)) or None
+                row = dict(result,_cache_meta=_national_meta(result,fetched_at=fetched_at))
+                rows[p["name"]] = row
+                _national_point_cache_put(date_text,p,row)
+    absent = [p["name"] for p in points if p["name"] not in rows]
+    if absent:
+        warnings.append(f"Missing {len(absent)}/{len(points)} mountains")
+        app.logger.warning("national_missing date=%s names=%s",date_text,",".join(absent))
+    limited = bool(absent and stats.get("http_429"))
+    if limited:
+        warnings.append("MET Norway rate limited")
+    return [rows[p["name"]] for p in points if p["name"] in rows], not absent, limited, "; ".join(warnings) or None
 
 
-def _national_response(data: dict[str, Any], state: str, *, rate_limited: bool=False, warning: str | None=None, cached_count: int | None=None, newly_fetched_count: int | None=None, stale_fallback_count: int=0) -> Response:
-    now=time.time(); generated=float(data.get("generated_ts") or now)
-    results=data.get("results") or []; points=data.get("points") or []
-    result_names={str(r.get("name") or "") for r in results if isinstance(r,dict)}
-    total=len(points); got=len(result_names)
-    payload={
-        "date":data.get("date"), "results":results, "version":APP_VERSION,
-        "complete":got >= total if total else False,
-        "cache":{"state":state,"backend":"supabase+local" if _national_supabase_enabled() else "local-only","generatedAt":data.get("generated_at"),"ageSeconds":max(0,round(now-generated)),"freshTtlSeconds":NATIONAL_OUTLOOK_CACHE_TTL,
-                 "cachedCount":int(cached_count if cached_count is not None else data.get("cached_count") or got),
-                 "newlyFetchedCount":int(newly_fetched_count or 0),
-                 "staleFallbackCount":max(0,int(stale_fallback_count or 0)),
-                 "missingCount":max(0,total-got)},
-        "rateLimited":False,
-        "dualModelCount":sum(1 for r in results if r.get("source")=="metno+gfs"),
-        "metnoOnlyCount":sum(1 for r in results if r.get("source")=="metno"),
-        "gfsOnlyCount":sum(1 for r in results if r.get("source")=="gfs"),
-    }
-    if warning: payload["warning"]=warning
-    body=json.dumps(payload,ensure_ascii=False).encode("utf-8")
-    resp=Response(body,status=200,content_type="application/json; charset=utf-8")
-    resp.headers["Cache-Control"]="no-store"
-    resp.headers["X-Traten-National-Cache"]=state
+def _national_response(data, state, *, warning=None, cached_count=None, newly_fetched_count=None, stale_fallback_count=0):
+    now = time.time()
+    rows = _national_valid_results(data.get("points") or [],data.get("results") or [])
+    results = [_national_public_result(r) for r in rows.values()]
+    total = len(data.get("points") or []); got = len(results)
+    metas = [r["_cache_meta"] for r in rows.values()]
+    gt = min((m["generated_ts"] for m in metas),default=now)
+    fu = min((m["fresh_until"] for m in metas),default=now)
+    fresh_count = sum(m["fresh_until"] > now for m in metas)
+    cc = got if cached_count is None else int(cached_count)
+    nf = int(newly_fetched_count or 0)
+    payload = {"date":data.get("date"),"results":results,"version":APP_VERSION,"engine":NATIONAL_OUTLOOK_ENGINE,
+        "complete":total>0 and got==total,"allFresh":total>0 and fresh_count==total,
+        "cache":{"state":state,"backend":"supabase+local" if _national_supabase_enabled() else "local-only",
+            "generatedAt":datetime.fromtimestamp(gt,timezone.utc).isoformat(),"ageSeconds":max(0,round(now-gt)),
+            "freshTtlSeconds":NATIONAL_OUTLOOK_CACHE_TTL,"freshUntil":datetime.fromtimestamp(fu,timezone.utc).isoformat(),
+            "freshRemainingSeconds":max(0,int(fu-now)),"cachedCount":cc,"freshCount":fresh_count,
+            "staleCount":got-fresh_count,"newlyFetchedCount":nf,"staleFallbackCount":max(stale_fallback_count,got-fresh_count),
+            "missingCount":max(0,total-got),"remainingDueCount":max(0,total-fresh_count),"cacheHit":cc>0 and nf==0},
+        "rateLimited":bool(data.get("rateLimited")),
+        "dualModelCount":sum(r.get("source")=="metno+gfs" for r in results),
+        "metnoOnlyCount":sum(r.get("source")=="metno" for r in results),
+        "gfsOnlyCount":sum(r.get("source")=="gfs" for r in results)}
+    if data.get("cacheReadError"):
+        payload["cache"]["readError"] = data["cacheReadError"]
+        warning = "; ".join(x for x in (warning,data["cacheReadError"]) if x)
+    if warning:
+        payload["warning"] = warning
+    if "persistence" in data:
+        payload["persistence"] = data["persistence"]
+    resp = jsonify(payload)
+    resp.headers["Cache-Control"] = "no-store"
+    resp.headers["X-Traten-National-Cache"] = state
     return resp
 
 
-def _ensure_national_refresh_worker() -> None:
-    global _national_refresh_thread_started
+def _ensure_national_refresh_worker():
+    global _national_refresh_worker_thread,_national_refresh_thread_started,_national_refresh_worker_lock_handle,_national_refresh_thread_pid
+    if not NATIONAL_OUTLOOK_AUTO_REFRESH:
+        _national_refresh_runtime["state"] = "disabled"
+        return
     with _national_refresh_thread_lock:
-        if _national_refresh_thread_started: return
-        _national_refresh_thread_started=True
-    def worker():
-        while True:
-            time.sleep(max(300,NATIONAL_OUTLOOK_REFRESH_INTERVAL))
+        if _national_refresh_thread_pid==os.getpid() and _national_refresh_worker_thread and _national_refresh_worker_thread.is_alive():
+            return
+        key = _national_open_lock("refresh-worker")
+        if key is None:
+            _national_refresh_runtime["state"] = "standby"
+            return
+        _national_refresh_worker_lock_handle = key
+        _national_refresh_thread_pid = os.getpid()
+        _national_refresh_thread_started = True
+        _national_refresh_stop.clear()
+        _national_refresh_runtime.update(state="starting",workerPid=os.getpid())
+        def worker():
+            global _national_refresh_thread_started
             try:
-                if NATIONAL_OUTLOOK_AUTO_REFRESH and _national_supabase_enabled():
-                    _refresh_national_persistent_cache(force=False)
-                files=[os.path.join(NATIONAL_OUTLOOK_CACHE_DIR,n) for n in os.listdir(NATIONAL_OUTLOOK_CACHE_DIR) if n.endswith('.json')]
-                now=time.time()
-                for path in files:
-                    try:
-                        with open(path,'r',encoding='utf-8') as f: data=json.load(f)
-                        if float(data.get('stale_until') or 0)<=now: continue
-                        if float(data.get('fresh_until') or 0)>now: continue
-                        date_text=str(data.get('date') or '')
-                        points=data.get('points') or []
-                        fp=str(data.get('fingerprint') or '')
-                        if not date_text or not fp or not points: continue
-                        try:
-                            target_date=datetime.strptime(date_text,'%Y-%m-%d').date()
-                            today_jst=(datetime.now(timezone.utc)+timedelta(hours=9)).date()
-                            if target_date < today_jst or target_date > today_jst + timedelta(days=15): continue
-                        except ValueError:
-                            continue
-                        if not _national_try_lock(date_text,fp): continue
-                        try:
-                            latest,state=_national_read_disk_cache(date_text,fp)
-                            if state=='fresh': continue
-                            latest_results=(latest or {}).get("results") or []
-                            latest_names={str(r.get("name") or "") for r in latest_results if isinstance(r,dict)}
-                            fetch_points=points if state=='stale' else [p for p in points if p.get("name") not in latest_names]
-                            results,complete,rate_limited,error=_national_fetch_shared(date_text,fetch_points) if fetch_points else ([],True,False,None)
-                            by_name={str(r.get("name") or ""):dict(r) for r in latest_results if isinstance(r,dict) and r.get("name")}
-                            for r in results:
-                                if isinstance(r,dict) and r.get("name"): by_name[str(r.get("name"))]=dict(r)
-                            merged=[by_name[p["name"]] for p in points if p.get("name") in by_name]
-                            _national_write_disk_cache(date_text,fp,points,merged)
-                            if rate_limited:
-                                break
-                        finally:
-                            _national_unlock(date_text,fp)
-                    except Exception:
-                        continue
-            except Exception:
-                continue
-    threading.Thread(target=worker,name='traten-national-refresh',daemon=True).start()
+                _national_refresh_runtime["state"] = "boot-grace"; _save_national_refresh_runtime()
+                if _national_refresh_stop.wait(NATIONAL_OUTLOOK_BOOT_GRACE):
+                    return
+                while NATIONAL_OUTLOOK_AUTO_REFRESH and not _national_refresh_stop.is_set():
+                    _run_national_refresh_cycle("boot" if not _national_refresh_runtime.get("lastCheckAt") else "interval")
+                    if _national_refresh_stop.wait(max(300,NATIONAL_OUTLOOK_REFRESH_INTERVAL)):
+                        return
+            finally:
+                _national_refresh_thread_started = False
+                _national_refresh_runtime["state"] = "stopped"; _save_national_refresh_runtime()
+                _national_close_lock(key)
+        thread = threading.Thread(target=worker,name="traten-national-refresh",daemon=True)
+        _national_refresh_worker_thread = thread
+        try:
+            thread.start()
+        except Exception:
+            _national_refresh_thread_started = False;_national_close_lock(key);raise
 
 
 @app.post("/api/national-outlook/refresh-cache")
 def national_outlook_refresh_cache():
-    """Scheduled wake-up endpoint for the persistent nationwide cache.
-
-    Configure the same NATIONAL_CACHE_REFRESH_TOKEN in Render and GitHub Actions.
-    The endpoint refreshes only rows whose four-hour TTL has expired.
-    """
     if not NATIONAL_CACHE_REFRESH_TOKEN:
-        return jsonify(error="NATIONAL_CACHE_REFRESH_TOKEN is not configured"), 503
-    supplied = request.headers.get("X-Traten-Cache-Token", "")
-    if not supplied or not hmac.compare_digest(supplied, NATIONAL_CACHE_REFRESH_TOKEN):
-        return jsonify(error="unauthorized"), 401
+        return jsonify(error="NATIONAL_CACHE_REFRESH_TOKEN is not configured"),503
+    supplied = request.headers.get("X-Traten-Cache-Token","")
+    if not supplied or not hmac.compare_digest(supplied,NATIONAL_CACHE_REFRESH_TOKEN):
+        return jsonify(error="unauthorized"),401
     if not _national_supabase_enabled():
-        return jsonify(error="Supabase national cache is not configured"), 503
-    report = _refresh_national_persistent_cache(force=False)
-    return jsonify(report), 200 if report.get("ok") else 207
+        return jsonify(error="Supabase national cache is not configured"),503
+    try:
+        report = _refresh_national_persistent_cache(force=False)
+    except Exception as exc:
+        app.logger.exception("national_manual_refresh_failed")
+        report = {"ok":False,"state":"failed","error":type(exc).__name__,"pointsUpdated":0}
+    # Schedulers using curl --fail must not treat a failed write/fill as success.
+    status = 200 if report.get("ok") else 202 if report.get("state")=="running-elsewhere" else 503
+    return jsonify(report),status
 
 
 def _instagram_admin_authorized() -> bool:
@@ -2149,7 +2488,7 @@ def instagram_post_national():
     if len(rows) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
         return jsonify(ok=False, error="fresh nationwide cache is incomplete", count=len(rows), minimum=instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS, date=date_text), 409
     try:
-        result = instagram_bot.post_national(date_text, rows, force=bool(payload.get("force")))
+        result = _instagram_post_with_lock(date_text, rows, force=bool(payload.get("force")))
         return jsonify(result), 200 if result.get("ok") else 503
     except Exception as exc:
         app.logger.exception("instagram_manual_post_failed date=%s", date_text)
@@ -2158,151 +2497,73 @@ def instagram_post_national():
 
 @app.post("/api/national-outlook")
 def national_outlook():
-    payload = request.get_json(silent=True) or {}
-    date_text = str(payload.get("date") or "")[:10]
-    try: target = datetime.strptime(date_text, "%Y-%m-%d").date()
-    except ValueError: return jsonify(error="日付が不正です"), 400
-    today_jst = (datetime.now(timezone.utc) + timedelta(hours=9)).date()
-    if target < today_jst or target > today_jst + timedelta(days=15): return jsonify(error="全国判定は今日から15日先までです"), 400
-    raw_points = payload.get("points")
-    if not isinstance(raw_points, list) or not raw_points or len(raw_points) > 300: return jsonify(error="判定地点数が不正です"), 400
-    points=[]
-    for x in raw_points:
-        if not isinstance(x, dict): continue
-        name=str(x.get("name") or "")[:80]
-        try: lat=float(x.get("lat")); lon=float(x.get("lon"))
-        except (TypeError,ValueError): continue
-        if not name or not (20 <= lat <= 50 and 120 <= lon <= 155): continue
-        try: elev=float(x.get("elevation")) if x.get("elevation") is not None else None
-        except (TypeError,ValueError): elev=None
-        points.append({"name":name,"lat":lat,"lon":lon,"elevation":elev})
-    if not points: return jsonify(error="有効な地点がありません"), 400
-
-    fingerprint=_national_points_fingerprint(points)
-    sb_fresh,sb_stale=_national_supabase_read(date_text,points)
-    cached,state=_national_read_disk_cache(date_text,fingerprint)
-    disk_state=state
-    _ensure_national_refresh_worker()
-
-    # Persistent Supabase cache is authoritative across Render restarts/instances.
-    # Merge it ahead of the ephemeral /tmp cache; stale rows are fallback only.
-    disk_results=(cached or {}).get("results") or []
-    disk_by_name={str(r.get("name") or ""):dict(r) for r in disk_results if isinstance(r,dict) and r.get("name")}
-    persistent_seed=[]
-    for p in points:
-        name=p["name"]
-        if name in sb_fresh: persistent_seed.append(sb_fresh[name])
-        elif name in disk_by_name: persistent_seed.append(disk_by_name[name])
-        elif name in sb_stale: persistent_seed.append(sb_stale[name])
-    if persistent_seed:
-        now=time.time()
-        cached={
-            "date":date_text,"fingerprint":fingerprint,"generated_at":datetime.now(timezone.utc).isoformat(),"generated_ts":now,
-            "fresh_until":now+NATIONAL_OUTLOOK_CACHE_TTL,"stale_until":now+NATIONAL_OUTLOOK_STALE_TTL,
-            "points":points,"results":persistent_seed,"complete":len(persistent_seed)>=len(points),"cached_count":len(persistent_seed),"version":APP_VERSION,
-        }
-        # Supabase is authoritative across restarts. Preserve a genuinely fresh local snapshot
-        # when no persistent rows exist yet (useful during first deployment/migration).
-        if len(sb_fresh)>=len(points): state="fresh"
-        elif not sb_fresh and not sb_stale and disk_state=="fresh": state="fresh"
-        else: state="stale"
-
-    def merge_results(base_results, new_results):
-        by_name={str(r.get("name") or ""):dict(r) for r in (base_results or []) if isinstance(r,dict) and r.get("name")}
-        for r in (new_results or []):
-            if isinstance(r,dict) and r.get("name"): by_name[str(r.get("name"))]=dict(r)
-        return [by_name[p["name"]] for p in points if p["name"] in by_name]
-
-    cached_results=(cached or {}).get("results") or []
-    cached_names={str(r.get("name") or "") for r in cached_results if isinstance(r,dict)}
-    cached_count=len(cached_names)
-    is_cached_complete=cached_count >= len(points)
-
-    # A complete fresh cache returns immediately. A fresh partial cache is useful,
-    # but we continue only for the missing mountains and merge the result back.
-    if cached and state=='fresh' and is_cached_complete:
-        return _national_response(cached,'supabase-fresh' if len(sb_fresh)>=len(points) else 'shared-fresh',cached_count=cached_count,newly_fetched_count=0)
-
-    if not _national_try_lock(date_text,fingerprint):
-        # Another worker/user is filling the same date. Return whatever partial/full cache exists immediately.
-        if cached_results:
-            cache_state='shared-partial-refreshing' if not is_cached_complete else 'shared-stale-refreshing'
-            warning='保存済みの判定結果を表示しています。未取得の山は別の処理で更新中です。' if not is_cached_complete else '共有キャッシュを更新中のため、保存済み結果を表示しています。'
-            return _national_response(cached,cache_state,warning=warning,cached_count=cached_count,newly_fetched_count=0)
-        for _ in range(12):
-            time.sleep(0.5)
-            ready,ready_state=_national_read_disk_cache(date_text,fingerprint)
-            if ready and (ready.get('results') or []):
-                ready_count=len({str(r.get('name') or '') for r in (ready.get('results') or []) if isinstance(r,dict)})
-                ready_complete=ready_count>=len(points)
-                return _national_response(ready,'shared-fresh' if ready_complete else 'shared-partial-refreshing',cached_count=ready_count,newly_fetched_count=0)
-        return jsonify(error="全国共有キャッシュを生成中です。数秒後に再度お試しください。"), 503
-
+    payload = request.get_json(silent=True)
+    if not isinstance(payload,dict):
+        return jsonify(error="JSON object required"),400
+    date_text = str(payload.get("date") or "")
     try:
-        # Re-check after lock because another request may have completed while we waited.
-        ready,ready_state=_national_read_disk_cache(date_text,fingerprint)
-        if ready:
-            cached=ready; state=ready_state
-            cached_results=ready.get('results') or []
-            cached_names={str(r.get('name') or '') for r in cached_results if isinstance(r,dict)}
-            cached_count=len(cached_names)
-            if state=='fresh' and cached_count>=len(points):
-                return _national_response(ready,'shared-fresh',cached_count=cached_count,newly_fetched_count=0)
-
-        # Supabase fresh rows survive deploy/restart and are never refetched within fresh TTL.
-        # Only stale/missing rows are refreshed; stale rows remain fallback for failures.
-        if sb_fresh:
-            fetch_points=[p for p in points if p['name'] not in sb_fresh]
-            base_results=cached_results
-            state_prefix='partial' if sb_fresh else 'refresh'
-        elif cached and state=='fresh':
-            fetch_points=[p for p in points if p['name'] not in cached_names]
-            base_results=cached_results
-            state_prefix='partial'
-        else:
-            fetch_points=points
-            base_results=cached_results
-            state_prefix='refresh'
-
-        new_results=[]; error=None
-        if fetch_points:
-            new_results,_,_,error=_national_fetch_shared(date_text,fetch_points)
-        merged=merge_results(base_results,new_results)
-        data=_national_write_disk_cache(date_text,fingerprint,points,merged)
-        _national_supabase_write(date_text,points,new_results)
-        complete=len(merged)>=len(points)
-        new_names={str(r.get('name') or '') for r in new_results if isinstance(r,dict) and r.get('name')}
-        newly_fetched=max(0,len(new_names - cached_names))
-        merged_names={str(r.get('name') or '') for r in merged if isinstance(r,dict) and r.get('name')}
-        stale_fallback_count=len((set(sb_stale) & merged_names)-new_names)
-
-        if complete:
-            response_state='partial-completed' if state_prefix=='partial' else 'live-generated'
-            return _national_response(data,response_state,cached_count=cached_count,newly_fetched_count=newly_fetched,stale_fallback_count=stale_fallback_count)
-
-        missing_count=max(0,len(points)-len(merged))
-        warning=(error or f'保存済み結果を利用し、未取得の{missing_count}座だけ次回以降も追加取得します。')
-        return _national_response(data,'partial-updated',warning=warning,cached_count=cached_count,newly_fetched_count=newly_fetched,stale_fallback_count=stale_fallback_count)
+        target = datetime.strptime(date_text,"%Y-%m-%d").date()
+    except ValueError:
+        return jsonify(error="Invalid forecast date"),400
+    today = (datetime.now(timezone.utc)+timedelta(hours=9)).date()
+    if target < today or target > today+timedelta(days=15):
+        return jsonify(error="Forecast date must be today through 15 days ahead"),400
+    raw = payload.get("points")
+    if not isinstance(raw,list) or not 1 <= len(raw) <= 300:
+        return jsonify(error="Expected 1-300 points"),400
+    points = []; seen = set()
+    for p in raw:
+        if not isinstance(p,dict):
+            return jsonify(error="Invalid point"),400
+        try:
+            name = str(p.get("name") or "")[:80]; lat = float(p["lat"]); lon = float(p["lon"])
+            elev = float(p["elevation"]) if p.get("elevation") is not None else None
+        except (KeyError,TypeError,ValueError):
+            return jsonify(error="Invalid coordinates"),400
+        if not name or name in seen or not (20<=lat<=50 and 120<=lon<=155) or (elev is not None and not math.isfinite(elev)):
+            return jsonify(error="Invalid or duplicate point"),400
+        points.append({"name":name,"lat":lat,"lon":lon,"elevation":elev}); seen.add(name)
+    fp = _national_points_fingerprint(points)
+    snap = _national_cached_snapshot(date_text,fp,points)
+    count = len(snap["results"])
+    if payload.get("cacheOnly") is True:
+        state = "cache-only-fresh" if count and snap["fresh_until"]>time.time() else "cache-only-stale" if count else "cache-miss"
+        return _national_response(snap,state,cached_count=count,newly_fetched_count=0)
+    if snap["complete"] and snap["fresh_until"] > time.time():
+        return _national_response(snap,"shared-fresh",cached_count=count,newly_fetched_count=0)
+    if not _national_try_lock(date_text,fp):
+        return _national_response(snap,"shared-partial-refreshing",warning="Cache refresh in progress; saved results only",cached_count=count,newly_fetched_count=0)
+    try:
+        snap = _national_cached_snapshot(date_text,fp,points)
+        count = len(snap["results"])
+        fresh = {r["name"] for r in snap["results"] if r["_cache_meta"]["fresh_until"]>time.time()}
+        due = [p for p in points if p["name"] not in fresh]
+        if not due:
+            return _national_response(snap,"shared-fresh",cached_count=count,newly_fetched_count=0)
+        snap,report = _national_fetch_and_persist(date_text,points,due,snap)
+        state = "live-generated" if report["ok"] else "partial-updated" if snap["results"] else "partial"
+        return _national_response(snap,state,warning="; ".join(report["errors"]) or None,
+            cached_count=count,newly_fetched_count=report["pointsFetched"])
     finally:
-        _national_unlock(date_text,fingerprint)
+        _national_unlock(date_text,fp)
 
 @app.get("/api/health")
 def health():
-    return jsonify(
-        ok=True,
-        version=APP_VERSION,
-        service="mountain-weather-decision",
-        overpass_endpoints=len(OVERPASS_ENDPOINTS),
+    runtime = _national_refresh_runtime_snapshot()
+    return jsonify(ok=True,version=APP_VERSION,service="mountain-weather-decision",overpass_endpoints=len(OVERPASS_ENDPOINTS),
         national_persistent_cache_configured=_national_supabase_enabled(),
         national_persistent_cache_table=NATIONAL_SUPABASE_CACHE_TABLE if _national_supabase_enabled() else None,
-        national_cache_ttl_seconds=NATIONAL_OUTLOOK_CACHE_TTL,
-        national_auto_refresh_enabled=NATIONAL_OUTLOOK_AUTO_REFRESH,
-        national_refresh_interval_seconds=NATIONAL_OUTLOOK_REFRESH_INTERVAL,
-        national_refresh_token_configured=bool(NATIONAL_CACHE_REFRESH_TOKEN),
-        usage_logging=True,
+        national_cache_engine=NATIONAL_OUTLOOK_ENGINE,national_cache_ttl_seconds=NATIONAL_OUTLOOK_CACHE_TTL,
+        national_browser_cache_ttl_seconds=NATIONAL_OUTLOOK_CACHE_TTL,national_auto_refresh_enabled=NATIONAL_OUTLOOK_AUTO_REFRESH,
+        national_refresh_interval_seconds=NATIONAL_OUTLOOK_REFRESH_INTERVAL,national_refresh_token_configured=bool(NATIONAL_CACHE_REFRESH_TOKEN),
+        national_100_rolling_auto_cache=NATIONAL_100_ROLLING_AUTO_CACHE,national_100_rolling_days=NATIONAL_100_ROLLING_DAYS,
+        national_100_rolling_dates_per_cycle=NATIONAL_100_ROLLING_DATES_PER_CYCLE,national_100_chunk_size=NATIONAL_OUTLOOK_CHUNK_SIZE,
+        national_100_rolling_target_rows=NATIONAL_100_ROLLING_DAYS*len(_national_load_prefetch_points()),
+        national_prefetch_seed_count=len(_national_load_prefetch_points()),national_nextday_100_seed_count=len(_national_load_100_points()),
+        national_last_refresh_report=_national_last_refresh_report or runtime.get("lastReport") or None,national_refresh_runtime=runtime,
+        usage_logging=True,startup_optimization={"gzip_text_responses":True,"lazy_leaflet":True,"lazy_html2canvas":True},
         supabase_configured=bool(SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY),
-        trail_regions_ready=sum(1 for r in _load_trail_manifest().get("regions", []) if r.get("ready")),
-    )
+        trail_regions_ready=sum(1 for r in _load_trail_manifest().get("regions",[]) if r.get("ready")))
 
 
 
@@ -2905,40 +3166,389 @@ def bing_site_auth():
     return response
 
 
-PUBLIC_FILES = {"app.js", "styles.css", "access.js", "access-data.js", "access.css", "favicon.ico", "robots.txt", "sitemap.xml", "guide.html", "manifest.json", "google5a7b3dfd79ff97f0.html", "BingSiteAuth.xml", INDEXNOW_KEY_FILENAME}
+ROUTE_EXTRA_AVAILABILITY_TTL = int(os.environ.get("ROUTE_EXTRA_AVAILABILITY_TTL", "1800"))
+_route_extra_availability_cache = {}
+_route_extra_availability_lock = threading.Lock()
+
+WATER_MOUNTAIN_CACHE_PATH = os.path.join(BASE, "water-mountain-cache.json")
+WATER_MOUNTAIN_CACHE_REMOTE_URL = os.environ.get(
+    "WATER_MOUNTAIN_CACHE_REMOTE_URL",
+    "https://raw.githubusercontent.com/Takapays/OTENKI/water-cache/water-mountain-cache.json",
+).strip()
+# V1.5.1 recovery fallback. `ea3633c` is the immutable completed 300/300 audit
+# (61 mountains with candidates) that pre-dates creation of the dedicated branch.
+# It is used only until/when `water-cache` becomes available; release ZIPs still
+# intentionally exclude water-mountain-cache.json.
+WATER_MOUNTAIN_CACHE_BOOTSTRAP_URL = os.environ.get(
+    "WATER_MOUNTAIN_CACHE_BOOTSTRAP_URL",
+    "https://raw.githubusercontent.com/Takapays/OTENKI/ea3633c/water-mountain-cache.json",
+).strip()
+WATER_MOUNTAIN_CACHE_REMOTE_TTL = max(60, int(os.environ.get("WATER_MOUNTAIN_CACHE_REMOTE_TTL", "300")))
+WATER_MOUNTAIN_CACHE_REMOTE_TIMEOUT = max(1, int(os.environ.get("WATER_MOUNTAIN_CACHE_REMOTE_TIMEOUT", "5")))
+_water_mountain_cache_state: dict[str, Any] = {
+    "mtime": None, "data": None, "remote_data": None, "remote_checked_at": 0.0
+}
+
+def _valid_water_mountain_cache(data: Any) -> bool:
+    return isinstance(data, dict) and isinstance(data.get("mountains"), dict)
+
+def _water_mountain_cache_remote_load() -> dict[str, Any] | None:
+    now = time.time()
+    cached = _water_mountain_cache_state.get("remote_data")
+    checked_at = float(_water_mountain_cache_state.get("remote_checked_at") or 0.0)
+    if _valid_water_mountain_cache(cached) and now - checked_at < WATER_MOUNTAIN_CACHE_REMOTE_TTL:
+        return cached
+
+    # Dedicated water-cache is authoritative. If it does not exist yet, recover
+    # from the immutable completed audit commit instead of silently returning 0.
+    urls = [u for u in (WATER_MOUNTAIN_CACHE_REMOTE_URL, WATER_MOUNTAIN_CACHE_BOOTSTRAP_URL) if u]
+    for url in dict.fromkeys(urls):
+        try:
+            req = urllib.request.Request(
+                url,
+                headers={"User-Agent": "Traten/1.5.42", "Cache-Control": "no-cache"},
+            )
+            with urllib.request.urlopen(req, timeout=WATER_MOUNTAIN_CACHE_REMOTE_TIMEOUT) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            if _valid_water_mountain_cache(data):
+                _water_mountain_cache_state["remote_data"] = data
+                _water_mountain_cache_state["remote_checked_at"] = now
+                return data
+        except Exception:
+            continue
+
+    # Keep serving the last known-good remote result if GitHub is temporarily unavailable.
+    if _valid_water_mountain_cache(cached):
+        _water_mountain_cache_state["remote_checked_at"] = now
+        return cached
+    return None
+
+def _water_mountain_cache_local_load() -> dict[str, Any]:
+    try:
+        mtime = os.path.getmtime(WATER_MOUNTAIN_CACHE_PATH)
+    except OSError:
+        return {"mountains": {}}
+    if _water_mountain_cache_state.get("mtime") == mtime and _valid_water_mountain_cache(_water_mountain_cache_state.get("data")):
+        return _water_mountain_cache_state["data"]
+    try:
+        with open(WATER_MOUNTAIN_CACHE_PATH, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        if not _valid_water_mountain_cache(data):
+            data = {"mountains": {}}
+    except Exception:
+        data = {"mountains": {}}
+    _water_mountain_cache_state["mtime"] = mtime
+    _water_mountain_cache_state["data"] = data
+    return data
+
+def _water_mountain_cache_load() -> dict[str, Any]:
+    # Remote dedicated branch is authoritative. Local file is only a deploy/startup fallback.
+    remote = _water_mountain_cache_remote_load()
+    return remote if _valid_water_mountain_cache(remote) else _water_mountain_cache_local_load()
+
+def _water_mountain_cache_entry(mountain: str) -> dict[str, Any] | None:
+    row = (_water_mountain_cache_load().get("mountains") or {}).get(str(mountain or "").strip())
+    return row if isinstance(row, dict) else None
+
+
+# V1.5.6: curated water corrections that must survive remote cache refreshes.
+# Coordinates are fixed only from public published coordinates; never guessed.
+def _apply_water_manual_overrides(data: dict[str, Any]) -> dict[str, Any]:
+    if not _valid_water_mountain_cache(data):
+        return data
+    import copy
+    out = copy.deepcopy(data)
+    mountains = out.get("mountains") or {}
+    row = mountains.get("白馬岳")
+    if isinstance(row, dict):
+        sources = [x for x in (row.get("sources") or []) if not (isinstance(x, dict) and "栂池温泉" in str(x.get("name") or ""))]
+        ginrei = {
+            "name": "銀嶺水",
+            "lat": 36.779000,
+            "lon": 137.816056,
+            "kind": "湧水",
+            "potability": "unknown",
+            "near_point": "栂池登山道入口",
+            "distance_m": 585,
+            "source_name": "YAMAP",
+            "source_url": "https://yamap.com/landmarks/199865",
+            "source_note": "標高2073m・北緯36度46分44.4秒・東経137度48分57.8秒（公開情報）",
+            "manual_verified": True,
+        }
+        if not any(isinstance(x, dict) and str(x.get("name") or "") == "銀嶺水" for x in sources):
+            sources.append(ginrei)
+        row["sources"] = sources
+        row["count"] = len(sources)
+        row["available"] = bool(sources)
+        row["checked"] = True
+    return out
+
+@app.get("/api/water-mountain-index")
+def water_mountain_index():
+    data = _apply_water_manual_overrides(_water_mountain_cache_load())
+    mountains = data.get("mountains") or {}
+    if not mountains:
+        # Never present a failed cache fetch as a legitimate "0 audited mountains" result.
+        return jsonify(ok=False, error="水場監査済みキャッシュを取得できませんでした"), 503
+    name = str(request.args.get("mountain") or "").strip()
+    if name:
+        row = mountains.get(name)
+        return jsonify(ok=True, mountain=name, entry=row if isinstance(row, dict) else None, generated_at=data.get("generated_at"), source=data.get("source"), radius_m=data.get("radius_m"))
+    checked = sum(1 for v in mountains.values() if isinstance(v, dict) and v.get("checked") is True)
+    available = sum(1 for v in mountains.values() if isinstance(v, dict) and v.get("checked") is True and v.get("available") is True)
+    errors = sum(1 for v in mountains.values() if isinstance(v, dict) and v.get("error"))
+    audit_stamps = [str(v.get("checked_at") or "") for v in mountains.values() if isinstance(v, dict) and v.get("checked_at")]
+    last_audit_at = max(audit_stamps) if audit_stamps else None
+    return jsonify(ok=True, generated_at=data.get("generated_at"), last_audit_at=last_audit_at, source=data.get("source"), radius_m=data.get("radius_m"), mountain_count=len(mountains), checked_count=checked, available_count=available, error_count=errors, mountains=mountains)
+
+
+def _route_extra_availability_key(mountain: str, points: list[dict[str, Any]]) -> str:
+    compact = [
+        [str(p.get("name") or "")[:80], round(float(p["lat"]), 4), round(float(p["lon"]), 4)]
+        for p in points
+    ]
+    raw = json.dumps([mountain, compact], ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+def _route_extra_availability_get(key: str) -> dict[str, Any] | None:
+    now = time.time()
+    with _route_extra_availability_lock:
+        item = _route_extra_availability_cache.get(key)
+        if not item:
+            return None
+        expires, value = item
+        if expires <= now:
+            _route_extra_availability_cache.pop(key, None)
+            return None
+        return dict(value)
+
+def _route_extra_availability_put(key: str, value: dict[str, Any]) -> None:
+    with _route_extra_availability_lock:
+        _route_extra_availability_cache[key] = (time.time() + max(300, ROUTE_EXTRA_AVAILABILITY_TTL), dict(value))
+        if len(_route_extra_availability_cache) > 300:
+            oldest = sorted(_route_extra_availability_cache.items(), key=lambda kv: kv[1][0])[:60]
+            for k, _ in oldest:
+                _route_extra_availability_cache.pop(k, None)
+
+@app.post("/api/route-extras-availability")
+def route_extras_availability():
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify(ok=False, error="JSON object required"), 400
+    mountain = str(payload.get("mountain") or "").strip()[:80]
+    raw = payload.get("points", [])
+    if not isinstance(raw, list):
+        return jsonify(ok=False, error="points must be a list"), 400
+    points = []
+    for row in raw[:24]:
+        if not isinstance(row, dict):
+            continue
+        try:
+            lat, lon = float(row.get("lat")), float(row.get("lon"))
+        except (TypeError, ValueError):
+            continue
+        if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+            continue
+        points.append({"name":str(row.get("name") or "point")[:100], "lat":lat, "lon":lon})
+    if not mountain or not points:
+        return jsonify(ok=True, ready=False, water=False, camera=False, cameraSource="client-fixed-catalog")
+    key = _route_extra_availability_key(mountain, points)
+    cached = _route_extra_availability_get(key)
+    if cached is not None:
+        return jsonify(dict(cached, cached=True))
+    data = _apply_water_manual_overrides(_water_mountain_cache_load())
+    mountains = data.get("mountains") or {}
+    entry = mountains.get(mountain)
+    known = isinstance(entry, dict) and entry.get("checked") is True and not entry.get("error")
+    result = {"ok":True, "ready":known, "water":bool(known and entry.get("sources")),
+              "camera":False, "cameraSource":"client-fixed-catalog", "cached":False,
+              "partial":not known, "checked_points":len(points),
+              "diagnostics":[] if known else ["water fixed index unavailable or not audited"]}
+    # A failed index read is unknown, not a cacheable 'no water' finding.
+    if known:
+        _route_extra_availability_put(key, result)
+    return jsonify(result)
+
+PUBLIC_FILES = {
+    '5d55ce5ee953aa38b715681f5207ee3d.txt',
+    'BingSiteAuth.xml',
+    'access-data.js',
+    'access.css',
+    'access.js',
+    'app.js',
+    'asama-route-v1578.js',
+    'camera-data.js',
+    'favicon-32.png',
+    'favicon.ico',
+    'google5a7b3dfd79ff97f0.html',
+    'guide.html',
+    'hut-data.js',
+    'huts.html',
+    'huts.js',
+    'hyakumeizan-route-enrichment-v1579.js',
+    'hyakumeizan-route-enrichment-v1580.js',
+    'hyakumeizan-route-enrichment-v1581.js',
+    'hyakumeizan-route-enrichment-v1582.js',
+    'hyakumeizan-route-enrichment-v1583.js',
+    'hyakumeizan-route-enrichment-v1584.js',
+    'hyakumeizan-route-enrichment-v1585.js',
+    'index.html',
+    'live-cameras.css',
+    'live-cameras.html',
+    'live-cameras.js',
+    'manifest.json',
+    'national-100-points.json',
+    'national-300-points.json',
+    'reel_master_scene1.png',
+    'reel_master_scene2.png',
+    'representative-route-cleanup-v15128.js',
+    'representative-route-enrichment-v15132.js',
+    'representative-route-enrichment-v15134.js',
+    'representative-route-enrichment-v15145.js',
+    'representative-route-enrichment-v15146.js',
+    'representative-route-enrichment-v15147.js',
+    'representative-route-enrichment-v15148.js',
+    'representative-route-enrichment-v15149.js',
+    'representative-route-enrichment-v15150.js',
+    'representative-route-enrichment-v15151.js',
+    'representative-route-enrichment-v15152.js',
+    'representative-route-enrichment-v15153.js',
+    'representative-route-enrichment-v15154.js',
+    'representative-route-enrichment-v15155.js',
+    'representative-route-enrichment-v15156.js',
+    'representative-route-enrichment-v15157.js',
+    'representative-route-enrichment-v15158.js',
+    'representative-route-enrichment-v15159.js',
+    'representative-route-enrichment-v15160.js',
+    'representative-route-enrichment-v15161.js',
+    'representative-route-enrichment-v15162.js',
+    'representative-route-enrichment-v15163.js',
+    'representative-route-enrichment-v15164.js',
+    'representative-route-enrichment-v15165.js',
+    'resource-index.css',
+    'resource-mountain-data.js',
+    'robots.txt',
+    'route-regression-recovery-v15230.js',
+    'sitemap.xml',
+    'styles.css',
+    'trailhead-access.html',
+    'trailhead-access.js',
+    'trailheads.html',
+    'trailheads.js',
+    'traten-icon-180.png',
+    'traten-icon-192.png',
+    'traten-logo.png',
+    'ui-v1.4.254.css',
+    'water-mountain-cache.json',
+    'water-sources.css',
+    'water-sources.html',
+    'water-sources.js',
+    'west-japan-route-enrichment-v1586.js',
+    'west-japan-route-enrichment-v1588.js',
+    'west-japan-route-enrichment-v1590.js',
+    'west-japan-route-enrichment-v1591.js',
+}
 PUBLIC_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif", ".ico"}
 
 
+
+def _serve_public_html(path):
+    with open(os.path.join(BASE,path),encoding="utf-8") as f:
+        body=f.read()
+    def version_asset(match):
+        lead,url,quote=match.groups()
+        parsed=urllib.parse.urlsplit(url)
+        if parsed.scheme or parsed.netloc or not parsed.path.endswith((".js",".css")):
+            return match.group(0)
+        query=dict(urllib.parse.parse_qsl(parsed.query))
+        query["v"]=APP_VERSION
+        changed=urllib.parse.urlunsplit((parsed.scheme,parsed.netloc,parsed.path,urllib.parse.urlencode(query),parsed.fragment))
+        return lead+changed+quote
+    body=re.sub(r'''((?:src|href)=["'])([^"']+)(["'])''',version_asset,body)
+    response=Response(body,content_type="text/html; charset=utf-8")
+    response.headers["Cache-Control"]="no-store, no-cache, max-age=0, must-revalidate"
+    return response
+
 @app.get("/<path:path>")
-def static_files(path: str):
-    # Do not expose server/config files from the repository root.
-    full_path = os.path.join(BASE, path)
+def static_files(path):
+    # Reject traversal/hidden directories; an unknown JS/API must never become HTML with 200.
+    parts = path.replace("\\", "/").split("/")
+    if any(p in {"", ".", ".."} or p.startswith(".") for p in parts):
+        abort(404)
     ext = os.path.splitext(path)[1].lower()
-    is_public_asset = path in PUBLIC_FILES or ext in PUBLIC_IMAGE_EXTS
-    if is_public_asset and os.path.isfile(full_path):
-        response = send_from_directory(BASE, path)
-        if path.endswith((".js", ".css", ".json")) or ext in PUBLIC_IMAGE_EXTS:
-            response.headers["Cache-Control"] = "public, max-age=300"
-        return response
-    return send_from_directory(BASE, "index.html")
-
-
-@app.after_request
-def security_headers(response: Response):
-    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
-    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
-    response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
-    if request.path in {"/", "/guide.html"}:
-        response.headers.setdefault("X-Robots-Tag", "index, follow, max-image-preview:large")
+    allowed = path in PUBLIC_FILES or (len(parts)==1 and ext in PUBLIC_IMAGE_EXTS)
+    full = os.path.realpath(os.path.join(BASE,path))
+    if not allowed or not full.startswith(os.path.realpath(BASE)+os.sep) or not os.path.isfile(full):
+        if not ext and not path.startswith("api/"):
+            return _serve_public_html("index.html")
+        if path.startswith("api/"):
+            return jsonify(error="Not found"),404
+        abort(404)
+    if path.endswith(".html"):
+        return _serve_public_html(path)
+    response = send_from_directory(BASE,path)
+    if path.endswith((".js",".css")) or ext in PUBLIC_IMAGE_EXTS:
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable" if request.args.get("v") else "public, max-age=3600"
+    elif path.endswith(".json"):
+        # Mutable fixed catalogs, especially the independently updated water cache, are not immutable.
+        response.headers["Cache-Control"] = "public, max-age=300"
     return response
 
 
-# V1.4.174: start the cache watcher on process boot, not only after a user opens 全国判定.
-# Render free instances can sleep, so the GitHub Actions wake-up endpoint below is the
-# reliable scheduler; this worker covers periods while the process stays awake.
-if NATIONAL_OUTLOOK_AUTO_REFRESH:
-    threading.Timer(2.0, _ensure_national_refresh_worker).start()
+@app.after_request
+def security_headers(response):
+    response.headers.setdefault("Referrer-Policy","strict-origin-when-cross-origin")
+    response.headers.setdefault("X-Frame-Options","SAMEORIGIN")
+    response.headers.setdefault("Permissions-Policy","geolocation=(), microphone=(), camera=()")
+    response.headers.setdefault("X-Content-Type-Options","nosniff")
+    if request.path in {"/","/guide.html"}:
+        response.headers.setdefault("X-Robots-Tag","index, follow, max-image-preview:large")
+    ctype = (response.content_type or "").lower()
+    compressible = any(t in ctype for t in ("text/","javascript","json","xml","svg"))
+    if compressible:
+        response.vary.add("Accept-Encoding")
+    if (compressible and request.accept_encodings["gzip"]>0 and request.method!="HEAD"
+        and response.status_code==200 and not response.headers.get("Content-Encoding")
+        and "Content-Range" not in response.headers and not response.is_streamed):
+        try:
+            body = response.get_data()
+            if len(body)>=1024:
+                packed = gzip.compress(body,compresslevel=6,mtime=0)
+                if len(packed)<len(body):
+                    response.set_data(packed);response.headers["Content-Encoding"]="gzip"
+                    response.headers["Content-Length"]=str(len(packed))
+                    response.set_etag(hashlib.sha256(packed).hexdigest())
+        except Exception:
+            pass
+    elif (compressible and response.direct_passthrough and request.accept_encodings["gzip"]>0
+          and request.method!="HEAD" and response.status_code==200 and not response.headers.get("Content-Encoding")
+          and "Content-Range" not in response.headers and response.content_length is not None and response.content_length<=8*1024*1024):
+        try:
+            response.direct_passthrough=False
+            body=response.get_data()
+            if len(body)>=1024:
+                packed=gzip.compress(body,compresslevel=6,mtime=0)
+                if len(packed)<len(body):
+                    response.set_data(packed);response.headers["Content-Encoding"]="gzip"
+                    response.headers["Content-Length"]=str(len(packed));response.set_etag(hashlib.sha256(packed).hexdigest())
+        except Exception:
+            pass
+    return response
 
+
+# V1.6.1: failover on requests, but a cache-only read must not launch forecast work.
+@app.before_request
+def _ensure_refresh_worker_on_request():
+    if request.path == "/api/national-outlook":
+        payload = request.get_json(silent=True)
+        if isinstance(payload, dict) and payload.get("cacheOnly") is True:
+            return None
+    if NATIONAL_OUTLOOK_AUTO_REFRESH:
+        _ensure_national_refresh_worker()
+    return None
+
+if NATIONAL_OUTLOOK_AUTO_REFRESH:
+    _ensure_national_refresh_worker()
 
 if __name__ == "__main__":
     print(f"Mountain Weather Decision V{APP_VERSION}")

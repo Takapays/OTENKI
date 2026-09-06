@@ -1,0 +1,13 @@
+{
+  "source": "/mnt/data/traten_recovery/baseline230",
+  "baseCore": "verified",
+  "candidate": "1.6.1",
+  "coreReplacements": [
+    "server.py",
+    "app.js",
+    "index.html"
+  ],
+  "fillMissingOnly": [],
+  "preserveExistingDependencies": true,
+  "productionApproved": false
+}
