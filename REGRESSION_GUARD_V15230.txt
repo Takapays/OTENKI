@@ -1,0 +1,69 @@
+{
+  "checks": {
+    "version": true,
+    "allReferencedJsPresent": true,
+    "coordinateIssues": true,
+    "missingCt": true,
+    "derivedCt": true,
+    "estimatedCt": true,
+    "sparseWaypoints": true,
+    "hiddenHistoricalEnrichment": true,
+    "rawAndExpandedThreePointCountsMatch": true,
+    "kujuChojabaruRecovered": true,
+    "shariRecovered": true,
+    "gassanRecovered": true,
+    "ibukiRecovered": true,
+    "higashiAkaishiRecovered": true
+  },
+  "summary": {
+    "mountains": 300,
+    "coordinateIssues": 0,
+    "estimatedCt": 1,
+    "derivedCt": 0,
+    "missingCt": 0,
+    "noRepresentative": 6,
+    "sparseWaypoints": 156,
+    "representativeRoutes": 415
+  },
+  "raw3": 128,
+  "expanded3": 128,
+  "hiddenEnrichment": 0,
+  "actual": {
+    "kujuChojabaru": [
+      "長者原",
+      "久住山",
+      "法華院温泉山荘",
+      "長者原"
+    ],
+    "shari": [
+      "清岳荘登山口",
+      "上二股",
+      "斜里岳",
+      "上二股",
+      "清岳荘登山口"
+    ],
+    "gassan": [
+      "姥沢 月山リフト",
+      "牛首（月山）",
+      "月山",
+      "牛首（月山）",
+      "姥沢 月山リフト"
+    ],
+    "ibuki": [
+      "伊吹山ドライブウェイ山頂駐車場",
+      "西登山道中間分岐（伊吹山）",
+      "伊吹山",
+      "西登山道中間分岐（伊吹山）",
+      "伊吹山ドライブウェイ山頂駐車場"
+    ],
+    "higashiAkaishi": [
+      "瀬場登山口 東赤石山",
+      "赤石山荘",
+      "東赤石山",
+      "赤石山荘",
+      "瀬場登山口 東赤石山"
+    ]
+  },
+  "referencedJs": 38,
+  "missingAssets": []
+}

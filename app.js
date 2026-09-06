@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.221';
+const APP_VERSION = '1.5.230';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -1021,7 +1021,8 @@ const SUPPLEMENTAL_COURSE_TIMES = Object.freeze({
   '八丁原登山口→涌蓋山': {minutes:208, source:'YAMAP標準モデル・八丁原登山口駐車場→涌蓋山（3時間28分）', sourceType:'yamap'},
   '国見岳新登山口（五勇谷橋ルート）→国見岳': {minutes:145, source:'YAMAP標準モデル・国見岳新登山口→国見岳（2時間25分）', sourceType:'yamap'},
   // V1.4.140: 残存推定CTの確認済み化 batch14。公式・標準モデルで端点一致が確認できた区間のみ追加。
-  '鉢盛坂新道口→鉢盛山': {minutes:180, source:'朝日村公式・鉢盛山登山道 野俣沢林道ルート'},
+  '鉢盛坂新道口→鉢盛山': {minutes:65, source:'朝日村公式・鉢盛坂新道→槍見尾根40分→権現の庭10分→権現坂5分→鉢盛山荘5分→山頂5分＝65分', sourceType:'official'},
+  '鉢盛山→鉢盛坂新道口': {minutes:65, source:'朝日村公式・鉢盛山登山マップ掲載の鉢盛坂新道〜山頂の区間CT合計65分', sourceType:'official'},
   '孫太尾根登山口→藤原岳': {minutes:200, source:'公共交通アクセス案内・孫太尾根標準CT'},
   '雲母坂登山口（修学院）→比叡山（大比叡）': {minutes:128, source:'YAMAP標準モデル・雲母坂登山口〜大比叡'},
   'びわ湖バレイ山頂駅→蓬来山': {minutes:60, source:'びわ湖バレイ公式・蓬莱山頂コース'},
@@ -1038,10 +1039,12 @@ const SUPPLEMENTAL_COURSE_TIMES = Object.freeze({
   '中房登山口（燕岳・大天井岳 表銀座ルート）→大天井岳': {minutes:445, source:'YAMAP標準モデル・大天井岳 中房温泉→山頂（7時間25分）', sourceType:'yamap'},
   '上高地→霞沢岳': {minutes:512, source:'YAMAP標準モデル・霞沢岳 上高地→徳本峠→K1→山頂（8時間32分）', sourceType:'yamap'},
   '蘭登山口→南木曽岳': {minutes:249, source:'YAMAP標準モデル・南木曽岳 蘭駐車場→山頂（4時間09分）', sourceType:'yamap'},
-  '新御坂トンネル御坂口駐車場（御坂黒岳ルート）→黒岳（御坂黒岳）': {minutes:161, source:'YAMAP標準モデル・三ツ峠入口→旧御坂峠→黒岳（2時間41分）', sourceType:'yamap'},
+  '新御坂トンネル南口（御坂黒岳ルート）→黒岳（御坂黒岳）': {minutes:145, source:'登山口ナビ・御坂黒岳 新御坂トンネル南口コース 標準登り2時間25分', sourceType:'other'},
+  '黒岳（御坂黒岳）→新御坂トンネル南口（御坂黒岳ルート）': {minutes:105, source:'登山口ナビ・御坂黒岳 新御坂トンネル南口コース 標準下り1時間45分', sourceType:'other'},
   '水越峠 金剛山→金剛山': {minutes:167, source:'YAMAP標準モデル・水越峠登山口→金剛山（2時間47分）', sourceType:'yamap'},
   // V1.4.137: 残存推定CTを継続削減。公的・観光公式・山と高原地図Webの標準所要時間を優先。
   '斑尾高原ビジターセンター（山の家）→斑尾山': {minutes:90, source:'斑尾高原観光協会・かえでの木トレイル 山頂まで約1時間30分', sourceType:'official'},
+  '斑尾山→斑尾高原ビジターセンター（山の家）': {minutes:90, source:'信越トレイル公開CT・斑尾山→チロル前登山口70分＋公開ルート 山の家↔チロル前20分＝90分', sourceType:'official'},
   '芦屋川 高座の滝→六甲山': {minutes:200, source:'山と高原地図Web・高座の滝→風吹岩40分→雨ヶ峠60分→一軒茶屋90分→六甲山最高峰10分（合計3時間20分）', sourceType:'yamakei'},
   '蛇淵の滝 那岐山登山口→那岐山': {minutes:120, source:'岡山観光WEB公式・那岐山 登山道から山頂まで徒歩約2時間', sourceType:'official'},
   '光石登山口→三嶺': {minutes:240, source:'高知県観光情報公式・三嶺 登頂時間目安 約4時間（光石登山口を県側代表登山口として照合）', sourceType:'official'},
@@ -1058,7 +1061,8 @@ const SUPPLEMENTAL_COURSE_TIMES = Object.freeze({
   '白布峠登山口→西吾妻山': {minutes:251, source:'YAMAP・白布峠〜西吾妻山往復モデル（登山口→山頂 4時間11分）', sourceType:'yamap'},
   '八海山・屏風道二合目登山口→八海山（入道岳）': {minutes:365, source:'YAMAP・八海山 屏風道〜八ツ峰〜入道岳モデル（登山口→入道岳 6時間05分）', sourceType:'yamap'},
   '菅沼登山口→奥白根山（日光白根山）': {minutes:175, source:'YAMAP・菅沼〜弥陀ヶ池〜日光白根山往復モデル（登山口→山頂 2時間55分）', sourceType:'yamap'},
-  '大滝キャンプ場・船形山登山口→船形山（御所山）': {minutes:147, source:'YAMAP・船形山 大滝キャンプ場往復モデル（登山口→山頂 2時間27分）', sourceType:'yamap'},
+  '大滝キャンプ場・船形山登山口→船形山（御所山）': {minutes:107, source:'YAMAP・船形山 往復モデル（大滝側起点→船形山 1時間47分）', sourceType:'yamap'},
+  '船形山（御所山）→大滝キャンプ場・船形山登山口': {minutes:77, source:'YAMAP・船形山 往復モデル（船形山→大滝側起点 1時間17分）', sourceType:'yamap'},
   '市ノ瀬→白山（御前峰）': {minutes:470, source:'石川県公式・白山 白山禅定道（市ノ瀬→室堂7時間10分＋室堂→御前峰40分）'},
   '河合谷高原 扇ノ山登山口→扇ノ山': {minutes:100, source:'環境省・中国自然歩道 扇ノ山 河合谷登山口→頂上 1時間40分'},
   '姫路公園登山口→扇ノ山': {minutes:80, source:'環境省・中国自然歩道 扇ノ山 姫路登山口→頂上 1時間20分'},
@@ -1296,6 +1300,9 @@ const SUPPLEMENTAL_COURSE_TIMES = Object.freeze({
 
   // V1.4.153: CT最終精査。起点一致の標準CTを優先して推定値を置換。
   '楢原・樽原登山口→諏訪山（上野村）': {minutes:280, source:'上野村公式・諏訪山コース（楢原登山口→諏訪山 区間合算）'},
+  '諏訪山（上野村）→楢原・樽原登山口': {minutes:235, source:'上野村公式観光Navi・諏訪山 楢原ルート（山頂→三笠山20分→避難小屋50分→湯の沢頭50分→楢原登山口115分）'},
+  '鳥甲山→屋敷口': {minutes:220, source:'津南町観光協会・秋山郷公式登山マップ（鳥甲山山頂→屋敷登山口 約3時間40分）'},
+  '南木曽岳→蘭登山口': {minutes:65, source:'YAMAP・南木曽岳登山道入口-南木曽岳 往復モデル（山頂12:09→蘭駐車場13:14＝1時間05分）', sourceType:'yamap'},
   '蓮華温泉→雪倉岳': {minutes:420, source:'山と溪谷オンライン・雪倉岳（蓮華温泉から約7時間）', sourceType:'yamakei'},
   '雪倉岳→蓮華温泉': {minutes:283, source:'YAMAP・朝日岳周回モデルコース（雪倉岳08:29→蓮華温泉ロッジ13:12＝4時間43分）', sourceType:'yamap'},
   '沼平ゲート→茶臼岳': {minutes:440, source:'YAMAP・茶臼岳/光岳モデルコース（ゲート→茶臼岳 標準CT区間合算）', sourceType:'yamap'},
@@ -2919,7 +2926,74 @@ const V15127_THREE_POINT_SPLIT_COURSE_TIMES = Object.freeze({
   '一軒茶屋→六甲山': {minutes:10, source:'山と高原地図Web・一軒茶屋→六甲山最高峰10分', sourceType:'yamakei'}
 });
 
+
+// V1.5.225: bulk CT cleanup. Public endpoint-matched directional records only;
+// no coordinate/elevation estimation and no proportional splitting.
+const V15225_CT_BULK_CLEANUP_COURSE_TIMES = Object.freeze({
+  '望岳台→オプタテシケ山': {minutes:365, source:'YAMAP公開活動記録・望岳台04:50→オプタテシケ山10:55（6時間05分）', sourceType:'yamap'},
+  'オプタテシケ山→望岳台': {minutes:300, source:'YAMAP公開活動記録・オプタテシケ山11:20→望岳台16:20（5時間00分）', sourceType:'yamap'},
+  '深山園地・塩那道路ゲート→男鹿岳': {minutes:368, source:'YAMAP公開活動記録・深山園地05:44→男鹿岳11:52（6時間08分）', sourceType:'yamap'},
+  '男鹿岳→深山園地・塩那道路ゲート': {minutes:223, source:'YAMAP公開活動記録・男鹿岳12:16→深山園地15:59（3時間43分）', sourceType:'yamap'},
+  '浜平登山口→諏訪山（上野村）': {minutes:275, source:'YAMAP諏訪山モデル・浜平口駐車場07:00→諏訪山11:35（4時間35分）', sourceType:'yamap'},
+  '諏訪山（上野村）→浜平登山口': {minutes:165, source:'YAMAP諏訪山モデル・諏訪山11:35→浜平口駐車場14:20（2時間45分）', sourceType:'yamap'},
+  '焼山林道第2ゲート（焼山ルート起点）→新潟焼山': {minutes:300, source:'YAMAP焼山（林道焼山線ゲート）モデル・ゲート側06:00→新潟焼山11:00（5時間00分）', sourceType:'yamap'},
+  '新潟焼山→焼山林道第2ゲート（焼山ルート起点）': {minutes:250, source:'YAMAP焼山（林道焼山線ゲート）モデル・新潟焼山11:00→ゲート側15:10（4時間10分）', sourceType:'yamap'},
+  '片貝登山口（東又第五発電所登山口）→毛勝山': {minutes:395, source:'KRC公開山行記録・東又第五発電所登山口04:15→毛勝山10:50（6時間35分）', sourceType:'other'},
+  '毛勝山→片貝登山口（東又第五発電所登山口）': {minutes:320, source:'KRC公開山行記録・毛勝山10:50→毛勝山登山口16:05＋東又第五発電所まで5分相当（計5時間20分）', sourceType:'other'},
+  '北沢峠→鋸岳': {minutes:610, source:'好日山荘・甲斐駒ヶ岳〜鋸岳縦走公開CT（北沢峠→甲斐駒260分＋六合目小屋60分＋鋸岳第一高点290分）', sourceType:'other'},
+  '鋸岳→北沢峠': {minutes:380, source:'好日山荘・甲斐駒ヶ岳〜鋸岳縦走公開CT（第一高点→角兵衛沢下降点20分＋戸台川180分＋北沢峠180分）', sourceType:'other'},
+
+  // Replace reverse-direction estimate fallbacks with public directional checkpoints.
+  'カムイエクウチカウシ山→札内川ヒュッテ駐車場': {minutes:405, source:'YAMAPカムイエクウチカウシ山モデル・山頂13:20→駐車場20:05（6時間45分）', sourceType:'yamap'},
+  '摩耶山→越沢口': {minutes:113, source:'YAMAP摩耶山越沢コースモデル・山頂→越沢側駐車場の公開チェックポイント合算（1時間53分）', sourceType:'yamap'},
+  '青海黒姫山→清水倉登山口': {minutes:120, source:'YAMAP青海黒姫山モデル・山頂12:10→清水倉登山口14:10（2時間00分）', sourceType:'yamap'},
+  '高塚山→山犬段・高塚山登山口': {minutes:119, source:'YAMAP高塚山モデル・高塚山11:44→山犬段13:43（1時間59分）', sourceType:'yamap'},
+  '大笠山→桂湖森林公園駐車場（大笠山ルート起点）': {minutes:273, source:'YAMAP大笠山モデル（山頂→桂湖登り口263分）＋公開済み桂湖駐車場〜登山口10分', sourceType:'yamap'},
+  '国見岳→国見岳新登山口（五勇谷橋ルート）': {minutes:65, source:'YAMAP国見岳モデル・国見岳12:33→国見岳新登山口13:38（1時間05分）', sourceType:'yamap'},
+  '脊振山→椎原峠登山口': {minutes:150, source:'YAMAP脊振山公開モデル・山頂10:16→椎原峠登山口12:46（2時間30分）', sourceType:'yamap'},
+  '余市岳→キロロリゾート・赤井川コース入口': {minutes:180, source:'公開モデルコース・キロロ余市川コース（復路3時間）', sourceType:'other'},
+  '大千軒岳→奥二股登山口駐車場': {minutes:189, source:'YAMAP奥二股（知内）コース公開活動記録・大千軒岳10:36→登山口13:45（3時間09分）', sourceType:'yamap'},
+  '荒海山（太郎岳）→八総鉱山跡・荒海山登山駐車場': {minutes:162, source:'YAMAP八総鉱山跡-荒海山往復モデル・荒海山10:04→八総鉱山跡12:46（2時間42分）', sourceType:'yamap'},
+  '鳥甲山→ムジナ平登山口': {minutes:195, source:'YAMAPムジナ平-鳥甲山往復モデル・鳥甲山10:19→ムジナ平13:34（3時間15分）', sourceType:'yamap'},
+  '女峰山→滝尾神社登山口': {minutes:260, source:'好日山荘公開登山レポート・女峰山11:40→滝尾神社16:00（4時間20分）', sourceType:'other'},
+  '朝日岳（群馬）→湯檜曽公園・白毛門登山口側': {minutes:248, source:'YAMAP白毛門登山口-朝日岳往復モデル・朝日岳11:57→白毛門登山口16:05（4時間08分）', sourceType:'yamap'},
+  '大岳山→白倉・大嶽神社里宮登山口': {minutes:70, source:'公開登山記録・大岳山12:42→白倉側登山口13:52（1時間10分）', sourceType:'other'},
+  '泉ヶ岳→泉ヶ岳大駐車場': {minutes:81, source:'公開水神〜滑降コース山行記録・泉ヶ岳11:20→泉ヶ岳大駐車場12:41（1時間21分）', sourceType:'other'},
+  '杁差岳→奥胎内ヒュッテ（足ノ松尾根ルート起点）': {minutes:285, source:'YAMAP奥胎内ヒュッテ〜朳差岳公開活動記録・山頂09:59→奥胎内ヒュッテ14:44（4時間45分）', sourceType:'yamap'},
+  '有明山→中房登山口': {minutes:71, source:'YAMAP有明山公開活動記録・有明山北岳09:00→中房登山口10:11（1時間11分）', sourceType:'yamap'}
+});
+
+// V1.5.224: CT audit cleanup batch. Only public/official endpoint-matched times are added.
+// Closed/prohibited summit routes are handled separately in representativeCourseOptions.
+const V15224_CT_AUDIT_CLEANUP_COURSE_TIMES = Object.freeze({
+  '蟹場温泉→乳頭山（烏帽子岳）': {minutes:150, source:'休暇村乳頭温泉郷公式・蟹場温泉口→乳頭山 約150分', sourceType:'official'},
+  '乳頭山（烏帽子岳）→蟹場温泉': {minutes:120, source:'公開登山コース解説・乳頭山→蟹場コース下山 約2時間', sourceType:'other'},
+  '経ヶ岳登山口展望台駐車場→経ヶ岳（福井）': {minutes:220, source:'大野市公式・経ヶ岳 保月山コース（展望台付近登り口→山頂 登り3時間40分）', sourceType:'official'},
+  '経ヶ岳（福井）→経ヶ岳登山口展望台駐車場': {minutes:150, source:'大野市公式・経ヶ岳 保月山コース（山頂→展望台付近登り口 下り2時間30分）', sourceType:'official'},
+  '戸中山林道ゲート→黒法師岳': {minutes:370, source:'THE JAPAN ALPS・黒法師岳水窪ルート（林道駐車場→戸中山林道入口→登山口→山頂 区間合算6時間10分）', sourceType:'other'},
+  '黒法師岳→戸中山林道ゲート': {minutes:285, source:'THE JAPAN ALPS・黒法師岳水窪ルート（山頂→登山口→林道駐車場 区間合算4時間45分）', sourceType:'other'},
+  '田代・大無間山登山口→大無間山': {minutes:539, source:'YAMAP・大無間山（田代）モデルコース（田代側→大無間山 標準チェックポイント合算）', sourceType:'yamap'},
+  '大無間山→田代・大無間山登山口': {minutes:297, source:'YAMAP・大無間山（田代）モデルコース（大無間山→田代側 標準チェックポイント合算）', sourceType:'yamap'},
+  '金山登山口（小谷側）→新潟焼山': {minutes:370, source:'YAMAP・金山登山口→天狗原山→金山→新潟焼山 往復モデル（登山口→山頂 6時間10分）', sourceType:'yamap'},
+  '新潟焼山→金山登山口（小谷側）': {minutes:280, source:'YAMAP・金山登山口→天狗原山→金山→新潟焼山 往復モデル（山頂→登山口 4時間40分）', sourceType:'yamap'},
+  '高原山・釈迦ヶ岳→八方ヶ原・大間々台登山口': {minutes:149, source:'YAMAP・釈迦ヶ岳（高原山）往復モデル（山頂→大間々台 標準チェックポイント合算2時間29分）', sourceType:'yamap'},
+  '高隈山（大箆柄岳）→大箆柄岳 垂桜コース駐車場・登山口': {minutes:90, source:'YAMAP・垂桜コース登山口-大箆柄岳往復モデル（山頂→登山口 標準チェックポイント合算1時間30分）', sourceType:'yamap'},
+  '斑尾高原スキー場→斑尾山': {minutes:120, source:'斑尾高原観光協会公式・斑尾山登山（スキー場側→山頂 約2時間）', sourceType:'official'},
+  '斑尾山→斑尾高原スキー場': {minutes:75, source:'山旅旅・斑尾高原スキー場ピストン（山頂→スキー場側登山口 15+40+20分）', sourceType:'other'},
+  '芦別岳→新道登山口': {minutes:240, source:'北海道上川総合振興局・芦別岳登山ガイド 新道コース（下り4時間）', sourceType:'official'},
+  '芦別岳→山部自然公園太陽の里 芦別岳登山口': {minutes:240, source:'北海道上川総合振興局・芦別岳登山ガイド 新道コース（下り4時間）', sourceType:'official'},
+  '会津朝日岳→赤倉沢登山口': {minutes:206, source:'YAMAP・赤倉沢コース標準モデル（会津朝日岳10:56→赤倉沢登山口14:22、3時間26分）', sourceType:'yamap'},
+  '大滝根山→高塚高原キャンプ場駐車場': {minutes:33, source:'ヤマレコ公開山行計画 p5458375（大滝根山10:56→高塚高原キャンプ場11:29、33分）', sourceType:'yamareco'},
+  '南駒ヶ岳→伊奈川ダム上登山口': {minutes:320, source:'公開山行コース案内・南駒ヶ岳→北沢尾根→登山口→福栃橋→伊奈川ダム上登山口（1:20+2:30+0:40+0:50）', sourceType:'other'},
+  '三頭山→山のふるさと村登山口': {minutes:175, source:'登山口ナビ・三頭山 風張尾根〜鞘口峠コース（下り2時間55分）', sourceType:'other'},
+  '東赤石山→瀬場登山口 東赤石山': {minutes:140, source:'好日山荘・東赤石山（東赤石山→三角点→瀬場登山口 140分）', sourceType:'other'},
+  '涌蓋山→八丁原登山口': {minutes:143, source:'YAMAP・涌蓋山周回標準モデル（涌蓋山11:28→八丁原登山口駐車場13:51、2時間23分）', sourceType:'yamap'},
+  '七ヶ岳→会津高原たかつえスキー場・七ヶ岳登山口': {minutes:134, source:'ヤマレコ公開山行計画 p5577482（七ヶ岳→七ヶ岳登山口49分＋たかつえスキー場85分＝134分）', sourceType:'yamareco'}
+});
+
 const COURSE_TIME_TABLES = Object.freeze([
+  V15225_CT_BULK_CLEANUP_COURSE_TIMES,
+  V15224_CT_AUDIT_CLEANUP_COURSE_TIMES,
   V15137_THREE_POINT_REPAIR_COURSE_TIMES,
   V15136_THREE_POINT_REPAIR_COURSE_TIMES,
   V15128_THREE_POINT_SPLIT_COURSE_TIMES,
@@ -7353,8 +7427,8 @@ function showNationalOutlookDetail(p,result){
   const summary=result?esc(result.summary||''):(p.eligible?'まだ判定していません。日付を選んで「全国を判定」を押してください。':'全国簡易判定は対象外です。');
   const sourceNote=result?`<span class="national-backup-source">簡易判定：${result.source==='metno+gfs'?'MET Norway + NOAA GFS':result.source==='metno'?'MET Norway':result.source==='gfs'?'NOAA GFS':'MET Norway / NOAA GFS'}</span>`:'';
   box.innerHTML=`
-    <button type="button" class="national-detail-close" aria-label="詳細を閉じる">×</button>
     <div class="national-rich-hero${photo?' has-photo':''}"${heroStyle}>
+      <button type="button" class="national-detail-close" aria-label="山の情報を閉じる"><span aria-hidden="true">×</span><b>閉じる</b></button>
       <div class="national-rich-hero-overlay"></div>
       <div class="national-rich-hero-copy"><span class="national-rich-area">${esc(area)}</span><div class="national-rich-title-row"><h3>${esc(p.name)}</h3>${nationalMountainHonorHtml(p.name)}</div>${reading?`<div class="national-rich-reading">${esc(reading)}</div>`:''}<p>${esc(elevation)}</p></div>
       <div class="national-rich-grade grade-${gradeClass}"><b>${grade}</b><span>${nationalGradeLabel(grade)}</span></div>
@@ -9001,6 +9075,22 @@ function confirmedGeneratedRepresentativeCourseOptions(mountain,existingCourses=
   }
   return out;
 }
+// V1.5.224: do not present a representative summit route when the current public authority
+// says the summit/route is closed, prohibited, or not an authorized hiking route.
+const REPRESENTATIVE_COURSE_EXCLUSIONS_V15224 = Object.freeze({
+  '渡島駒ヶ岳': new Set(['赤井川登山口・6合目駐車場ルート']), // current access ends at 馬ノ背, not 剣ヶ峯
+  '太平山': new Set(['旭又登山口ルート']),                    // 旭又登山道 is currently closed
+  '景鶴山': new Set(['鳩待峠（尾瀬側起点）ルート']),            // no authorized route / entry prohibited
+  '箱根山': new Set(['大涌谷登山口ルート']),                  // 神山〜大涌谷 is currently closed
+  '桜島（御岳）': new Set(['湯之平展望所（一般立入可能な最高地点・山頂入山不可）ルート']), // summit entry prohibited
+  '大日ヶ岳': new Set(['高鷲スノーパークルート']), // public route from the ski area uses the winter gondola/top station; do not expose the base as a normal summer trailhead
+  '大笠山': new Set(['ブナオ峠（大笠山ルート）ルート']), // no reliable direction-specific standard CT; keep the fixed point available but do not publish it as a representative route
+  '黒岳': new Set(['新御坂トンネル御坂口駐車場（御坂黒岳ルート）ルート']) // replace the old north-side route with the south-mouth route that has published ascent/descent CT
+});
+function representativeCourseExcludedV15224(mountain,course){
+  return REPRESENTATIVE_COURSE_EXCLUSIONS_V15224[canonicalMountainName(mountain)]?.has(String(course?.label||''))||false;
+}
+
 function representativeCourseOptions(mountain){
   const key=canonicalMountainName(mountain);
   const manual=REPRESENTATIVE_COURSES[key];
@@ -9025,7 +9115,7 @@ function representativeCourseOptions(mountain){
   const generated=primary.length
     ? confirmedGeneratedRepresentativeCourseOptions(key,primary)
     : generatedRepresentativeCourseOptions(key);
-  return [...primary,...generated].map(course=>representativeCourseWithDescent(key,course));
+  return [...primary,...generated].filter(course=>!representativeCourseExcludedV15224(key,course)).map(course=>representativeCourseWithDescent(key,course));
 }
 
 
@@ -13411,7 +13501,7 @@ Object.assign(CURATED_ACCESS_HINTS, {
   '人形山':{trailheads:['人形堂・中根平登山口']},
   '医王山':{trailheads:['医王の里登山者用駐車場','西尾平駐車場','しがらくび駐車場']},
   '大門山':{trailheads:['ブナオ峠 大門山登山口']},
-  '大笠山':{trailheads:['桂湖森林公園駐車場（大笠山ルート起点）','ブナオ峠（大笠山ルート）']},
+  '大笠山':{trailheads:['桂湖森林公園駐車場（大笠山ルート起点）']},
   '笈ヶ岳':{trailheads:['中宮温泉ビジターセンター（笈ヶ岳ルート起点）']},
   '三方岩岳':{trailheads:['三方岩駐車場']},
   '猿ヶ馬場山':{trailheads:['村営せせらぎ公園駐車場（猿ヶ馬場山残雪期ルート起点）']},
@@ -13903,7 +13993,7 @@ const V1230_FINAL5_ACCESS = {
     {id:'fixed30-mishotai-dozaka',type:'trailhead',name:'道坂トンネル都留側駐車場・御正体山登山口',lat:35.511901,lon:138.967737,elevation:1010,source:'固定候補'}
   ],
   '黒岳':[
-    {id:'fixed30-misakakuro-shinmisaka',type:'trailhead',name:'新御坂トンネル御坂口駐車場（御坂黒岳ルート）',lat:35.572695,lon:138.764949,elevation:990,source:'固定候補'}
+    {id:'fixed30-misakakuro-shinmisaka-south',type:'trailhead',name:'新御坂トンネル南口（御坂黒岳ルート）',lat:35.545970,lon:138.768664,elevation:1010,source:'登山口ナビ公開座標'}
   ],
 };
 for (const [mountain,pts] of Object.entries(V1230_FINAL5_ACCESS)) {
@@ -13916,7 +14006,7 @@ Object.assign(CURATED_ACCESS_HINTS, {
   '七面山':{trailheads:['羽衣・七面山表参道駐車場']},
   '山伏':{trailheads:['百畳峠（百畳平）駐車場・山伏登山口']},
   '御正体山':{trailheads:['道坂トンネル都留側駐車場・御正体山登山口']},
-  '黒岳':{trailheads:['新御坂トンネル御坂口駐車場（御坂黒岳ルート）']},
+  '黒岳':{trailheads:['新御坂トンネル南口（御坂黒岳ルート）']},
 });
 
 
@@ -13985,6 +14075,72 @@ MOUNTAIN_REGION['ジャンダルム'] = 'nishiho_yake';
   BUILTIN_ROUTE_CATALOG['地蔵ヶ岳']=BUILTIN_ROUTE_CATALOG['地蔵岳(鳳凰)'];
 }
 
+
+// V1.5.230: sparse-waypoint reduction batch using previously audited fixed facility/pass coordinates.
+// Adds only real named route landmarks already present in the V1.5.128 facility/pass audit; no CT estimation.
+(function(){'use strict';
+const BATCH=Object.freeze({
+  "斜里岳": Object.freeze([
+    Object.freeze({"id":"v15227-v1585-7","type":"pass","name":"上二股","lat":43.768679,"lon":144.707028,"elevation":1240,"source":"V1.5.128固定地点監査再利用 / V1.5.85公開ルート図準拠・天気格子用代表位置（ナビ用途不可）"}),
+  ]),
+  "岩木山": Object.freeze([
+    Object.freeze({"id":"v15227-v1585-42","type":"hut","name":"鳳鳴ヒュッテ","lat":40.655201,"lon":140.300114,"elevation":1460,"source":"V1.5.128固定地点監査再利用 / V1.5.85公開ルート図準拠・天気格子用代表位置（ナビ用途不可）"}),
+  ]),
+  "八幡平": Object.freeze([
+    Object.freeze({"id":"v15227-v1585-49","type":"pass","name":"鏡池・見返峠分岐","lat":39.952146,"lon":140.855726,"elevation":1580,"source":"V1.5.128固定地点監査再利用 / V1.5.85公開ルート図準拠・天気格子用代表位置（ナビ用途不可）"}),
+    Object.freeze({"id":"v15227-v1585-51","type":"pass","name":"見返峠","lat":39.953632,"lon":140.8548,"elevation":1570,"source":"V1.5.128固定地点監査再利用 / V1.5.85公開ルート図準拠・天気格子用代表位置（ナビ用途不可）"}),
+  ]),
+  "月山": Object.freeze([
+    Object.freeze({"id":"v15227-v1585-4","type":"pass","name":"牛首（月山）","lat":38.542139,"lon":140.022602,"elevation":1720,"source":"V1.5.128固定地点監査再利用 / V1.5.85公開ルート図準拠・天気格子用代表位置（ナビ用途不可）"}),
+  ]),
+  "大朝日岳": Object.freeze([
+    Object.freeze({"id":"v15227-v1583-oasahi-hut","type":"hut","name":"大朝日岳山頂避難小屋","lat":38.2607,"lon":139.9209,"elevation":1780,"source":"V1.5.128固定地点監査再利用 / 朝日鉱泉公開案内・山頂直下避難小屋位置"}),
+  ]),
+  "蔵王山（熊野岳）": Object.freeze([
+    Object.freeze({"id":"v15227-v1585-44","type":"waypoint","name":"ワサ小屋跡","lat":38.149111,"lon":140.435581,"elevation":1750,"source":"V1.5.128固定地点監査再利用 / V1.5.85公開ルート図準拠・天気格子用代表位置（ナビ用途不可）"}),
+  ]),
+  "飯豊山": Object.freeze([
+    Object.freeze({"id":"v15227-v1583-iide-honzan","type":"hut","name":"本山小屋","lat":37.853333,"lon":139.713889,"elevation":2101,"source":"V1.5.128固定地点監査再利用 / PORTALFIELD公開位置情報・本山小屋"}),
+  ]),
+  "霧ヶ峰（車山）": Object.freeze([
+    Object.freeze({"id":"v15227-v1585-45","type":"pass","name":"車山乗越","lat":36.103285,"lon":138.194249,"elevation":1815,"source":"V1.5.128固定地点監査再利用 / V1.5.85公開ルート図準拠・天気格子用代表位置（ナビ用途不可）"}),
+    Object.freeze({"id":"v15227-v1585-47","type":"hut","name":"コロボックルヒュッテ","lat":36.10453,"lon":138.187783,"elevation":1800,"source":"V1.5.128固定地点監査再利用 / V1.5.85公開ルート図準拠・天気格子用代表位置（ナビ用途不可）"}),
+  ]),
+  "乗鞍岳": Object.freeze([
+    Object.freeze({"id":"v15227-v1585-35","type":"hut","name":"肩ノ小屋（乗鞍岳）","lat":36.117118,"lon":137.553754,"elevation":2760,"source":"V1.5.128固定地点監査再利用 / V1.5.85公開ルート図準拠・天気格子用代表位置（ナビ用途不可）"}),
+  ]),
+  "大菩薩嶺": Object.freeze([
+    Object.freeze({"id":"v15227-v1585-31","type":"hut","name":"福ちゃん荘","lat":35.735,"lon":138.835134,"elevation":1720,"source":"V1.5.128固定地点監査再利用 / V1.5.85公開ルート図準拠・天気格子用代表位置（ナビ用途不可）"}),
+  ]),
+  "天城山（万三郎岳）": Object.freeze([
+    Object.freeze({"id":"v15227-v1585-19","type":"pass","name":"石楠立","lat":34.865638,"lon":139.008449,"elevation":1360,"source":"V1.5.128固定地点監査再利用 / V1.5.85公開ルート図準拠・天気格子用代表位置（ナビ用途不可）"}),
+  ]),
+  "伊吹山": Object.freeze([
+    Object.freeze({"id":"v15227-v1585-10","type":"pass","name":"西登山道中間分岐（伊吹山）","lat":35.418963,"lon":136.403244,"elevation":1320,"source":"V1.5.128固定地点監査再利用 / V1.5.85公開ルート図準拠・天気格子用代表位置（ナビ用途不可）"}),
+  ]),
+  "日出ヶ岳": Object.freeze([
+    Object.freeze({"id":"v15227-v1585-48","type":"waypoint","name":"日出ヶ岳展望台下分岐","lat":34.18427,"lon":136.106521,"elevation":1660,"source":"V1.5.128固定地点監査再利用 / V1.5.85公開ルート図準拠・天気格子用代表位置（ナビ用途不可）"}),
+  ]),
+  "山上ヶ岳": Object.freeze([
+    Object.freeze({"id":"v15227-v1588-sanjo-ominesanji","type":"hut","name":"大峯山寺","lat":34.253035,"lon":135.941339,"elevation":1710,"source":"V1.5.128固定地点監査再利用 / NAVITIME公開座標 / 奈良県公式所在地確認"}),
+  ]),
+  "阿蘇山（高岳）": Object.freeze([
+    Object.freeze({"id":"v15227-v1585-21","type":"pass","name":"仙酔分かれ","lat":32.886413,"lon":131.103737,"elevation":1500,"source":"V1.5.128固定地点監査再利用 / V1.5.85公開ルート図準拠・天気格子用代表位置（ナビ用途不可）"}),
+    Object.freeze({"id":"v15227-v1585-22","type":"pass","name":"高岳・中岳・月見小屋分岐","lat":32.885365,"lon":131.104528,"elevation":1550,"source":"V1.5.128固定地点監査再利用 / V1.5.85公開ルート図準拠・天気格子用代表位置（ナビ用途不可）"}),
+    Object.freeze({"id":"v15227-v1585-24","type":"pass","name":"馬の背（阿蘇）","lat":32.88691,"lon":131.103634,"elevation":1450,"source":"V1.5.128固定地点監査再利用 / V1.5.85公開ルート図準拠・天気格子用代表位置（ナビ用途不可）"}),
+    Object.freeze({"id":"v15227-v1585-26","type":"pass","name":"すずめ岩分岐","lat":32.893996,"lon":131.102444,"elevation":1150,"source":"V1.5.128固定地点監査再利用 / V1.5.85公開ルート図準拠・天気格子用代表位置（ナビ用途不可）"}),
+  ]),
+  "霧島山（韓国岳）": Object.freeze([
+    Object.freeze({"id":"v15227-v1585-37","type":"hut","name":"韓国岳避難小屋","lat":31.936476,"lon":130.857822,"elevation":1330,"source":"V1.5.128固定地点監査再利用 / V1.5.85公開ルート図準拠・天気格子用代表位置（ナビ用途不可）"}),
+  ]),
+});
+for(const [mountain,points] of Object.entries(BATCH)){
+  const list=BUILTIN_ROUTE_CATALOG[mountain]||(BUILTIN_ROUTE_CATALOG[mountain]=[]);
+  const keys=new Set(list.map(p=>`${p.type||''}|${p.name||''}`));
+  for(const p of points){const k=`${p.type}|${p.name}`; if(!keys.has(k)){list.push({...p}); keys.add(k);}}
+}
+window.TRATEN_SPARSE_WAYPOINT_BATCH_V15227=Object.freeze({version:'1.5.230',mountains:Object.keys(BATCH),pointCount:Object.values(BATCH).reduce((n,a)=>n+a.length,0),policy:'previously-audited fixed named landmarks only; no CT inference'});
+})();
 
 // V1.4.163: maintenance data audit API for the authenticated admin page.
 // It derives the current state directly from the runtime catalogs so the audit stays in sync
@@ -14073,7 +14229,7 @@ window.TratenDataAudit = (()=>{
       if(!routeOptions.length){
         noRepresentative.push({mountain,waypointCount:resolvedPts.length,trailheads:resolvedPts.filter(p=>p.type==='trailhead').length,peaks:resolvedPts.filter(p=>p.type==='peak').length});
       }
-      // A route planner feels thin below four usable fixed points; keep the threshold explicit in the UI data.
+      // V1.5.223: only three or fewer usable fixed points are flagged as sparse.
       if(resolvedPts.length<=3){
         sparseWaypoints.push({mountain,count:resolvedPts.length,trailheads:resolvedPts.filter(p=>p.type==='trailhead').length,huts:resolvedPts.filter(p=>p.type==='hut').length,peaks:resolvedPts.filter(p=>p.type==='peak').length});
       }
@@ -14117,6 +14273,14 @@ window.TratenDataAudit = (()=>{
     };
   };
   return {build};
+})();
+(function fixSparseAuditThresholdLabel(){
+  try{
+    if(typeof location==='undefined'||!String(location.pathname||'').includes('data-audit'))return;
+    const replaceNode=node=>{if(!node)return;for(const child of Array.from(node.childNodes||[])){if(child&&child.nodeType===3)child.nodeValue=String(child.nodeValue||'').replace(/4\s*点以下/g,'3点以下');else replaceNode(child);}};
+    const run=()=>replaceNode(document.body);
+    if(document?.readyState==='loading')document.addEventListener('DOMContentLoaded',run,{once:true});else setTimeout(run,0);
+  }catch(_){ }
 })();
 // ===== V1.5.111 EMBEDDED REPRESENTATIVE ROUTE ENRICHMENT =====
 // Traten V1.5.111 embedded consolidated representative-route enrichment.
@@ -15071,17 +15235,21 @@ window.TRATEN_REPRESENTATIVE_ENRICHMENT_V15124=Object.freeze({version:VERSION,ro
 // No new coordinates or CT estimates are introduced here.
 (function(){'use strict';
 const VERSION='1.5.125';
+// V1.5.223: four V1.5.125 insertions are intentionally no longer split here.
+// Their parent trailhead↔summit CT is verified, but the inserted child legs (or fixed coordinate)
+// were not fully resolved in the current bundle, which had reintroduced CT情報なし.
+// Keep the verified parent CT rather than inventing child CT.
 const RULES=Object.freeze({
   '利尻山|利尻北麓野営場（鴛泊コース）ルート':Object.freeze([{after:'利尻北麓野営場（鴛泊コース）',before:'利尻山',points:[['peak','長官山','通過ピーク']]}]),
-  '斜里岳|清岳荘登山口ルート':Object.freeze([{after:'清岳荘登山口',before:'斜里岳',points:[['pass','上二股','主要分岐']]}]),
+  
   '八甲田山|八甲田ロープウェー山頂公園駅ルート':Object.freeze([{after:'八甲田ロープウェー山頂公園駅',before:'八甲田山（大岳）',points:[['hut','大岳避難小屋（八甲田）','避難小屋']]}]),
-  '月山|姥沢 月山リフトルート':Object.freeze([{after:'姥沢 月山リフト',before:'月山',points:[['pass','牛首（月山）','主要分岐']]}]),
+  
   '安達太良山|奥岳・あだたら山ロープウェイルート':Object.freeze([{after:'奥岳登山口・あだたら山ロープウェイ',before:'安達太良山',points:[['peak','薬師岳（安達太良）','通過ピーク']]}]),
   '茶臼岳（那須岳）|峠の茶屋・茶臼岳ルート':Object.freeze([{after:'峠の茶屋・那須岳登山口',before:'茶臼岳（那須岳）',points:[['hut','峰の茶屋跡避難小屋','避難小屋']]}]),
   '四阿山|菅平牧場ルート':Object.freeze([{after:'菅平牧場登山口',before:'四阿山',points:[['peak','中四阿','通過ピーク']]}]),
-  '伊吹山|伊吹山ドライブウェイ山頂駐車場ルート':Object.freeze([{after:'伊吹山ドライブウェイ山頂駐車場',before:'伊吹山',points:[['pass','西登山道中間分岐（伊吹山）','主要分岐']]}]),
+  
   '武奈ヶ岳|坊村 武奈ヶ岳登山口ルート':Object.freeze([{after:'坊村 武奈ヶ岳登山口',before:'武奈ヶ岳',points:[['peak','御殿山（武奈ヶ岳）','通過ピーク']]}]),
-  '東赤石山|瀬場登山口 東赤石山ルート':Object.freeze([{after:'瀬場登山口 東赤石山',before:'東赤石山',points:[['hut','赤石山荘','山小屋']]}]),
+  
   '市房山|市房山キャンプ場（市房山登山口アクセス起点）ルート':Object.freeze([{after:'市房山キャンプ場（市房山登山口アクセス起点）',before:'市房山',points:[['hut','市房神社','神社・避難地点']]}])
 });
 function rev(points){return [...points].reverse().map(p=>[...p]);}
@@ -15746,3 +15914,51 @@ try{
     audit:{totalRepresentativeCourses:215,threePointCourses:72,v15141ThreePointCourses:86,v15142ThreePointCourses:78,v15143ThreePointCourses:72}
   });
 }catch(_){ }
+
+
+// V1.5.230: sparse-waypoint reduction batch 2.
+// Re-attaches already defined, real named landmarks after all legacy catalogs finish loading,
+// so later catalog rewrites cannot silently drop them. No estimated/derived CT is introduced.
+(function(){'use strict';
+  const BATCH=Object.freeze({
+    '高妻山': Object.freeze([
+      Object.freeze({id:'v15228-takatsuma-togakushi',type:'peak',name:'戸隠山',lat:36.770278,lon:138.055,elevation:1904,source:'戸隠連峰の実在主要ピーク / 一不動避難小屋との公開CT確認済み'})
+    ]),
+    '後方羊蹄山': Object.freeze([
+      Object.freeze({id:'v15228-yotei-makkari',type:'trailhead',name:'真狩登山口・真狩キャンプ場',lat:42.794611,lon:140.785694,elevation:370,source:'既存固定候補 / YAMAP標準モデルで山頂往復CT確認済み'})
+    ]),
+    '八甲田山': Object.freeze([
+      Object.freeze({id:'v15228-hakkoda-sukayu',type:'trailhead',name:'酸ヶ湯登山口',lat:40.649583,lon:140.850333,elevation:895,source:'既存固定候補 / 公開標準CT確認済み'})
+    ]),
+    '岩木山': Object.freeze([
+      Object.freeze({id:'v15228-iwaki-hyakuzawa',type:'trailhead',name:'百沢コース登山口',lat:40.627278,lon:140.331194,elevation:318,source:'既存固定候補 / YAMAP標準モデルで山頂往復CT確認済み'}),
+      Object.freeze({id:'v15228-iwaki-homei',type:'hut',name:'鳳鳴ヒュッテ',lat:40.655201,lon:140.300114,elevation:1460,source:'V1.5.128固定地点監査再利用 / 公開ルート上の実在避難小屋'})
+    ]),
+    '月山': Object.freeze([
+      Object.freeze({id:'v15228-gassan-8',type:'trailhead',name:'月山八合目登山口',lat:38.586472,lon:140.016833,elevation:1380,source:'既存固定候補 / 公開標準CT確認済み'}),
+      Object.freeze({id:'v15228-gassan-ushikubi',type:'pass',name:'牛首（月山）',lat:38.542139,lon:140.022602,elevation:1720,source:'V1.5.128固定地点監査再利用 / 公開ルート上の主要分岐'})
+    ]),
+    '大朝日岳': Object.freeze([
+      Object.freeze({id:'v15228-oasahi-hut',type:'hut',name:'大朝日岳山頂避難小屋',lat:38.2607,lon:139.9209,elevation:1780,source:'朝日鉱泉公開案内 / 山頂直下避難小屋 / 区間CT確認済み'})
+    ]),
+    '飯豊山': Object.freeze([
+      Object.freeze({id:'v15228-iide-honzan',type:'hut',name:'本山小屋',lat:37.853333,lon:139.713889,elevation:2101,source:'PORTALFIELD公開位置情報 / 区間CT確認済み'})
+    ]),
+    '南駒ヶ岳': Object.freeze([
+      Object.freeze({id:'v15228-minamikoma-kosumo-hut',type:'hut',name:'越百小屋・越百避難小屋',lat:35.6775,lon:137.793611,elevation:2342,source:'既存固定候補 / YAMAP公開モデル区間CT確認済み'})
+    ]),
+    '越百山': Object.freeze([
+      Object.freeze({id:'v15228-kosumo-minamikoma',type:'peak',name:'南駒ヶ岳',lat:35.701389,lon:137.810833,elevation:2841,source:'中央アルプス縦走上の既存固定山頂 / 公開CT確認済み'})
+    ])
+  });
+  for(const [mountain,points] of Object.entries(BATCH)){
+    const old=Array.isArray(BUILTIN_ROUTE_CATALOG[mountain])?BUILTIN_ROUTE_CATALOG[mountain]:[];
+    const seen=new Set();
+    BUILTIN_ROUTE_CATALOG[mountain]=[...old,...points].filter(p=>{
+      const k=`${p.type||''}:${p.name||''}`;
+      if(seen.has(k)) return false;
+      seen.add(k); return true;
+    });
+  }
+  window.TRATEN_SPARSE_WAYPOINT_BATCH_V15228=Object.freeze({version:'1.5.230',mountains:Object.keys(BATCH),pointCount:Object.values(BATCH).reduce((n,a)=>n+a.length,0),policy:'real named landmarks with existing fixed coordinates; preserve CT missing=0 and estimated=1'});
+})();

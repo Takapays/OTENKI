@@ -1,0 +1,45 @@
+{
+  "checks": {
+    "version": true,
+    "allReferencedJsPresent": true,
+    "coordinateIssues": true,
+    "missingCt": true,
+    "derivedCt": true,
+    "estimatedCt": true,
+    "noRepresentative": true,
+    "sparseWaypoints": true,
+    "representativeRoutes": true,
+    "sanbeNorthRecovered": true,
+    "sanbeWestRecovered": true
+  },
+  "summary": {
+    "mountains": 300,
+    "coordinateIssues": 0,
+    "estimatedCt": 1,
+    "derivedCt": 0,
+    "missingCt": 0,
+    "noRepresentative": 6,
+    "sparseWaypoints": 156,
+    "representativeRoutes": 419
+  },
+  "sanbe": {
+    "north": [
+      "北の原・姫逃池登山口",
+      "三瓶山（男三瓶山）",
+      "子三瓶山",
+      "孫三瓶山",
+      "女三瓶山",
+      "北の原・姫逃池登山口"
+    ],
+    "west": [
+      "西の原登山口",
+      "三瓶山（男三瓶山）",
+      "女三瓶山",
+      "孫三瓶山",
+      "子三瓶山",
+      "西の原登山口"
+    ]
+  },
+  "referencedJs": 37,
+  "missingAssets": []
+}

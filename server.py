@@ -35,7 +35,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.5.221"
+APP_VERSION = "1.5.230"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
@@ -2378,7 +2378,7 @@ def trail_route():
 
 
 
-# V1.5.221: external mountain-weather link resolver shared by the analysis
+# V1.5.230: external mountain-weather link resolver shared by the analysis
 # result panel and the national mountain introduction/detail page.
 _EXTERNAL_WEATHER_CACHE_TTL = 6 * 3600
 _external_weather_cache_lock = threading.Lock()
@@ -2459,7 +2459,7 @@ def _fetch_external_html(url: str, timeout: int = 12) -> str:
     req = urllib.request.Request(
         url,
         headers={
-            "User-Agent": "Mozilla/5.0 (compatible; Traten/1.5.221; +https://otenki.onrender.com/)",
+            "User-Agent": "Mozilla/5.0 (compatible; Traten/1.5.230; +https://otenki.onrender.com/)",
             "Accept": "text/html,application/xhtml+xml",
             "Accept-Language": "ja,en;q=0.7",
         },
