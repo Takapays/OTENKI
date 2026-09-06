@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.183';
+const APP_VERSION = '1.5.185';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -8053,7 +8053,9 @@ function init(){
     refreshRepresentativeCourseButton();
     refreshMountainInfoButton();
     renderRepresentativeCourseSummaryNow();
-    requestAnimationFrame(()=>renderRepresentativeCourseSummaryNow());
+    renderMobileRepresentativeCourses(select.value);
+    requestAnimationFrame(()=>{renderRepresentativeCourseSummaryNow();renderMobileRepresentativeCourses(select.value);});
+    setTimeout(()=>renderMobileRepresentativeCourses(select.value),80);
     updateForecastHorizon();
     renderRouteMaps();
   };
@@ -9178,6 +9180,7 @@ function setRepresentativeCourseSelectedIndex(mountain,index){
   if(sel&&options[idx])sel.value=String(idx);
   renderRepresentativeCourseSummaryNow(key);
   renderRepresentativeCourseStaticPreview(key);
+  renderMobileRepresentativeCourses(key);
   const btn=$('representativeCourseBtn');
   if(btn){
     const active=options[idx];
@@ -9273,17 +9276,17 @@ function renderMobileRepresentativeCourses(mountainOverride=''){
   if(!box)return;
   const mountain=(mountainOverride||currentMountainLabel()).trim();
   const options=representativeCourseOptions(mountain);
-  if(!options.length){
+  if(!mountain||!options.length){
     box.replaceChildren();
-    box.classList.add('hidden');
     box.setAttribute('aria-hidden','true');
+    box.style.setProperty('display','none','important');
     return;
   }
   const selectedIndex=representativeCourseSelectedIndex(mountain,options);
   const frag=document.createDocumentFragment();
   const title=document.createElement('div');
   title.className='mobile-representative-title';
-  title.textContent=options.length>1?'代表コースを選択':'代表コース';
+  title.textContent=options.length>1?`代表コース ${options.length}件｜タップで選択`:'代表コース';
   frag.append(title);
   options.forEach((course,i)=>{
     const item=document.createElement('button');
@@ -9294,17 +9297,19 @@ function renderMobileRepresentativeCourses(mountainOverride=''){
     const name=document.createElement('b');
     name.textContent=`${options.length>1?`${i+1}. `:''}${course.label||'代表コース'}`;
     const path=document.createElement('span');
-    path.textContent=representativeCoursePathText(course,mountain)||course.points?.map(p=>p?.[1]).filter(Boolean).join(' → ')||'';
+    const route=representativeCoursePathText(course,mountain)||course.points?.map(p=>p?.[1]).filter(Boolean).join(' → ')||'';
+    path.textContent=route||'通過ポイント情報を確認中';
     item.append(name,path);
-    item.addEventListener('click',()=>{
-      setRepresentativeCourseSelectedIndex(mountain,i);
-      renderMobileRepresentativeCourses(mountain);
-    });
+    item.addEventListener('click',()=>{setRepresentativeCourseSelectedIndex(mountain,i);renderMobileRepresentativeCourses(mountain);});
     frag.append(item);
   });
   box.replaceChildren(frag);
-  box.classList.remove('hidden');
   box.setAttribute('aria-hidden','false');
+  box.style.setProperty('display','flex','important');
+  box.style.setProperty('visibility','visible','important');
+  box.style.setProperty('opacity','1','important');
+  box.style.setProperty('max-height','none','important');
+  box.style.setProperty('overflow','visible','important');
 }
 
 function refreshRepresentativeCourseButton(){
@@ -10709,26 +10714,25 @@ async function analyzePointsBatch(points,providerList=providers,statusLabel='気
   });
 }
 
-async function analyzeBackupEnsembleBatch(points,statusLabel='予備3モデル'){
-  const metnoProvider={id:'metno',name:'MET Norway（予備）',kind:'fallback'};
-  const noaaProvider={id:'noaa-gfs',name:'NOAA GFS（直取得）',kind:'fallback'};
-  const meteoblueProvider={id:'meteoblue',name:'meteoblue（予備）',kind:'fallback'};
-  setStatus(`${statusLabel}：MET Norway / NOAA GFS / meteoblue を独立取得中…`);
+async function analyzeIndependentSupportBatch(points,statusLabel='独立補強群2モデル'){
+  // V1.5.184: during normal Open-Meteo operation, always add two independent
+  // sources only: MET Norway + meteoblue. NOAA direct GFS is intentionally
+  // reserved for an Open-Meteo failure/429 so GFS is not double-counted.
+  const metnoProvider={id:'metno',name:'MET Norway（独立補強）',kind:'fallback'};
+  const meteoblueProvider={id:'meteoblue',name:'meteoblue（独立補強）',kind:'fallback'};
+  setStatus(`${statusLabel}：MET Norway / meteoblue を独立取得中…`);
   return await Promise.all(points.map(async point=>{
     const errors=[],providerRows=[];
-    const [metState,noaaState,mbState]=await Promise.allSettled([
-      fetchMetNoFallback(point),fetchNoaaGfsFallback(point),fetchMeteoblueFallback(point)
+    const [metState,mbState]=await Promise.allSettled([
+      fetchMetNoFallback(point),fetchMeteoblueFallback(point)
     ]);
     const metRow=metState.status==='fulfilled'?metState.value:null;
-    const noaaRow=noaaState.status==='fulfilled'?noaaState.value:null;
     const mbRow=mbState.status==='fulfilled'?mbState.value:null;
     if(metRow)providerRows.push({provider:metnoProvider,row:metRow});
     else if(metState.status==='rejected')errors.push(metState.reason?.message||'MET Norway取得失敗');
-    if(noaaRow)providerRows.push({provider:noaaProvider,row:noaaRow});
-    else if(noaaState.status==='rejected')errors.push(noaaState.reason?.message||'NOAA GFS取得失敗');
     if(mbRow)providerRows.push({provider:meteoblueProvider,row:mbRow});
     else if(mbState.status==='rejected')errors.push(mbState.reason?.message||'meteoblue取得失敗');
-    if(!providerRows.length)throw new Error(`${point.name}: 予備モデルを取得できませんでした。 ${errors.join(' / ')}`);
+    if(!providerRows.length)throw new Error(`${point.name}: 独立補強モデルを取得できませんでした。 ${errors.join(' / ')}`);
     const avg=blendProviderRows(providerRows);
     return {point,providerRows,errors,timelineRows:blendTimelineRows(providerRows),...avg,grade:assessGrade(avg),confidence:ensembleConfidence(providerRows,avg),thunder:thunderLevel(avg),hazards:assessHazards(avg)};
   }));
@@ -10795,7 +10799,7 @@ async function analyze(){
 
     // V1.5.176: send exactly one Open-Meteo model request first.
     // Only after that request succeeds do we start the remaining Open-Meteo models.
-    // If it returns 429, analyzePointsBatch immediately falls back to MET Norway / NOAA GFS,
+    // If it returns 429, analyzePointsBatch immediately falls back to MET Norway / NOAA GFS / meteoblue,
     // the 10-minute circuit opens, and no further real Open-Meteo requests are sent.
     const preferredProbeId=maxAhead<=4?'jma':maxAhead<=15?'ecmwf':maxAhead<=16?'gfs':null;
     const probeProvider=providers.find(p=>p.id===preferredProbeId&&providerEligibleForAny(p,points));
@@ -10816,15 +10820,15 @@ async function analyze(){
         : `Open-Meteo取得失敗：残りモデルは送信せず、予備モデルへ切替…`);
     }
 
-    // Start overnight analysis only after the probe. When the circuit is open,
-    // its Open-Meteo call is skipped locally and it falls through to MET Norway.
+    // Start overnight analysis only after the probe. Normal operation supplements Open-Meteo with
+    // MET Norway + meteoblue; when Open-Meteo fails, NOAA direct GFS is added as the third fallback.
     const overnightPromise=stayPoints.length
       ? analyzeOvernightsBatch(stayPoints).then(v=>({items:v,warning:''})).catch(e=>({items:[],warning:` / 宿泊詳細は取得できませんでした（${e?.message||'取得失敗'}）`}))
       : Promise.resolve({items:[],warning:''});
 
     let earlyProviderPromises=new Map();
     const backupGroupPromise=allowMoreOpenMeteo
-      ? analyzeBackupEnsembleBatch(points,'独立予備群').then(results=>({ok:true,results})).catch(error=>({ok:false,error,results:[]}))
+      ? analyzeIndependentSupportBatch(points,'独立補強群').then(results=>({ok:true,results})).catch(error=>({ok:false,error,results:[]}))
       : Promise.resolve({ok:true,results:[]});
     if(allowMoreOpenMeteo){
       const earlyProviders=providers.filter(p=>p.id!=='gfs'&&p.id!==probeProvider.id&&providerEligibleForAny(p,points));
@@ -10892,7 +10896,7 @@ async function analyze(){
         latestResults=mergeAnalysisResults(latestResults,state.results);
         renderAll(latestResults,latestOvernight);
         const dualCount=latestResults.filter(x=>x?.dualEnsemble).length;
-        if(dualCount)setStatus(`二重アンサンブル反映：Open-Meteo群 × 予備群を${dualCount}地点で照合中…`,false);
+        if(dualCount)setStatus(`二重アンサンブル反映：Open-Meteo群 × 独立補強群を${dualCount}地点で照合中…`,false);
       }
       return state;
     });
@@ -10907,7 +10911,7 @@ async function analyze(){
     progressiveDone.filter(x=>x&&!x.ok).forEach(x=>notes.push(`${x.provider?.name||'追加モデル'}取得失敗: ${x.error?.message||'取得失敗'}`));
     if(!gfsState.ok)notes.push(`GFS取得失敗: ${gfsState.error?.message||'取得失敗'}`);
     if(!longRangeState.ok)notes.push(`追加モデル取得失敗: ${longRangeState.error?.message||'取得失敗'}`);
-    if(!backupState.ok)notes.push(`予備群取得失敗: ${backupState.error?.message||'取得失敗'}`);
+    if(!backupState.ok)notes.push(`独立補強群取得失敗: ${backupState.error?.message||'取得失敗'}`);
     if(overnightState.warning)notes.push(overnightState.warning.replace(/^ \/ /,''));
     const apiAudit=weatherApiAuditSnapshot();
     const apiAuditText=`Open-Meteo ${apiAudit.openMeteoRequests}回${apiAudit.openMeteo429?` / 429:${apiAudit.openMeteo429}`:''}${apiAudit.deduped?` / 重複抑制:${apiAudit.deduped}`:''}${apiAudit.circuitSkipped?` / 429後抑制:${apiAudit.circuitSkipped}`:''}${apiAudit.openMeteoCircuitSeconds?` / 抑制残:${Math.ceil(apiAudit.openMeteoCircuitSeconds/60)}分`:''}`;
@@ -11088,7 +11092,19 @@ async function analyzeOvernightsBatch(points){
   }else{
     const raw=await r.json(), locations=Array.isArray(raw)?raw:[raw];
     if(locations.length!==points.length)throw new Error(`宿泊予報の地点数不一致 (${locations.length}/${points.length})`);
-    baseItems=points.map((p,i)=>({...analyzeOvernightJson(p,i+1,locations[i]),source:'Open-Meteo'}));
+    baseItems=await Promise.all(points.map(async(p,i)=>{
+      const primary={...analyzeOvernightJson(p,i+1,locations[i]),source:'Open-Meteo'};
+      // V1.5.184: normal operation supplements overnight analysis with
+      // MET Norway + meteoblue. NOAA direct is only used by the failure branch.
+      const [metState,mbState]=await Promise.allSettled([fetchMetNoPayload(p),fetchMeteoblueOvernightRows(p)]);
+      const metPayload=metState.status==='fulfilled'?metState.value:null;
+      const metRows=metPayload?metNoRows(metPayload):[];
+      const mbRows=mbState.status==='fulfilled'?(mbState.value||[]):[];
+      if(!metRows.length&&!mbRows.length)return primary;
+      const merged=mergeFallbackOvernightRows(primary._allRows||[],metRows,mbRows);
+      try{return analyzeOvernightFallbackRows(p,i+1,merged,`Open-Meteo + ${[metRows.length&&'MET Norway',mbRows.length&&'meteoblue'].filter(Boolean).join(' + ')}`);}
+      catch(_){return primary;}
+    }));
   }
   return await enrichOvernightsWithMilky(baseItems);
 }
