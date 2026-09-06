@@ -80,16 +80,18 @@ def _dynamic_scene1_template_path() -> str:
 
 
 def _latlon_to_scene1_px(lat: float, lon: float, W: int, H: int) -> tuple[int, int]:
-    # Calibrated for the approved scene-1 template image (Japan area only).
-    north, south, west, east = 46.3, 30.1, 128.2, 146.4
-    x1, x2 = int(W * 0.11), int(W * 0.935)
-    y1, y2 = int(H * 0.31), int(H * 0.88)
+    # Recalibrated for the approved scene-1 template image (Japan area only).
+    # The full-page template already contains a wide sea margin around Japan,
+    # so markers must be projected into the broader map footprint, not a tight inner box.
+    north, south, west, east = 46.2, 29.0, 127.0, 146.8
+    x1, x2 = int(W * 0.023), int(W * 0.984)
+    y1, y2 = int(H * 0.182), int(H * 0.892)
     px = int(x1 + (lon - west) / (east - west) * (x2 - x1))
     py = int(y1 + (north - lat) / (north - south) * (y2 - y1))
     return px, py
 
 
-def _draw_scene1_grade_marker(draw, x: int, y: int, grade: str, radius: int = 22):
+def _draw_scene1_grade_marker(draw, x: int, y: int, grade: str, radius: int = 20):
     colors = {"A": (31, 143, 84, 255), "B": (225, 158, 18, 255), "C": (205, 61, 64, 255)}
     grade = str(grade or "").upper()
     if grade not in colors:
@@ -125,7 +127,7 @@ def build_dynamic_scene1(target: date, rows: list[dict[str, Any]]) -> "Image.Ima
             continue
         x, y = _latlon_to_scene1_px(lat, lon, 864, 1536)
         if 0 <= x <= 864 and 0 <= y <= 1536:
-            _draw_scene1_grade_marker(draw, x, y, grade, radius=20)
+            _draw_scene1_grade_marker(draw, x, y, grade, radius=18)
             plotted += 1
     if plotted <= 0:
         raise RuntimeError("scene1 marker plotting produced no output")
