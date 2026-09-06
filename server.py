@@ -31,7 +31,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.5.201"
+APP_VERSION = "1.5.202"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
@@ -1123,7 +1123,18 @@ def _instagram_load_fresh_100_results(date_text: str) -> list[dict[str, Any]]:
     if len(points) != 100 or not _national_supabase_enabled():
         return []
     fresh, _ = _national_supabase_read(date_text, points)
-    ordered = [fresh[p["name"]] for p in points if p["name"] in fresh]
+    ordered = []
+    for p in points:
+        row = fresh.get(p["name"])
+        if not isinstance(row, dict):
+            continue
+        item = dict(row)
+        # Reel/static scene 1 needs lat/lon to re-plot the A/B/C markers each day.
+        item["name"] = p["name"]
+        item["lat"] = p.get("lat")
+        item["lon"] = p.get("lon")
+        item["elevation"] = p.get("elevation")
+        ordered.append(item)
     if len(ordered) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
         return []
     return ordered
