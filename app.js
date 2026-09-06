@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.187';
+const APP_VERSION = '1.5.188';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -6689,6 +6689,23 @@ Object.assign(BUILTIN_ROUTE_CATALOG, {
 
 const sessionId=(crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2));
 
+// V1.5.188: independent mobile representative-course hook.
+// It runs even if another planner refresh path fails after changing the mountain.
+document.addEventListener('change',e=>{
+  if(e.target?.id==='mountainPreset'){
+    const m=String(e.target.value||'').trim();
+    queueMicrotask(()=>renderMobileRepresentativeCourses(m));
+    requestAnimationFrame(()=>renderMobileRepresentativeCourses(m));
+    setTimeout(()=>renderMobileRepresentativeCourses(m),120);
+  }
+},true);
+document.addEventListener('input',e=>{
+  if(e.target?.id==='mountainSearch'){
+    const m=String(e.target.value||'').trim();
+    if(m&&typeof MOUNTAIN_PRESETS==='object'&&MOUNTAIN_PRESETS[m])setTimeout(()=>renderMobileRepresentativeCourses(m),80);
+  }
+},true);
+
 document.addEventListener('DOMContentLoaded',init);
 
 
@@ -9287,14 +9304,28 @@ function renderMobileRepresentativeCourses(mountainOverride=''){
   const box=$('mobileRepresentativeCourses');
   if(!box)return;
   const mountain=(mountainOverride||currentMountainLabel()).trim();
-  const options=representativeCourseOptions(mountain);
+  // V1.5.188: mobile representative-course rendering must never depend on
+  // expanded/enriched route resolution. A failure in CT/waypoint enrichment used
+  // to abort the render before aria-hidden was cleared, leaving the panel invisible.
+  // The mobile preview therefore renders the course's own point list first.
+  let options=[];
+  try{options=representativeCourseOptions(mountain)||[];}catch(_){options=[];}
   if(!mountain||!options.length){
     box.replaceChildren();
     box.setAttribute('aria-hidden','true');
     box.style.setProperty('display','none','important');
     return;
   }
-  const selectedIndex=representativeCourseSelectedIndex(mountain,options);
+  box.setAttribute('aria-hidden','false');
+  box.classList.remove('hidden');
+  box.style.setProperty('display','flex','important');
+  box.style.setProperty('visibility','visible','important');
+  box.style.setProperty('opacity','1','important');
+  box.style.setProperty('max-height','none','important');
+  box.style.setProperty('height','auto','important');
+  box.style.setProperty('overflow','visible','important');
+  let selectedIndex=0;
+  try{selectedIndex=representativeCourseSelectedIndex(mountain,options);}catch(_){selectedIndex=0;}
   const frag=document.createDocumentFragment();
   const title=document.createElement('div');
   title.className='mobile-representative-title';
@@ -9307,21 +9338,22 @@ function renderMobileRepresentativeCourses(mountainOverride=''){
     item.dataset.courseIndex=String(i);
     item.setAttribute('aria-pressed',i===selectedIndex?'true':'false');
     const name=document.createElement('b');
-    name.textContent=`${options.length>1?`${i+1}. `:''}${course.label||'代表コース'}`;
+    name.textContent=`${options.length>1?`${i+1}. `:''}${course?.label||'代表コース'}`;
     const path=document.createElement('span');
-    const route=representativeCoursePathText(course,mountain)||course.points?.map(p=>p?.[1]).filter(Boolean).join(' → ')||'';
-    path.textContent=route||'通過ポイント情報を確認中';
+    // Fail-safe path: use raw course points. Enriched path is optional only.
+    let names=(Array.isArray(course?.points)?course.points:[]).map(p=>p?.[1]).filter(Boolean);
+    if(!names.length){
+      try{names=representativeCourseExpandedPointDefs(mountain,course).map(p=>p?.[1]).filter(Boolean);}catch(_){}
+    }
+    path.textContent=names.join(' → ')||'通過ポイントを確認中';
     item.append(name,path);
-    item.addEventListener('click',()=>{setRepresentativeCourseSelectedIndex(mountain,i);renderMobileRepresentativeCourses(mountain);});
+    item.addEventListener('click',()=>{
+      try{setRepresentativeCourseSelectedIndex(mountain,i);}catch(_){}
+      renderMobileRepresentativeCourses(mountain);
+    });
     frag.append(item);
   });
   box.replaceChildren(frag);
-  box.setAttribute('aria-hidden','false');
-  box.style.setProperty('display','flex','important');
-  box.style.setProperty('visibility','visible','important');
-  box.style.setProperty('opacity','1','important');
-  box.style.setProperty('max-height','none','important');
-  box.style.setProperty('overflow','visible','important');
 }
 
 function refreshRepresentativeCourseButton(){
@@ -11750,8 +11782,10 @@ function timelineThunder(cape,rain,directRisk='LOW'){
   if(direct==='HIGH'||direct==='EXTREME')return {label:'高',cls:'high',show:true,color:'#ef4444'};
   if(direct==='MEDIUM')return {label:'中',cls:'medium',show:true,color:'#f59e0b'};
   const c=Number(cape),p=Number(rain);
-  if((Number.isFinite(c)&&c>=1200)||(Number.isFinite(c)&&c>=700&&p>=1))return {label:'高',cls:'high',show:true,color:'#ef4444'};
-  if((Number.isFinite(c)&&c>=350)||(Number.isFinite(c)&&c>=150&&p>=0.2))return {label:'中',cls:'medium',show:true,color:'#f59e0b'};
+  // V1.5.188: CAPE alone no longer paints a lightning icon. CAPE is only
+  // atmospheric potential; a marker needs precipitation support as well.
+  if(Number.isFinite(c)&&Number.isFinite(p)&&p>=1&&c>=800)return {label:'高',cls:'high',show:true,color:'#ef4444'};
+  if(Number.isFinite(c)&&Number.isFinite(p)&&((p>=0.5&&c>=500)||(p>=0.2&&c>=700)))return {label:'中',cls:'medium',show:true,color:'#f59e0b'};
   return {label:'低',cls:'low',show:false,color:'transparent'};
 }
 function timelineHourLabel(s){
@@ -11979,9 +12013,11 @@ function thunderEvidence(x){
   if(rain>=1&&cape>=1000&&(consensus500||models<=1&&cape>=1800))gradePoints=2;
   else if(rain>=0.5&&cape>=500&&(consensus500||cape>=1200))gradePoints=1;
   let level='LOW';
-  if(rain>=2&&cape>=1200&&(consensus1000||support500>=2))level='EXTREME';
-  else if(rain>=1&&cape>=800&&(consensus500||cape>=1500))level='HIGH';
-  else if((consensus500&&cape>=500)||(rain>=0.5&&cape>=500)||cape>=1000)level='MEDIUM';
+  // V1.5.188: do not promote thunder risk from dry CAPE alone. Require rain
+  // plus multi-model CAPE support for HIGH/EXTREME; MEDIUM also needs rain.
+  if(rain>=3&&cape>=1200&&consensus1000)level='EXTREME';
+  else if(rain>=1&&cape>=800&&consensus500)level='HIGH';
+  else if(rain>=0.2&&cape>=500&&(consensus500||cape>=1000))level='MEDIUM';
   return {level,gradePoints,cape,rain,models,support500,support1000};
 }
 function hypothermiaRisk(x){
