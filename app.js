@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.182';
+const APP_VERSION = '1.5.183';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -10382,10 +10382,33 @@ function extractProviderRow(hourly,point){
   const timeline=(hourly.time||[]).map((time,i)=>({time,rain:numberOrNaN(hourly.precipitation?.[i]),wind:numberOrNaN(hourly.wind_speed_10m?.[i]),cape:numberOrNaN(hourly.cape?.[i])})).filter(x=>Math.abs(new Date(x.time).getTime()-targetMs)<=6*3600000);
   return {time:hourly.time[idx],temp:get('temperature_2m'),rh:get('relative_humidity_2m'),rain:get('precipitation'),cloud:get('cloud_cover'),wind:get('wind_speed_10m'),gust:get('wind_gusts_10m'),windDir:get('wind_direction_10m'),cape:get('cape'),visibility:get('visibility'),freezing:get('freezing_level_height'),timeline};
 }
-function blendTimelineRows(providerRows){
+function blendTimelineSingleGroup(providerRows,useMedian=false){
   const slots=new Map();
-  (providerRows||[]).forEach(x=>(x?.row?.timeline||[]).forEach(row=>{const key=String(row.time).slice(0,13),slot=slots.get(key)||{time:row.time,rain:[],wind:[],cape:[]};['rain','wind','cape'].forEach(k=>{if(Number.isFinite(row[k]))slot[k].push(row[k]);});slots.set(key,slot);}));
-  return [...slots.values()].sort((a,b)=>new Date(a.time)-new Date(b.time)).map(x=>({time:x.time,rain:mean(x.rain),wind:mean(x.wind),cape:max(x.cape)}));
+  (providerRows||[]).forEach(x=>(x?.row?.timeline||[]).forEach(row=>{
+    const key=String(row.time).slice(0,13),slot=slots.get(key)||{time:row.time,rain:[],wind:[],cape:[]};
+    ['rain','wind','cape'].forEach(k=>{if(Number.isFinite(row[k]))slot[k].push(row[k]);});
+    slots.set(key,slot);
+  }));
+  const center=v=>useMedian?median(v):mean(v);
+  return [...slots.values()].sort((a,b)=>new Date(a.time)-new Date(b.time)).map(x=>({time:x.time,rain:center(x.rain),wind:center(x.wind),cape:max(x.cape)}));
+}
+function blendTimelineRows(providerRows){
+  const rows=providerRows||[];
+  const primary=rows.filter(x=>x?.provider?.kind!=='fallback');
+  const backup=rows.filter(x=>x?.provider?.kind==='fallback');
+  if(!primary.length)return blendTimelineSingleGroup(backup,true);
+  if(!backup.length)return blendTimelineSingleGroup(primary,false);
+  const a=blendTimelineSingleGroup(primary,false),b=blendTimelineSingleGroup(backup,true);
+  const slots=new Map();
+  for(const item of [...a.map(x=>({group:'primary',...x})),...b.map(x=>({group:'backup',...x}))]){
+    const key=String(item.time).slice(0,13),slot=slots.get(key)||{time:item.time,primary:null,backup:null};
+    slot[item.group]=item; slots.set(key,slot);
+  }
+  return [...slots.values()].sort((x,y)=>new Date(x.time)-new Date(y.time)).map(slot=>{
+    const p=slot.primary,bk=slot.backup;
+    if(!p)return bk;if(!bk)return p;
+    return {time:slot.time,rain:mean([p.rain,bk.rain]),wind:mean([p.wind,bk.wind]),cape:max([p.cape,bk.cape])};
+  });
 }
 // V1.4.213: short-lived per-point/model cache for repeated analyses in the same tab.
 // The server proxy also caches upstream Open-Meteo responses, but this avoids even the
@@ -10682,8 +10705,33 @@ async function analyzePointsBatch(points,providerList=providers,statusLabel='気
     const rows=buckets[index].rows, errors=buckets[index].errors;
     if(!rows.length)throw new Error(`${point.name}: 予報データを取得できませんでした。 ${errors.join(' / ')||'対応モデルがありません'}`);
     const avg=blendProviderRows(rows);
-    return {point,providerRows:rows,errors,timelineRows:blendTimelineRows(rows),...avg,grade:assessGrade(avg),confidence:(rows.length===1&&rows[0].provider?.kind==='fallback'?'FALLBACK':assessConfidence(rows.map(x=>x.row))),thunder:thunderLevel(avg),hazards:assessHazards(avg)};
+    return {point,providerRows:rows,errors,timelineRows:blendTimelineRows(rows),...avg,grade:assessGrade(avg),confidence:ensembleConfidence(rows,avg),thunder:thunderLevel(avg),hazards:assessHazards(avg)};
   });
+}
+
+async function analyzeBackupEnsembleBatch(points,statusLabel='予備3モデル'){
+  const metnoProvider={id:'metno',name:'MET Norway（予備）',kind:'fallback'};
+  const noaaProvider={id:'noaa-gfs',name:'NOAA GFS（直取得）',kind:'fallback'};
+  const meteoblueProvider={id:'meteoblue',name:'meteoblue（予備）',kind:'fallback'};
+  setStatus(`${statusLabel}：MET Norway / NOAA GFS / meteoblue を独立取得中…`);
+  return await Promise.all(points.map(async point=>{
+    const errors=[],providerRows=[];
+    const [metState,noaaState,mbState]=await Promise.allSettled([
+      fetchMetNoFallback(point),fetchNoaaGfsFallback(point),fetchMeteoblueFallback(point)
+    ]);
+    const metRow=metState.status==='fulfilled'?metState.value:null;
+    const noaaRow=noaaState.status==='fulfilled'?noaaState.value:null;
+    const mbRow=mbState.status==='fulfilled'?mbState.value:null;
+    if(metRow)providerRows.push({provider:metnoProvider,row:metRow});
+    else if(metState.status==='rejected')errors.push(metState.reason?.message||'MET Norway取得失敗');
+    if(noaaRow)providerRows.push({provider:noaaProvider,row:noaaRow});
+    else if(noaaState.status==='rejected')errors.push(noaaState.reason?.message||'NOAA GFS取得失敗');
+    if(mbRow)providerRows.push({provider:meteoblueProvider,row:mbRow});
+    else if(mbState.status==='rejected')errors.push(mbState.reason?.message||'meteoblue取得失敗');
+    if(!providerRows.length)throw new Error(`${point.name}: 予備モデルを取得できませんでした。 ${errors.join(' / ')}`);
+    const avg=blendProviderRows(providerRows);
+    return {point,providerRows,errors,timelineRows:blendTimelineRows(providerRows),...avg,grade:assessGrade(avg),confidence:ensembleConfidence(providerRows,avg),thunder:thunderLevel(avg),hazards:assessHazards(avg)};
+  }));
 }
 
 async function analyzePointsFirstAvailable(points,providerList,statusLabel='先行モデル'){
@@ -10712,7 +10760,7 @@ function mergeAnalysisResults(baseResults,extraResults){
     const providerRows=[...byId.values()];
     const avg=blendProviderRows(providerRows);
     const errors=[...(base.errors||[]),...(extra.errors||[])].filter((v,i,a)=>a.indexOf(v)===i);
-    return {point:base.point,providerRows,errors,timelineRows:blendTimelineRows(providerRows),...avg,grade:assessGrade(avg),confidence:(providerRows.length===1&&providerRows[0].provider?.kind==='fallback'?'FALLBACK':assessConfidence(providerRows.map(x=>x.row))),thunder:thunderLevel(avg),hazards:assessHazards(avg)};
+    return {point:base.point,providerRows,errors,timelineRows:blendTimelineRows(providerRows),...avg,grade:assessGrade(avg),confidence:ensembleConfidence(providerRows,avg),thunder:thunderLevel(avg),hazards:assessHazards(avg)};
   });
 }
 function analysisHasProvider(results,providerId){
@@ -10775,6 +10823,9 @@ async function analyze(){
       : Promise.resolve({items:[],warning:''});
 
     let earlyProviderPromises=new Map();
+    const backupGroupPromise=allowMoreOpenMeteo
+      ? analyzeBackupEnsembleBatch(points,'独立予備群').then(results=>({ok:true,results})).catch(error=>({ok:false,error,results:[]}))
+      : Promise.resolve({ok:true,results:[]});
     if(allowMoreOpenMeteo){
       const earlyProviders=providers.filter(p=>p.id!=='gfs'&&p.id!==probeProvider.id&&providerEligibleForAny(p,points));
       earlyProviders.forEach(provider=>{
@@ -10835,17 +10886,28 @@ async function analyze(){
     // providers not used for the first result as one background batch.
     const longRangeSecondaryPromise=Promise.resolve({ok:true,results:[]});
 
+    const backupVisiblePromise=backupGroupPromise.then(state=>{
+      if(runId!==activeAnalysisRun)return state;
+      if(state.ok&&state.results?.length){
+        latestResults=mergeAnalysisResults(latestResults,state.results);
+        renderAll(latestResults,latestOvernight);
+        const dualCount=latestResults.filter(x=>x?.dualEnsemble).length;
+        if(dualCount)setStatus(`二重アンサンブル反映：Open-Meteo群 × 予備群を${dualCount}地点で照合中…`,false);
+      }
+      return state;
+    });
     const overnightVisiblePromise=overnightPromise.then(state=>{
       if(runId!==activeAnalysisRun)return state;
       latestOvernight=state.items||[]; renderAll(latestResults,latestOvernight);
       return state;
     });
-    const [progressiveDone,gfsState,longRangeState,overnightState]=await Promise.all([Promise.all(progressiveStates),gfsVisiblePromise,longRangeSecondaryPromise,overnightVisiblePromise]);
+    const [progressiveDone,gfsState,longRangeState,backupState,overnightState]=await Promise.all([Promise.all(progressiveStates),gfsVisiblePromise,longRangeSecondaryPromise,backupVisiblePromise,overnightVisiblePromise]);
     if(runId!==activeAnalysisRun)return;
     const notes=[];
     progressiveDone.filter(x=>x&&!x.ok).forEach(x=>notes.push(`${x.provider?.name||'追加モデル'}取得失敗: ${x.error?.message||'取得失敗'}`));
     if(!gfsState.ok)notes.push(`GFS取得失敗: ${gfsState.error?.message||'取得失敗'}`);
     if(!longRangeState.ok)notes.push(`追加モデル取得失敗: ${longRangeState.error?.message||'取得失敗'}`);
+    if(!backupState.ok)notes.push(`予備群取得失敗: ${backupState.error?.message||'取得失敗'}`);
     if(overnightState.warning)notes.push(overnightState.warning.replace(/^ \/ /,''));
     const apiAudit=weatherApiAuditSnapshot();
     const apiAuditText=`Open-Meteo ${apiAudit.openMeteoRequests}回${apiAudit.openMeteo429?` / 429:${apiAudit.openMeteo429}`:''}${apiAudit.deduped?` / 重複抑制:${apiAudit.deduped}`:''}${apiAudit.circuitSkipped?` / 429後抑制:${apiAudit.circuitSkipped}`:''}${apiAudit.openMeteoCircuitSeconds?` / 抑制残:${Math.ceil(apiAudit.openMeteoCircuitSeconds/60)}分`:''}`;
@@ -11771,62 +11833,95 @@ function averageRows(rows){
   return out;
 }
 function rowForProvider(providerRows,id){return (providerRows||[]).find(x=>x?.provider?.id===id)?.row||null;}
-function blendProviderRows(providerRows){
+function blendProviderRowsSingleGroup(providerRows){
   const rows=(providerRows||[]).map(x=>x.row).filter(Boolean);
   const out=averageRows(rows);
   const fallbackOnly=(providerRows||[]).length>0&&(providerRows||[]).every(x=>x?.provider?.kind==='fallback');
-  // V1.5.182: backup ensemble (MET Norway + NOAA GFS + meteoblue) uses
-  // the median as the representative value so one outlier does not dominate.
-  // Gust/CAPE stay adverse-side (max) because they are safety-critical.
   if(fallbackOnly&&rows.length>=2){
     const med=k=>median(rows.map(x=>x?.[k]).filter(Number.isFinite));
-    ['temp','rh','rain','cloud','wind','visibility','freezing'].forEach(k=>{
-      const v=med(k); if(Number.isFinite(v))out[k]=v;
-    });
-    const gusts=rows.map(x=>x?.gust).filter(Number.isFinite);
-    if(gusts.length)out.gust=Math.max(...gusts);
-    const capes=rows.map(x=>x?.cape).filter(Number.isFinite);
-    if(capes.length)out.cape=Math.max(...capes);
+    ['temp','rh','rain','cloud','wind','visibility','freezing'].forEach(k=>{const v=med(k);if(Number.isFinite(v))out[k]=v;});
+    const gusts=rows.map(x=>x?.gust).filter(Number.isFinite);if(gusts.length)out.gust=Math.max(...gusts);
+    const capes=rows.map(x=>x?.cape).filter(Number.isFinite);if(capes.length)out.cape=Math.max(...capes);
   }
   const jma=rowForProvider(providerRows,'jma');
   const ecmwf=rowForProvider(providerRows,'ecmwf');
   const icon=rowForProvider(providerRows,'icon');
   const gfs=rowForProvider(providerRows,'gfs')||rowForProvider(providerRows,'noaa-gfs');
-  if(Number.isFinite(jma?.rain))out.rain=jma.rain;
-  if(Number.isFinite(ecmwf?.wind))out.wind=ecmwf.wind;
-  if(Number.isFinite(ecmwf?.gust))out.gust=ecmwf.gust;
-  if(Number.isFinite(icon?.visibility))out.visibility=icon.visibility;
+  if(!fallbackOnly){
+    if(Number.isFinite(jma?.rain))out.rain=jma.rain;
+    if(Number.isFinite(ecmwf?.wind))out.wind=ecmwf.wind;
+    if(Number.isFinite(ecmwf?.gust))out.gust=ecmwf.gust;
+    if(Number.isFinite(icon?.visibility))out.visibility=icon.visibility;
+  }
   const capeValues=rows.map(x=>x.cape).filter(Number.isFinite);
-  out.cape=max(capeValues);
-  out.capeMedian=median(capeValues);
-  out.capeModelCount=capeValues.length;
-  out.capeSupport500=capeValues.filter(v=>v>=500).length;
-  out.capeSupport1000=capeValues.filter(v=>v>=1000).length;
-
-  // V1.5.64: retain the role-based representative value, but also preserve the
-  // adverse side of every available model. A route must not become A merely
-  // because the preferred model is calm while another credible model is not.
+  out.cape=max(capeValues);out.capeMedian=median(capeValues);out.capeModelCount=capeValues.length;
+  out.capeSupport500=capeValues.filter(v=>v>=500).length;out.capeSupport1000=capeValues.filter(v=>v>=1000).length;
   const finiteRows=rows.filter(r=>r&&typeof r==='object');
   const adverseFlags=finiteRows.map(r=>({
     mild:(Number.isFinite(r.wind)&&r.wind>=8)||(Number.isFinite(r.gust)&&r.gust>=15)||(Number.isFinite(r.rain)&&r.rain>=0.5)||(Number.isFinite(r.visibility)&&r.visibility<3000),
     strong:(Number.isFinite(r.wind)&&r.wind>=10)||(Number.isFinite(r.gust)&&r.gust>=18)||(Number.isFinite(r.rain)&&r.rain>=1.5)||(Number.isFinite(r.visibility)&&r.visibility<1000)
   }));
-  out.adverseModelCount=adverseFlags.filter(x=>x.mild).length;
-  out.strongAdverseModelCount=adverseFlags.filter(x=>x.strong).length;
-  out.modelMaxWind=max(finiteRows.map(r=>r.wind));
-  out.modelMaxGust=max(finiteRows.map(r=>r.gust));
-  out.modelMaxRain=max(finiteRows.map(r=>r.rain));
-  const visValues=finiteRows.map(r=>r.visibility).filter(Number.isFinite);
-  out.modelMinVisibility=visValues.length?Math.min(...visValues):NaN;
-  out.gfsAdverse=!!gfs && (
-    (Number.isFinite(gfs.wind)&&Number.isFinite(out.wind)&&gfs.wind>=8&&gfs.wind>=out.wind+3) ||
-    (Number.isFinite(gfs.gust)&&Number.isFinite(out.gust)&&gfs.gust>=15&&gfs.gust>=out.gust+4) ||
-    (Number.isFinite(gfs.rain)&&Number.isFinite(out.rain)&&gfs.rain>=0.5&&gfs.rain>=out.rain+0.4) ||
-    (Number.isFinite(gfs.visibility)&&Number.isFinite(out.visibility)&&gfs.visibility<3000&&out.visibility>=5000)
-  );
+  out.adverseModelCount=adverseFlags.filter(x=>x.mild).length;out.strongAdverseModelCount=adverseFlags.filter(x=>x.strong).length;
+  out.modelMaxWind=max(finiteRows.map(r=>r.wind));out.modelMaxGust=max(finiteRows.map(r=>r.gust));out.modelMaxRain=max(finiteRows.map(r=>r.rain));
+  const visValues=finiteRows.map(r=>r.visibility).filter(Number.isFinite);out.modelMinVisibility=visValues.length?Math.min(...visValues):NaN;
+  out.gfsAdverse=!!gfs&&((Number.isFinite(gfs.wind)&&Number.isFinite(out.wind)&&gfs.wind>=8&&gfs.wind>=out.wind+3)||(Number.isFinite(gfs.gust)&&Number.isFinite(out.gust)&&gfs.gust>=15&&gfs.gust>=out.gust+4)||(Number.isFinite(gfs.rain)&&Number.isFinite(out.rain)&&gfs.rain>=0.5&&gfs.rain>=out.rain+0.4)||(Number.isFinite(gfs.visibility)&&Number.isFinite(out.visibility)&&gfs.visibility<3000&&out.visibility>=5000));
   out.feelsLike=apparentTemperatureMountain(out.temp,out.rh,out.wind);
   out.modelBasis={wind:Number.isFinite(ecmwf?.wind)?'ecmwf':'multi',rain:Number.isFinite(jma?.rain)?'jma':'multi',visibility:Number.isFinite(icon?.visibility)?'icon':'multi',gfsGuard:!!out.gfsAdverse,capeModels:out.capeModelCount,capeSupport500:out.capeSupport500,capeSupport1000:out.capeSupport1000,adverseModels:out.adverseModelCount,strongAdverseModels:out.strongAdverseModelCount,fallbackEnsemble:fallbackOnly?rows.length:0};
   return out;
+}
+function dualEnsembleAgreement(primary,backup){
+  const diffs={
+    temp:(Number.isFinite(primary?.temp)&&Number.isFinite(backup?.temp))?Math.abs(primary.temp-backup.temp):0,
+    wind:(Number.isFinite(primary?.wind)&&Number.isFinite(backup?.wind))?Math.abs(primary.wind-backup.wind):0,
+    rain:(Number.isFinite(primary?.rain)&&Number.isFinite(backup?.rain))?Math.abs(primary.rain-backup.rain):0,
+    cloud:(Number.isFinite(primary?.cloud)&&Number.isFinite(backup?.cloud))?Math.abs(primary.cloud-backup.cloud):0
+  };
+  const visibilityConflict=Number.isFinite(primary?.visibility)&&Number.isFinite(backup?.visibility)&&((primary.visibility<3000&&backup.visibility>=5000)||(backup.visibility<3000&&primary.visibility>=5000));
+  let level='HIGH';
+  if(diffs.temp>5||diffs.wind>4||diffs.rain>2||diffs.cloud>40||visibilityConflict)level='LOW';
+  else if(diffs.temp>2||diffs.wind>2||diffs.rain>0.7||diffs.cloud>20)level='MEDIUM';
+  return {level,diffs,visibilityConflict};
+}
+function blendProviderRows(providerRows){
+  const all=providerRows||[];
+  const primaryRows=all.filter(x=>x?.provider?.kind!=='fallback');
+  const backupRows=all.filter(x=>x?.provider?.kind==='fallback');
+  if(!primaryRows.length)return blendProviderRowsSingleGroup(backupRows);
+  if(!backupRows.length)return blendProviderRowsSingleGroup(primaryRows);
+  const primary=blendProviderRowsSingleGroup(primaryRows),backup=blendProviderRowsSingleGroup(backupRows);
+  const agreement=dualEnsembleAgreement(primary,backup);
+  const out={...primary};
+  const avg=k=>mean([primary?.[k],backup?.[k]].filter(Number.isFinite));
+  // Equal group weight. When groups disagree materially on safety variables,
+  // retain the adverse side rather than hiding it in a seven-model average.
+  ['temp','rh','cloud','freezing'].forEach(k=>{const v=avg(k);if(Number.isFinite(v))out[k]=v;});
+  const windAvg=avg('wind'),rainAvg=avg('rain'),visAvg=avg('visibility');
+  out.wind=agreement.level==='LOW'?max([primary.wind,backup.wind]):windAvg;
+  out.rain=agreement.level==='LOW'?max([primary.rain,backup.rain]):rainAvg;
+  out.visibility=agreement.visibilityConflict?Math.min(primary.visibility,backup.visibility):visAvg;
+  out.gust=max([primary.gust,backup.gust]);out.cape=max([primary.cape,backup.cape]);
+  out.capeMedian=median([primary.capeMedian,backup.capeMedian]);
+  out.capeModelCount=(primary.capeModelCount||0)+(backup.capeModelCount||0);
+  out.capeSupport500=(primary.capeSupport500||0)+(backup.capeSupport500||0);out.capeSupport1000=(primary.capeSupport1000||0)+(backup.capeSupport1000||0);
+  out.adverseModelCount=(primary.adverseModelCount||0)+(backup.adverseModelCount||0);out.strongAdverseModelCount=(primary.strongAdverseModelCount||0)+(backup.strongAdverseModelCount||0);
+  out.modelMaxWind=max([primary.modelMaxWind,backup.modelMaxWind]);out.modelMaxGust=max([primary.modelMaxGust,backup.modelMaxGust]);out.modelMaxRain=max([primary.modelMaxRain,backup.modelMaxRain]);
+  const mins=[primary.modelMinVisibility,backup.modelMinVisibility].filter(Number.isFinite);out.modelMinVisibility=mins.length?Math.min(...mins):NaN;
+  out.gfsAdverse=!!primary.gfsAdverse||!!backup.gfsAdverse;
+  out.feelsLike=apparentTemperatureMountain(out.temp,out.rh,out.wind);
+  out.dualEnsemble={agreement:agreement.level,primaryCount:primaryRows.length,backupCount:backupRows.length,primary,backup,diffs:agreement.diffs,visibilityConflict:agreement.visibilityConflict};
+  out.modelBasis={...(primary.modelBasis||{}),dualEnsemble:true,groupAgreement:agreement.level,primaryModels:primaryRows.length,backupModels:backupRows.length,adverseModels:out.adverseModelCount,strongAdverseModels:out.strongAdverseModelCount};
+  return out;
+}
+function ensembleConfidence(providerRows,blended){
+  const rows=providerRows||[],primary=rows.filter(x=>x?.provider?.kind!=='fallback'),backup=rows.filter(x=>x?.provider?.kind==='fallback');
+  if(primary.length&&backup.length){
+    const p=assessConfidence(primary.map(x=>x.row)),b=assessConfidence(backup.map(x=>x.row)),g=blended?.dualEnsemble?.agreement||'MEDIUM';
+    if(g==='LOW'||p==='LOW'||b==='LOW')return 'LOW';
+    if(g==='MEDIUM'||p==='MEDIUM'||b==='MEDIUM'||primary.length<2||backup.length<2)return 'MEDIUM';
+    return 'HIGH';
+  }
+  if(rows.length===1&&rows[0]?.provider?.kind==='fallback')return 'FALLBACK';
+  return assessConfidence(rows.map(x=>x.row));
 }
 function thunderEvidence(x){
   const cape=Number.isFinite(x.cape)?x.cape:0;
@@ -12004,9 +12099,16 @@ function pointForecastConfidence(result){
   const rows=Array.isArray(result?.providerRows)?result.providerRows:[];
   const lead=Math.max(0,daysAhead(result?.point?.date||todayLocal()));
   const fallbackOnly=rows.length>0&&rows.every(x=>x.provider?.kind==='fallback');
+  const dual=result?.dualEnsemble||null;
   let level=result?.confidence==='LOW'?'LOW':result?.confidence==='MEDIUM'?'MEDIUM':'HIGH';
   const reasons=[];
-  if(fallbackOnly){
+  if(dual){
+    const ag=dual.agreement||'MEDIUM';
+    reasons.push(`二重アンサンブル ${dual.primaryCount}+${dual.backupCount}`);
+    reasons.push(`群間一致度${ag}`);
+    if(ag==='LOW')level='LOW';
+    else if(ag==='MEDIUM'&&level==='HIGH')level='MEDIUM';
+  }else if(fallbackOnly){
     if(rows.length>=3){
       level=result?.confidence==='LOW'?'LOW':'MEDIUM';
       reasons.push('予備3モデル比較');
