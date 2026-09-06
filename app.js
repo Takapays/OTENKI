@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.186';
+const APP_VERSION = '1.5.187';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -8675,7 +8675,10 @@ const EXTRA_REPRESENTATIVE_COURSES_V1543 = Object.freeze({
   // Put it in the newest reviewed route layer so selection index 0 is always Yoshida.
   '富士山': [{label:'吉田ルート',points:[
     ['trailhead','富士スバルライン五合目（吉田口）','登山口'],
-    ['pass','吉田・須走ルート山頂','山頂ゲート'],
+    ['hut','富士一館','山小屋'],
+    ['hut','東洋館','山小屋'],
+    ['hut','富士山ホテル','山小屋'],
+    ['peak','吉田・須走ルート山頂','山頂'],
     ['peak','富士山（剣ヶ峰）','山頂']
   ]}],
   // Yakushima official route already has exact 50m + 270m split via Yodogawa-goya (=5h20 total).
@@ -8763,6 +8766,8 @@ function generatedRepresentativeCourseOptions(mountain){
 // 縦走コースは実際の出口へつなぎ、往復コースは往路を逆順にたどって登山口まで戻す。
 // これにより「山頂→登山口」の不自然な直結を避け、既存の区間CTをできるだけそのまま利用する。
 const REPRESENTATIVE_DESCENT_PATHS_V14166 = Object.freeze({
+  // V1.5.187: 吉田ルートは登りと下りが別道。下山は山小屋列を逆走させない。
+  '富士山|吉田ルート': [['peak','吉田・須走ルート山頂','山頂'],['trailhead','富士スバルライン五合目（吉田口）','下山口']],
   // V1.5.42: split verified 6:00-7:59 routes on descent where reverse CTs are also confirmed.
   '常念岳|三股ルート': [['peak','前常念岳','通過ピーク'],['trailhead','三股登山口','下山口']],
   '爺ヶ岳|扇沢登山口ルート': [['hut','種池山荘','山小屋'],['trailhead','扇沢登山口','下山口']],
@@ -10016,6 +10021,19 @@ function addPointRow(type='peak',selected='',roleLabel='',initialDateTime=null){
     const p=selectedCandidate(pointSel.value);
     if(p){
       logPointSelected(row,p);
+      // V1.5.187: 富士山で吉田口を選んだ直後は、次の空欄を山小屋、その次を山頂にする。
+      if(currentMountainLabel()==='富士山'&&p.type==='trailhead'&&p.name==='富士スバルライン五合目（吉田口）'){
+        const next=row.nextElementSibling;
+        if(next&&!next.querySelector('.point-select')?.value){
+          const t=next.querySelector('.point-type'),q=next.querySelector('.point-select');
+          if(t&&q){t.value='hutpass';q.innerHTML=candidateOptions('hutpass');}
+        }
+        const after=next?.nextElementSibling;
+        if(after&&!after.querySelector('.point-select')?.value){
+          const t=after.querySelector('.point-type'),q=after.querySelector('.point-select');
+          if(t&&q){t.value='peak';q.innerHTML=candidateOptions('peak');}
+        }
+      }
       refreshStayOption();
       refreshStayDeparture();
       refreshHutHomepage();
@@ -15497,6 +15515,33 @@ window.TRATEN_BULK_THREE_POINT_REDUCTION_V15143=Object.freeze({
 });
 })();
 
+
+
+// V1.5.187: 富士山・吉田ルートの候補/CT整備。
+(function(){'use strict';
+  try{
+    const cat=BUILTIN_ROUTE_CATALOG['富士山']||(BUILTIN_ROUTE_CATALOG['富士山']=[]);
+    if(!cat.some(p=>p.name==='吉田・須走ルート山頂'))cat.push({
+      id:'v15187-fuji-yoshida-summit',type:'peak',name:'吉田・須走ルート山頂',
+      lat:35.365000,lon:138.733056,elevation:3714,
+      source:'富士登山オフィシャルサイトの吉田・須走ルート山頂 / 既存頂上山口屋固定地点近傍'
+    });
+  }catch(_){ }
+  const CT=Object.freeze({
+    '富士スバルライン五合目（吉田口）→富士一館':{minutes:145,source:'富士山みはらし・吉田口山小屋一覧（五合目から富士一館145分）',sourceType:'official'},
+    '富士スバルライン五合目（吉田口）→東洋館':{minutes:170,source:'富士山みはらし・吉田口山小屋一覧（五合目から東洋館170分）',sourceType:'official'},
+    '富士スバルライン五合目（吉田口）→富士山ホテル':{minutes:280,source:'富士山みはらし・吉田口山小屋一覧（五合目から富士山ホテル280分）',sourceType:'official'},
+    '富士一館→東洋館':{minutes:25,source:'同一公開所要時間表の累積値差（145→170分）',sourceType:'official'},
+    '東洋館→富士山ホテル':{minutes:110,source:'同一公開所要時間表の累積値差（170→280分）',sourceType:'official'},
+    '富士山ホテル→吉田・須走ルート山頂':{minutes:80,source:'同一公開所要時間表の累積値差（280→360分）',sourceType:'official'},
+    '富士スバルライン五合目（吉田口）→吉田口七合目':{minutes:145,source:'富士登山オフィシャルサイト・吉田ルート日帰りモデル（6:00→8:25）',sourceType:'official'},
+    '富士スバルライン五合目（吉田口）→八合目':{minutes:230,source:'富士登山オフィシャルサイト・吉田ルート日帰りモデル（6:00→9:50）',sourceType:'official'}
+  });
+  const k=(a,b)=>`${String(a||'').trim()}→${String(b||'').trim()}`;
+  try{if(typeof directCourseTimeInfoByNames==='function'){const old=directCourseTimeInfoByNames;directCourseTimeInfoByNames=function(a,b){return CT[k(a,b)]||old(a,b);};}}catch(_){ }
+  try{if(typeof courseTimeInfo==='function'){const old=courseTimeInfo;courseTimeInfo=function(a,b){return CT[k(a?.name,b?.name)]||old(a,b);};}}catch(_){ }
+  try{if(typeof rebuildRouteDerivedCaches==='function')rebuildRouteDerivedCaches();}catch(_){ }
+})();
 
 /* === V1.5.144: mobile representative-course single-tap fix === */
 try{
