@@ -31,7 +31,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.5.214"
+APP_VERSION = "1.5.215"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
@@ -1922,7 +1922,7 @@ async function previewReelVideo(){
       if(r.error)throw new Error(r.error);
     }
     if(!r.ready)throw new Error('リール生成がタイムアウトしました。少し待って再度お試しください。');
-    $('previewImg').hidden=true;
+    $('previewImg1').hidden=true;$('previewImg2').hidden=true;
     const v=$('previewReelVideo');
     const url=r.previewReelUrl+'&t='+Date.now();
     v.hidden=false;v.controls=true;v.src=url;
