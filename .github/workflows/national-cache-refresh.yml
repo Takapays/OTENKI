@@ -2,9 +2,14 @@ name: Refresh nationwide cache
 
 on:
   schedule:
-    # Wake Render every 15 minutes. V1.5.8 maintains tomorrow through seven days ahead for the 100 Famous Mountains; one forecast date is processed per refresh cycle and only rows past the 4-hour TTL are fetched.
+    # V1.6.2: maintain the next 7 days for all 300 mountains.
+    # Render checkpoints forecast rows every 25 mountains; only stale/missing rows are fetched.
     - cron: '7,22,37,52 * * * *'
   workflow_dispatch:
+
+concurrency:
+  group: traten-national-cache-refresh
+  cancel-in-progress: false
 
 jobs:
   refresh:
@@ -15,9 +20,10 @@ jobs:
         env:
           CACHE_TOKEN: ${{ secrets.TRATEN_CACHE_REFRESH_TOKEN }}
         run: |
+          set -euo pipefail
           test -n "$CACHE_TOKEN"
           curl --fail-with-body --show-error --silent \
-            --retry 2 --retry-delay 10 --max-time 900 \
+            --retry 2 --retry-all-errors --retry-delay 15 --max-time 840 \
             -X POST \
             -H "X-Traten-Cache-Token: $CACHE_TOKEN" \
             https://otenki.onrender.com/api/national-outlook/refresh-cache

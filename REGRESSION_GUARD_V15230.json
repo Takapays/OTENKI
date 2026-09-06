@@ -1,6 +1,6 @@
 {
   "checks": {
-    "version": true,
+    "version": false,
     "allReferencedJsPresent": true,
     "coordinateIssues": true,
     "missingCt": true,

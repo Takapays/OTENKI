@@ -35,7 +35,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.1"
+APP_VERSION = "1.6.2"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
@@ -2128,8 +2128,37 @@ def national_outlook_refresh_cache():
     except Exception as exc:
         app.logger.exception("national_manual_refresh_failed")
         report = {"ok":False,"state":"failed","error":type(exc).__name__,"pointsUpdated":0}
-    # Schedulers using curl --fail must not treat a failed write/fill as success.
-    status = 200 if report.get("ok") else 202 if report.get("state")=="running-elsewhere" else 503
+    # V1.6.2 scheduler semantics: a recoverable partial acquisition is not a GitHub Actions
+    # failure. The JSON still keeps ok=false/incomplete so health monitoring can see the gap,
+    # and the next 15-minute run resumes from Supabase. Configuration/DB-write failures remain 503.
+    def _recoverable_partial_refresh(r):
+        if r.get("state") == "running-elsewhere":
+            return False
+        rolling = r.get("rolling") or r.get("rolling100") or {}
+        date_reports = rolling.get("dateReports") or []
+        chunks = []
+        for dr in date_reports:
+            chunks.extend(dr.get("chunks") or [])
+        rate_limited = any(bool(c.get("rateLimited")) for c in chunks)
+        messages = []
+        def collect(v):
+            if isinstance(v,str): messages.append(v.lower())
+            elif isinstance(v,list):
+                for x in v: collect(x)
+            elif isinstance(v,dict):
+                for x in v.values(): collect(x)
+        collect(r.get("errors") or [])
+        fatal_tokens = ("database write failed","database read-back incomplete","supabase national cache is not configured",
+                        "seed count/configuration mismatch","token is not configured","unauthorized")
+        fatal = any(t in m for m in messages for t in fatal_tokens)
+        transient_tokens = ("429","rate limit","forecast acquisition incomplete","fresh cache incomplete","timeout","timed out")
+        transient = rate_limited or any(t in m for m in messages for t in transient_tokens)
+        return bool(transient and not fatal)
+    recoverable = _recoverable_partial_refresh(report)
+    if recoverable:
+        report["schedulerAccepted"] = True
+        report["schedulerReason"] = "recoverable-partial; next scheduled run will resume stale/missing rows"
+    status = 200 if report.get("ok") or recoverable else 202 if report.get("state")=="running-elsewhere" else 503
     return jsonify(report),status
 
 
@@ -3429,6 +3458,7 @@ PUBLIC_FILES = {
     'resource-mountain-data.js',
     'robots.txt',
     'route-regression-recovery-v15230.js',
+    'representative-route-recovery-v162.js',
     'sitemap.xml',
     'styles.css',
     'trailhead-access.html',
