@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.190';
+const APP_VERSION = '1.5.191';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -11779,14 +11779,13 @@ function renderMilkyDetail(o){
 
 function timelineThunder(cape,rain,directRisk='LOW'){
   const direct=String(directRisk||'LOW').toUpperCase();
-  if(direct==='HIGH'||direct==='EXTREME')return {label:'高',cls:'high',show:true,color:'#ef4444'};
-  if(direct==='MEDIUM')return {label:'中',cls:'medium',show:true,color:'#f59e0b'};
   const c=Number(cape),p=Number(rain);
-  // V1.5.188: CAPE alone no longer paints a lightning icon. CAPE is only
-  // atmospheric potential; a marker needs precipitation support as well.
-  if(Number.isFinite(c)&&Number.isFinite(p)&&p>=1&&c>=800)return {label:'高',cls:'high',show:true,color:'#ef4444'};
-  if(Number.isFinite(c)&&Number.isFinite(p)&&((p>=0.5&&c>=500)||(p>=0.2&&c>=700)))return {label:'中',cls:'medium',show:true,color:'#f59e0b'};
-  return {label:'低',cls:'low',show:false,color:'transparent'};
+  // V1.5.191: the timeline lightning icon is reserved for materially dangerous
+  // periods. LOW/MEDIUM are intentionally blank so a row of lightning symbols
+  // cannot overstate weak atmospheric instability. Visible lightning is red only.
+  if(direct==='HIGH'||direct==='EXTREME')return {label:direct==='EXTREME'?'非常に高い':'高',cls:'high',show:true,color:'#dc2626'};
+  if(Number.isFinite(c)&&Number.isFinite(p)&&((p>=1&&c>=800)||(p>=0.5&&c>=1200)))return {label:'高',cls:'high',show:true,color:'#dc2626'};
+  return {label:'低〜注意',cls:'low',show:false,color:'transparent'};
 }
 function timelineHourLabel(s){
   const t=timeOnly(s);
@@ -12566,12 +12565,23 @@ function renderSingleRouteMap({mapId,emptyId,listId},points){
   const geometry=routeMapLineGeometry(points);
   const showRisk=mapId==='routeMapResults'&&geometry.lines.some(seg=>seg.grade);
   geometry.lines.forEach(seg=>{
-    const color=showRisk?routeRiskColor(seg.grade):'#1f7fbd';
-    const line=L.polyline(seg.coords,{color,weight:showRisk?6:4,opacity:.95,dashArray:seg.fixed?null:'7 7'}).addTo(state.lines);
-    if(showRisk&&seg.grade){
-      const band=routeRiskBand(seg.grade);
-      const label=band==='C'&&seg.grade!=='C'?`C以上（地点判定 ${seg.grade}）`:`${band}（地点判定 ${seg.grade}）`;
-      line.bindTooltip(`<strong>${esc(seg.from.name||'地点')} → ${esc(seg.to.name||'地点')}</strong><br>区間リスク：<b>${esc(label)}</b>`,{sticky:true,className:'route-risk-tooltip'});
+    if(showRisk){
+      // V1.5.191: results map uses an explicit straight risk connector between
+      // consecutive forecast points. This is intentionally separate from the
+      // background/verified trail geometry so A/B/C colors stay clearly visible.
+      if(seg.fixed){
+        L.polyline(seg.coords,{color:'#66859a',weight:3,opacity:.42,dashArray:null,interactive:false}).addTo(state.lines);
+      }
+      const directCoords=[[seg.from.lat,seg.from.lon],[seg.to.lat,seg.to.lon]];
+      const color=routeRiskColor(seg.grade);
+      const line=L.polyline(directCoords,{color,weight:6,opacity:.95,dashArray:null}).addTo(state.lines);
+      if(seg.grade){
+        const band=routeRiskBand(seg.grade);
+        const label=band==='C'&&seg.grade!=='C'?`C以上（地点判定 ${seg.grade}）`:`${band}（地点判定 ${seg.grade}）`;
+        line.bindTooltip(`<strong>${esc(seg.from.name||'地点')} → ${esc(seg.to.name||'地点')}</strong><br>区間リスク：<b>${esc(label)}</b>`,{sticky:true,className:'route-risk-tooltip'});
+      }
+    }else{
+      L.polyline(seg.coords,{color:'#1f7fbd',weight:4,opacity:.95,dashArray:seg.fixed?null:'7 7'}).addTo(state.lines);
     }
   });
   mapEl.dataset.trailSegments=String(geometry.fixedCount);
@@ -12776,7 +12786,16 @@ function renderSummaryCore(points){
   $('maxRain').textContent=`${num(maxRainValue)} mm/h`; $('maxRainLabel').textContent=maxRainValue<0.2?'ほとんどなし':maxRainValue<1?'弱い':maxRainValue<5?'雨に注意':'強い雨';
   $('thunderRisk').textContent=thunderLevel; $('thunderRiskLabel').textContent=({LOW:'低い',MEDIUM:'注意',HIGH:'高い',EXTREME:'非常に高い'})[thunderLevel]||'–';
   $('confidence').textContent=forecastConfidence.label; $('confidenceLabel').textContent=({LOW:'慎重に確認',MEDIUM:'まずまず',HIGH:'比較的安定'})[confidenceLevel]||'–'; const confidenceReason=$('confidenceReason'); if(confidenceReason)confidenceReason.textContent=forecastConfidence.reason;
-  const setMarker=(id,pct)=>{const el=$(id);if(el)el.style.left=`${Math.max(2,Math.min(98,pct))}%`;}; setMarker('maxWindMarker',(maxWindValue/20)*100); setMarker('maxRainMarker',(maxRainValue/20)*100); setMarker('thunderMarker',({LOW:8,MEDIUM:38,HIGH:68,EXTREME:94})[thunderLevel]||8); setMarker('confidenceMarker',({LOW:8,MEDIUM:50,HIGH:94})[confidenceLevel]||8);
+  const setMarker=(id,pct,fill=false)=>{
+    const el=$(id); if(!el)return;
+    const clamped=Math.max(2,Math.min(98,pct));
+    el.style.left=`${clamped}%`;
+    if(fill&&el.parentElement)el.parentElement.style.setProperty('--summary-fill',`${Math.max(0,Math.min(100,pct))}%`);
+  };
+  setMarker('maxWindMarker',(maxWindValue/20)*100,true);
+  setMarker('maxRainMarker',(maxRainValue/20)*100,true);
+  setMarker('thunderMarker',({LOW:8,MEDIUM:38,HIGH:68,EXTREME:94})[thunderLevel]||8);
+  setMarker('confidenceMarker',({LOW:8,MEDIUM:50,HIGH:94})[confidenceLevel]||8);
   $('updatedAt').textContent=new Date().toLocaleString('ja-JP');
   updateExternalWeatherLinks();
 }
