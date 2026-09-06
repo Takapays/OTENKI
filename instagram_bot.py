@@ -39,9 +39,21 @@ INSTAGRAM_MIN_NATIONAL_RESULTS = max(1, min(100, int(os.environ.get("INSTAGRAM_M
 INSTAGRAM_AUTO_MEDIA = (os.environ.get("INSTAGRAM_AUTO_MEDIA", "reel").strip().lower() or "reel")
 INSTAGRAM_REEL_FPS = max(8, min(20, int(os.environ.get("INSTAGRAM_REEL_FPS", "12"))))
 INSTAGRAM_REEL_SECONDS = max(6, min(12, int(os.environ.get("INSTAGRAM_REEL_SECONDS", "12"))))
-REEL_RENDER_REV = "classic-20260906-v2"
+REEL_RENDER_REV = "classic-20260906-v3-lowmem"
 
 _STATE_FILE = os.path.join(tempfile.gettempdir(), "traten-instagram-state.json")
+
+_reel_render_locks_lock = threading.Lock()
+_reel_render_locks: dict[str, threading.Lock] = {}
+
+
+def _reel_render_lock(date_text: str) -> threading.Lock:
+    with _reel_render_locks_lock:
+        lock = _reel_render_locks.get(date_text)
+        if lock is None:
+            lock = threading.Lock()
+            _reel_render_locks[date_text] = lock
+        return lock
 
 
 def configured() -> bool:
@@ -406,6 +418,114 @@ def _draw_reel_feature_icon(draw, kind: int, cx: int, cy: int):
         draw.rectangle((cx-5,cy+7,cx+7,cy+24),fill=(255,255,255,255))
 
 
+def _build_reel_scene1(target: date, rows: list[dict[str, Any]], W: int, H: int) -> "Image.Image":
+    frame=Image.new("RGB",(W,H),(239,248,252))
+    d=ImageDraw.Draw(frame,"RGBA")
+    map_img=_render_japan_map(rows,W,1515)
+    frame.paste(map_img,(0,240))
+    d.rectangle((0,0,W,245),fill=(255,255,255,248))
+    d.text((38,30),"＼ まったく新しい",font=_load_font(30),fill=(8,54,92,255))
+    d.text((323,30),"登山天気ツール",font=_load_font(30),fill=(234,173,8,255))
+    d.text((675,30),"／",font=_load_font(30),fill=(8,54,92,255))
+    d.text((38,82),"日本三百名山 全国分析",font=_load_font(56),fill=(7,48,83,255))
+    d.text((38,153),f"{target.month}/{target.day} 明日の登山コンディション",font=_load_font(29),fill=(25,127,79,255))
+    d.rounded_rectangle((34,360,520,575),radius=32,fill=(4,35,66,245))
+    d.text((64,378),"明日の",font=_load_font(88),fill=(255,222,45,255))
+    d.text((67,500),"全国コンディション",font=_load_font(31),fill=(255,255,255,255))
+    _draw_reel_starburst(d,190,735,118,92,(255,212,28,255))
+    d.text((123,665),"全部",font=_load_font(43),fill=(5,45,73,255))
+    d.text((110,724),"無料！",font=_load_font(54),fill=(5,45,73,255))
+    _draw_reel_legend(d,470,1390)
+    _draw_reel_footer(d,W,H)
+    return frame
+
+
+def _build_reel_scene2(target: date, W: int, H: int) -> "Image.Image":
+    frame=Image.new("RGB",(W,H),(6,45,76))
+    d=ImageDraw.Draw(frame,"RGBA")
+    for y in range(H):
+        q=y/(H-1)
+        c=(6+int(4*q),45+int(28*q),76+int(27*q))
+        d.line((0,y,W,y),fill=(*c,255))
+    for x in range(70,W,180):
+        d.arc((x-50,90,x+210,330),200,340,fill=(255,255,255,22),width=2)
+    d.text((45,46),"まったく新しい",font=_load_font(27),fill=(255,255,255,245))
+    d.text((258,46),"登山天気ツール",font=_load_font(27),fill=(255,214,41,255))
+    d.text((45,100),"トラテン",font=_load_font(62),fill=(255,219,45,255))
+    d.text((250,111),"でできること",font=_load_font(44),fill=(255,255,255,255))
+    d.rounded_rectangle((327,203,755,290),radius=43,fill=(255,213,38,255))
+    d.text((417,220),"全部無料！",font=_load_font(38),fill=(6,45,76,255))
+    items=[
+        ("全国分析","三百名山を2週間先まで"),
+        ("自分専用天気予報","通過ポイントを入れたらルート分析"),
+        ("登山判断サポート","時間帯別の風・雨・気温・視界"),
+        ("登山ポータル","登山口アクセス・ライブカメラ・山小屋HP・水場"),
+    ]
+    y=350
+    for k,(ttl,desc) in enumerate(items,1):
+        d.rounded_rectangle((45,y,1035,y+245),radius=27,fill=(255,255,255,244))
+        d.ellipse((75,y+67,137,y+129),fill=(20,127,81,255))
+        num=str(k); nf=_load_font(28); bb=d.textbbox((0,0),num,font=nf)
+        d.text((106-(bb[2]-bb[0])/2,y+77),num,font=nf,fill=(255,255,255,255))
+        _draw_reel_feature_icon(d,k,196,y+117)
+        d.text((270,y+43),ttl,font=_load_font(40),fill=(7,51,85,255))
+        d.text((270,y+112),desc,font=_fit_text(d,desc,710,29,22),fill=(61,78,92,255))
+        y+=270
+    d.text((48,1495),"登る前に、トラテン。",font=_load_font(54),fill=(255,217,42,255))
+    d.rounded_rectangle((255,1600,835,1690),radius=44,fill=(255,255,255,255))
+    d.ellipse((300,1622,344,1666),outline=(20,127,81,255),width=4)
+    d.line((322,1622,322,1666),fill=(20,127,81,255),width=3)
+    d.line((301,1644,343,1644),fill=(20,127,81,255),width=3)
+    d.text((370,1622),"otenki.onrender.com",font=_load_font(31),fill=(7,91,66,255))
+    return frame
+
+
+def _render_reel_stills(work: str, target: date, rows: list[dict[str, Any]], W: int, H: int) -> tuple[str, str]:
+    scene1_path=os.path.join(work,"scene1.jpg")
+    scene2_path=os.path.join(work,"scene2.jpg")
+    scene1=_build_reel_scene1(target, rows, W, H)
+    try:
+        scene1.save(scene1_path, quality=90, optimize=True, progressive=False)
+    finally:
+        try: scene1.close()
+        except Exception: pass
+        del scene1
+    scene2=_build_reel_scene2(target, W, H)
+    try:
+        scene2.save(scene2_path, quality=90, optimize=True, progressive=False)
+    finally:
+        try: scene2.close()
+        except Exception: pass
+        del scene2
+    return scene1_path, scene2_path
+
+
+def _compose_reel_from_stills(scene1_path: str, scene2_path: str, wav_path: str, out_path: str, *, fps: int, seconds: int, scene_cut: float) -> None:
+    total_frames=max(1, fps*seconds)
+    split_index=sum(1 for i in range(total_frames) if (i / max(1,(total_frames-1))) < scene_cut)
+    first_frames=max(1, min(total_frames, split_index))
+    second_frames=max(1, total_frames-first_frames)
+    if first_frames + second_frames < total_frames:
+        second_frames += total_frames - (first_frames + second_frames)
+    dur1=first_frames/float(fps)
+    dur2=second_frames/float(fps)
+    import imageio_ffmpeg
+    ffmpeg=imageio_ffmpeg.get_ffmpeg_exe()
+    tmp=out_path+f".{os.getpid()}.tmp.mp4"
+    cmd=[
+        ffmpeg,"-y",
+        "-loop","1","-t",f"{dur1:.6f}","-i",scene1_path,
+        "-loop","1","-t",f"{dur2:.6f}","-i",scene2_path,
+        "-i",wav_path,
+        "-filter_complex",f"[0:v]fps={fps},format=yuv420p[v0];[1:v]fps={fps},format=yuv420p[v1];[v0][v1]concat=n=2:v=1:a=0[v]",
+        "-map","[v]","-map","2:a",
+        "-c:v","libx264","-profile:v","high","-level","4.0","-pix_fmt","yuv420p","-r",str(fps),
+        "-c:a","aac","-b:a","160k","-shortest","-movflags","+faststart",tmp
+    ]
+    subprocess.run(cmd,check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=180)
+    os.replace(tmp,out_path)
+
+
 def reel_cache_path(date_text: str) -> str:
     outdir=os.path.join(tempfile.gettempdir(),"traten-instagram-reels")
     return os.path.join(outdir,f"traten-{date_text}-{REEL_RENDER_REV}.mp4")
@@ -415,7 +535,7 @@ def reel_cache_ready(date_text: str) -> bool:
     return os.path.exists(path) and os.path.getsize(path)>100000
 
 def render_national_reel(date_text: str, results: list[dict[str, Any]], *, logo_path: str | None = None) -> str:
-    """Render the 9:16 Reel using the approved 2026-09-05 visual direction."""
+    """Render the 9:16 Reel using a low-memory still-scene pipeline."""
     if Image is None or ImageDraw is None:
         raise RuntimeError("Pillow is not installed")
     rows=[dict(r) for r in results if isinstance(r,dict) and str(r.get("grade") or "") in {"A","B","C"}]
@@ -424,90 +544,27 @@ def render_national_reel(date_text: str, results: list[dict[str, Any]], *, logo_
     target=date.fromisoformat(date_text)
     outdir=os.path.join(tempfile.gettempdir(),"traten-instagram-reels")
     os.makedirs(outdir,exist_ok=True)
-    # Include the renderer revision in the cache file. A style/code update must never reuse an older preview.
     out=reel_cache_path(date_text)
     if os.path.exists(out) and os.path.getsize(out)>100000:
         return out
-    work=os.path.join(outdir,f"work-{date_text}-{REEL_RENDER_REV}-{os.getpid()}")
-    os.makedirs(work,exist_ok=True)
-    try:
-        W,H=1080,1920
-        fps=INSTAGRAM_REEL_FPS
-        sec=INSTAGRAM_REEL_SECONDS
-        scene_cut=0.66
-        map_img=_render_japan_map(rows,W,1515)
-        import imageio_ffmpeg
-        ffmpeg=imageio_ffmpeg.get_ffmpeg_exe()
-        for i in range(fps*sec):
-            t=i/max(1,(fps*sec-1))
-            frame=Image.new("RGB",(W,H),(239,248,252)); d=ImageDraw.Draw(frame,"RGBA")
-            if t < scene_cut:
-                # Approved scene 1: white header + large nationwide map + navy/yellow callout.
-                frame.paste(map_img,(0,240))
-                d.rectangle((0,0,W,245),fill=(255,255,255,248))
-                d.text((38,30),"＼ まったく新しい",font=_load_font(30),fill=(8,54,92,255))
-                d.text((323,30),"登山天気ツール",font=_load_font(30),fill=(234,173,8,255))
-                d.text((675,30),"／",font=_load_font(30),fill=(8,54,92,255))
-                d.text((38,82),"日本三百名山 全国分析",font=_load_font(56),fill=(7,48,83,255))
-                d.text((38,153),f"{target.month}/{target.day} 明日の登山コンディション",font=_load_font(29),fill=(25,127,79,255))
-                # dark callout, matching the approved preview
-                d.rounded_rectangle((34,360,520,575),radius=32,fill=(4,35,66,245))
-                d.text((64,378),"明日の",font=_load_font(88),fill=(255,222,45,255))
-                d.text((67,500),"全国コンディション",font=_load_font(31),fill=(255,255,255,255))
-                _draw_reel_starburst(d,190,735,118,92,(255,212,28,255))
-                d.text((123,665),"全部",font=_load_font(43),fill=(5,45,73,255))
-                d.text((110,724),"無料！",font=_load_font(54),fill=(5,45,73,255))
-                _draw_reel_legend(d,470,1390)
-                _draw_reel_footer(d,W,H)
-            else:
-                # Approved scene 2: dark-blue feature summary card.
-                # subtle vertical gradient
-                for y in range(H):
-                    q=y/(H-1)
-                    c=(6+int(4*q),45+int(28*q),76+int(27*q))
-                    d.line((0,y,W,y),fill=(*c,255))
-                # faint contour/weather decoration
-                for x in range(70,W,180):
-                    d.arc((x-50,90,x+210,330),200,340,fill=(255,255,255,22),width=2)
-                d.text((45,46),"まったく新しい",font=_load_font(27),fill=(255,255,255,245))
-                d.text((258,46),"登山天気ツール",font=_load_font(27),fill=(255,214,41,255))
-                d.text((45,100),"トラテン",font=_load_font(62),fill=(255,219,45,255))
-                d.text((250,111),"でできること",font=_load_font(44),fill=(255,255,255,255))
-                d.rounded_rectangle((327,203,755,290),radius=43,fill=(255,213,38,255))
-                d.text((417,220),"全部無料！",font=_load_font(38),fill=(6,45,76,255))
-                items=[
-                    ("全国分析","三百名山を2週間先まで"),
-                    ("自分専用天気予報","通過ポイントを入れたらルート分析"),
-                    ("登山判断サポート","時間帯別の風・雨・気温・視界"),
-                    ("登山ポータル","登山口アクセス・ライブカメラ・山小屋HP・水場"),
-                ]
-                y=350
-                for k,(ttl,desc) in enumerate(items,1):
-                    d.rounded_rectangle((45,y,1035,y+245),radius=27,fill=(255,255,255,244))
-                    d.ellipse((75,y+67,137,y+129),fill=(20,127,81,255))
-                    num=str(k); nf=_load_font(28); bb=d.textbbox((0,0),num,font=nf)
-                    d.text((106-(bb[2]-bb[0])/2,y+77),num,font=nf,fill=(255,255,255,255))
-                    _draw_reel_feature_icon(d,k,196,y+117)
-                    d.text((270,y+43),ttl,font=_load_font(40),fill=(7,51,85,255))
-                    d.text((270,y+112),desc,font=_fit_text(d,desc,710,29,22),fill=(61,78,92,255))
-                    y+=270
-                d.text((48,1495),"登る前に、トラテン。",font=_load_font(54),fill=(255,217,42,255))
-                d.rounded_rectangle((255,1600,835,1690),radius=44,fill=(255,255,255,255))
-                d.ellipse((300,1622,344,1666),outline=(20,127,81,255),width=4)
-                d.line((322,1622,322,1666),fill=(20,127,81,255),width=3)
-                d.line((301,1644,343,1644),fill=(20,127,81,255),width=3)
-                d.text((370,1622),"otenki.onrender.com",font=_load_font(31),fill=(7,91,66,255))
-            frame.save(os.path.join(work,f"frame-{i:04d}.jpg"),quality=91)
-        wav=os.path.join(work,"bgm.wav"); _write_original_bgm(wav,sec)
-        tmp=out+f".{os.getpid()}.tmp.mp4"
-        cmd=[ffmpeg,"-y","-framerate",str(fps),"-i",os.path.join(work,"frame-%04d.jpg"),"-i",wav,
-             "-c:v","libx264","-profile:v","high","-level","4.0","-pix_fmt","yuv420p","-r",str(fps),
-             "-c:a","aac","-b:a","160k","-shortest","-movflags","+faststart",tmp]
-        subprocess.run(cmd,check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=180)
-        os.replace(tmp,out)
-        return out
-    finally:
-        shutil.rmtree(work,ignore_errors=True)
+    lock=_reel_render_lock(date_text)
+    with lock:
+        if os.path.exists(out) and os.path.getsize(out)>100000:
+            return out
+        work=os.path.join(outdir,f"work-{date_text}-{REEL_RENDER_REV}-{os.getpid()}")
+        os.makedirs(work,exist_ok=True)
+        try:
+            W,H=1080,1920
+            fps=INSTAGRAM_REEL_FPS
+            sec=INSTAGRAM_REEL_SECONDS
+            scene_cut=0.66
+            scene1_path, scene2_path = _render_reel_stills(work, target, rows, W, H)
+            wav=os.path.join(work,"bgm.wav")
+            _write_original_bgm(wav,sec)
+            _compose_reel_from_stills(scene1_path, scene2_path, wav, out, fps=fps, seconds=sec, scene_cut=scene_cut)
+            return out
+        finally:
+            shutil.rmtree(work,ignore_errors=True)
 
 def caption_for(date_text: str, counts: dict[str, int]) -> str:
     target = date.fromisoformat(date_text)

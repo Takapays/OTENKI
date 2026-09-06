@@ -31,7 +31,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.5.195"
+APP_VERSION = "1.5.196"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
@@ -2042,7 +2042,9 @@ def instagram_national_reel(date_text: str):
     if len(rows) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
         return jsonify(error="fresh nationwide cache is incomplete", count=len(rows), minimum=instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS), 409
     try:
-        path = instagram_bot.render_national_reel(date_text, rows, logo_path=os.path.join(BASE, "traten-logo.png"))
+        if not instagram_bot.reel_cache_ready(date_text):
+            return jsonify(error="reel is not ready yet"), 503
+        path = instagram_bot.reel_cache_path(date_text)
         return send_file(path, mimetype="video/mp4", conditional=True, download_name=f"traten-{date_text}.mp4")
     except Exception as exc:
         app.logger.exception("instagram_national_reel_failed date=%s", date_text)
