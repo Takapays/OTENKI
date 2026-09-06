@@ -40,7 +40,7 @@ INSTAGRAM_MIN_NATIONAL_RESULTS = max(1, min(100, int(os.environ.get("INSTAGRAM_M
 INSTAGRAM_AUTO_MEDIA = (os.environ.get("INSTAGRAM_AUTO_MEDIA", "reel").strip().lower() or "reel")
 INSTAGRAM_REEL_FPS = max(8, min(20, int(os.environ.get("INSTAGRAM_REEL_FPS", "12"))))
 INSTAGRAM_REEL_SECONDS = max(6, min(12, int(os.environ.get("INSTAGRAM_REEL_SECONDS", "12"))))
-REEL_RENDER_REV = "classic-20260906-v6-staticpair"
+REEL_RENDER_REV = "master-20260905-scenes-v2-dynamic"
 
 _STATE_FILE = os.path.join(tempfile.gettempdir(), "traten-instagram-state.json")
 
@@ -55,6 +55,81 @@ def _reel_render_lock(date_text: str) -> threading.Lock:
             lock = threading.Lock()
             _reel_render_locks[date_text] = lock
         return lock
+
+
+def _master_scene_path(page: int) -> str:
+    if int(page) == 1:
+        return os.path.join(os.path.dirname(__file__), "reel_master_scene1.png")
+    if int(page) == 2:
+        return os.path.join(os.path.dirname(__file__), "reel_master_scene2.png")
+    raise ValueError("invalid page")
+
+
+def _load_master_scene(page: int) -> str:
+    path = _master_scene_path(page)
+    if not os.path.exists(path):
+        raise RuntimeError(f"master scene asset is missing: {os.path.basename(path)}")
+    return path
+
+
+def _dynamic_scene1_template_path() -> str:
+    path = os.path.join(os.path.dirname(__file__), "reel_scene1_dynamic_template.png")
+    if not os.path.exists(path):
+        raise RuntimeError("dynamic scene1 template asset is missing: reel_scene1_dynamic_template.png")
+    return path
+
+
+def _latlon_to_scene1_px(lat: float, lon: float, W: int, H: int) -> tuple[int, int]:
+    # Calibrated for the approved scene-1 template image (Japan area only).
+    north, south, west, east = 46.3, 30.1, 128.2, 146.4
+    x1, x2 = int(W * 0.11), int(W * 0.935)
+    y1, y2 = int(H * 0.31), int(H * 0.88)
+    px = int(x1 + (lon - west) / (east - west) * (x2 - x1))
+    py = int(y1 + (north - lat) / (north - south) * (y2 - y1))
+    return px, py
+
+
+def _draw_scene1_grade_marker(draw, x: int, y: int, grade: str, radius: int = 22):
+    colors = {"A": (31, 143, 84, 255), "B": (225, 158, 18, 255), "C": (205, 61, 64, 255)}
+    grade = str(grade or "").upper()
+    if grade not in colors:
+        return
+    c = colors[grade]
+    shadow = 3
+    draw.ellipse((x-radius-shadow, y-radius-shadow+3, x+radius+shadow, y+radius+shadow+3), fill=(0,0,0,50))
+    draw.ellipse((x-radius-3, y-radius-3, x+radius+3, y+radius+3), fill=(255,255,255,245))
+    draw.ellipse((x-radius, y-radius, x+radius, y+radius), fill=c)
+    f = _load_font(max(22, int(radius * 1.06)))
+    bb = draw.textbbox((0, 0), grade, font=f)
+    draw.text((x-(bb[2]-bb[0])/2, y-(bb[3]-bb[1])/2-2), grade, font=f, fill=(255,255,255,255))
+
+
+def build_dynamic_scene1(target: date, rows: list[dict[str, Any]]) -> "Image.Image":
+    if Image is None or ImageDraw is None:
+        raise RuntimeError("Pillow is not installed")
+    base = Image.open(_dynamic_scene1_template_path()).convert("RGBA").resize((864, 1536), Image.Resampling.LANCZOS)
+    draw = ImageDraw.Draw(base, "RGBA")
+    # date line
+    date_text = f"{target.month}/{target.day} 明日の登山コンディション"
+    draw.text((48, 278), date_text, font=_load_font(33), fill=(14, 117, 63, 255))
+    # markers
+    plotted = 0
+    for row in rows:
+        try:
+            lat = float(row.get("lat"))
+            lon = float(row.get("lon"))
+            grade = str(row.get("grade") or "").upper()
+        except Exception:
+            continue
+        if grade not in {"A", "B", "C"}:
+            continue
+        x, y = _latlon_to_scene1_px(lat, lon, 864, 1536)
+        if 0 <= x <= 864 and 0 <= y <= 1536:
+            _draw_scene1_grade_marker(draw, x, y, grade, radius=20)
+            plotted += 1
+    if plotted <= 0:
+        raise RuntimeError("scene1 marker plotting produced no output")
+    return base.convert("RGB")
 
 
 def configured() -> bool:
@@ -561,7 +636,7 @@ def reel_cache_ready(date_text: str) -> bool:
 
 def static_image_cache_path(date_text: str, page: int) -> str:
     outdir=os.path.join(tempfile.gettempdir(),"traten-instagram-static")
-    return os.path.join(outdir,f"traten-{date_text}-{REEL_RENDER_REV}-p{int(page)}.jpg")
+    return os.path.join(outdir,f"traten-{date_text}-{REEL_RENDER_REV}-p{int(page)}.png")
 
 
 def static_image_cache_ready(date_text: str) -> bool:
@@ -569,72 +644,56 @@ def static_image_cache_ready(date_text: str) -> bool:
 
 
 def render_national_static_images(date_text: str, results: list[dict[str, Any]], *, logo_path: str | None = None) -> list[str]:
-    if Image is None or ImageDraw is None:
-        raise RuntimeError("Pillow is not installed")
     rows=[dict(r) for r in results if isinstance(r,dict) and str(r.get("grade") or "") in {"A","B","C"}]
     if len(rows) < INSTAGRAM_MIN_NATIONAL_RESULTS:
         raise RuntimeError(f"national static images require at least {INSTAGRAM_MIN_NATIONAL_RESULTS} results, got {len(rows)}")
+    target=date.fromisoformat(date_text)
     outdir=os.path.join(tempfile.gettempdir(),"traten-instagram-static")
     os.makedirs(outdir,exist_ok=True)
-    out1=static_image_cache_path(date_text,1)
-    out2=static_image_cache_path(date_text,2)
-    if os.path.exists(out1) and os.path.getsize(out1)>100000 and os.path.exists(out2) and os.path.getsize(out2)>100000:
-        return [out1,out2]
-    target=date.fromisoformat(date_text)
-    lock=_reel_render_lock(f"static:{date_text}")
+    out_paths=[static_image_cache_path(date_text,1), static_image_cache_path(date_text,2)]
+    if all(os.path.exists(x) and os.path.getsize(x)>100000 for x in out_paths):
+        return out_paths
+    lock=_reel_render_lock(f"static-master:{date_text}")
     with lock:
-        if os.path.exists(out1) and os.path.getsize(out1)>100000 and os.path.exists(out2) and os.path.getsize(out2)>100000:
-            return [out1,out2]
-        scene1=_build_reel_scene1(target, rows, 1080, 1920)
+        if all(os.path.exists(x) and os.path.getsize(x)>100000 for x in out_paths):
+            return out_paths
+        scene1=build_dynamic_scene1(target, rows)
         try:
-            tmp1=out1+f".{os.getpid()}.tmp.jpg"
-            scene1.save(tmp1, quality=91, optimize=True, progressive=False)
-            os.replace(tmp1,out1)
+            tmp1=out_paths[0]+f".{os.getpid()}.tmp.png"
+            scene1.save(tmp1, optimize=True)
+            os.replace(tmp1, out_paths[0])
         finally:
             try: scene1.close()
             except Exception: pass
             del scene1
-        scene2=_build_reel_scene2(target, 1080, 1920)
-        try:
-            tmp2=out2+f".{os.getpid()}.tmp.jpg"
-            scene2.save(tmp2, quality=91, optimize=True, progressive=False)
-            os.replace(tmp2,out2)
-        finally:
-            try: scene2.close()
-            except Exception: pass
-            del scene2
+        tmp2=out_paths[1]+f".{os.getpid()}.tmp.png"
+        shutil.copyfile(_load_master_scene(2), tmp2)
+        os.replace(tmp2, out_paths[1])
         gc.collect()
-        return [out1,out2]
+        return out_paths
 
 def render_national_reel(date_text: str, results: list[dict[str, Any]], *, logo_path: str | None = None) -> str:
-    """Render the 9:16 Reel using a low-memory still-scene pipeline."""
-    if Image is None or ImageDraw is None:
-        raise RuntimeError("Pillow is not installed")
+    """Render the Reel from the dynamic page-1 scene and the approved static page-2 scene."""
     rows=[dict(r) for r in results if isinstance(r,dict) and str(r.get("grade") or "") in {"A","B","C"}]
     if len(rows) < INSTAGRAM_MIN_NATIONAL_RESULTS:
         raise RuntimeError(f"national reel requires at least {INSTAGRAM_MIN_NATIONAL_RESULTS} results, got {len(rows)}")
-    target=date.fromisoformat(date_text)
     outdir=os.path.join(tempfile.gettempdir(),"traten-instagram-reels")
     os.makedirs(outdir,exist_ok=True)
     out=reel_cache_path(date_text)
     if os.path.exists(out) and os.path.getsize(out)>100000:
         return out
-    lock=_reel_render_lock(date_text)
+    lock=_reel_render_lock(f"reel-master:{date_text}")
     with lock:
         if os.path.exists(out) and os.path.getsize(out)>100000:
             return out
+        static_paths = render_national_static_images(date_text, rows, logo_path=logo_path)
         work=os.path.join(outdir,f"work-{date_text}-{REEL_RENDER_REV}-{os.getpid()}")
         os.makedirs(work,exist_ok=True)
         try:
-            W,H=1080,1920
-            fps=INSTAGRAM_REEL_FPS
-            sec=INSTAGRAM_REEL_SECONDS
-            scene_cut=0.66
-            scene1_path, scene2_path = _render_reel_stills(work, target, rows, W, H)
             wav=os.path.join(work,"bgm.wav")
-            _write_original_bgm(wav,sec)
+            _write_original_bgm(wav, INSTAGRAM_REEL_SECONDS)
             gc.collect()
-            _compose_reel_from_stills(scene1_path, scene2_path, wav, out, fps=fps, seconds=sec, scene_cut=scene_cut)
+            _compose_reel_from_stills(static_paths[0], static_paths[1], wav, out, fps=INSTAGRAM_REEL_FPS, seconds=INSTAGRAM_REEL_SECONDS, scene_cut=0.66)
             gc.collect()
             return out
         finally:

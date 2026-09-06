@@ -31,7 +31,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.5.199"
+APP_VERSION = "1.5.201"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
@@ -2063,7 +2063,7 @@ def instagram_national_static(date_text: str, page: int):
         return jsonify(error="fresh nationwide cache is incomplete", count=len(rows), minimum=instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS), 409
     try:
         paths = instagram_bot.render_national_static_images(date_text, rows, logo_path=os.path.join(BASE, "traten-logo.png"))
-        return send_file(paths[page-1], mimetype="image/jpeg", conditional=True, download_name=f"traten-{date_text}-p{page}.jpg")
+        return send_file(paths[page-1], mimetype="image/png", conditional=True, download_name=f"traten-{date_text}-p{page}.png")
     except Exception as exc:
         app.logger.exception("instagram_national_static_failed date=%s page=%s", date_text, page)
         return jsonify(error=str(exc)[:500]), 500
