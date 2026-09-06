@@ -40,7 +40,7 @@ INSTAGRAM_MIN_NATIONAL_RESULTS = max(1, min(100, int(os.environ.get("INSTAGRAM_M
 INSTAGRAM_AUTO_MEDIA = (os.environ.get("INSTAGRAM_AUTO_MEDIA", "reel").strip().lower() or "reel")
 INSTAGRAM_REEL_FPS = max(8, min(20, int(os.environ.get("INSTAGRAM_REEL_FPS", "12"))))
 INSTAGRAM_REEL_SECONDS = max(6, min(12, int(os.environ.get("INSTAGRAM_REEL_SECONDS", "12"))))
-REEL_RENDER_REV = "master-20260905-scenes-v6-globalfit-rishiri-yakushima"
+REEL_RENDER_REV = "master-20260905-scenes-v7-similarityfit-rishiri-yakushima"
 
 _STATE_FILE = os.path.join(tempfile.gettempdir(), "traten-instagram-state.json")
 
@@ -148,13 +148,26 @@ def _latlon_to_scene1_px(lat: float, lon: float, W: int, H: int) -> tuple[int, i
     # V1.5.204 anchor projections:
     #   利尻山   ~= (623, 366) -> artwork 利尻島 ~= (641, 299)
     #   宮ノ浦岳 ~= ( 74,1332) -> artwork 屋久島 ~= (126,1375)
-    sx = 515.0 / 549.0
-    tx = 641.0 - sx * 623.0
-    sy = 1076.0 / 966.0
-    ty = 299.0 - sy * 366.0
+    #
+    # IMPORTANT: use ONE similarity transform (uniform scale + rotation + translation).
+    # The previous independent X/Y scaling matched both end anchors but stretched the
+    # marker layer vertically and compressed it horizontally, which made the A/B/C
+    # positions drift away from the map through Honshu/Shikoku/Kyushu.
+    p1x, p1y = 623.0, 366.0
+    p2x, p2y = 74.0, 1332.0
+    q1x, q1y = 641.0, 299.0
+    q2x, q2y = 126.0, 1375.0
 
-    px = int(round(sx * base_px + tx))
-    py = int(round(sy * base_py + ty))
+    dpx, dpy = p2x - p1x, p2y - p1y
+    dqx, dqy = q2x - q1x, q2y - q1y
+    denom = dpx * dpx + dpy * dpy
+    a = (dqx * dpx + dqy * dpy) / denom
+    b = (dqy * dpx - dqx * dpy) / denom
+    tx = q1x - (a * p1x - b * p1y)
+    ty = q1y - (b * p1x + a * p1y)
+
+    px = int(round(a * base_px - b * base_py + tx))
+    py = int(round(b * base_px + a * base_py + ty))
     return px, py
 
 
