@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.181';
+const APP_VERSION = '1.5.182';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -10507,21 +10507,67 @@ function meteoblueTimeIso(value){
   return m?`${m[1]}T${m[2]}:${m[3]}:00+09:00`:s;
 }
 function meteoblueRows(payload){
-  const d=payload?.data_1h||payload?.data1h||{};
-  const times=Array.isArray(d.time)?d.time:[];
-  const get=(keys,i)=>{
-    for(const k of keys){const v=numberOrNaN(d?.[k]?.[i]);if(Number.isFinite(v))return v;}
+  const d1=payload?.data_1h||payload?.data1h||{};
+  const d3=payload?.data_3h||payload?.data3h||{};
+  const times1=Array.isArray(d1.time)?d1.time:[];
+  const times3=Array.isArray(d3.time)?d3.time:[];
+  const get=(data,keys,i)=>{
+    for(const k of keys){
+      const v=numberOrNaN(data?.[k]?.[i]);
+      if(Number.isFinite(v))return v;
+    }
     return NaN;
   };
-  return times.map((t,i)=>{
-    const temp=get(['temperature'],i), rh=get(['relativehumidity','relative_humidity'],i), wind=get(['windspeed','wind_speed'],i);
-    const apparent=get(['felttemperature','apparenttemperature','apparent_temperature'],i);
+  const threeHourRows=times3.map((t,i)=>({
+    time:meteoblueTimeIso(t),
+    cloud:get(d3,['totalcloudcover','cloudcover','cloud_cover'],i),
+    lowCloud:get(d3,['lowclouds','low_clouds','cloudcover_low'],i),
+    midCloud:get(d3,['midclouds','mid_clouds','cloudcover_mid'],i),
+    highCloud:get(d3,['highclouds','high_clouds','cloudcover_high'],i),
+    visibility:get(d3,['visibility'],i),
+    gust:get(d3,['gust','windgust','windgusts','wind_gust','wind_gusts'],i),
+    cape:get(d3,['cape','cape180to0mb','cape_180_0mb'],i),
+    liftedIndex:get(d3,['liftedindex','lifted_index'],i)
+  })).filter(x=>x.time);
+  const nearest3=(time)=>{
+    if(!threeHourRows.length)return null;
+    const target=new Date(time).getTime();
+    let best=null,bestDiff=Infinity;
+    for(const r of threeHourRows){
+      const diff=Math.abs(new Date(r.time).getTime()-target);
+      if(diff<bestDiff){best=r;bestDiff=diff;}
+    }
+    return bestDiff<=2*3600000?best:null;
+  };
+  return times1.map((t,i)=>{
+    const time=meteoblueTimeIso(t);
+    const x3=nearest3(time)||{};
+    const temp=get(d1,['temperature'],i);
+    const rh=get(d1,['relativehumidity','relative_humidity'],i);
+    const wind=get(d1,['windspeed','wind_speed'],i);
+    const apparent=get(d1,['felttemperature','apparenttemperature','apparent_temperature'],i);
+    const cloud1=get(d1,['totalcloudcover','cloudcover','cloud_cover'],i);
+    const gust1=get(d1,['gust','windgust','windgusts','wind_gust','wind_gusts'],i);
+    const visibility1=get(d1,['visibility'],i);
+    const cape1=get(d1,['cape'],i);
     return {
-      time:meteoblueTimeIso(t), temp, apparent:Number.isFinite(apparent)?apparent:apparentTempApprox(temp,wind), rh,
-      rain:get(['precipitation','precipitationamount'],i), cloud:get(['totalcloudcover','cloudcover'],i),
-      lowCloud:get(['lowclouds'],i), midCloud:get(['midclouds'],i), highCloud:get(['highclouds'],i),
-      wind, gust:get(['gust','windgust','windgusts'],i), windDir:get(['winddirection'],i),
-      visibility:get(['visibility'],i), cape:NaN, freezing:NaN, thunderRisk:'LOW'
+      time,
+      temp,
+      apparent:Number.isFinite(apparent)?apparent:apparentTempApprox(temp,wind),
+      rh,
+      rain:get(d1,['precipitation','precipitationamount'],i),
+      cloud:Number.isFinite(cloud1)?cloud1:numberOrNaN(x3.cloud),
+      lowCloud:numberOrNaN(x3.lowCloud),
+      midCloud:numberOrNaN(x3.midCloud),
+      highCloud:numberOrNaN(x3.highCloud),
+      wind,
+      gust:Number.isFinite(gust1)?gust1:numberOrNaN(x3.gust),
+      windDir:get(d1,['winddirection','wind_direction'],i),
+      visibility:Number.isFinite(visibility1)?visibility1:numberOrNaN(x3.visibility),
+      cape:Number.isFinite(cape1)?cape1:numberOrNaN(x3.cape),
+      liftedIndex:numberOrNaN(x3.liftedIndex),
+      freezing:NaN,
+      thunderRisk:'LOW'
     };
   }).filter(x=>x.time);
 }
@@ -10545,7 +10591,7 @@ async function fetchMeteoblueFallback(point){
   for(const r of rows){const diff=Math.abs(new Date(r.time).getTime()-targetMs);if(diff<bestDiff){best=r;bestDiff=diff;}}
   if(!best||bestDiff>90*60000)return null;
   const timeline=rows.filter(r=>Math.abs(new Date(r.time).getTime()-targetMs)<=6*3600000)
-    .map(r=>({time:r.time,rain:numberOrNaN(r.rain),wind:numberOrNaN(r.wind),cape:NaN}));
+    .map(r=>({time:r.time,rain:numberOrNaN(r.rain),wind:numberOrNaN(r.wind),cape:numberOrNaN(r.cape),thunderRisk:r.thunderRisk||'LOW'}));
   return {...best,timeline};
 }
 async function fetchNoaaGfsRowAt(point,date,time){
@@ -11728,6 +11774,20 @@ function rowForProvider(providerRows,id){return (providerRows||[]).find(x=>x?.pr
 function blendProviderRows(providerRows){
   const rows=(providerRows||[]).map(x=>x.row).filter(Boolean);
   const out=averageRows(rows);
+  const fallbackOnly=(providerRows||[]).length>0&&(providerRows||[]).every(x=>x?.provider?.kind==='fallback');
+  // V1.5.182: backup ensemble (MET Norway + NOAA GFS + meteoblue) uses
+  // the median as the representative value so one outlier does not dominate.
+  // Gust/CAPE stay adverse-side (max) because they are safety-critical.
+  if(fallbackOnly&&rows.length>=2){
+    const med=k=>median(rows.map(x=>x?.[k]).filter(Number.isFinite));
+    ['temp','rh','rain','cloud','wind','visibility','freezing'].forEach(k=>{
+      const v=med(k); if(Number.isFinite(v))out[k]=v;
+    });
+    const gusts=rows.map(x=>x?.gust).filter(Number.isFinite);
+    if(gusts.length)out.gust=Math.max(...gusts);
+    const capes=rows.map(x=>x?.cape).filter(Number.isFinite);
+    if(capes.length)out.cape=Math.max(...capes);
+  }
   const jma=rowForProvider(providerRows,'jma');
   const ecmwf=rowForProvider(providerRows,'ecmwf');
   const icon=rowForProvider(providerRows,'icon');
@@ -11765,7 +11825,7 @@ function blendProviderRows(providerRows){
     (Number.isFinite(gfs.visibility)&&Number.isFinite(out.visibility)&&gfs.visibility<3000&&out.visibility>=5000)
   );
   out.feelsLike=apparentTemperatureMountain(out.temp,out.rh,out.wind);
-  out.modelBasis={wind:Number.isFinite(ecmwf?.wind)?'ecmwf':'multi',rain:Number.isFinite(jma?.rain)?'jma':'multi',visibility:Number.isFinite(icon?.visibility)?'icon':'multi',gfsGuard:!!out.gfsAdverse,capeModels:out.capeModelCount,capeSupport500:out.capeSupport500,capeSupport1000:out.capeSupport1000,adverseModels:out.adverseModelCount,strongAdverseModels:out.strongAdverseModelCount};
+  out.modelBasis={wind:Number.isFinite(ecmwf?.wind)?'ecmwf':'multi',rain:Number.isFinite(jma?.rain)?'jma':'multi',visibility:Number.isFinite(icon?.visibility)?'icon':'multi',gfsGuard:!!out.gfsAdverse,capeModels:out.capeModelCount,capeSupport500:out.capeSupport500,capeSupport1000:out.capeSupport1000,adverseModels:out.adverseModelCount,strongAdverseModels:out.strongAdverseModelCount,fallbackEnsemble:fallbackOnly?rows.length:0};
   return out;
 }
 function thunderEvidence(x){
@@ -11947,8 +12007,20 @@ function pointForecastConfidence(result){
   let level=result?.confidence==='LOW'?'LOW':result?.confidence==='MEDIUM'?'MEDIUM':'HIGH';
   const reasons=[];
   if(fallbackOnly){
-    level='LOW';
-    reasons.push('予備モデル中心');
+    if(rows.length>=3){
+      level=result?.confidence==='LOW'?'LOW':'MEDIUM';
+      reasons.push('予備3モデル比較');
+      if(result?.confidence==='LOW')reasons.push('モデル差が大きい');
+      else if(result?.confidence==='MEDIUM')reasons.push('モデルにばらつき');
+      else reasons.push('3モデルの傾向一致');
+    }else if(rows.length===2){
+      level=result?.confidence==='HIGH'?'MEDIUM':'LOW';
+      reasons.push('予備2モデル比較');
+      if(result?.confidence!=='HIGH')reasons.push('予備モデル差あり');
+    }else{
+      level='LOW';
+      reasons.push('予備1モデルのみ');
+    }
   }else{
     if(rows.length<=1){level='LOW';reasons.push('比較1モデル');}
     else if(rows.length===2&&level==='HIGH'){level='MEDIUM';reasons.push('比較2モデル');}
