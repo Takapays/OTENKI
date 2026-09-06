@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.191';
+const APP_VERSION = '1.5.192';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -10452,7 +10452,14 @@ function blendTimelineSingleGroup(providerRows,useMedian=false){
     slots.set(key,slot);
   }));
   const center=v=>useMedian?median(v):mean(v);
-  return [...slots.values()].sort((a,b)=>new Date(a.time)-new Date(b.time)).map(x=>({time:x.time,rain:center(x.rain),wind:center(x.wind),cape:max(x.cape)}));
+  return [...slots.values()].sort((a,b)=>new Date(a.time)-new Date(b.time)).map(x=>({
+    time:x.time,rain:center(x.rain),wind:center(x.wind),cape:max(x.cape),
+    capeMedian:median(x.cape),capeModels:x.cape.length,
+    capeSupport500:x.cape.filter(v=>v>=500).length,
+    capeSupport800:x.cape.filter(v=>v>=800).length,
+    capeSupport1000:x.cape.filter(v=>v>=1000).length,
+    capeSupport1200:x.cape.filter(v=>v>=1200).length
+  }));
 }
 function blendTimelineRows(providerRows){
   const rows=providerRows||[];
@@ -10469,7 +10476,15 @@ function blendTimelineRows(providerRows){
   return [...slots.values()].sort((x,y)=>new Date(x.time)-new Date(y.time)).map(slot=>{
     const p=slot.primary,bk=slot.backup;
     if(!p)return bk;if(!bk)return p;
-    return {time:slot.time,rain:mean([p.rain,bk.rain]),wind:mean([p.wind,bk.wind]),cape:max([p.cape,bk.cape])};
+    return {
+      time:slot.time,rain:mean([p.rain,bk.rain]),wind:mean([p.wind,bk.wind]),cape:max([p.cape,bk.cape]),
+      capeMedian:median([p.capeMedian,bk.capeMedian]),
+      capeModels:(p.capeModels||0)+(bk.capeModels||0),
+      capeSupport500:(p.capeSupport500||0)+(bk.capeSupport500||0),
+      capeSupport800:(p.capeSupport800||0)+(bk.capeSupport800||0),
+      capeSupport1000:(p.capeSupport1000||0)+(bk.capeSupport1000||0),
+      capeSupport1200:(p.capeSupport1200||0)+(bk.capeSupport1200||0)
+    };
   });
 }
 // V1.4.213: short-lived per-point/model cache for repeated analyses in the same tab.
@@ -11777,15 +11792,23 @@ function renderMilkyDetail(o){
   </section>`;
 }
 
-function timelineThunder(cape,rain,directRisk='LOW'){
-  const direct=String(directRisk||'LOW').toUpperCase();
-  const c=Number(cape),p=Number(rain);
-  // V1.5.191: the timeline lightning icon is reserved for materially dangerous
-  // periods. LOW/MEDIUM are intentionally blank so a row of lightning symbols
-  // cannot overstate weak atmospheric instability. Visible lightning is red only.
-  if(direct==='HIGH'||direct==='EXTREME')return {label:direct==='EXTREME'?'非常に高い':'高',cls:'high',show:true,color:'#dc2626'};
-  if(Number.isFinite(c)&&Number.isFinite(p)&&((p>=1&&c>=800)||(p>=0.5&&c>=1200)))return {label:'高',cls:'high',show:true,color:'#dc2626'};
-  return {label:'低〜注意',cls:'low',show:false,color:'transparent'};
+function timelineThunder(row){
+  const c=Number(row?.cape),p=Number(row?.rain);
+  const models=Number(row?.capeModels)||0;
+  const s500=Number(row?.capeSupport500)||0;
+  const s800=Number(row?.capeSupport800)||0;
+  const s1000=Number(row?.capeSupport1000)||0;
+  const s1200=Number(row?.capeSupport1200)||0;
+  // V1.5.192: timeline lightning is a strict danger marker, not a CAPE marker.
+  // A single model's CAPE spike is not enough. Require meaningful rain plus
+  // multi-model support. If only one CAPE-capable model is available, use a
+  // much higher threshold rather than pretending there is consensus.
+  const multi=models>=2;
+  const extreme=Number.isFinite(c)&&Number.isFinite(p)&&p>=3&&c>=1200&&(multi?s1000>=2:c>=2200);
+  const high=Number.isFinite(c)&&Number.isFinite(p)&&p>=1&&c>=800&&(multi?s500>=2:c>=1600);
+  if(extreme)return {label:'非常に高い',show:true};
+  if(high)return {label:'高',show:true};
+  return {label:'表示なし',show:false};
 }
 function timelineHourLabel(s){
   const t=timeOnly(s);
@@ -11834,7 +11857,7 @@ function renderWeatherTimeline(rows,arrivalMs,departureMs=null){
       <text class="wx-axis-unit rain" x="${L-7}" y="44" text-anchor="end">mm/h</text><text class="wx-axis-unit wind" x="${W-R+7}" y="44">m/s</text><text class="wx-th-label" x="4" y="179">雷</text>
       ${data.map((d,i)=>Number(d.rain)>axisMax?`<text class="wx-over-value rain" x="${xs[i]}" y="46" text-anchor="middle">${num(d.rain,1)}</text>`:'').join('')}
       ${data.map((d,i)=>Number(d.wind)>axisMax?`<text class="wx-over-value wind" x="${xs[i]}" y="38" text-anchor="middle">${num(d.wind,1)}</text>`:'').join('')}
-      ${data.map((d,i)=>{const q=timelineThunder(d.cape,d.rain,d.thunderRisk);if(!q.show)return '';return `<text class="wx-thunder-mark ${q.cls}" x="${xs[i]}" y="${thY+6}" text-anchor="middle" style="fill:${q.color}">⚡<title>${timeOnly(d.time)} 雷リスク ${q.label}</title></text>`;}).join('')}${ticks}
+      ${data.map((d,i)=>{const q=timelineThunder(d);if(!q.show)return '';return `<g class="wx-thunder-mark high" transform="translate(${(xs[i]-7).toFixed(1)} ${(thY-8).toFixed(1)})"><path d="M9 0 2 11h5l-2 9 9-13H9l0-7Z" fill="#dc2626"/><title>${timeOnly(d.time)} 雷リスク ${q.label}</title></g>`;}).join('')}${ticks}
     </svg>
   </div>`;
 }
