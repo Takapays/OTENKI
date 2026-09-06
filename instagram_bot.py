@@ -40,7 +40,7 @@ INSTAGRAM_MIN_NATIONAL_RESULTS = max(1, min(100, int(os.environ.get("INSTAGRAM_M
 INSTAGRAM_AUTO_MEDIA = (os.environ.get("INSTAGRAM_AUTO_MEDIA", "reel").strip().lower() or "reel")
 INSTAGRAM_REEL_FPS = max(8, min(20, int(os.environ.get("INSTAGRAM_REEL_FPS", "12"))))
 INSTAGRAM_REEL_SECONDS = max(6, min(12, int(os.environ.get("INSTAGRAM_REEL_SECONDS", "12"))))
-REEL_RENDER_REV = "master-20260905-scenes-v3-fixedslots"
+REEL_RENDER_REV = "master-20260905-scenes-v4-fixedslots-calibrated"
 
 _STATE_FILE = os.path.join(tempfile.gettempdir(), "traten-instagram-state.json")
 
