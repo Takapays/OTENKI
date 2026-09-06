@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.185';
+const APP_VERSION = '1.5.186';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -8671,6 +8671,13 @@ Object.assign(BUILTIN_ROUTE_CATALOG, {
 });
 
 const EXTRA_REPRESENTATIVE_COURSES_V1543 = Object.freeze({
+  // V1.5.186: Fuji default representative course is Yoshida route.
+  // Put it in the newest reviewed route layer so selection index 0 is always Yoshida.
+  '富士山': [{label:'吉田ルート',points:[
+    ['trailhead','富士スバルライン五合目（吉田口）','登山口'],
+    ['pass','吉田・須走ルート山頂','山頂ゲート'],
+    ['peak','富士山（剣ヶ峰）','山頂']
+  ]}],
   // Yakushima official route already has exact 50m + 270m split via Yodogawa-goya (=5h20 total).
   '宮之浦岳': [{label:'淀川登山口ルート',points:[['trailhead','淀川登山口','登山口'],['hut','淀川小屋','避難小屋'],['peak','宮ノ浦岳','山頂']]}],
   // Replace the obsolete 5h20 opaque Kasa-shindo alternative with the same verified hut split used by the current route.
