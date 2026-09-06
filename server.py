@@ -26,10 +26,12 @@ from datetime import datetime, timezone, timedelta
 from collections import OrderedDict
 from typing import Any
 
-from flask import Flask, Response, jsonify, request, send_from_directory
+from flask import Flask, Response, jsonify, request, send_from_directory, send_file
+
+import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.5.189"
+APP_VERSION = "1.5.190"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
@@ -49,6 +51,8 @@ USAGE_EVENT_MAX_BYTES = int(os.environ.get("USAGE_EVENT_MAX_BYTES", str(32 * 102
 USAGE_DASHBOARD_USERNAME = os.environ.get("USAGE_DASHBOARD_USERNAME", "admin")
 USAGE_DASHBOARD_PASSWORD = os.environ.get("USAGE_DASHBOARD_PASSWORD", "")
 USAGE_DASHBOARD_MAX_EVENTS = int(os.environ.get("USAGE_DASHBOARD_MAX_EVENTS", "50000"))
+# V1.5.190: history/error panels intentionally start fresh from this release.
+USAGE_DASHBOARD_RESET_AT = "2026-09-06T02:00:01+00:00"
 
 INDEXNOW_KEY = "5d55ce5ee953aa38b715681f5207ee3d"
 INDEXNOW_KEY_FILENAME = f"{INDEXNOW_KEY}.txt"
@@ -138,6 +142,7 @@ NATIONAL_OUTLOOK_STALE_TTL = int(os.environ.get("NATIONAL_OUTLOOK_STALE_TTL", "8
 NATIONAL_OUTLOOK_REFRESH_INTERVAL = int(os.environ.get("NATIONAL_OUTLOOK_REFRESH_INTERVAL", "900"))
 NATIONAL_OUTLOOK_AUTO_REFRESH = os.environ.get("NATIONAL_OUTLOOK_AUTO_REFRESH", "1").lower() not in {"0", "false", "no"}
 NATIONAL_CACHE_REFRESH_TOKEN = os.environ.get("NATIONAL_CACHE_REFRESH_TOKEN", "")
+NATIONAL_100_POINTS_FILE = os.path.join(BASE, "national-100-points.json")
 NATIONAL_OUTLOOK_CHUNK_SIZE = int(os.environ.get("NATIONAL_OUTLOOK_CHUNK_SIZE", "50"))
 NATIONAL_OUTLOOK_ENGINE = "metno-gfs-v1"
 NATIONAL_GFS_MIN_INTERVAL = float(os.environ.get("NATIONAL_GFS_MIN_INTERVAL", "0.35"))
@@ -303,18 +308,82 @@ def _clean_int(value: Any, minimum: int = 0, maximum: int = 10_000_000) -> int |
     return max(minimum, min(maximum, number))
 
 
+def _sanitize_route_itinerary(value: Any) -> list[dict[str, Any]]:
+    """Sanitize anonymous route/timing detail for usage analytics.
+
+    Deliberately stores no coordinates, IP, user agent, email, or free-form identity data.
+    The route is capped so one analytics event stays small even for long traverses.
+    """
+    if not isinstance(value, list):
+        return []
+    allowed = {"point_name", "point_type", "point_role", "date", "time", "stay"}
+    out: list[dict[str, Any]] = []
+    for raw in value[:40]:
+        if not isinstance(raw, dict):
+            continue
+        row: dict[str, Any] = {}
+        for key in allowed:
+            val = raw.get(key)
+            if key == "stay":
+                row[key] = bool(val)
+            elif val is not None:
+                limit = 120 if key == "point_name" else 40
+                row[key] = str(val)[:limit]
+        if row.get("point_name"):
+            out.append(row)
+    return out
+
+
+def _sanitize_ct_review_segments(value: Any) -> list[dict[str, Any]]:
+    """Sanitize CT review candidates captured from anonymous analyzed routes."""
+    if not isinstance(value, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for raw in value[:39]:
+        if not isinstance(raw, dict):
+            continue
+        from_name = _clean_text(raw.get("from_name"), 120)
+        to_name = _clean_text(raw.get("to_name"), 120)
+        status = str(raw.get("status") or "").strip()
+        if not from_name or not to_name or status not in {"estimated", "missing"}:
+            continue
+        row = {"from_name": from_name, "to_name": to_name, "status": status}
+        minutes = _clean_int(raw.get("minutes"), 0, 2000)
+        if minutes is not None:
+            row["minutes"] = minutes
+        source = _clean_text(raw.get("source"), 180)
+        if source:
+            row["source"] = source
+        out.append(row)
+    return out
+
+
 def _sanitize_metadata(value: Any) -> dict[str, Any]:
     if not isinstance(value, dict):
         return {}
     # Keep analytics payloads small and deliberately exclude common identity fields.
     blocked = {"ip", "ip_address", "email", "name", "user_agent", "ua", "phone", "address"}
+    long_text_keys = {"route_path"}
     out: dict[str, Any] = {}
-    for key, val in list(value.items())[:24]:
+    for key, val in list(value.items())[:32]:
         k = str(key)[:64]
         if k.lower() in blocked:
             continue
+        if k == "itinerary":
+            rows = _sanitize_route_itinerary(val)
+            if rows:
+                out[k] = rows
+            continue
+        if k == "ct_review_segments":
+            rows = _sanitize_ct_review_segments(val)
+            if rows:
+                out[k] = rows
+            continue
         if isinstance(val, (str, int, float, bool)) or val is None:
-            out[k] = val if not isinstance(val, str) else val[:300]
+            if isinstance(val, str):
+                out[k] = val[:1600 if k in long_text_keys else 300]
+            else:
+                out[k] = val
     return out
 
 
@@ -577,12 +646,89 @@ def _usage_dashboard_summary(events: list[dict[str, Any]]) -> dict[str, Any]:
         places.append(row)
     places.sort(key=lambda x: (-x["used_count"], -x["selected_count"], x["mountain"], x["point_name"]))
 
+    # V1.5.190: anonymous analyzed-route history is restored. Older records are
+    # intentionally hidden: the owner requested a clean slate from this release.
+    try:
+        history_cutoff = datetime.fromisoformat(USAGE_DASHBOARD_RESET_AT)
+    except Exception:
+        history_cutoff = datetime(2026, 9, 6, 2, 0, 1, tzinfo=timezone.utc)
+
+    def after_dashboard_reset(event: dict[str, Any]) -> bool:
+        try:
+            raw = str(event.get("created_at") or "")
+            dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt.astimezone(timezone.utc) >= history_cutoff.astimezone(timezone.utc)
+        except Exception:
+            return False
+
+    analysis_history: list[dict[str, Any]] = []
+    for e in events:
+        if e.get("event_name") != "weather_analysis" or e.get("success") is not True or not after_dashboard_reset(e):
+            continue
+        meta = e.get("metadata") if isinstance(e.get("metadata"), dict) else {}
+        itinerary = _sanitize_route_itinerary(meta.get("itinerary"))
+        mountain = str(e.get("mountain") or meta.get("mountain") or "").strip()
+        route_path = str(meta.get("route_path") or "").strip()
+        if not route_path and itinerary:
+            route_path = " → ".join(str(x.get("point_name") or "") for x in itinerary if x.get("point_name"))
+        route_label = str(meta.get("route_label") or "").strip()
+        start_date = str(meta.get("start_date") or (itinerary[0].get("date") if itinerary else "") or "")[:10]
+        end_date = str(meta.get("end_date") or (itinerary[-1].get("date") if itinerary else "") or "")[:10]
+        row = {
+            "created_at": e.get("created_at"), "mountain": mountain,
+            "route_label": route_label, "route_path": route_path,
+            "start_date": start_date, "end_date": end_date,
+            "stay_count": int(e.get("stay_count") or meta.get("overnight_count") or 0),
+            "point_count": int(e.get("route_points") or len(itinerary) or 0),
+            "itinerary": itinerary,
+        }
+        if route_path or itinerary:
+            analysis_history.append(row)
+    analysis_history.sort(key=lambda x: str(x.get("created_at") or ""), reverse=True)
+    analysis_history = analysis_history[:100]
+
+    # Keep the CT review queue useful; this is independent from the reset history panels.
+    ct_review_map: dict[tuple[str, str], dict[str, Any]] = {}
+    for e in events:
+        if e.get("event_name") != "weather_analysis" or e.get("success") is not True:
+            continue
+        meta = e.get("metadata") if isinstance(e.get("metadata"), dict) else {}
+        segments = _sanitize_ct_review_segments(meta.get("ct_review_segments"))
+        mountain = str(e.get("mountain") or "").strip()
+        session = str(e.get("session_id") or "")
+        created = str(e.get("created_at") or "")
+        for seg in segments:
+            key = (seg["from_name"], seg["to_name"])
+            row = ct_review_map.setdefault(key, {
+                "from_name": seg["from_name"], "to_name": seg["to_name"],
+                "status": seg["status"], "minutes": seg.get("minutes"),
+                "source": seg.get("source", ""), "use_count": 0,
+                "sessions": set(), "mountains": set(), "last_used": "",
+            })
+            row["use_count"] += 1
+            if seg["status"] == "missing":
+                row["status"] = "missing"; row["minutes"] = None
+            elif row.get("minutes") is None and seg.get("minutes") is not None:
+                row["minutes"] = seg.get("minutes")
+            if session: row["sessions"].add(session)
+            if mountain: row["mountains"].add(mountain)
+            if created > row["last_used"]: row["last_used"] = created
+    ct_review_segments = []
+    for row in ct_review_map.values():
+        row["unique_sessions"] = len(row.pop("sessions"))
+        row["mountains"] = sorted(row.pop("mountains"))
+        ct_review_segments.append(row)
+    ct_review_segments.sort(key=lambda x: (x["use_count"], x["unique_sessions"], x["last_used"]), reverse=True)
+    ct_review_segments = ct_review_segments[:100]
+
     recent_failures = [
         {
             "created_at": e.get("created_at"), "event_name": e.get("event_name"),
             "mountain": e.get("mountain"), "error_message": e.get("error_message"),
         }
-        for e in events if e.get("success") is False
+        for e in events if e.get("success") is False and after_dashboard_reset(e)
     ][:100]
 
     return {
@@ -597,6 +743,9 @@ def _usage_dashboard_summary(events: list[dict[str, Any]]) -> dict[str, Any]:
         "mountains": mountains,
         "places": places,
         "daily_trend": daily_trend,
+        "analysis_history": analysis_history,
+        "ct_review_segments": ct_review_segments,
+        "history_reset_at": USAGE_DASHBOARD_RESET_AT,
         "recent_failures": recent_failures,
     }
 
@@ -942,6 +1091,42 @@ def _national_supabase_write(date_text: str, points: list[dict[str, Any]], resul
             return 200<=resp.status<300
     except Exception:
         return False
+
+
+def _national_load_100_points() -> list[dict[str, Any]]:
+    try:
+        with open(NATIONAL_100_POINTS_FILE, "r", encoding="utf-8") as f:
+            rows = json.load(f)
+    except Exception as exc:
+        app.logger.warning("national_100_seed_load_failed %s", exc)
+        return []
+    out=[]; seen=set()
+    for row in rows if isinstance(rows,list) else []:
+        if not isinstance(row,dict): continue
+        name=str(row.get("name") or "")[:80]
+        try: lat=float(row.get("lat")); lon=float(row.get("lon"))
+        except (TypeError,ValueError): continue
+        if not name or name in seen or not (20 <= lat <= 50 and 120 <= lon <= 155): continue
+        try: elev=float(row.get("elevation")) if row.get("elevation") is not None else None
+        except (TypeError,ValueError): elev=None
+        seen.add(name); out.append({"name":name,"lat":lat,"lon":lon,"elevation":elev})
+    return out
+
+
+def _national_nextday_date_text() -> str:
+    today_jst=(datetime.now(timezone.utc)+timedelta(hours=9)).date()
+    return (today_jst+timedelta(days=1)).isoformat()
+
+
+def _instagram_load_fresh_100_results(date_text: str) -> list[dict[str, Any]]:
+    points = _national_load_100_points()
+    if len(points) != 100 or not _national_supabase_enabled():
+        return []
+    fresh, _ = _national_supabase_read(date_text, points)
+    ordered = [fresh[p["name"]] for p in points if p["name"] in fresh]
+    if len(ordered) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
+        return []
+    return ordered
 
 def _national_supabase_refresh_candidates(force: bool = False) -> dict[str, list[dict[str, Any]]]:
     """Load persistent cache rows that should be refreshed, grouped by forecast date.
@@ -1592,6 +1777,283 @@ def national_outlook_refresh_cache():
         return jsonify(error="Supabase national cache is not configured"), 503
     report = _refresh_national_persistent_cache(force=False)
     return jsonify(report), 200 if report.get("ok") else 207
+
+
+def _instagram_admin_authorized() -> bool:
+    # Dashboard Basic Auth is sufficient; cache token remains a supported fallback.
+    if _dashboard_auth_ok():
+        return True
+    if not NATIONAL_CACHE_REFRESH_TOKEN:
+        return False
+    supplied = request.headers.get("X-Traten-Cache-Token", "")
+    return bool(supplied and hmac.compare_digest(supplied, NATIONAL_CACHE_REFRESH_TOKEN))
+
+
+@app.get("/instagram-admin")
+def instagram_admin_page():
+    """Browser-based Instagram bot console linked from the protected usage dashboard."""
+    if not _dashboard_auth_ok():
+        return _dashboard_unauthorized()
+    return Response("""<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>トラテン Instagram 管理</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#17324a;background:#f4f7fa}
+body{margin:0}.wrap{max-width:920px;margin:0 auto;padding:28px 18px 60px}
+h1{font-size:26px;margin:0 0 6px}.sub{color:#607284;margin-bottom:22px}
+.card{background:#fff;border:1px solid #dbe4ec;border-radius:14px;padding:18px;margin:14px 0;box-shadow:0 2px 9px #0000000a}
+label{display:block;font-weight:700;margin:8px 0 6px}
+input{width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid #bdcbd6;border-radius:9px;font-size:15px}
+button{border:0;border-radius:9px;padding:11px 16px;font-weight:700;cursor:pointer;background:#0b5e9a;color:#fff;margin:6px 8px 6px 0}
+button.secondary{background:#667989}button.danger{background:#a33d3d}
+.row{display:flex;gap:12px;flex-wrap:wrap}.row>div{flex:1;min-width:220px}
+.status{white-space:pre-wrap;background:#102536;color:#eaf4fb;border-radius:10px;padding:13px;min-height:48px;font-family:ui-monospace,Consolas,monospace;font-size:13px;overflow:auto}
+img{display:block;width:min(100%,540px);height:auto;border-radius:12px;border:1px solid #dbe4ec;margin-top:12px}
+video{display:block;width:min(100%,540px);height:auto;max-height:76vh;border-radius:12px;border:1px solid #dbe4ec;margin-top:12px;background:#091827}
+.small{font-size:13px;color:#657687}.pill{display:inline-block;padding:4px 9px;border-radius:999px;background:#eaf2f8;margin-right:6px;font-size:13px}
+</style>
+</head><body><main class="wrap">
+<h1>トラテン Instagram 管理</h1>
+<div class="sub">V1.5.190 / 接続確認・静止画/リールプレビュー・手動投稿</div>
+
+<section class="card">
+<label>管理トークン（任意・Basic認証利用時は空欄でOK）</label>
+<input id="token" type="password" autocomplete="off" placeholder="Render Environment の値">
+<div class="small">通常は使用状況ダッシュボードと同じBasic認証で利用できます。必要な場合だけRenderのNATIONAL_CACHE_REFRESH_TOKENを入力してください。</div>
+<button onclick="saveToken()">このタブに保存</button>
+<button class="secondary" onclick="clearToken()">消去</button>
+</section>
+
+<section class="card">
+<h2>1. 状態・接続確認</h2>
+<button onclick="loadStatus()">状態確認</button>
+<button onclick="testConnection()">Instagram接続確認</button>
+<div id="summary" style="margin:10px 0"></div>
+<div id="out" class="status">未確認</div>
+</section>
+
+<section class="card">
+<h2>2. 投稿画像プレビュー</h2>
+<div class="row"><div><label>予報日</label><input id="date" type="date"></div></div>
+<button onclick="preview()">静止画をプレビュー</button>
+<button onclick="previewReelVideo()">リールをプレビュー</button>
+<div id="previewMsg" class="small"></div>
+<img id="previewImg" alt="Instagram投稿画像プレビュー" hidden>
+<div id="reelControls" hidden style="margin-top:10px"><button id="reelPlayBtn" class="secondary" type="button" onclick="playPreviewReel()" disabled>▶ リールを再生</button> <a id="reelOpenLink" href="#" target="_blank" rel="noopener" style="display:none;margin-left:8px">別タブで開く</a></div>
+<video id="previewReelVideo" controls playsinline preload="metadata" hidden style="min-height:360px;aspect-ratio:9/16;pointer-events:auto"></video>
+</section>
+
+<section class="card">
+<h2>3. 手動投稿</h2>
+<p class="small">同じ予報日は通常二重投稿しません。まず画像プレビューを確認してから実行してください。</p>
+<button class="danger" onclick="postNow()">この予報日をInstagramへ投稿</button>
+<label style="font-weight:400"><input id="force" type="checkbox" style="width:auto"> 二重投稿防止を無視して強制投稿（通常はOFF）</label>
+<div id="postOut" class="status">未実行</div>
+</section>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+function token(){return $('token').value.trim()}
+function saveToken(){sessionStorage.setItem('tratenIgAdminToken',token());alert('このタブに保存しました')}
+function clearToken(){sessionStorage.removeItem('tratenIgAdminToken');$('token').value=''}
+function h(json=false){const x={};if(token())x['X-Traten-Cache-Token']=token();if(json)x['Content-Type']='application/json';return x}
+async function api(url,opt={}){
+  const r=await fetch(url,{...opt,headers:{...(opt.headers||{}),...h(!!opt.body)}});
+  let j;try{j=await r.json()}catch{j={error:'response parse error'}}
+  if(!r.ok)throw new Error((j&&j.error)||('HTTP '+r.status));
+  return j;
+}
+function show(id,obj){$(id).textContent=JSON.stringify(obj,null,2)}
+async function loadStatus(){
+  try{
+    const j=await api('/api/instagram/status');show('out',j);$('date').value=j.tomorrow||'';
+    $('summary').innerHTML=`<span class="pill">configured: ${j.configured}</span><span class="pill">autoPost: ${j.autoPost}</span><span class="pill">autoMedia: ${j.autoMedia}</span><span class="pill">fresh: ${j.tomorrowFreshCount}</span>`;
+    if(j.previewImageUrl){$('previewImg').src=j.previewImageUrl;$('previewImg').hidden=false}
+  }catch(e){$('out').textContent=e.message}
+}
+async function testConnection(){
+  try{show('out',await api('/api/instagram/test-connection'))}
+  catch(e){$('out').textContent=e.message}
+}
+async function preview(){
+  try{
+    const d=$('date').value;if(!d)throw new Error('予報日を選択してください');
+    const r=await api('/api/instagram/preview-url?date='+encodeURIComponent(d));
+    $('previewReelVideo').pause();$('previewReelVideo').hidden=true;$('reelControls').hidden=true;$('reelPlayBtn').disabled=true;$('reelOpenLink').style.display='none';
+    $('previewImg').src=r.previewImageUrl+'&t='+Date.now();$('previewImg').hidden=false;
+    $('previewMsg').textContent=`静止画: ${r.date} / ${r.count}座`;
+  }catch(e){$('previewMsg').textContent=e.message}
+}
+async function previewReelVideo(){
+  try{
+    const d=$('date').value;if(!d)throw new Error('予報日を選択してください');
+    $('previewMsg').textContent='リールを生成しています。初回は少し時間がかかります…';
+    $('reelControls').hidden=true;$('reelPlayBtn').disabled=true;$('reelOpenLink').style.display='none';
+    const r=await api('/api/instagram/reel-preview-url?date='+encodeURIComponent(d));
+    $('previewImg').hidden=true;
+    const v=$('previewReelVideo');
+    const url=r.previewReelUrl+'&t='+Date.now();
+    v.hidden=false;v.controls=true;v.src=url;
+    $('reelOpenLink').href=url;$('reelOpenLink').style.display='inline';$('reelControls').hidden=false;
+    v.onerror=()=>{ $('previewMsg').textContent='リール動画の生成または読込に失敗しました。別タブで開く、またはRenderログの instagram_national_reel_failed を確認してください。'; $('reelPlayBtn').disabled=true; };
+    v.onloadedmetadata=()=>{ $('previewMsg').textContent=`リール生成完了: ${r.date} / ${r.count}座 / ${Math.round(v.duration||0)}秒。下の「▶ リールを再生」を押してください。`; };
+    v.oncanplay=()=>{ $('reelPlayBtn').disabled=false; $('previewMsg').textContent=`リール再生準備完了: ${r.date} / ${r.count}座 / ${Math.round(v.duration||0)}秒`; };
+    v.onwaiting=()=>{ $('previewMsg').textContent='動画データを読み込み中です…'; };
+    v.load();
+  }catch(e){$('previewMsg').textContent=e.message}
+}
+async function playPreviewReel(){
+  const v=$('previewReelVideo');
+  try{ await v.play(); $('previewMsg').textContent=`再生中 / ${Math.round(v.duration||0)}秒`; }
+  catch(e){ $('previewMsg').textContent='ブラウザで再生できませんでした。「別タブで開く」を試してください: '+(e&&e.message?e.message:'再生エラー'); }
+}
+async function postNow(){
+  try{
+    const d=$('date').value;if(!d)throw new Error('予報日を選択してください');
+    if(!confirm(d+' の全国分析をInstagramへ投稿します。よろしいですか？'))return;
+    const j=await api('/api/instagram/post-national',{method:'POST',body:JSON.stringify({date:d,force:$('force').checked})});
+    show('postOut',j);
+  }catch(e){$('postOut').textContent=e.message}
+}
+$('token').value=sessionStorage.getItem('tratenIgAdminToken')||'';
+</script>
+</body></html>""", content_type="text/html; charset=utf-8")
+
+
+@app.get("/api/instagram/preview-url")
+def instagram_preview_url():
+    if not _instagram_admin_authorized():
+        return jsonify(error="unauthorized"), 401
+    date_text = str(request.args.get("date") or _national_nextday_date_text())[:10]
+    try:
+        datetime.strptime(date_text, "%Y-%m-%d")
+    except ValueError:
+        return jsonify(error="invalid date"), 400
+    rows = _instagram_load_fresh_100_results(date_text)
+    if len(rows) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
+        return jsonify(error="fresh nationwide cache is incomplete", count=len(rows), minimum=instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS, date=date_text), 409
+    return jsonify(date=date_text, count=len(rows), previewImageUrl=instagram_bot.image_url(date_text))
+
+
+@app.get("/api/instagram/reel-preview-url")
+def instagram_reel_preview_url():
+    if not _instagram_admin_authorized():
+        return jsonify(error="unauthorized"), 401
+    date_text = str(request.args.get("date") or _national_nextday_date_text())[:10]
+    try:
+        datetime.strptime(date_text, "%Y-%m-%d")
+    except ValueError:
+        return jsonify(error="invalid date"), 400
+    rows = _instagram_load_fresh_100_results(date_text)
+    if len(rows) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
+        return jsonify(error="fresh nationwide cache is incomplete", count=len(rows), minimum=instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS, date=date_text), 409
+    # Generate/cache the MP4 before returning the URL. Previously the API returned
+    # immediately and the <video> element itself triggered a long render request,
+    # so the browser controls looked disabled while ffmpeg was still working.
+    try:
+        instagram_bot.render_national_reel(date_text, rows, logo_path=os.path.join(BASE, "traten-logo.png"))
+    except Exception as exc:
+        app.logger.exception("instagram_reel_preview_prepare_failed date=%s", date_text)
+        return jsonify(error=str(exc)[:500]), 500
+    return jsonify(date=date_text, count=len(rows), previewReelUrl=instagram_bot.reel_url(date_text))
+
+
+@app.get("/api/instagram/national-image/<date_text>")
+def instagram_national_image(date_text: str):
+    """Signed public JPEG URL consumed by Meta's image fetcher."""
+    date_text = str(date_text or "")[:10]
+    try:
+        datetime.strptime(date_text, "%Y-%m-%d")
+    except ValueError:
+        return jsonify(error="invalid date"), 400
+    if not instagram_bot.valid_image_signature(date_text, request.args.get("sig", "")):
+        return jsonify(error="unauthorized"), 401
+    rows = _instagram_load_fresh_100_results(date_text)
+    if len(rows) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
+        return jsonify(error="fresh nationwide cache is incomplete", count=len(rows), minimum=instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS), 409
+    try:
+        body = instagram_bot.render_national_image(
+            date_text, rows, logo_path=os.path.join(BASE, "traten-logo.webp")
+        )
+    except Exception as exc:
+        app.logger.exception("instagram_national_image_failed date=%s", date_text)
+        return jsonify(error=str(exc)[:300]), 500
+    response = Response(body, status=200, content_type="image/jpeg")
+    response.headers["Cache-Control"] = "public, max-age=900"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
+@app.get("/api/instagram/national-reel/<date_text>")
+def instagram_national_reel(date_text: str):
+    try:
+        datetime.strptime(date_text, "%Y-%m-%d")
+    except ValueError:
+        return jsonify(error="invalid date"), 400
+    if not instagram_bot.valid_reel_signature(date_text, request.args.get("sig", "")):
+        return jsonify(error="unauthorized"), 401
+    rows = _instagram_load_fresh_100_results(date_text)
+    if len(rows) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
+        return jsonify(error="fresh nationwide cache is incomplete", count=len(rows), minimum=instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS), 409
+    try:
+        path = instagram_bot.render_national_reel(date_text, rows, logo_path=os.path.join(BASE, "traten-logo.png"))
+        return send_file(path, mimetype="video/mp4", conditional=True, download_name=f"traten-{date_text}.mp4")
+    except Exception as exc:
+        app.logger.exception("instagram_national_reel_failed date=%s", date_text)
+        return jsonify(error=str(exc)[:500]), 500
+
+
+@app.get("/api/instagram/status")
+def instagram_status():
+    if not _instagram_admin_authorized():
+        return jsonify(error="unauthorized"), 401
+    status = instagram_bot.status()
+    target = _national_nextday_date_text()
+    status["tomorrow"] = target
+    status["tomorrowFreshCount"] = len(_instagram_load_fresh_100_results(target))
+    if instagram_bot.configured():
+        status["previewImageUrl"] = instagram_bot.image_url(target)
+    return jsonify(status)
+
+
+@app.get("/api/instagram/test-connection")
+def instagram_test_connection():
+    if not _instagram_admin_authorized():
+        return jsonify(error="unauthorized"), 401
+    try:
+        result = instagram_bot.test_connection()
+        return jsonify(result), 200 if result.get("ok") else 503
+    except Exception as exc:
+        app.logger.exception("instagram_connection_test_failed")
+        return jsonify(ok=False, error=str(exc)[:500]), 502
+
+
+@app.post("/api/instagram/post-national")
+def instagram_post_national():
+    """Protected manual publish/test endpoint.
+
+    JSON: {"date":"YYYY-MM-DD", "force":false}. Omit date for tomorrow JST.
+    """
+    if not _instagram_admin_authorized():
+        return jsonify(error="unauthorized"), 401
+    payload = request.get_json(silent=True) or {}
+    date_text = str(payload.get("date") or _national_nextday_date_text())[:10]
+    try:
+        datetime.strptime(date_text, "%Y-%m-%d")
+    except ValueError:
+        return jsonify(error="invalid date"), 400
+    rows = _instagram_load_fresh_100_results(date_text)
+    if len(rows) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
+        return jsonify(ok=False, error="fresh nationwide cache is incomplete", count=len(rows), minimum=instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS, date=date_text), 409
+    try:
+        result = instagram_bot.post_national(date_text, rows, force=bool(payload.get("force")))
+        return jsonify(result), 200 if result.get("ok") else 503
+    except Exception as exc:
+        app.logger.exception("instagram_manual_post_failed date=%s", date_text)
+        return jsonify(ok=False, error=str(exc)[:500]), 502
 
 
 @app.post("/api/national-outlook")

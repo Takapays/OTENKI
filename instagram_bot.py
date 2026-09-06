@@ -35,10 +35,10 @@ INSTAGRAM_SITE_URL = os.environ.get("INSTAGRAM_SITE_URL", "https://otenki.onrend
 INSTAGRAM_IMAGE_SECRET = os.environ.get("INSTAGRAM_IMAGE_SECRET", "").strip()
 INSTAGRAM_FONT_PATH = os.environ.get("INSTAGRAM_FONT_PATH", "").strip()
 INSTAGRAM_HTTP_TIMEOUT = max(5, min(60, int(os.environ.get("INSTAGRAM_HTTP_TIMEOUT", "25"))))
-INSTAGRAM_MIN_NATIONAL_RESULTS = max(1, min(300, int(os.environ.get("INSTAGRAM_MIN_NATIONAL_RESULTS", "294"))))
+INSTAGRAM_MIN_NATIONAL_RESULTS = max(1, min(100, int(os.environ.get("INSTAGRAM_MIN_NATIONAL_RESULTS", "98"))))
 INSTAGRAM_AUTO_MEDIA = (os.environ.get("INSTAGRAM_AUTO_MEDIA", "reel").strip().lower() or "reel")
 INSTAGRAM_REEL_FPS = max(8, min(20, int(os.environ.get("INSTAGRAM_REEL_FPS", "12"))))
-INSTAGRAM_REEL_SECONDS = max(6, min(12, int(os.environ.get("INSTAGRAM_REEL_SECONDS", "12"))))
+INSTAGRAM_REEL_SECONDS = max(6, min(12, int(os.environ.get("INSTAGRAM_REEL_SECONDS", "8"))))
 
 _STATE_FILE = os.path.join(tempfile.gettempdir(), "traten-instagram-state.json")
 
@@ -68,8 +68,6 @@ def image_url(date_text: str) -> str:
     return f"{PUBLIC_BASE_URL}/api/instagram/national-image/{urllib.parse.quote(date_text)}?sig={urllib.parse.quote(sig)}"
 
 
-REEL_ASSET_VERSION = "15119"
-
 def reel_signature(date_text: str) -> str:
     if not image_secret():
         return ""
@@ -83,7 +81,7 @@ def valid_reel_signature(date_text: str, supplied: str) -> bool:
 
 def reel_url(date_text: str) -> str:
     sig = reel_signature(date_text)
-    return f"{PUBLIC_BASE_URL}/api/instagram/national-reel/{urllib.parse.quote(date_text)}?sig={urllib.parse.quote(sig)}&v={REEL_ASSET_VERSION}"
+    return f"{PUBLIC_BASE_URL}/api/instagram/national-reel/{urllib.parse.quote(date_text)}?sig={urllib.parse.quote(sig)}"
 
 
 def _bundled_japanese_font_path() -> str:
@@ -257,7 +255,7 @@ def _fetch_gsi_tile(z: int, x: int, y: int) -> "Image.Image":
     if not os.path.exists(path):
         req = urllib.request.Request(
             f"https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png",
-            headers={"User-Agent": "Traten/1.5.89 (+https://otenki.onrender.com/)"},
+            headers={"User-Agent": "Traten/1.5.85 (+https://otenki.onrender.com/)"},
         )
         try:
             with urllib.request.urlopen(req, timeout=15) as r, open(path + ".tmp", "wb") as f:
@@ -274,86 +272,47 @@ def _fetch_gsi_tile(z: int, x: int, y: int) -> "Image.Image":
 
 
 def _render_japan_map(results: list[dict[str, Any]], width: int, height: int) -> "Image.Image":
-    """Render the bundled Japan silhouette and overlay dynamic A/B/C markers."""
+    # Bundled Japan base map guarantees a usable Reel even if an external tile server is unavailable.
+    north, south, west, east = 46.2, 29.0, 127.0, 146.8
     base_path = os.path.join(os.path.dirname(__file__), "instagram-japan-base.png")
     if os.path.exists(base_path):
-        with Image.open(base_path) as src:
-            src = src.convert("RGB")
-            # Crop to the main Japanese archipelago while keeping Hokkaido and Kyushu visible.
-            crop = src.crop((70, 35, 620, 430)).resize((width, height), Image.Resampling.LANCZOS)
+        crop = Image.open(base_path).convert("RGB").resize((width, height), Image.Resampling.LANCZOS)
     else:
-        crop = Image.new("RGB", (width, height), (228, 242, 249))
-
+        crop = Image.new("RGB", (width, height), (207, 234, 245))
     d = ImageDraw.Draw(crop, "RGBA")
-    d.rectangle((0, 0, width, height), fill=(223, 241, 250, 72))
-    grade_colors = {"A": (25,145,82,255), "B": (226,164,14,255), "C": (211,63,64,255)}
-    font = _load_font(max(18, width // 31))
-    r = max(12, width // 45)
-    north, south, west, east = 46.5, 29.5, 128.3, 146.7
-    pad_x, pad_y = width * 0.02, height * 0.02
+    grade_colors = {"A": (22, 142, 83, 255), "B": (220, 153, 12, 255), "C": (205, 62, 62, 255)}
+    font = _load_font(max(22, width // 25))
+    r = max(17, width // 36)
     for row in results:
         try:
             lat, lon = float(row.get("lat")), float(row.get("lon"))
             grade = str(row.get("grade") or "")
         except Exception:
             continue
-        if grade not in grade_colors:
-            continue
-        px = int(pad_x + (lon-west)/(east-west) * (width - pad_x*2))
-        py = int(pad_y + (north-lat)/(north-south) * (height - pad_y*2))
-        if not (-r <= px <= width+r and -r <= py <= height+r):
-            continue
-        d.ellipse((px-r-3, py-r-3, px+r+3, py+r+3), fill=(255,255,255,235))
-        d.ellipse((px-r, py-r, px+r, py+r), fill=grade_colors[grade])
-        bbox = d.textbbox((0,0), grade, font=font)
-        d.text((px-(bbox[2]-bbox[0])/2, py-(bbox[3]-bbox[1])/2-1), grade, font=font, fill=(255,255,255,255))
+        if grade not in grade_colors: continue
+        px = int((lon-west)/(east-west)*width)
+        py = int((north-lat)/(north-south)*height)
+        if not (-r <= px <= width+r and -r <= py <= height+r): continue
+        d.ellipse((px-r-3,py-r-3,px+r+3,py+r+3), fill=(255,255,255,235))
+        d.ellipse((px-r,py-r,px+r,py+r), fill=grade_colors[grade])
+        bbox=d.textbbox((0,0), grade, font=font)
+        d.text((px-(bbox[2]-bbox[0])/2, py-(bbox[3]-bbox[1])/2-2), grade, font=font, fill=(255,255,255,255))
+    d.rounded_rectangle((12,height-36,142,height-10), radius=8, fill=(255,255,255,205))
+    d.text((22,height-34), "全国マップ", font=_load_font(18), fill=(50,70,84,255))
     return crop
 
 
-def _render_gsi_japan_background(path: str, width: int = 1080, height: int = 1590) -> str:
-    """Render the same GSI standard-map tiles used by the nationwide site map, without markers."""
-    north, south, west, east = 46.2, 29.0, 127.0, 146.8
-    z = 5
-    try:
-        wx0, wy0 = _lonlat_to_world_px(north, west, z)
-        wx1, wy1 = _lonlat_to_world_px(south, east, z)
-        tx0, ty0 = int(math.floor(wx0 / 256)), int(math.floor(wy0 / 256))
-        tx1, ty1 = int(math.floor(wx1 / 256)), int(math.floor(wy1 / 256))
-        canvas = Image.new("RGB", ((tx1-tx0+1)*256, (ty1-ty0+1)*256), (207,234,245))
-        for ty in range(ty0, ty1+1):
-            for tx in range(tx0, tx1+1):
-                tile = _fetch_gsi_tile(z, tx, ty)
-                canvas.paste(tile, ((tx-tx0)*256, (ty-ty0)*256))
-        left = int(round(wx0 - tx0*256)); top = int(round(wy0 - ty0*256))
-        right = int(round(wx1 - tx0*256)); bottom = int(round(wy1 - ty0*256))
-        crop = canvas.crop((left, top, right, bottom)).resize((width,height), Image.Resampling.LANCZOS)
-        # If all tile requests failed, _fetch_gsi_tile returns the same pale placeholder.
-        extrema = crop.getextrema()
-        if all((hi-lo) < 4 for lo, hi in extrema):
-            raise RuntimeError("GSI tiles unavailable")
-        crop.save(path, format="PNG", optimize=True)
-        return path
-    except Exception:
-        fallback = os.path.join(os.path.dirname(__file__), "instagram-japan-base.png")
-        if os.path.exists(fallback):
-            Image.open(fallback).convert("RGB").resize((width,height), Image.Resampling.LANCZOS).save(path, format="PNG")
-            return path
-        raise
-
 def _write_original_bgm(path: str, seconds: int) -> None:
-    """Write a bright, breezy original jingle for the mountain forecast Reel."""
     sr = 44100
-    bpm = 120.0
+    bpm = 112.0
     beat = 60.0 / bpm
-    # C - G - Am - F: a clean, optimistic progression.  Short decays emulate
-    # an acoustic/ukulele pluck instead of the former sustained synth pad.
     chords = [
-        (261.63, 329.63, 392.00, 523.25),
-        (196.00, 246.94, 293.66, 392.00),
-        (220.00, 261.63, 329.63, 440.00),
-        (174.61, 220.00, 261.63, 349.23),
+        (174.61,220.00,261.63,329.63),
+        (220.00,261.63,329.63,392.00),
+        (261.63,329.63,392.00,493.88),
+        (196.00,246.94,293.66,329.63),
     ]
-    melody = (659.25, 783.99, 880.00, 783.99, 659.25, 587.33, 659.25, 783.99)
+    melody = (659.25,783.99,880.00,783.99,659.25,587.33,523.25,587.33)
     total = int(sr * seconds)
     with wave.open(path, "wb") as wf:
         wf.setnchannels(2); wf.setsampwidth(2); wf.setframerate(sr)
@@ -361,193 +320,119 @@ def _write_original_bgm(path: str, seconds: int) -> None:
         for i in range(total):
             t=i/sr
             ci=min(3,int(t/(seconds/4.0)))
-            chord=chords[ci]
-
-            # Alternating acoustic-style arpeggio on eighth notes.
-            arp_step=int(t/(beat/2.0)); arp_t=t-arp_step*(beat/2.0)
-            af=chord[(0,2,1,3)[arp_step%4]]
-            arp_env=math.exp(-7.2*arp_t)
-            pluck=(math.sin(2*math.pi*af*arp_t)
-                   +0.34*math.sin(4*math.pi*af*arp_t)
-                   +0.12*math.sin(6*math.pi*af*arp_t))
-
-            # A small bell-like top line gives an open-air, morning feel.
-            mel_step=int(t/beat); mel_t=t-mel_step*beat
-            mf=melody[mel_step%len(melody)]
-            mel_env=math.exp(-5.5*mel_t)
-            bell=(math.sin(2*math.pi*mf*mel_t)
-                  +0.28*math.sin(2*math.pi*mf*2.01*mel_t))
-
-            # Very light off-beat shaker; deterministic so every render matches.
-            shaker_t=(t+beat/2.0)%beat
-            shaker_env=math.exp(-34.0*shaker_t) if shaker_t<0.12 else 0.0
-            noise=math.sin(i*12.9898)*math.sin(i*78.233)
-            v=0.105*pluck*arp_env + 0.045*bell*mel_env + 0.018*noise*shaker_env
+            local=t-ci*(seconds/4.0)
+            v=0.0
+            for f in chords[ci]:
+                v += 0.035*math.sin(2*math.pi*f*local) + 0.010*math.sin(2*math.pi*f*1.004*local)
+            # soft electronic pulse and pluck
+            pos=t%beat
+            if pos<0.16:
+                v += 0.075*math.sin(2*math.pi*(55+45*math.exp(-18*pos))*pos)*math.exp(-20*pos)
+            step=int(t/(beat/2.0))
+            pl=t-step*(beat/2.0)
+            if pl<0.16:
+                f=melody[step%len(melody)]
+                v += 0.032*math.sin(2*math.pi*f*pl)*math.exp(-12*pl)
             fade=min(1.0,t/0.35,(seconds-t)/0.55)
             v=max(-0.75,min(0.75,v*fade))
-            # Subtle stereo width without changing the melody.
-            width=0.025*pluck*arp_env*((-1) if arp_step%2 else 1)
-            left=int(max(-0.75,min(0.75,v+width))*32767)
-            right=int(max(-0.75,min(0.75,v-width))*32767)
+            left=int(v*32767); right=int(v*0.96*32767)
             block.append(struct.pack('<hh',left,right))
             if len(block)>=4096:
                 wf.writeframes(b''.join(block)); block=[]
         if block: wf.writeframes(b''.join(block))
 
 
-def _render_reel_scenes_pillow(*, rows: list[dict[str, Any]], counts: dict[str, int], target: date,
-                                logo_path: str | None, out_dir: str) -> list[str]:
-    """V1.5.114: keep the approved artwork fixed; overlay only date and live A/B/C markers."""
-    if Image is None or ImageDraw is None:
-        raise RuntimeError("Pillow is not installed")
-
-    W, H = 720, 1280
-    grade_colors={"A":(18,130,72,255),"B":(226,160,0,255),"C":(211,57,61,255)}
-    os.makedirs(out_dir, exist_ok=True)
-    scene_paths=[]
-
-    base_dir=os.path.dirname(__file__)
-    map_background=os.path.join(base_dir,"instagram-reel-map-background-v15114.png")
-    features_background=os.path.join(base_dir,"instagram-reel-features-v15114.png")
-    for asset in (map_background,features_background):
-        if not os.path.exists(asset):
-            raise RuntimeError(f"fixed Instagram Reel asset is missing: {os.path.basename(asset)}")
-
-    def open_fixed(path: str) -> "Image.Image":
-        with Image.open(path) as src:
-            return src.convert("RGB").resize((W,H),Image.Resampling.LANCZOS)
-
-    def save(img,name):
-        path=os.path.join(out_dir,name)
-        img.save(path,"JPEG",quality=93,optimize=True,progressive=True)
-        img.close(); scene_paths.append(path); return path
-
-    # Approved map artwork is immutable. Date and live grades are the only overlays.
-    img=open_fixed(map_background); d=ImageDraw.Draw(img,"RGBA")
-    date_text=f"{target.month}/{target.day}"
-    d.text((34,213),date_text,font=_load_font(29),fill=(8,112,55,255),stroke_width=1,stroke_fill=(255,255,255,170))
-
-    # Affine calibration against the locked relief-map artwork (source artwork: 940x1672).
-    # Marker positions stay geographical while the artwork itself never changes.
-    sx,sy=W/940.0,H/1672.0
-    marker_font=_load_font(15); radius=12
-    candidates=[]
-    for row in rows:
-        try:
-            lat=float(row.get("lat")); lon=float(row.get("lon")); grade=str(row.get("grade") or "")
-        except Exception:
-            continue
-        if grade not in grade_colors: continue
-        source_x=54.17*lon-6910.0
-        source_y=-81.65*lat+3957.0
-        # V1.5.119: the locked relief artwork sits slightly left of the affine
-        # calibration used for the markers. Shift every marker 18 px left as a
-        # single map-registration correction; relative geography is unchanged.
-        x=max(30,min(W-25,source_x*sx-18)); y=max(274,min(1160,source_y*sy))
-        candidates.append([x,y,grade])
-
-    # Mild collision relaxation: preserve location, but keep labels readable in dense ranges.
-    # Three hundred labels cannot be read individually at Reel size. Keep the
-    # underlying counts based on every mountain, while selecting geographically
-    # distributed map markers (C then A then B) like the approved visual mock.
-    display_candidates=[]; occupied_cells=set()
-    for item in sorted(candidates,key=lambda p:({"C":0,"A":1,"B":2}[p[2]],p[1],p[0])):
-        cell=(int(item[0]//28),int(item[1]//32))
-        if cell in occupied_cells: continue
-        occupied_cells.add(cell); display_candidates.append(item)
-    placed=[]
-    for x,y,grade in display_candidates:
-        best=(x,y)
-        for ring in range(0,7):
-            found=False
-            steps=max(1,ring*8)
-            for step in range(steps):
-                angle=(2*math.pi*step/steps) if steps>1 else 0
-                px=x+ring*5*math.cos(angle); py=y+ring*5*math.sin(angle)
-                if not (22<=px<=W-22 and 270<=py<=1160): continue
-                # Keep overlays off the headline card, free badge, legend and footer.
-                excluded=((25,282,445,520),(35,542,315,790),(310,972,710,1160))
-                if any(x1-15<=px<=x2+15 and y1-15<=py<=y2+15 for x1,y1,x2,y2 in excluded): continue
-                if all((px-qx)**2+(py-qy)**2 >= 17**2 for qx,qy in placed):
-                    best=(px,py); found=True; break
-            if found: break
-        px,py=best; placed.append((px,py))
-        d.ellipse((px-radius+2,py-radius+4,px+radius+2,py+radius+4),fill=(0,31,55,70))
-        d.ellipse((px-radius-2,py-radius-2,px+radius+2,py+radius+2),fill=(255,255,255,245))
-        d.ellipse((px-radius,py-radius,px+radius,py+radius),fill=grade_colors[grade])
-        bbox=d.textbbox((0,0),grade,font=marker_font)
-        d.text((px-(bbox[2]-bbox[0])/2,py-(bbox[3]-bbox[1])/2-1),grade,font=marker_font,fill=(255,255,255,255))
-    save(img,"scene-map.jpg")
-
-    # Page 2 is also immutable; this prevents daily style drift.
-    save(open_fixed(features_background),"scene-features.jpg")
-    return scene_paths
-
-
 def render_national_reel(date_text: str, results: list[dict[str, Any]], *, logo_path: str | None = None) -> str:
-    """Render the locked two-page Reel without Playwright/Chromium (V1.5.114)."""
+    """Render a compact 9:16 Reel with live nationwide data and original BGM."""
     if Image is None or ImageDraw is None:
         raise RuntimeError("Pillow is not installed")
-    rows = [dict(r) for r in results if isinstance(r, dict) and str(r.get("grade") or "") in {"A", "B", "C"}]
+    rows=[dict(r) for r in results if isinstance(r,dict) and str(r.get("grade") or "") in {"A","B","C"}]
     if len(rows) < INSTAGRAM_MIN_NATIONAL_RESULTS:
         raise RuntimeError(f"national reel requires at least {INSTAGRAM_MIN_NATIONAL_RESULTS} results, got {len(rows)}")
-
-    target = date.fromisoformat(date_text)
-    counts = {g: sum(1 for r in rows if r.get("grade") == g) for g in "ABC"}
-    outdir = os.path.join(tempfile.gettempdir(), "traten-instagram-reels-v15119")
-    os.makedirs(outdir, exist_ok=True)
-    out = os.path.join(outdir, f"traten-{date_text}-v15119.mp4")
-    if os.path.exists(out) and os.path.getsize(out) > 100000:
+    target=date.fromisoformat(date_text)
+    counts={g:sum(1 for r in rows if r.get("grade")==g) for g in "ABC"}
+    outdir=os.path.join(tempfile.gettempdir(),"traten-instagram-reels")
+    os.makedirs(outdir,exist_ok=True)
+    out=os.path.join(outdir,f"traten-{date_text}.mp4")
+    if os.path.exists(out) and os.path.getsize(out)>100000:
         return out
-
-    work = os.path.join(outdir, f"work-{date_text}-{os.getpid()}")
-    os.makedirs(work, exist_ok=True)
+    work=os.path.join(outdir,f"work-{date_text}-{os.getpid()}")
+    os.makedirs(work,exist_ok=True)
     try:
-        scenes = _render_reel_scenes_pillow(
-            rows=rows,
-            counts=counts,
-            target=target,
-            logo_path=logo_path,
-            out_dir=work,
-        )
-        if len(scenes) != 2:
-            raise RuntimeError(f"Pillow renderer returned {len(scenes)} scenes")
-
-        # Keep encoding deliberately small-memory for Render Free (512 MB).
-        fps = min(12, INSTAGRAM_REEL_FPS)
-        sec = float(INSTAGRAM_REEL_SECONDS)
-        wav = os.path.join(work, "bgm.wav")
-        _write_original_bgm(wav, int(math.ceil(sec)))
-
+        W,H=720,1280
+        fps=INSTAGRAM_REEL_FPS
+        sec=INSTAGRAM_REEL_SECONDS
+        map_img=_render_japan_map(rows, W, 900)
+        # imageio-ffmpeg provides a self-contained ffmpeg binary on Render.
         import imageio_ffmpeg
-        ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
-        tmp = out + f".{os.getpid()}.tmp.mp4"
-        fade=0.65
-        first=max(3.0,sec*0.52)
-        offset=first-fade
-        second=sec-offset
-        cmd = [
-            ffmpeg, "-y",
-            "-loop", "1", "-t", f"{first:.3f}", "-i", scenes[0],
-            "-loop", "1", "-t", f"{second:.3f}", "-i", scenes[1],
-            "-i", wav,
-            "-filter_complex", f"[0:v]fps={fps},scale=720:1280,format=yuv420p[v0];[1:v]fps={fps},scale=720:1280,format=yuv420p[v1];[v0][v1]xfade=transition=fade:duration={fade:.3f}:offset={offset:.3f}[v]",
-            "-map", "[v]", "-map", "2:a:0",
-            "-c:v", "libx264", "-preset", "ultrafast", "-tune", "stillimage",
-            "-crf", "23", "-pix_fmt", "yuv420p", "-threads", "1",
-            "-c:a", "aac", "-b:a", "128k", "-t", f"{sec:.3f}",
-            "-movflags", "+faststart", tmp,
-        ]
-        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120)
-        os.replace(tmp, out)
+        ffmpeg=imageio_ffmpeg.get_ffmpeg_exe()
+        for i in range(fps*sec):
+            t=i/(fps*sec-1)
+            frame=Image.new("RGB",(W,H),(238,247,252)); d=ImageDraw.Draw(frame,"RGBA")
+            # header / hero
+            frame.paste(map_img,(0,215))
+            d.rectangle((0,0,W,222),fill=(255,255,255,242))
+            if logo_path and os.path.exists(logo_path):
+                try:
+                    logo=Image.open(logo_path).convert("RGBA"); logo.thumbnail((180,95)); frame.paste(logo,(24,18),logo)
+                except Exception: pass
+            d.text((28,96),"まったく新しい登山天気ツール",font=_load_font(25),fill=(255,196,18,255))
+            d.text((28,130),"日本三百名山 全国分析",font=_load_font(42),fill=(8,54,92,255))
+            d.text((28,181),f"{target.month}/{target.day}  明日の登山コンディション",font=_load_font(25),fill=(28,96,76,255))
+            # dynamic first-card: '明日の' emphasis
+            if t<0.30:
+                a=int(235*(1 if t<0.23 else max(0,(0.30-t)/0.07)))
+                d.rounded_rectangle((25,265,390,425),radius=28,fill=(4,36,70,a))
+                d.text((52,280),"明日の",font=_load_font(75),fill=(255,222,52,a))
+                d.text((54,365),"全国コンディション",font=_load_font(28),fill=(255,255,255,a))
+                d.ellipse((32,445,205,618),fill=(255,207,24,a),outline=(255,255,255,a),width=5)
+                d.text((62,482),"全部",font=_load_font(34),fill=(4,36,70,a))
+                d.text((49,526),"無料！",font=_load_font(40),fill=(4,36,70,a))
+            # summary chips
+            if 0.22<t<0.76:
+                y=960
+                specs=[("A",counts['A'],(22,142,83,235)),("B",counts['B'],(220,153,12,235)),("C",counts['C'],(205,62,62,235))]
+                for j,(g,n,c) in enumerate(specs):
+                    x=25+j*230
+                    d.rounded_rectangle((x,y,x+210,y+112),radius=22,fill=(255,255,255,235),outline=c,width=3)
+                    d.ellipse((x+13,y+19,x+75,y+81),fill=c); d.text((x+33,y+26),g,font=_load_font(30),fill=(255,255,255,255))
+                    d.text((x+91,y+17),str(n),font=_load_font(46),fill=c)
+                    d.text((x+92,y+72),"座",font=_load_font(22),fill=(65,78,88,255))
+            # feature summary final ~2.2 sec
+            if t>=0.72:
+                d.rectangle((0,0,W,H),fill=(4,35,63,245))
+                d.text((36,38),"まったく新しい登山天気ツール",font=_load_font(27),fill=(255,219,51,255))
+                d.text((36,78),"トラテンでできること",font=_load_font(46),fill=(255,255,255,255))
+                d.rounded_rectangle((210,150,510,214),radius=30,fill=(255,210,35,255))
+                d.text((287,163),"全部無料！",font=_load_font(29),fill=(4,35,63,255))
+                items=[
+                    ("全国分析","三百名山を2週間先まで"),
+                    ("自分専用天気予報","通過ポイントを入れたらルート分析"),
+                    ("登山判断サポート","時間帯別の風・雨・気温・視界"),
+                    ("登山ポータル","登山口アクセス・ライブカメラ・山小屋HP・水場"),
+                ]
+                y=235
+                for k,(ttl,desc) in enumerate(items,1):
+                    d.rounded_rectangle((34,y,686,y+164),radius=24,fill=(255,255,255,235))
+                    d.ellipse((54,y+39,112,y+97),fill=(18,120,81,255)); d.text((75,y+47),str(k),font=_load_font(25),fill=(255,255,255,255))
+                    d.text((132,y+20),ttl,font=_load_font(31),fill=(8,54,92,255))
+                    d.text((132,y+75),desc,font=_fit_text(d,desc,510,23,17),fill=(70,84,96,255))
+                    y+=177
+                d.text((36,965),"登る前に、トラテン。",font=_load_font(43),fill=(255,219,51,255))
+                d.rounded_rectangle((36,1045,684,1125),radius=35,fill=(255,255,255,255))
+                d.text((155,1063),"otenki.onrender.com",font=_load_font(27),fill=(13,103,72,255))
+            frame.save(os.path.join(work,f"frame-{i:04d}.jpg"),quality=90)
+        wav=os.path.join(work,"bgm.wav"); _write_original_bgm(wav,sec)
+        tmp=out+f".{os.getpid()}.tmp.mp4"
+        cmd=[ffmpeg,"-y","-framerate",str(fps),"-i",os.path.join(work,"frame-%04d.jpg"),"-i",wav,
+             "-c:v","libx264","-profile:v","high","-level","4.0","-pix_fmt","yuv420p","-r",str(fps),
+             "-c:a","aac","-b:a","160k","-shortest","-movflags","+faststart",tmp]
+        subprocess.run(cmd,check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=120)
+        os.replace(tmp,out)
         return out
     finally:
-        shutil.rmtree(work, ignore_errors=True)
-        try:
-            import gc
-            gc.collect()
-        except Exception:
-            pass
+        shutil.rmtree(work,ignore_errors=True)
+
 
 def caption_for(date_text: str, counts: dict[str, int]) -> str:
     target = date.fromisoformat(date_text)
