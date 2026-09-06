@@ -29,7 +29,7 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.5.180"
+APP_VERSION = "1.5.181"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
@@ -1840,8 +1840,8 @@ def meteoblue_forecast():
         if asl not in (None, ""):
             try: params["asl"] = str(round(float(asl)))
             except (TypeError, ValueError): pass
-        url = "https://my.meteoblue.com/packages/basic-1h_clouds-1h?" + urllib.parse.urlencode(params)
-        cache_key = "meteoblue:" + urllib.parse.urlencode({k:v for k,v in params.items() if k != "apikey"})
+        url = "https://my.meteoblue.com/packages/basic-1h_clouds-3h?" + urllib.parse.urlencode(params)
+        cache_key = "meteoblue:basic-1h_clouds-3h:" + urllib.parse.urlencode({k:v for k,v in params.items() if k != "apikey"})
         cached = _cache_get(cache_key)
         if cached:
             status, ctype, body = cached
