@@ -16,7 +16,7 @@ import threading
 import gc
 import urllib.parse
 import urllib.request
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Callable
 
 try:
@@ -40,7 +40,7 @@ INSTAGRAM_MIN_NATIONAL_RESULTS = max(1, min(100, int(os.environ.get("INSTAGRAM_M
 INSTAGRAM_AUTO_MEDIA = (os.environ.get("INSTAGRAM_AUTO_MEDIA", "reel").strip().lower() or "reel")
 INSTAGRAM_REEL_FPS = max(8, min(20, int(os.environ.get("INSTAGRAM_REEL_FPS", "12"))))
 INSTAGRAM_REEL_SECONDS = max(6, min(12, int(os.environ.get("INSTAGRAM_REEL_SECONDS", "12"))))
-REEL_RENDER_REV = "master-20260905-scenes-v7-similarityfit-rishiri-yakushima"
+REEL_RENDER_REV = "master-20260906-scenes-v8-approved-abc-upshift-timestamps"
 
 _STATE_FILE = os.path.join(tempfile.gettempdir(), "traten-instagram-state.json")
 
@@ -168,6 +168,13 @@ def _latlon_to_scene1_px(lat: float, lon: float, W: int, H: int) -> tuple[int, i
 
     px = int(round(a * base_px - b * base_py + tx))
     py = int(round(b * base_px + a * base_py + ty))
+
+    # V1.5.214 final Instagram placement approved in preview.
+    # Keep Hokkaido exactly on the similarity-fit master, and nudge the
+    # Honshu/Shikoku/Kyushu layer slightly upward as one coherent group.
+    # This intentionally includes Yakushima; no per-mountain exceptions.
+    if lat < 42.0:
+        py -= int(round(30.0 * (H / 1536.0)))
     return px, py
 
 
@@ -194,6 +201,25 @@ def build_dynamic_scene1(target: date, rows: list[dict[str, Any]]) -> "Image.Ima
 
     date_text = f"{target.month}/{target.day} 明日の登山コンディション"
     draw.text((48, 278), date_text, font=_load_font(33), fill=(14, 117, 63, 255))
+
+    # Render-time metadata is burned into page 1 so it survives cache, Reel
+    # composition, and automated Instagram publishing. Times are JST.
+    created_jst = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=9)))
+    asof_text = f"※ {created_jst.month}/{created_jst.day} {created_jst:%H:%M}時点"
+    created_text = f"作成日時: {created_jst.month}/{created_jst.day} {created_jst:%H:%M}"
+
+    def _small_stamp(x: int, y: int, text: str) -> int:
+        font = _load_font(19)
+        bb = draw.textbbox((0, 0), text, font=font)
+        w = int(bb[2] - bb[0]) + 22
+        h = 34
+        draw.rounded_rectangle((x, y, x + w, y + h), radius=8, fill=(255,255,255,226), outline=(205,218,228,235), width=1)
+        draw.text((x + 11, y + 6), text, font=font, fill=(18,50,76,255))
+        return w
+
+    stamp_y = 1368
+    w1 = _small_stamp(28, stamp_y, asof_text)
+    _small_stamp(28 + w1 + 10, stamp_y, created_text)
 
     # Important: this deliberately restores the V1.5.204 style of placement:
     # lat/lon projection + ONE global transform for the entire layer.
