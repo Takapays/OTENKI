@@ -38,7 +38,8 @@ INSTAGRAM_HTTP_TIMEOUT = max(5, min(60, int(os.environ.get("INSTAGRAM_HTTP_TIMEO
 INSTAGRAM_MIN_NATIONAL_RESULTS = max(1, min(100, int(os.environ.get("INSTAGRAM_MIN_NATIONAL_RESULTS", "98"))))
 INSTAGRAM_AUTO_MEDIA = (os.environ.get("INSTAGRAM_AUTO_MEDIA", "reel").strip().lower() or "reel")
 INSTAGRAM_REEL_FPS = max(8, min(20, int(os.environ.get("INSTAGRAM_REEL_FPS", "12"))))
-INSTAGRAM_REEL_SECONDS = max(6, min(12, int(os.environ.get("INSTAGRAM_REEL_SECONDS", "8"))))
+INSTAGRAM_REEL_SECONDS = max(6, min(12, int(os.environ.get("INSTAGRAM_REEL_SECONDS", "12"))))
+REEL_RENDER_REV = "classic-20260906"
 
 _STATE_FILE = os.path.join(tempfile.gettempdir(), "traten-instagram-state.json")
 
@@ -342,97 +343,163 @@ def _write_original_bgm(path: str, seconds: int) -> None:
         if block: wf.writeframes(b''.join(block))
 
 
+def _draw_reel_starburst(draw, cx: int, cy: int, r_outer: int, r_inner: int, fill):
+    pts=[]
+    for i in range(28):
+        a=-math.pi/2 + i*math.pi/14
+        r=r_outer if i%2==0 else r_inner
+        pts.append((cx+math.cos(a)*r, cy+math.sin(a)*r))
+    draw.polygon(pts, fill=fill)
+
+
+def _draw_reel_grade_marker(draw, x: int, y: int, grade: str, radius: int = 26):
+    colors={"A":(31,143,84,255),"B":(225,158,18,255),"C":(205,61,64,255)}
+    c=colors[grade]
+    draw.ellipse((x-radius-4,y-radius-4,x+radius+4,y+radius+4),fill=(255,255,255,245))
+    draw.ellipse((x-radius,y-radius,x+radius,y+radius),fill=c)
+    f=_load_font(int(radius*1.12))
+    bb=draw.textbbox((0,0),grade,font=f)
+    draw.text((x-(bb[2]-bb[0])/2,y-(bb[3]-bb[1])/2-2),grade,font=f,fill=(255,255,255,255))
+
+
+def _draw_reel_footer(draw, W: int, H: int):
+    y=H-142
+    draw.rectangle((0,y,W,H),fill=(4,34,63,255))
+    # simple mountain mark
+    draw.line((38,y+86,86,y+34,118,y+70,148,y+49,194,y+88),fill=(255,255,255,255),width=8,joint="curve")
+    draw.arc((35,y+72,196,y+126),180,360,fill=(55,170,93,255),width=7)
+    draw.text((226,y+45),"トラテン",font=_load_font(48),fill=(255,255,255,255))
+    draw.text((520,y+53),"登る前に、トラテン。",font=_load_font(30),fill=(255,255,255,235))
+
+
+def _draw_reel_legend(draw, x: int, y: int):
+    draw.rounded_rectangle((x,y,x+560,y+250),radius=26,fill=(255,255,255,238))
+    rows=[("A","良い","絶好の登山日和！"),("B","まずまず","注意して楽しめる"),("C","注意","無理せず計画を再検討")]
+    for i,(g,l1,l2) in enumerate(rows):
+        yy=y+48+i*70
+        _draw_reel_grade_marker(draw,x+46,yy,g,22)
+        fg={"A":(28,137,80,255),"B":(218,147,8,255),"C":(198,58,62,255)}[g]
+        draw.text((x+88,yy-20),l1,font=_load_font(24),fill=fg)
+        draw.text((x+230,yy-17),l2,font=_load_font(20),fill=(40,55,69,255))
+
+
+def _draw_reel_feature_icon(draw, kind: int, cx: int, cy: int):
+    green=(18,121,78,255); navy=(9,55,91,255); pale=(232,244,239,255)
+    draw.ellipse((cx-38,cy-38,cx+38,cy+38),fill=pale)
+    if kind==1:  # Japan/map pins
+        draw.polygon([(cx-14,cy-26),(cx+4,cy-18),(cx+13,cy-2),(cx+1,cy+24),(cx-18,cy+15),(cx-24,cy-4)],fill=green)
+        draw.ellipse((cx+12,cy-27,cx+30,cy-9),fill=navy)
+    elif kind==2:  # route/pin
+        draw.line((cx-24,cy+16,cx-4,cy-4,cx+18,cy+13),fill=green,width=6)
+        draw.ellipse((cx-28,cy-30,cx-8,cy-10),outline=navy,width=5)
+        draw.ellipse((cx+10,cy-5,cx+30,cy+15),outline=navy,width=5)
+    elif kind==3:  # weather
+        draw.ellipse((cx-26,cy-18,cx-2,cy+6),fill=navy)
+        draw.ellipse((cx-10,cy-25,cx+16,cy+7),fill=navy)
+        draw.rectangle((cx-25,cy-2,cx+20,cy+10),fill=navy)
+        draw.line((cx-17,cy+18,cx-23,cy+31),fill=green,width=5)
+        draw.line((cx+1,cy+18,cx-5,cy+31),fill=green,width=5)
+        draw.line((cx+19,cy+18,cx+13,cy+31),fill=green,width=5)
+    else:  # portal/home
+        draw.polygon([(cx-28,cy-2),(cx,cy-27),(cx+28,cy-2)],fill=green)
+        draw.rectangle((cx-21,cy-2,cx+21,cy+24),fill=navy)
+        draw.rectangle((cx-5,cy+7,cx+7,cy+24),fill=(255,255,255,255))
+
+
 def render_national_reel(date_text: str, results: list[dict[str, Any]], *, logo_path: str | None = None) -> str:
-    """Render a compact 9:16 Reel with live nationwide data and original BGM."""
+    """Render the 9:16 Reel using the approved 2026-09-05 visual direction."""
     if Image is None or ImageDraw is None:
         raise RuntimeError("Pillow is not installed")
     rows=[dict(r) for r in results if isinstance(r,dict) and str(r.get("grade") or "") in {"A","B","C"}]
     if len(rows) < INSTAGRAM_MIN_NATIONAL_RESULTS:
         raise RuntimeError(f"national reel requires at least {INSTAGRAM_MIN_NATIONAL_RESULTS} results, got {len(rows)}")
     target=date.fromisoformat(date_text)
-    counts={g:sum(1 for r in rows if r.get("grade")==g) for g in "ABC"}
     outdir=os.path.join(tempfile.gettempdir(),"traten-instagram-reels")
     os.makedirs(outdir,exist_ok=True)
-    out=os.path.join(outdir,f"traten-{date_text}.mp4")
+    # Include the renderer revision in the cache file. A style/code update must never reuse an older preview.
+    out=os.path.join(outdir,f"traten-{date_text}-{REEL_RENDER_REV}.mp4")
     if os.path.exists(out) and os.path.getsize(out)>100000:
         return out
-    work=os.path.join(outdir,f"work-{date_text}-{os.getpid()}")
+    work=os.path.join(outdir,f"work-{date_text}-{REEL_RENDER_REV}-{os.getpid()}")
     os.makedirs(work,exist_ok=True)
     try:
-        W,H=720,1280
+        W,H=1080,1920
         fps=INSTAGRAM_REEL_FPS
         sec=INSTAGRAM_REEL_SECONDS
-        map_img=_render_japan_map(rows, W, 900)
-        # imageio-ffmpeg provides a self-contained ffmpeg binary on Render.
+        scene_cut=0.66
+        map_img=_render_japan_map(rows,W,1515)
         import imageio_ffmpeg
         ffmpeg=imageio_ffmpeg.get_ffmpeg_exe()
         for i in range(fps*sec):
-            t=i/(fps*sec-1)
-            frame=Image.new("RGB",(W,H),(238,247,252)); d=ImageDraw.Draw(frame,"RGBA")
-            # header / hero
-            frame.paste(map_img,(0,215))
-            d.rectangle((0,0,W,222),fill=(255,255,255,242))
-            if logo_path and os.path.exists(logo_path):
-                try:
-                    logo=Image.open(logo_path).convert("RGBA"); logo.thumbnail((180,95)); frame.paste(logo,(24,18),logo)
-                except Exception: pass
-            d.text((28,96),"まったく新しい登山天気ツール",font=_load_font(25),fill=(255,196,18,255))
-            d.text((28,130),"日本三百名山 全国分析",font=_load_font(42),fill=(8,54,92,255))
-            d.text((28,181),f"{target.month}/{target.day}  明日の登山コンディション",font=_load_font(25),fill=(28,96,76,255))
-            # dynamic first-card: '明日の' emphasis
-            if t<0.30:
-                a=int(235*(1 if t<0.23 else max(0,(0.30-t)/0.07)))
-                d.rounded_rectangle((25,265,390,425),radius=28,fill=(4,36,70,a))
-                d.text((52,280),"明日の",font=_load_font(75),fill=(255,222,52,a))
-                d.text((54,365),"全国コンディション",font=_load_font(28),fill=(255,255,255,a))
-                d.ellipse((32,445,205,618),fill=(255,207,24,a),outline=(255,255,255,a),width=5)
-                d.text((62,482),"全部",font=_load_font(34),fill=(4,36,70,a))
-                d.text((49,526),"無料！",font=_load_font(40),fill=(4,36,70,a))
-            # summary chips
-            if 0.22<t<0.76:
-                y=960
-                specs=[("A",counts['A'],(22,142,83,235)),("B",counts['B'],(220,153,12,235)),("C",counts['C'],(205,62,62,235))]
-                for j,(g,n,c) in enumerate(specs):
-                    x=25+j*230
-                    d.rounded_rectangle((x,y,x+210,y+112),radius=22,fill=(255,255,255,235),outline=c,width=3)
-                    d.ellipse((x+13,y+19,x+75,y+81),fill=c); d.text((x+33,y+26),g,font=_load_font(30),fill=(255,255,255,255))
-                    d.text((x+91,y+17),str(n),font=_load_font(46),fill=c)
-                    d.text((x+92,y+72),"座",font=_load_font(22),fill=(65,78,88,255))
-            # feature summary final ~2.2 sec
-            if t>=0.72:
-                d.rectangle((0,0,W,H),fill=(4,35,63,245))
-                d.text((36,38),"まったく新しい登山天気ツール",font=_load_font(27),fill=(255,219,51,255))
-                d.text((36,78),"トラテンでできること",font=_load_font(46),fill=(255,255,255,255))
-                d.rounded_rectangle((210,150,510,214),radius=30,fill=(255,210,35,255))
-                d.text((287,163),"全部無料！",font=_load_font(29),fill=(4,35,63,255))
+            t=i/max(1,(fps*sec-1))
+            frame=Image.new("RGB",(W,H),(239,248,252)); d=ImageDraw.Draw(frame,"RGBA")
+            if t < scene_cut:
+                # Approved scene 1: white header + large nationwide map + navy/yellow callout.
+                frame.paste(map_img,(0,240))
+                d.rectangle((0,0,W,245),fill=(255,255,255,248))
+                d.text((38,30),"＼ まったく新しい",font=_load_font(30),fill=(8,54,92,255))
+                d.text((323,30),"登山天気ツール",font=_load_font(30),fill=(234,173,8,255))
+                d.text((675,30),"／",font=_load_font(30),fill=(8,54,92,255))
+                d.text((38,82),"日本三百名山 全国分析",font=_load_font(56),fill=(7,48,83,255))
+                d.text((38,153),f"{target.month}/{target.day} 明日の登山コンディション",font=_load_font(29),fill=(25,127,79,255))
+                # dark callout, matching the approved preview
+                d.rounded_rectangle((34,360,520,575),radius=32,fill=(4,35,66,245))
+                d.text((64,378),"明日の",font=_load_font(88),fill=(255,222,45,255))
+                d.text((67,500),"全国コンディション",font=_load_font(31),fill=(255,255,255,255))
+                _draw_reel_starburst(d,190,735,118,92,(255,212,28,255))
+                d.text((123,665),"全部",font=_load_font(43),fill=(5,45,73,255))
+                d.text((110,724),"無料！",font=_load_font(54),fill=(5,45,73,255))
+                _draw_reel_legend(d,470,1390)
+                _draw_reel_footer(d,W,H)
+            else:
+                # Approved scene 2: dark-blue feature summary card.
+                # subtle vertical gradient
+                for y in range(H):
+                    q=y/(H-1)
+                    c=(6+int(4*q),45+int(28*q),76+int(27*q))
+                    d.line((0,y,W,y),fill=(*c,255))
+                # faint contour/weather decoration
+                for x in range(70,W,180):
+                    d.arc((x-50,90,x+210,330),200,340,fill=(255,255,255,22),width=2)
+                d.text((45,46),"まったく新しい",font=_load_font(27),fill=(255,255,255,245))
+                d.text((258,46),"登山天気ツール",font=_load_font(27),fill=(255,214,41,255))
+                d.text((45,100),"トラテン",font=_load_font(62),fill=(255,219,45,255))
+                d.text((250,111),"でできること",font=_load_font(44),fill=(255,255,255,255))
+                d.rounded_rectangle((327,203,755,290),radius=43,fill=(255,213,38,255))
+                d.text((417,220),"全部無料！",font=_load_font(38),fill=(6,45,76,255))
                 items=[
                     ("全国分析","三百名山を2週間先まで"),
                     ("自分専用天気予報","通過ポイントを入れたらルート分析"),
                     ("登山判断サポート","時間帯別の風・雨・気温・視界"),
                     ("登山ポータル","登山口アクセス・ライブカメラ・山小屋HP・水場"),
                 ]
-                y=235
+                y=350
                 for k,(ttl,desc) in enumerate(items,1):
-                    d.rounded_rectangle((34,y,686,y+164),radius=24,fill=(255,255,255,235))
-                    d.ellipse((54,y+39,112,y+97),fill=(18,120,81,255)); d.text((75,y+47),str(k),font=_load_font(25),fill=(255,255,255,255))
-                    d.text((132,y+20),ttl,font=_load_font(31),fill=(8,54,92,255))
-                    d.text((132,y+75),desc,font=_fit_text(d,desc,510,23,17),fill=(70,84,96,255))
-                    y+=177
-                d.text((36,965),"登る前に、トラテン。",font=_load_font(43),fill=(255,219,51,255))
-                d.rounded_rectangle((36,1045,684,1125),radius=35,fill=(255,255,255,255))
-                d.text((155,1063),"otenki.onrender.com",font=_load_font(27),fill=(13,103,72,255))
-            frame.save(os.path.join(work,f"frame-{i:04d}.jpg"),quality=90)
+                    d.rounded_rectangle((45,y,1035,y+245),radius=27,fill=(255,255,255,244))
+                    d.ellipse((75,y+67,137,y+129),fill=(20,127,81,255))
+                    num=str(k); nf=_load_font(28); bb=d.textbbox((0,0),num,font=nf)
+                    d.text((106-(bb[2]-bb[0])/2,y+77),num,font=nf,fill=(255,255,255,255))
+                    _draw_reel_feature_icon(d,k,196,y+117)
+                    d.text((270,y+43),ttl,font=_load_font(40),fill=(7,51,85,255))
+                    d.text((270,y+112),desc,font=_fit_text(d,desc,710,29,22),fill=(61,78,92,255))
+                    y+=270
+                d.text((48,1495),"登る前に、トラテン。",font=_load_font(54),fill=(255,217,42,255))
+                d.rounded_rectangle((255,1600,835,1690),radius=44,fill=(255,255,255,255))
+                d.ellipse((300,1622,344,1666),outline=(20,127,81,255),width=4)
+                d.line((322,1622,322,1666),fill=(20,127,81,255),width=3)
+                d.line((301,1644,343,1644),fill=(20,127,81,255),width=3)
+                d.text((370,1622),"otenki.onrender.com",font=_load_font(31),fill=(7,91,66,255))
+            frame.save(os.path.join(work,f"frame-{i:04d}.jpg"),quality=91)
         wav=os.path.join(work,"bgm.wav"); _write_original_bgm(wav,sec)
         tmp=out+f".{os.getpid()}.tmp.mp4"
         cmd=[ffmpeg,"-y","-framerate",str(fps),"-i",os.path.join(work,"frame-%04d.jpg"),"-i",wav,
              "-c:v","libx264","-profile:v","high","-level","4.0","-pix_fmt","yuv420p","-r",str(fps),
              "-c:a","aac","-b:a","160k","-shortest","-movflags","+faststart",tmp]
-        subprocess.run(cmd,check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=120)
+        subprocess.run(cmd,check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=180)
         os.replace(tmp,out)
         return out
     finally:
         shutil.rmtree(work,ignore_errors=True)
-
 
 def caption_for(date_text: str, counts: dict[str, int]) -> str:
     target = date.fromisoformat(date_text)

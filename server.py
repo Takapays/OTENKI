@@ -31,7 +31,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.5.193"
+APP_VERSION = "1.5.194"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
@@ -1119,54 +1119,14 @@ def _national_nextday_date_text() -> str:
 
 
 def _instagram_load_fresh_100_results(date_text: str) -> list[dict[str, Any]]:
-    """Return the nationwide rows used by Instagram, filling the cache on demand.
-
-    V1.5.193: the Instagram preview used to fail immediately when the persistent
-    nationwide cache had fewer than 98 *fresh* rows.  A fresh deploy, an expired
-    four-hour TTL, or an interrupted scheduled refresh could therefore make the
-    preview unusable even though the same rows could be fetched normally.
-
-    The admin/Instagram path now performs a targeted cold-fill for missing/expired
-    rows first.  If a few upstream requests still fail, unexpired stale rows (max
-    24h by the existing cache policy) are used only to complete the preview/post
-    set instead of discarding the whole nationwide result.
-    """
     points = _national_load_100_points()
     if len(points) != 100 or not _national_supabase_enabled():
         return []
-
-    fresh, stale = _national_supabase_read(date_text, points)
-    by_name = {name: dict(row) for name, row in fresh.items()}
-
-    # Cold-fill only the rows that are not currently fresh.  This avoids doing a
-    # full 100-mountain refresh every time the Reel preview button is pressed.
-    missing = [p for p in points if p["name"] not in by_name]
-    if missing:
-        try:
-            fetched, _complete, _rate_limited, error = _national_fetch_shared(date_text, missing)
-            if fetched:
-                _national_supabase_write(date_text, missing, fetched)
-                for row in fetched:
-                    if isinstance(row, dict) and row.get("name"):
-                        by_name[str(row["name"])] = dict(row)
-            if error:
-                app.logger.warning("instagram_national_cache_fill_partial date=%s missing=%s error=%s", date_text, len(missing), error)
-        except Exception:
-            app.logger.exception("instagram_national_cache_fill_failed date=%s missing=%s", date_text, len(missing))
-
-    # If a small number of providers still fail, keep the existing 24h stale
-    # fallback instead of making the entire Instagram preview unavailable.
-    if len(by_name) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
-        for p in points:
-            name = p["name"]
-            if name not in by_name and name in stale:
-                row = dict(stale[name])
-                row["instagramCacheFallback"] = "stale"
-                by_name[name] = row
-                if len(by_name) >= instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
-                    break
-
-    return [by_name[p["name"]] for p in points if p["name"] in by_name]
+    fresh, _ = _national_supabase_read(date_text, points)
+    ordered = [fresh[p["name"]] for p in points if p["name"] in fresh]
+    if len(ordered) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
+        return []
+    return ordered
 
 def _national_supabase_refresh_candidates(force: bool = False) -> dict[str, list[dict[str, Any]]]:
     """Load persistent cache rows that should be refreshed, grouped by forecast date.

@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.193';
+const APP_VERSION = '1.5.194';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -10441,19 +10441,37 @@ function extractProviderRow(hourly,point){
   if(idx<0)return null;
   const get=k=>numberOrNaN(hourly[k]?.[idx]);
   const targetMs=new Date(`${point.date}T${point.time}:00+09:00`).getTime();
-  const timeline=(hourly.time||[]).map((time,i)=>({time,rain:numberOrNaN(hourly.precipitation?.[i]),wind:numberOrNaN(hourly.wind_speed_10m?.[i]),cape:numberOrNaN(hourly.cape?.[i])})).filter(x=>Math.abs(new Date(x.time).getTime()-targetMs)<=6*3600000);
+  const timeline=(hourly.time||[]).map((time,i)=>({time,rain:numberOrNaN(hourly.precipitation?.[i]),wind:numberOrNaN(hourly.wind_speed_10m?.[i]),gust:numberOrNaN(hourly.wind_gusts_10m?.[i]),cape:numberOrNaN(hourly.cape?.[i])})).filter(x=>Math.abs(new Date(x.time).getTime()-targetMs)<=6*3600000);
   return {time:hourly.time[idx],temp:get('temperature_2m'),rh:get('relative_humidity_2m'),rain:get('precipitation'),cloud:get('cloud_cover'),wind:get('wind_speed_10m'),gust:get('wind_gusts_10m'),windDir:get('wind_direction_10m'),cape:get('cape'),visibility:get('visibility'),freezing:get('freezing_level_height'),timeline};
+}
+function timelineEpochMs(value){
+  const raw=String(value||'').trim();
+  if(!raw)return NaN;
+  // Open-Meteo / meteoblue can return local Asia/Tokyo timestamps without an
+  // explicit offset, while MET Norway returns UTC. Treat offset-less values as
+  // JST so the same physical hour is not drawn twice on the timeline.
+  const local=/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/.test(raw);
+  const normalized=local?`${raw}${raw.length===16?':00':''}+09:00`:raw;
+  return new Date(normalized).getTime();
+}
+function timelineSlotKey(value){
+  const ms=timelineEpochMs(value);
+  return Number.isFinite(ms)?String(Math.round(ms/3600000)):String(value||'').slice(0,13);
+}
+function timelineSlotIso(value){
+  const ms=timelineEpochMs(value);
+  return Number.isFinite(ms)?new Date(ms).toISOString():value;
 }
 function blendTimelineSingleGroup(providerRows,useMedian=false){
   const slots=new Map();
   (providerRows||[]).forEach(x=>(x?.row?.timeline||[]).forEach(row=>{
-    const key=String(row.time).slice(0,13),slot=slots.get(key)||{time:row.time,rain:[],wind:[],cape:[]};
-    ['rain','wind','cape'].forEach(k=>{if(Number.isFinite(row[k]))slot[k].push(row[k]);});
+    const key=timelineSlotKey(row.time),slot=slots.get(key)||{time:timelineSlotIso(row.time),rain:[],wind:[],gust:[],cape:[]};
+    ['rain','wind','gust','cape'].forEach(k=>{if(Number.isFinite(row[k]))slot[k].push(row[k]);});
     slots.set(key,slot);
   }));
   const center=v=>useMedian?median(v):mean(v);
-  return [...slots.values()].sort((a,b)=>new Date(a.time)-new Date(b.time)).map(x=>({
-    time:x.time,rain:center(x.rain),wind:center(x.wind),cape:max(x.cape),
+  return [...slots.values()].sort((a,b)=>timelineEpochMs(a.time)-timelineEpochMs(b.time)).map(x=>({
+    time:x.time,rain:center(x.rain),wind:center(x.wind),gust:useMedian?median(x.gust):mean(x.gust),cape:max(x.cape),
     capeMedian:median(x.cape),capeModels:x.cape.length,
     capeSupport500:x.cape.filter(v=>v>=500).length,
     capeSupport800:x.cape.filter(v=>v>=800).length,
@@ -10470,14 +10488,19 @@ function blendTimelineRows(providerRows){
   const a=blendTimelineSingleGroup(primary,false),b=blendTimelineSingleGroup(backup,true);
   const slots=new Map();
   for(const item of [...a.map(x=>({group:'primary',...x})),...b.map(x=>({group:'backup',...x}))]){
-    const key=String(item.time).slice(0,13),slot=slots.get(key)||{time:item.time,primary:null,backup:null};
+    const key=timelineSlotKey(item.time),slot=slots.get(key)||{time:timelineSlotIso(item.time),primary:null,backup:null};
     slot[item.group]=item; slots.set(key,slot);
   }
-  return [...slots.values()].sort((x,y)=>new Date(x.time)-new Date(y.time)).map(slot=>{
+  return [...slots.values()].sort((x,y)=>timelineEpochMs(x.time)-timelineEpochMs(y.time)).map(slot=>{
     const p=slot.primary,bk=slot.backup;
     if(!p)return bk;if(!bk)return p;
     return {
-      time:slot.time,rain:mean([p.rain,bk.rain]),wind:mean([p.wind,bk.wind]),cape:max([p.cape,bk.cape]),
+      time:slot.time,
+      rain:mean([p.rain,bk.rain]),
+      wind:mean([p.wind,bk.wind]),
+      // Gust remains safety-side between the two independent ensembles.
+      gust:max([p.gust,bk.gust]),
+      cape:max([p.cape,bk.cape]),
       capeMedian:median([p.capeMedian,bk.capeMedian]),
       capeModels:(p.capeModels||0)+(bk.capeModels||0),
       capeSupport500:(p.capeSupport500||0)+(bk.capeSupport500||0),
@@ -10595,7 +10618,7 @@ async function fetchMetNoFallback(point){
   const targetMs=new Date(`${point.date}T${point.time}:00+09:00`).getTime();
   const timeline=metNoRows(payload)
     .filter(x=>x?.time&&Math.abs(new Date(x.time).getTime()-targetMs)<=6*3600000)
-    .map(x=>({time:x.time,rain:numberOrNaN(x.rain),wind:numberOrNaN(x.wind),cape:NaN,thunderRisk:x.thunderRisk||'LOW'}))
+    .map(x=>({time:x.time,rain:numberOrNaN(x.rain),wind:numberOrNaN(x.wind),gust:numberOrNaN(x.gust),cape:NaN,thunderRisk:x.thunderRisk||'LOW'}))
     .filter(x=>Number.isFinite(x.rain)||Number.isFinite(x.wind));
   return {...row,timeline};
 }
@@ -10691,7 +10714,7 @@ async function fetchMeteoblueFallback(point){
   for(const r of rows){const diff=Math.abs(new Date(r.time).getTime()-targetMs);if(diff<bestDiff){best=r;bestDiff=diff;}}
   if(!best||bestDiff>90*60000)return null;
   const timeline=rows.filter(r=>Math.abs(new Date(r.time).getTime()-targetMs)<=6*3600000)
-    .map(r=>({time:r.time,rain:numberOrNaN(r.rain),wind:numberOrNaN(r.wind),cape:numberOrNaN(r.cape),thunderRisk:r.thunderRisk||'LOW'}));
+    .map(r=>({time:r.time,rain:numberOrNaN(r.rain),wind:numberOrNaN(r.wind),gust:numberOrNaN(r.gust),cape:numberOrNaN(r.cape),thunderRisk:r.thunderRisk||'LOW'}));
   return {...best,timeline};
 }
 async function fetchNoaaGfsRowAt(point,date,time){
@@ -10721,7 +10744,7 @@ async function fetchNoaaGfsFallback(point){
   let best=rows[0],bestDiff=Math.abs(new Date(best.time).getTime()-targetMs);
   for(const r of rows){const d=Math.abs(new Date(r.time).getTime()-targetMs);if(d<bestDiff){best=r;bestDiff=d;}}
   if(bestDiff>3*3600000)return null;
-  const timeline=rows.map(r=>({time:r.time,rain:numberOrNaN(r.rain),wind:numberOrNaN(r.wind),cape:numberOrNaN(r.cape)}));
+  const timeline=rows.map(r=>({time:r.time,rain:numberOrNaN(r.rain),wind:numberOrNaN(r.wind),gust:numberOrNaN(r.gust),cape:numberOrNaN(r.cape)}));
   return {...best,timeline};
 }
 function fallbackableWeatherErrors(errors){
@@ -11811,28 +11834,35 @@ function timelineThunder(row){
   return {label:'表示なし',show:false};
 }
 function timelineHourLabel(s){
+  const ms=timelineEpochMs(s);
+  if(Number.isFinite(ms)){
+    return new Intl.DateTimeFormat('ja-JP',{timeZone:'Asia/Tokyo',hour:'numeric',hour12:false}).format(new Date(ms));
+  }
   const t=timeOnly(s);
   if(!t||t==='–')return t;
   const h=Number(String(t).split(':')[0]);
   return Number.isFinite(h)?String(h):String(t).replace(/:00$/,'');
 }
 function renderWeatherTimeline(rows,arrivalMs,departureMs=null){
-  const data=(rows||[]).filter(x=>x?.time&&[x.rain,x.wind,x.cape].some(Number.isFinite)).sort((a,b)=>new Date(a.time)-new Date(b.time));
+  const data=(rows||[]).filter(x=>x?.time&&[x.rain,x.wind,x.gust,x.cape].some(Number.isFinite)).sort((a,b)=>timelineEpochMs(a.time)-timelineEpochMs(b.time));
   if(data.length<2)return '<div class="wx-timeline-empty">時系列データを取得できませんでした</div>';
-  const W=720,H=218,L=48,R=48,base=142,thY=174,plotW=W-L-R;
-  const times=data.map(d=>new Date(d.time).getTime()).filter(Number.isFinite);
+  const W=720,H=226,L=48,R=48,base=142,thY=174,plotW=W-L-R;
+  const times=data.map(d=>timelineEpochMs(d.time)).filter(Number.isFinite);
   let minMs=Math.min(...times),maxMs=Math.max(...times);
   if(!(Number.isFinite(minMs)&&Number.isFinite(maxMs))||maxMs<=minMs)return '<div class="wx-timeline-empty">時系列データを取得できませんでした</div>';
-  // V1.5.172: use a true time axis. MET Norway becomes sparse at longer horizons,
-  // so index-based spacing made 6-hour gaps look the same as 1-hour gaps and made
-  // the arrival highlight cover half (or all) of the chart.
   const xMs=ms=>L+((ms-minMs)/(maxMs-minMs))*plotW;
-  const xs=data.map(d=>xMs(new Date(d.time).getTime()));
+  const xs=data.map(d=>xMs(timelineEpochMs(d.time)));
   const gaps=[];for(let i=1;i<xs.length;i++)if(Number.isFinite(xs[i]-xs[i-1])&&xs[i]>xs[i-1])gaps.push(xs[i]-xs[i-1]);
   const medianGap=gaps.length?gaps.slice().sort((a,b)=>a-b)[Math.floor(gaps.length/2)]:plotW;
   const barW=Math.max(5,Math.min(22,medianGap*.55));
-  const axisMax=7,rainY=v=>base-(Math.min(axisMax,Math.max(0,v))/axisMax)*92,windY=v=>base-(Math.min(axisMax,Math.max(0,v))/axisMax)*92;
+  const maxFinite=arr=>max(arr.filter(Number.isFinite));
+  const niceAxis=v=>{const n=Math.max(0,Number(v)||0);if(n<=7)return 7;if(n<=10)return 10;if(n<=15)return 15;if(n<=20)return 20;return Math.ceil(n/10)*10;};
+  const rainAxisMax=niceAxis(maxFinite(data.map(d=>d.rain)));
+  const windAxisMax=niceAxis(maxFinite(data.flatMap(d=>[d.wind,d.gust])));
+  const rainY=v=>base-(Math.min(rainAxisMax,Math.max(0,v))/rainAxisMax)*92;
+  const windY=v=>base-(Math.min(windAxisMax,Math.max(0,v))/windAxisMax)*92;
   const windPoints=data.map((d,i)=>Number.isFinite(d.wind)?`${xs[i].toFixed(1)},${windY(d.wind).toFixed(1)}`:null).filter(Boolean).join(' ');
+  const gustPoints=data.map((d,i)=>Number.isFinite(d.gust)?`${xs[i].toFixed(1)},${windY(d.gust).toFixed(1)}`:null).filter(Boolean).join(' ');
   const bandLabel=departureMs?'滞在':'到着';
   const clamp=v=>Math.max(L,Math.min(W-R,v));
   let bandStartMs,bandEndMs;
@@ -11841,23 +11871,23 @@ function renderWeatherTimeline(rows,arrivalMs,departureMs=null){
   if(hx2<hx){const t=hx;hx=hx2;hx2=t;}
   let hw=Math.max(8,hx2-hx);
   if(hw===8){const cx=clamp(xMs(arrivalMs));hx=Math.max(L,Math.min(W-R-8,cx-4));}
-  const maxTicks=7;
-  const tickEvery=Math.max(1,Math.ceil(data.length/maxTicks));
-  const ticks=data.map((d,i)=>i%tickEvery===0||i===data.length-1?`<text x="${xs[i]}" y="211" text-anchor="middle">${timelineHourLabel(d.time)}</text>`:'').join('');
-  return `<div class="wx-timeline" role="img" aria-label="降水量、平均風速、雷リスクの時系列">
-    <div class="wx-timeline-head"><b>前後の気象推移</b><span><i class="rain"></i>降水量 <i class="wind"></i>平均風速 <i class="stay"></i>${bandLabel}</span></div>
+  // V1.5.194: show every available hour. With a 13-hour window this remains readable
+  // and avoids hiding alternating hours on mobile.
+  const ticks=data.map((d,i)=>`<text class="wx-hour-tick" x="${xs[i]}" y="219" text-anchor="middle">${timelineHourLabel(d.time)}</text>`).join('');
+  const rainHalf=num(rainAxisMax/2,1),windHalf=num(windAxisMax/2,1);
+  return `<div class="wx-timeline" role="img" aria-label="降水量、平均風速、瞬間最大風速、雷リスクの時系列">
+    <div class="wx-timeline-head"><b>前後の気象推移</b><span><i class="rain"></i>降水量 <i class="wind"></i>平均風速 <i class="gust"></i>瞬間最大風速 <i class="stay"></i>${bandLabel}</span></div>
     <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
       <rect class="wx-highlight" x="${hx.toFixed(1)}" y="18" width="${hw.toFixed(1)}" height="176" rx="5"/><text class="wx-highlight-label" x="${(hx+hw/2).toFixed(1)}" y="14" text-anchor="middle">${bandLabel}</text>
       <line class="wx-grid" x1="${L}" x2="${W-R}" y1="${base}" y2="${base}"/><line class="wx-grid faint" x1="${L}" x2="${W-R}" y1="96" y2="96"/><line class="wx-grid faint" x1="${L}" x2="${W-R}" y1="50" y2="50"/>
       ${data.map((d,i)=>`<rect class="wx-rain-bar" x="${(xs[i]-barW/2).toFixed(1)}" y="${rainY(Number.isFinite(d.rain)?d.rain:0).toFixed(1)}" width="${barW.toFixed(1)}" height="${(base-rainY(Number.isFinite(d.rain)?d.rain:0)).toFixed(1)}" rx="2"/>`).join('')}
-      <polyline class="wx-wind-line" points="${windPoints}"/>${data.map((d,i)=>Number.isFinite(d.wind)?`<circle class="wx-wind-dot" cx="${xs[i]}" cy="${windY(d.wind)}" r="2.8"/>`:'').join('')}
-      <text class="wx-axis-title rain" x="2" y="34">降水量</text><text class="wx-axis-title wind" x="${W-2}" y="34" text-anchor="end">平均風速</text>
-      <text class="wx-axis-tick rain" x="${L-7}" y="54" text-anchor="end">7</text><text class="wx-axis-tick rain" x="${L-7}" y="100" text-anchor="end">3.5</text><text class="wx-axis-tick rain" x="${L-7}" y="${base+4}" text-anchor="end">0</text>
-      <text class="wx-axis-tick wind" x="${W-R+7}" y="54">7</text><text class="wx-axis-tick wind" x="${W-R+7}" y="100">3.5</text><text class="wx-axis-tick wind" x="${W-R+7}" y="${base+4}">0</text>
+      <polyline class="wx-gust-line" points="${gustPoints}"/>${data.map((d,i)=>Number.isFinite(d.gust)?`<circle class="wx-gust-dot" cx="${xs[i]}" cy="${windY(d.gust)}" r="2.5"><title>${timelineHourLabel(d.time)}時 瞬間最大風速 ${num(d.gust,1)}m/s</title></circle>`:'').join('')}
+      <polyline class="wx-wind-line" points="${windPoints}"/>${data.map((d,i)=>Number.isFinite(d.wind)?`<circle class="wx-wind-dot" cx="${xs[i]}" cy="${windY(d.wind)}" r="2.8"><title>${timelineHourLabel(d.time)}時 平均風速 ${num(d.wind,1)}m/s</title></circle>`:'').join('')}
+      <text class="wx-axis-title rain" x="2" y="34">降水量</text><text class="wx-axis-title wind" x="${W-2}" y="34" text-anchor="end">風速</text>
+      <text class="wx-axis-tick rain" x="${L-7}" y="54" text-anchor="end">${rainAxisMax}</text><text class="wx-axis-tick rain" x="${L-7}" y="100" text-anchor="end">${rainHalf}</text><text class="wx-axis-tick rain" x="${L-7}" y="${base+4}" text-anchor="end">0</text>
+      <text class="wx-axis-tick wind" x="${W-R+7}" y="54">${windAxisMax}</text><text class="wx-axis-tick wind" x="${W-R+7}" y="100">${windHalf}</text><text class="wx-axis-tick wind" x="${W-R+7}" y="${base+4}">0</text>
       <text class="wx-axis-unit rain" x="${L-7}" y="44" text-anchor="end">mm/h</text><text class="wx-axis-unit wind" x="${W-R+7}" y="44">m/s</text><text class="wx-th-label" x="4" y="179">雷</text>
-      ${data.map((d,i)=>Number(d.rain)>axisMax?`<text class="wx-over-value rain" x="${xs[i]}" y="46" text-anchor="middle">${num(d.rain,1)}</text>`:'').join('')}
-      ${data.map((d,i)=>Number(d.wind)>axisMax?`<text class="wx-over-value wind" x="${xs[i]}" y="38" text-anchor="middle">${num(d.wind,1)}</text>`:'').join('')}
-      ${data.map((d,i)=>{const q=timelineThunder(d);if(!q.show)return '';return `<g class="wx-thunder-mark high" transform="translate(${(xs[i]-7).toFixed(1)} ${(thY-8).toFixed(1)})"><path d="M9 0 2 11h5l-2 9 9-13H9l0-7Z" fill="#dc2626"/><title>${timeOnly(d.time)} 雷リスク ${q.label}</title></g>`;}).join('')}${ticks}
+      ${data.map((d,i)=>{const q=timelineThunder(d);if(!q.show)return '';return `<g class="wx-thunder-mark high" transform="translate(${(xs[i]-7).toFixed(1)} ${(thY-8).toFixed(1)})"><path d="M9 0 2 11h5l-2 9 9-13H9l0-7Z" fill="#dc2626"/><title>${timelineHourLabel(d.time)}時 雷リスク ${q.label}</title></g>`;}).join('')}${ticks}
     </svg>
   </div>`;
 }
