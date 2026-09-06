@@ -40,7 +40,7 @@ INSTAGRAM_MIN_NATIONAL_RESULTS = max(1, min(100, int(os.environ.get("INSTAGRAM_M
 INSTAGRAM_AUTO_MEDIA = (os.environ.get("INSTAGRAM_AUTO_MEDIA", "reel").strip().lower() or "reel")
 INSTAGRAM_REEL_FPS = max(8, min(20, int(os.environ.get("INSTAGRAM_REEL_FPS", "12"))))
 INSTAGRAM_REEL_SECONDS = max(6, min(12, int(os.environ.get("INSTAGRAM_REEL_SECONDS", "12"))))
-REEL_RENDER_REV = "master-20260905-scenes-v2-dynamic"
+REEL_RENDER_REV = "master-20260905-scenes-v3-fixedslots"
 
 _STATE_FILE = os.path.join(tempfile.gettempdir(), "traten-instagram-state.json")
 
@@ -77,6 +77,36 @@ def _dynamic_scene1_template_path() -> str:
     if not os.path.exists(path):
         raise RuntimeError("dynamic scene1 template asset is missing: reel_scene1_dynamic_template.png")
     return path
+
+
+_fixed_marker_positions_cache: dict[str, tuple[int, int]] | None = None
+
+
+def _fixed_marker_positions() -> dict[str, tuple[int, int]]:
+    global _fixed_marker_positions_cache
+    if _fixed_marker_positions_cache is not None:
+        return _fixed_marker_positions_cache
+    path = os.path.join(os.path.dirname(__file__), "reel_mountain_marker_positions.json")
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            rows = json.load(f)
+    except Exception as exc:
+        raise RuntimeError(f"fixed marker master could not be loaded: {exc}")
+    out: dict[str, tuple[int, int]] = {}
+    for row in rows if isinstance(rows, list) else []:
+        if not isinstance(row, dict):
+            continue
+        name = str(row.get("name") or "")
+        try:
+            x = int(row.get("x")); y = int(row.get("y"))
+        except (TypeError, ValueError):
+            continue
+        if name and 0 <= x <= 864 and 0 <= y <= 1536:
+            out[name] = (x, y)
+    if len(out) < INSTAGRAM_MIN_NATIONAL_RESULTS:
+        raise RuntimeError(f"fixed marker master is incomplete: {len(out)} positions")
+    _fixed_marker_positions_cache = out
+    return out
 
 
 def _latlon_to_scene1_px(lat: float, lon: float, W: int, H: int) -> tuple[int, int]:
@@ -117,23 +147,27 @@ def build_dynamic_scene1(target: date, rows: list[dict[str, Any]]) -> "Image.Ima
     # date line
     date_text = f"{target.month}/{target.day} 明日の登山コンディション"
     draw.text((48, 278), date_text, font=_load_font(33), fill=(14, 117, 63, 255))
-    # markers
+    # markers: use the fixed per-mountain pixel master calibrated to the approved scene-1 artwork.
+    # This deliberately avoids converting lat/lon at render time because the artwork is a stylized map,
+    # not a georeferenced GIS canvas.
+    positions = _fixed_marker_positions()
     plotted = 0
+    missing = []
     for row in rows:
-        try:
-            lat = float(row.get("lat"))
-            lon = float(row.get("lon"))
-            grade = str(row.get("grade") or "").upper()
-        except Exception:
-            continue
+        name = str(row.get("name") or "")
+        grade = str(row.get("grade") or "").upper()
         if grade not in {"A", "B", "C"}:
             continue
-        x, y = _latlon_to_scene1_px(lat, lon, 864, 1536)
-        if 0 <= x <= 864 and 0 <= y <= 1536:
-            _draw_scene1_grade_marker(draw, x, y, grade, radius=18)
-            plotted += 1
-    if plotted <= 0:
-        raise RuntimeError("scene1 marker plotting produced no output")
+        pos = positions.get(name)
+        if pos is None:
+            missing.append(name or "?")
+            continue
+        x, y = pos
+        _draw_scene1_grade_marker(draw, x, y, grade, radius=18)
+        plotted += 1
+    if plotted < INSTAGRAM_MIN_NATIONAL_RESULTS:
+        detail = ", ".join(missing[:8])
+        raise RuntimeError(f"fixed marker master could not place enough mountains: {plotted} / missing: {detail}")
     return base.convert("RGB")
 
 
