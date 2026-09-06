@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.5.188';
+const APP_VERSION = '1.5.189';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -8695,7 +8695,7 @@ const EXTRA_REPRESENTATIVE_COURSES_V1543 = Object.freeze({
     ['hut','富士一館','山小屋'],
     ['hut','東洋館','山小屋'],
     ['hut','富士山ホテル','山小屋'],
-    ['peak','吉田・須走ルート山頂','山頂'],
+    ['pass','吉田・須走ルート山頂','山頂ゲート'],
     ['peak','富士山（剣ヶ峰）','山頂']
   ]}],
   // Yakushima official route already has exact 50m + 270m split via Yodogawa-goya (=5h20 total).
@@ -8784,7 +8784,7 @@ function generatedRepresentativeCourseOptions(mountain){
 // これにより「山頂→登山口」の不自然な直結を避け、既存の区間CTをできるだけそのまま利用する。
 const REPRESENTATIVE_DESCENT_PATHS_V14166 = Object.freeze({
   // V1.5.187: 吉田ルートは登りと下りが別道。下山は山小屋列を逆走させない。
-  '富士山|吉田ルート': [['peak','吉田・須走ルート山頂','山頂'],['trailhead','富士スバルライン五合目（吉田口）','下山口']],
+  '富士山|吉田ルート': [['pass','吉田・須走ルート山頂','山頂ゲート'],['trailhead','富士スバルライン五合目（吉田口）','下山口']],
   // V1.5.42: split verified 6:00-7:59 routes on descent where reverse CTs are also confirmed.
   '常念岳|三股ルート': [['peak','前常念岳','通過ピーク'],['trailhead','三股登山口','下山口']],
   '爺ヶ岳|扇沢登山口ルート': [['hut','種池山荘','山小屋'],['trailhead','扇沢登山口','下山口']],
