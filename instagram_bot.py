@@ -40,7 +40,7 @@ INSTAGRAM_MIN_NATIONAL_RESULTS = max(1, min(100, int(os.environ.get("INSTAGRAM_M
 INSTAGRAM_AUTO_MEDIA = (os.environ.get("INSTAGRAM_AUTO_MEDIA", "reel").strip().lower() or "reel")
 INSTAGRAM_REEL_FPS = max(8, min(20, int(os.environ.get("INSTAGRAM_REEL_FPS", "12"))))
 INSTAGRAM_REEL_SECONDS = max(6, min(12, int(os.environ.get("INSTAGRAM_REEL_SECONDS", "12"))))
-REEL_RENDER_REV = "master-20260905-scenes-v5-namefixed-restored"
+REEL_RENDER_REV = "master-20260905-scenes-v6-globalfit-rishiri-yakushima"
 
 _STATE_FILE = os.path.join(tempfile.gettempdir(), "traten-instagram-state.json")
 
@@ -126,17 +126,35 @@ def _fixed_marker_positions() -> dict[str, tuple[int, int]]:
 
 
 def _latlon_to_scene1_px(lat: float, lon: float, W: int, H: int) -> tuple[int, int]:
-    # Recalibrated for the approved scene-1 template image (Japan area only).
-    # A simple lon/lat rectangle still left Honshu/Kyushu markers slightly east of the coastline,
-    # because the artwork's Japan map is not a perfect equirectangular crop.
-    # Use the broad map footprint first, then apply a latitude-based westward correction so
-    # southern/central Japan shifts inland while Hokkaido stays nearly unchanged.
+    """
+    Start from the V1.5.204 projection (the user's preferred "second attached image"),
+    then apply one coherent transform to the ENTIRE marker layer.
+
+    The global transform is calibrated from two end anchors on the artwork:
+      - 利尻山 -> 利尻島
+      - 宮ノ浦岳 -> 屋久島
+
+    No per-mountain fixed slots are used here.
+    """
+    # V1.5.204 base projection
     north, south, west, east = 46.2, 30.0, 128.0, 146.0
     x1, x2 = int(W * 0.023), int(W * 0.972)
     y1, y2 = int(H * 0.195), int(H * 0.882)
     base_x = x1 + (lon - west) / (east - west) * (x2 - x1)
-    px = int(base_x - (W / 864.0) * 4.0 * (45.0 - lat))
-    py = int(y1 + (north - lat) / (north - south) * (y2 - y1))
+    base_px = base_x - (W / 864.0) * 4.0 * (45.0 - lat)
+    base_py = y1 + (north - lat) / (north - south) * (y2 - y1)
+
+    # Global fit on the 864x1536 approved artwork.
+    # V1.5.204 anchor projections:
+    #   利尻山   ~= (623, 366) -> artwork 利尻島 ~= (641, 299)
+    #   宮ノ浦岳 ~= ( 74,1332) -> artwork 屋久島 ~= (126,1375)
+    sx = 515.0 / 549.0
+    tx = 641.0 - sx * 623.0
+    sy = 1076.0 / 966.0
+    ty = 299.0 - sy * 366.0
+
+    px = int(round(sx * base_px + tx))
+    py = int(round(sy * base_py + ty))
     return px, py
 
 
@@ -160,30 +178,29 @@ def build_dynamic_scene1(target: date, rows: list[dict[str, Any]]) -> "Image.Ima
         raise RuntimeError("Pillow is not installed")
     base = Image.open(_dynamic_scene1_template_path()).convert("RGBA").resize((864, 1536), Image.Resampling.LANCZOS)
     draw = ImageDraw.Draw(base, "RGBA")
-    # date line
+
     date_text = f"{target.month}/{target.day} 明日の登山コンディション"
     draw.text((48, 278), date_text, font=_load_font(33), fill=(14, 117, 63, 255))
-    # markers: use the fixed per-mountain pixel master calibrated to the approved scene-1 artwork.
-    # This deliberately avoids converting lat/lon at render time because the artwork is a stylized map,
-    # not a georeferenced GIS canvas.
-    positions = _fixed_marker_positions()
+
+    # Important: this deliberately restores the V1.5.204 style of placement:
+    # lat/lon projection + ONE global transform for the entire layer.
+    # Do not use the fixed marker master here.
     plotted = 0
-    missing = []
     for row in rows:
-        name = str(row.get("name") or "")
-        grade = str(row.get("grade") or "").upper()
+        try:
+            lat = float(row.get("lat"))
+            lon = float(row.get("lon"))
+            grade = str(row.get("grade") or "").upper()
+        except Exception:
+            continue
         if grade not in {"A", "B", "C"}:
             continue
-        pos = positions.get(name)
-        if pos is None:
-            missing.append(name or "?")
-            continue
-        x, y = pos
-        _draw_scene1_grade_marker(draw, x, y, grade, radius=18)
-        plotted += 1
+        x, y = _latlon_to_scene1_px(lat, lon, 864, 1536)
+        if 0 <= x <= 864 and 0 <= y <= 1536:
+            _draw_scene1_grade_marker(draw, x, y, grade, radius=18)
+            plotted += 1
     if plotted < INSTAGRAM_MIN_NATIONAL_RESULTS:
-        detail = ", ".join(missing[:8])
-        raise RuntimeError(f"fixed marker master could not place enough mountains: {plotted} / missing: {detail}")
+        raise RuntimeError(f"scene1 marker plotting incomplete: {plotted}")
     return base.convert("RGB")
 
 
