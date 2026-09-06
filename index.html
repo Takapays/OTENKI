@@ -71,8 +71,8 @@
     ]
   }
   </script>
-    <link rel="stylesheet" href="styles.css?v=1.5.216">
-    <link rel="stylesheet" href="ui-v1.4.254.css?v=1.5.216">
+    <link rel="stylesheet" href="styles.css?v=1.5.217">
+    <link rel="stylesheet" href="ui-v1.4.254.css?v=1.5.217">
     <style>
       /* V1.4.250: mobile TOP explainer is intentionally moved to guide.html.
          Inline fallback prevents an old/missing override stylesheet from leaving it visible. */
@@ -87,7 +87,7 @@
         .dashboard-stage > .dashboard-welcome{display:none !important;}
       }
 
-      /* V1.5.216: resource navigation simplified and made responsive. */
+      /* V1.5.217: resource navigation simplified and made responsive. */
       .topbar-resource-nav{
         display:grid !important;
         grid-template-columns:repeat(4,minmax(0,1fr)) !important;
@@ -152,7 +152,7 @@
         .topbar-resource-nav .resource-nav-copy b{font-size:13px !important;}
       }
 
-      /* V1.5.216: root fix. Dedicated mobile representative-course panel directly below mountain selection.
+      /* V1.5.217: root fix. Dedicated mobile representative-course panel directly below mountain selection.
          No shared .hidden dependency; JS owns visibility with inline !important. */
       @media (max-width:760px){
         #mobileRepresentativeCourses{width:100% !important;box-sizing:border-box !important;margin:2px 0 8px !important;padding:10px !important;border:1px solid #cfe2d9 !important;border-radius:14px !important;background:#f7fcf9 !important;flex-direction:column !important;gap:8px !important;visibility:visible !important;opacity:1 !important;overflow:visible !important;max-height:none !important;position:relative !important;z-index:20 !important;}
@@ -167,7 +167,7 @@
       @media (min-width:761px){#mobileRepresentativeCourses{display:none !important;}}
 
 
-      /* V1.5.216: gust line + all-hour labels in the point weather timeline. */
+      /* V1.5.217: gust line + all-hour labels in the point weather timeline. */
       .wx-timeline-head i.gust{display:inline-block;width:22px;height:0;border-top:3px dashed #b45309;vertical-align:middle;margin:0 5px 0 10px}
       .wx-gust-line{fill:none;stroke:#b45309;stroke-width:2.5;stroke-dasharray:7 5;stroke-linejoin:round;stroke-linecap:round;opacity:.9}
       .wx-gust-dot{fill:#fff;stroke:#b45309;stroke-width:2}
@@ -177,7 +177,7 @@
   
 
   <style id="v15191-summary-scale-fix">
-    /* V1.5.216: the colored portion follows the actual wind/rain marker. */
+    /* V1.5.217: the colored portion follows the actual wind/rain marker. */
     .summary-scale.wind::before,.summary-scale.rain::before{width:var(--summary-fill,0%) !important;transition:width .2s ease;}
   </style>
 </head>
@@ -190,7 +190,7 @@
     <div class="topbar-center">
       <h1>全国から探す。自分の山行を読む。</h1>
       <div class="topbar-badges">
-        <span data-app-version>V1.5.216</span>
+        <span data-app-version>V1.5.217</span>
         <span>日本三百名山 網羅</span>
         <span>5系統アラート</span>
         <span>全国一括簡易判定</span>
@@ -198,7 +198,7 @@
       </div>
     </div>
     <div class="mobile-topbar-copy">全国から探す。自分の山行を読む。</div>
-    <span class="mobile-topbar-version" data-app-version>V1.5.216</span>
+    <span class="mobile-topbar-version" data-app-version>V1.5.217</span>
     <div class="mobile-topbar-badges" aria-label="トラテン機能"><span>日本三百名山 網羅</span><span>5系統アラート</span><span>全国一括簡易判定</span><span>登山口アクセス情報</span></div>
     <nav class="topbar-nav topbar-resource-nav" aria-label="トラテン主要メニュー">
       <a class="topbar-nav-link trailhead" href="trailheads.html" aria-label="登山口一覧を開く"><span class="resource-nav-icon" aria-hidden="true">⛰</span><span class="resource-nav-copy"><b>登山口</b><small>アクセス情報</small></span></a>
@@ -567,42 +567,42 @@
     </a>
   </div>
 </footer>
-<script src="app.js?v=1.5.216" defer></script>
-<script src="asama-route-v1578.js?v=1.5.216" defer></script>
-<script src="hyakumeizan-route-enrichment-v1579.js?v=1.5.216" defer></script>
-<script src="hyakumeizan-route-enrichment-v1580.js?v=1.5.216" defer></script>
-<script src="hyakumeizan-route-enrichment-v1581.js?v=1.5.216" defer></script>
-<script src="hyakumeizan-route-enrichment-v1582.js?v=1.5.216" defer></script>
-<script src="hyakumeizan-route-enrichment-v1583.js?v=1.5.216" defer></script>
-<script src="hyakumeizan-route-enrichment-v1584.js?v=1.5.216" defer></script>
-<script src="hyakumeizan-route-enrichment-v1585.js?v=1.5.216" defer></script>
-<script src="west-japan-route-enrichment-v1586.js?v=1.5.216" defer></script>
-<script src="west-japan-route-enrichment-v1588.js?v=1.5.216" defer></script>
-<script src="west-japan-route-enrichment-v1590.js?v=1.5.216" defer></script>
-<script src="west-japan-route-enrichment-v1591.js?v=1.5.216" defer></script>
-<script src="representative-route-enrichment-v15132.js?v=1.5.216" defer></script>
-<script src="representative-route-enrichment-v15134.js?v=1.5.216" defer></script>
-<script src="representative-route-cleanup-v15128.js?v=1.5.216" defer></script>
-<script src="representative-route-enrichment-v15145.js?v=1.5.216" defer></script>
-<script src="representative-route-enrichment-v15146.js?v=1.5.216" defer></script>
-<script src="representative-route-enrichment-v15147.js?v=1.5.216" defer></script>
-<script src="representative-route-enrichment-v15148.js?v=1.5.216" defer></script>
-<script src="representative-route-enrichment-v15149.js?v=1.5.216" defer></script>
-<script src="representative-route-enrichment-v15150.js?v=1.5.216" defer></script>
-<script src="representative-route-enrichment-v15151.js?v=1.5.216" defer></script>
-<script src="representative-route-enrichment-v15152.js?v=1.5.216" defer></script>
-<script src="representative-route-enrichment-v15153.js?v=1.5.216" defer></script>
-<script src="representative-route-enrichment-v15154.js?v=1.5.216" defer></script>
-<script src="representative-route-enrichment-v15155.js?v=1.5.216" defer></script>
-<script src="representative-route-enrichment-v15156.js?v=1.5.216" defer></script>
-<script src="representative-route-enrichment-v15157.js?v=1.5.216" defer></script>
-<script src="representative-route-enrichment-v15158.js?v=1.5.216" defer></script>
-<script src="representative-route-enrichment-v15159.js?v=1.5.216" defer></script>
-<script src="representative-route-enrichment-v15160.js?v=1.5.216" defer></script>
-<script src="representative-route-enrichment-v15161.js?v=1.5.216" defer></script>
-<script src="representative-route-enrichment-v15162.js?v=1.5.216" defer></script>
-<script src="representative-route-enrichment-v15163.js?v=1.5.216" defer></script>
-<script src="representative-route-enrichment-v15164.js?v=1.5.216" defer></script>
-<script src="representative-route-enrichment-v15165.js?v=1.5.216" defer></script>
+<script src="app.js?v=1.5.217" defer></script>
+<script src="asama-route-v1578.js?v=1.5.217" defer></script>
+<script src="hyakumeizan-route-enrichment-v1579.js?v=1.5.217" defer></script>
+<script src="hyakumeizan-route-enrichment-v1580.js?v=1.5.217" defer></script>
+<script src="hyakumeizan-route-enrichment-v1581.js?v=1.5.217" defer></script>
+<script src="hyakumeizan-route-enrichment-v1582.js?v=1.5.217" defer></script>
+<script src="hyakumeizan-route-enrichment-v1583.js?v=1.5.217" defer></script>
+<script src="hyakumeizan-route-enrichment-v1584.js?v=1.5.217" defer></script>
+<script src="hyakumeizan-route-enrichment-v1585.js?v=1.5.217" defer></script>
+<script src="west-japan-route-enrichment-v1586.js?v=1.5.217" defer></script>
+<script src="west-japan-route-enrichment-v1588.js?v=1.5.217" defer></script>
+<script src="west-japan-route-enrichment-v1590.js?v=1.5.217" defer></script>
+<script src="west-japan-route-enrichment-v1591.js?v=1.5.217" defer></script>
+<script src="representative-route-enrichment-v15132.js?v=1.5.217" defer></script>
+<script src="representative-route-enrichment-v15134.js?v=1.5.217" defer></script>
+<script src="representative-route-cleanup-v15128.js?v=1.5.217" defer></script>
+<script src="representative-route-enrichment-v15145.js?v=1.5.217" defer></script>
+<script src="representative-route-enrichment-v15146.js?v=1.5.217" defer></script>
+<script src="representative-route-enrichment-v15147.js?v=1.5.217" defer></script>
+<script src="representative-route-enrichment-v15148.js?v=1.5.217" defer></script>
+<script src="representative-route-enrichment-v15149.js?v=1.5.217" defer></script>
+<script src="representative-route-enrichment-v15150.js?v=1.5.217" defer></script>
+<script src="representative-route-enrichment-v15151.js?v=1.5.217" defer></script>
+<script src="representative-route-enrichment-v15152.js?v=1.5.217" defer></script>
+<script src="representative-route-enrichment-v15153.js?v=1.5.217" defer></script>
+<script src="representative-route-enrichment-v15154.js?v=1.5.217" defer></script>
+<script src="representative-route-enrichment-v15155.js?v=1.5.217" defer></script>
+<script src="representative-route-enrichment-v15156.js?v=1.5.217" defer></script>
+<script src="representative-route-enrichment-v15157.js?v=1.5.217" defer></script>
+<script src="representative-route-enrichment-v15158.js?v=1.5.217" defer></script>
+<script src="representative-route-enrichment-v15159.js?v=1.5.217" defer></script>
+<script src="representative-route-enrichment-v15160.js?v=1.5.217" defer></script>
+<script src="representative-route-enrichment-v15161.js?v=1.5.217" defer></script>
+<script src="representative-route-enrichment-v15162.js?v=1.5.217" defer></script>
+<script src="representative-route-enrichment-v15163.js?v=1.5.217" defer></script>
+<script src="representative-route-enrichment-v15164.js?v=1.5.217" defer></script>
+<script src="representative-route-enrichment-v15165.js?v=1.5.217" defer></script>
 </body>
 </html>

@@ -40,7 +40,7 @@ INSTAGRAM_MIN_NATIONAL_RESULTS = max(1, min(100, int(os.environ.get("INSTAGRAM_M
 INSTAGRAM_AUTO_MEDIA = (os.environ.get("INSTAGRAM_AUTO_MEDIA", "reel").strip().lower() or "reel")
 INSTAGRAM_REEL_FPS = max(8, min(20, int(os.environ.get("INSTAGRAM_REEL_FPS", "12"))))
 INSTAGRAM_REEL_SECONDS = max(6, min(12, int(os.environ.get("INSTAGRAM_REEL_SECONDS", "12"))))
-REEL_RENDER_REV = "master-20260906-scenes-v9-large-date-weekday"
+REEL_RENDER_REV = "master-20260906-scenes-v10-huge-date-no-created-label"
 
 _STATE_FILE = os.path.join(tempfile.gettempdir(), "traten-instagram-state.json")
 
@@ -193,23 +193,31 @@ def _draw_scene1_grade_marker(draw, x: int, y: int, grade: str, radius: int = 20
     draw.text((x-(bb[2]-bb[0])/2, y-(bb[3]-bb[1])/2-2), grade, font=f, fill=(255,255,255,255))
 
 
+def _draw_prominent_date(draw, x: int, y: int, text: str, *, font_size: int, fill=(14,145,70,255)):
+    font = _load_font(font_size)
+    shadow_fill = (0, 58, 20, 70)
+    # subtle shadow for contrast while keeping the clean design
+    draw.text((x + 3, y + 4), text, font=font, fill=shadow_fill)
+    # use same-color stroke to visually thicken the glyphs
+    draw.text((x, y), text, font=font, fill=fill, stroke_width=max(2, font_size // 26), stroke_fill=fill)
+
+
 def build_dynamic_scene1(target: date, rows: list[dict[str, Any]]) -> "Image.Image":
     if Image is None or ImageDraw is None:
         raise RuntimeError("Pillow is not installed")
     base = Image.open(_dynamic_scene1_template_path()).convert("RGBA").resize((864, 1536), Image.Resampling.LANCZOS)
     draw = ImageDraw.Draw(base, "RGBA")
 
-    # Instagram first-slide date: date only, deliberately large and prominent.
-    # Weekday is derived from the target forecast date, so the Bot stays correct every day.
+    # Instagram first-slide date: date only, much larger/thicker so it is the most noticeable element
+    # under the title. Weekday is derived from the target forecast date (JST).
     weekday_ja = "月火水木金土日"[target.weekday()]
     date_text = f"{target.month}/{target.day}（{weekday_ja}）"
-    draw.text((48, 258), date_text, font=_load_font(62), fill=(14, 145, 70, 255))
+    _draw_prominent_date(draw, 28, 236, date_text, font_size=104)
 
     # Render-time metadata is burned into page 1 so it survives cache, Reel
     # composition, and automated Instagram publishing. Times are JST.
     created_jst = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=9)))
     asof_text = f"※ {created_jst.month}/{created_jst.day} {created_jst:%H:%M}時点"
-    created_text = f"作成日時: {created_jst.month}/{created_jst.day} {created_jst:%H:%M}"
 
     def _small_stamp(x: int, y: int, text: str) -> int:
         font = _load_font(19)
@@ -221,8 +229,7 @@ def build_dynamic_scene1(target: date, rows: list[dict[str, Any]]) -> "Image.Ima
         return w
 
     stamp_y = 1368
-    w1 = _small_stamp(28, stamp_y, asof_text)
-    _small_stamp(28 + w1 + 10, stamp_y, created_text)
+    _small_stamp(28, stamp_y, asof_text)
 
     # Important: this deliberately restores the V1.5.204 style of placement:
     # lat/lon projection + ONE global transform for the entire layer.
@@ -640,7 +647,7 @@ def _build_reel_scene1(target: date, rows: list[dict[str, Any]], W: int, H: int)
     d.text((675,30),"／",font=_load_font(30),fill=(8,54,92,255))
     d.text((38,82),"日本三百名山 全国分析",font=_load_font(56),fill=(7,48,83,255))
     weekday_ja="月火水木金土日"[target.weekday()]
-    d.text((38,145),f"{target.month}/{target.day}（{weekday_ja}）",font=_load_font(58),fill=(14,145,70,255))
+    _draw_prominent_date(d, 32, 128, f"{target.month}/{target.day}（{weekday_ja}）", font_size=94)
     d.rounded_rectangle((34,360,520,575),radius=32,fill=(4,35,66,245))
     d.text((64,378),"明日の",font=_load_font(88),fill=(255,222,45,255))
     d.text((67,500),"全国コンディション",font=_load_font(31),fill=(255,255,255,255))
