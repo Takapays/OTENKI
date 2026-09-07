@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.6';
+const APP_VERSION = '1.6.8';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -8205,11 +8205,8 @@ function init(){
   $('loadPoiBtn').addEventListener('click',loadCandidates);
   $('mountainInfoBtn')?.addEventListener('click',openMountainInfoFromPlanner);
   $('representativeCourseBtn')?.addEventListener('click',applyRepresentativeCourse);
-  // V1.5.144: On touch Safari, focus/mouseenter can be synthesized before click.
-  // Re-rendering the representative-course DOM at that moment can consume the first tap,
-  // making users tap "代表コースを読み込む" twice. Keep hover refresh desktop-mouse only;
-  // mountain/course change handlers already keep the summary current on mobile.
-  $('representativeCourseBtn')?.addEventListener('pointerenter',e=>{if(e.pointerType==='mouse')renderRepresentativeCourseSummaryNow();});
+  // V1.6.8: course selection is always above the load button.
+  // Never create or refresh a second selector on pointerenter/focus.
   $('representativeCourseSelect')?.addEventListener('change',()=>{setRepresentativeCourseSelectedIndex(currentMountainLabel(),Number($('representativeCourseSelect')?.value)||0);resetRepresentativeCourseLoadedState();renderRepresentativeCourseStaticPreview();});
   $('addPointBtn').addEventListener('click',()=>addManualPointRow());
   $('analyzeBtn').addEventListener('click',analyze);
@@ -9403,73 +9400,28 @@ function representativeCoursePathText(course,mountain=''){
   return defs.map(([,name])=>name).join(' → ');
 }
 function renderRepresentativeCourseSummaryNow(mountainOverride=''){
-  const mountain=(mountainOverride||currentMountainLabel()).trim();
-  const options=representativeCourseOptions(mountain);
-  const sel=$('representativeCourseSelect');
-  const selectedIndex=representativeCourseSelectedIndex(mountain,options);
-  const btn=$('representativeCourseBtn');
-  const mainline=btn?.closest('.representative-course-mainline');
-  if(!btn||!mainline)return;
-
-  let box=$('representativeCourseSummaryAlways');
-  if(!box){
-    box=document.createElement('div');
-    box.id='representativeCourseSummaryAlways';
-    box.className='representative-course-summary-always';
-    box.setAttribute('aria-live','polite');
-    btn.insertAdjacentElement('afterend',box);
-  }
-  if(!options.length){
+  // V1.6.8: retire the duplicate side-panel renderer, keeping this entry point
+  // for existing selection/change callers. The upper selector is shared by
+  // desktop and mobile; its historical DOM id is mobileRepresentativeCourses.
+  for(const id of ['representativeCourseSummaryAlways','representativeCourseSummaryFixed','representativeCourseChoices']){
+    const box=$(id);
+    if(!box)continue;
     box.replaceChildren();
+    box.classList.add('hidden');
     box.style.setProperty('display','none','important');
-    btn.removeAttribute('title');
-    return;
+    box.setAttribute('aria-hidden','true');
   }
-
-  box.replaceChildren();
-  options.forEach((course,i)=>{
-    const route=representativeCoursePathText(course)||course.points?.map(p=>p?.[1]).filter(Boolean).join(' → ')||'';
-    const item=document.createElement('button');
-    item.type='button';
-    item.className=`representative-course-summary-option${i===selectedIndex?' is-active':''}`;
-    item.dataset.courseIndex=String(i);
-    item.setAttribute('aria-pressed',i===selectedIndex?'true':'false');
-    const name=document.createElement('b');
-    name.textContent=`${options.length>1?`${i+1}. `:''}${course.label||'代表コース'}`;
-    const path=document.createElement('span');
-    path.textContent=route;
-    item.append(name,path);
-    item.addEventListener('click',()=>{
-      setRepresentativeCourseSelectedIndex(mountain,i);
-    });
-    box.append(item);
-  });
-  box.style.removeProperty('display');
-  box.style.removeProperty('visibility');
-  box.style.removeProperty('opacity');
-  btn.removeAttribute('title');
+  $('representativeCourseBtn')?.removeAttribute('title');
 }
 
 function renderRepresentativeCourseStaticPreview(mountainOverride=''){
-  const mountain=(mountainOverride||currentMountainLabel()).trim();
-  const options=representativeCourseOptions(mountain);
+  // Preview text already appears in the upper course cards, not beside the button.
   const preview=$('representativeCoursePreview');
   if(!preview)return;
-  if(!options.length){
-    preview.replaceChildren();
-    preview.classList.add('hidden','is-empty');
-    preview.setAttribute('aria-hidden','true');
-    return;
-  }
-  const idx=representativeCourseSelectedIndex(mountain,options);
-  const course=options[idx]||options[0];
-  const label=document.createElement('b');
-  label.textContent=course.label||'代表コース';
-  const route=document.createElement('span');
-  route.textContent=representativeCoursePathText(course,mountain)||course.points?.map(p=>p?.[1]).filter(Boolean).join(' → ')||'';
-  preview.replaceChildren(label,route);
-  preview.classList.remove('hidden','is-empty');
-  preview.setAttribute('aria-hidden','false');
+  preview.replaceChildren();
+  preview.classList.add('hidden','is-empty');
+  preview.style.setProperty('display','none','important');
+  preview.setAttribute('aria-hidden','true');
 }
 
 function renderMobileRepresentativeCourses(mountainOverride=''){
@@ -9569,7 +9521,7 @@ function refreshRepresentativeCourseButton(){
   btn.disabled=!hasCourse;
   if(sel){
     const idx=representativeCourseSelectedIndex(mountain,options);
-    sel.innerHTML=options.map((course,i)=>`<option value="${i}">${escapeHtml(course.label)}</option>`).join('');
+    sel.innerHTML=options.map((course,i)=>`<option value="${i}">${esc(course.label)}</option>`).join('');
     sel.value=String(idx);
     sel.classList.add('hidden');
     sel.disabled=true;

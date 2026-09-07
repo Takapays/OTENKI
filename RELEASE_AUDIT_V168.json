@@ -1,0 +1,54 @@
+{
+  "version": "1.6.8",
+  "base": "1.6.7",
+  "changed_existing_files": [
+    "app.js",
+    "index.html",
+    "server.py"
+  ],
+  "deleted_files": [],
+  "server_change": "APP_VERSION only; no behavior change",
+  "local_asset_references": 44,
+  "missing_asset_references": 0,
+  "javascript_syntax_checked": 39,
+  "browser_ui_checks_passed": 64,
+  "browser_widths": [
+    390,
+    760,
+    761,
+    1024,
+    1280,
+    1440,
+    1920
+  ],
+  "browser_mode": "Offline Chromium with actual release HTML/CSS/JS inlined; storage/API isolated; external network blocked",
+  "cache_checks_passed": 10,
+  "gsi_dem_checks_passed": 5,
+  "all_300_runtime_catalogs_equal_to_base": true,
+  "catalog_summary": {
+    "mountains": 300,
+    "coordinateIssues": 0,
+    "estimatedCt": 1,
+    "derivedCt": 0,
+    "missingCt": 0,
+    "noRepresentative": 5,
+    "sparseWaypoints": 155,
+    "representativeRoutes": 416
+  },
+  "hashes": {
+    "app.js": {
+      "base": "40b507ea394bd08c193b9f35be6ea1de8edaddafaf5e45ac984a8e0cbf80de58",
+      "release": "d16a9f781657e0865bed4765127b9128022df3dbdc635644d97f653772149cb1"
+    },
+    "index.html": {
+      "base": "abcc6703fc29d7d086b32985cff98cbb74be5478cf8f0419a73176f99834a9ae",
+      "release": "1c1d28d69f08f86189ba7405f9d54f4c3285110295e48e80f57bd70e1d46fa95"
+    },
+    "server.py": {
+      "base": "c940e2881fdd0db2f070b6aa4e4cfc25d533c84774f4c7d347662ea35ccf287e",
+      "release": "0b0c21245d97e6c95e6bc5a46a68b08e8c422eaecf3792dd341792aca9bb1b00"
+    }
+  },
+  "production_deployment_performed": false,
+  "live_backend_integration_tested": false
+}
