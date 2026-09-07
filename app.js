@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.5';
+const APP_VERSION = '1.6.6';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -9389,11 +9389,7 @@ function setRepresentativeCourseSelectedIndex(mountain,index){
   renderRepresentativeCourseStaticPreview(key);
   renderMobileRepresentativeCourses(key);
   const btn=$('representativeCourseBtn');
-  if(btn){
-    const active=options[idx];
-    const route=representativeCoursePathText(active);
-    btn.title=active?(route?`${active.label||'代表コース'}\n${route}`:(active.label||'代表コース')):'';
-  }
+  if(btn)btn.removeAttribute('title');
 }
 
 function representativeCourseFor(mountain){
@@ -9448,12 +9444,10 @@ function renderRepresentativeCourseSummaryNow(mountainOverride=''){
     });
     box.append(item);
   });
-  box.style.setProperty('display','flex','important');
-  box.style.setProperty('visibility','visible','important');
-  box.style.setProperty('opacity','1','important');
-  const active=options[selectedIndex]||options[0];
-  const activeRoute=representativeCoursePathText(active);
-  btn.title=activeRoute?`${active.label||'代表コース'}\n${activeRoute}`:(active.label||'代表コース');
+  box.style.removeProperty('display');
+  box.style.removeProperty('visibility');
+  box.style.removeProperty('opacity');
+  btn.removeAttribute('title');
 }
 
 function renderRepresentativeCourseStaticPreview(mountainOverride=''){
@@ -9535,8 +9529,24 @@ function renderMobileRepresentativeCourses(mountainOverride=''){
   box.replaceChildren(frag);
 }
 
+function setRepresentativeCourseManualDesignLocked(locked){
+  const manualBtn=$('loadPoiBtn');
+  if(!manualBtn)return;
+  manualBtn.classList.toggle('representative-course-locked',!!locked);
+  if(locked){
+    manualBtn.disabled=true;
+    manualBtn.textContent='コースを自分で設計';
+    manualBtn.classList.remove('primary','route-load-needed');
+    manualBtn.classList.add('secondary');
+    manualBtn.setAttribute('aria-disabled','true');
+  }else{
+    manualBtn.removeAttribute('aria-disabled');
+    updateLoadButtonAppearance(false);
+  }
+}
 function resetRepresentativeCourseLoadedState(){
   $('representativeCourseBtn')?.classList.remove('is-loaded');
+  setRepresentativeCourseManualDesignLocked(false);
 }
 function refreshRoutePointsVisibility(){
   const section=$('routePointsSection');
@@ -9719,6 +9729,7 @@ async function applyRepresentativeCourse(){
         ?`${mountain}：${course.label} を入力しました。CT合計 ${formatCourseTimeMinutes(totalMinutes)}${walkingPaceSuffix(totalMinutes)}（うち推定CT ${estimatedCtCount}区間・無雪期・休憩含まず）。`
         :`${mountain}：${course.label} を入力しました。標準CT合計 ${formatCourseTimeMinutes(totalMinutes)}${walkingPaceSuffix(totalMinutes)}（無雪期・休憩含まず）。`);
     btn?.classList.add('is-loaded');
+    setRepresentativeCourseManualDesignLocked(true);
     logEvent('representative_course_loaded',{success:true,mountain,metadata:{course_label:course.label,point_count:resolved.length,total_minutes:totalMinutes,distributed_point_count:distributedPointCount}});
   }finally{
     if(btn){btn.textContent='代表コースを読み込む';refreshRepresentativeCourseButton();}
