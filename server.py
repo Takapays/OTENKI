@@ -35,7 +35,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.2"
+APP_VERSION = "1.6.4"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
@@ -72,6 +72,7 @@ ALLOWED_HOSTS = {
     "geocoding-api.open-meteo.com",
     "nominatim.openstreetmap.org",
     "api.met.no",
+    "cyberjapandata.gsi.go.jp",
 }
 
 OVERPASS_ENDPOINTS = [
@@ -3048,9 +3049,11 @@ def proxy():
 
         status, ctype, body = _request_url(url)
         is_openmeteo = (target.hostname or "").endswith("open-meteo.com")
-        ttl = OPENMETEO_PROXY_CACHE_TTL if is_openmeteo else None
+        is_gsi_elevation = (target.hostname or "") == "cyberjapandata.gsi.go.jp" and "/xyz/dem" in (target.path or "")
+        ttl = (7 * 24 * 3600) if is_gsi_elevation else (OPENMETEO_PROXY_CACHE_TTL if is_openmeteo else None)
         _cache_put("get:" + url, status, ctype, body, ttl=ttl)
-        return _bytes_response(status, ctype, body, cache_control=("public, max-age=300" if is_openmeteo else "public, max-age=60"))
+        cache_control = "public, max-age=604800" if is_gsi_elevation else ("public, max-age=300" if is_openmeteo else "public, max-age=60")
+        return _bytes_response(status, ctype, body, cache_control=cache_control)
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")[:1200]
         # Preserve the upstream status so the frontend can distinguish
