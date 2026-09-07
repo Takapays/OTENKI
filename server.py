@@ -35,7 +35,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.8"
+APP_VERSION = "1.6.9"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
@@ -3107,8 +3107,10 @@ def usage_dashboard():
 def data_audit():
     if not _dashboard_auth_ok():
         return _dashboard_unauthorized()
-    response = send_from_directory(BASE, "data-audit.html")
-    response.headers["Cache-Control"] = "no-store"
+    # V1.6.9: serve through the version rewriter so every JS/CSS asset uses
+    # the running server APP_VERSION. This prevents immutable old app.js
+    # cache entries from contaminating the admin audit.
+    response = _serve_public_html("data-audit.html")
     response.headers["X-Robots-Tag"] = "noindex, nofollow"
     return response
 

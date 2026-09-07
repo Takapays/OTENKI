@@ -14,7 +14,7 @@
 <body>
 <div class="wrap">
   <div class="head">
-    <div><h1>トラテン データ監査</h1><p>固定座標・代表コース・CT・通過ポイントのメンテ対象を自動抽出します。<br>表示内容は現在読み込まれている <b>app.js</b> のデータから毎回再計算します。</p></div>
+    <div><h1>トラテン データ監査</h1><p>固定座標・代表コース・CT・通過ポイントのメンテ対象を自動抽出します。<br>表示内容は現在の <b>index.html と同じ実行時データJS一式</b> を読み込み、毎回再計算します。</p></div>
     <div class="head-actions"><a class="linkbtn" href="/usage-dashboard">使用状況</a><a class="linkbtn" href="/">トラテンへ</a><button id="reload" class="btn">再監査</button></div>
   </div>
   <div id="error" class="error"></div>
@@ -42,7 +42,49 @@
   </section>
   <p class="note">「通過ポイント少なめ」は、座標確定済み固定ポイントが3地点以下の山を抽出しています。推定CTは固定座標・標高差などから算出した参考CTです。V1.5.14以降、中間地点の距離按分CTは使用しません。管理画面はBasic認証の対象です。</p>
 </div>
-<script src="app.js?v=1.5.14"></script>
+<script>window.__tratenAuditAssetErrors=[];</script>
+<!-- V1.6.9: load the same runtime data stack as index.html, in the same order.
+     This is required because representative-route recovery/enrichment lives in
+     separate JS files in addition to app.js. -->
+<script src="app.js?v=1.6.9" onerror="window.__tratenAuditAssetErrors.push(this.src)"></script>
+<script src="asama-route-v1578.js?v=1.6.9" onerror="window.__tratenAuditAssetErrors.push(this.src)"></script>
+<script src="hyakumeizan-route-enrichment-v1579.js?v=1.6.9" onerror="window.__tratenAuditAssetErrors.push(this.src)"></script>
+<script src="hyakumeizan-route-enrichment-v1580.js?v=1.6.9" onerror="window.__tratenAuditAssetErrors.push(this.src)"></script>
+<script src="hyakumeizan-route-enrichment-v1581.js?v=1.6.9" onerror="window.__tratenAuditAssetErrors.push(this.src)"></script>
+<script src="hyakumeizan-route-enrichment-v1582.js?v=1.6.9" onerror="window.__tratenAuditAssetErrors.push(this.src)"></script>
+<script src="hyakumeizan-route-enrichment-v1583.js?v=1.6.9" onerror="window.__tratenAuditAssetErrors.push(this.src)"></script>
+<script src="hyakumeizan-route-enrichment-v1584.js?v=1.6.9" onerror="window.__tratenAuditAssetErrors.push(this.src)"></script>
+<script src="hyakumeizan-route-enrichment-v1585.js?v=1.6.9" onerror="window.__tratenAuditAssetErrors.push(this.src)"></script>
+<script src="west-japan-route-enrichment-v1586.js?v=1.6.9" onerror="window.__tratenAuditAssetErrors.push(this.src)"></script>
+<script src="west-japan-route-enrichment-v1588.js?v=1.6.9" onerror="window.__tratenAuditAssetErrors.push(this.src)"></script>
+<script src="west-japan-route-enrichment-v1590.js?v=1.6.9" onerror="window.__tratenAuditAssetErrors.push(this.src)"></script>
+<script src="west-japan-route-enrichment-v1591.js?v=1.6.9" onerror="window.__tratenAuditAssetErrors.push(this.src)"></script>
+<script src="representative-route-enrichment-v15132.js?v=1.6.9" onerror="window.__tratenAuditAssetErrors.push(this.src)"></script>
+<script src="representative-route-enrichment-v15134.js?v=1.6.9" onerror="window.__tratenAuditAssetErrors.push(this.src)"></script>
+<script src="representative-route-cleanup-v15128.js?v=1.6.9" onerror="window.__tratenAuditAssetErrors.push(this.src)"></script>
+<script src="representative-route-enrichment-v15145.js?v=1.6.9" onerror="window.__tratenAuditAssetErrors.push(this.src)"></script>
+<script src="representative-route-enrichment-v15146.js?v=1.6.9" onerror="window.__tratenAuditAssetErrors.push(this.src)"></script>
+<script src="representative-route-enrichment-v15147.js?v=1.6.9" onerror="window.__tratenAuditAssetErrors.push(this.src)"></script>
+<script src="representative-route-enrichment-v15148.js?v=1.6.9" onerror="window.__tratenAuditAssetErrors.push(this.src)"></script>
+<script src="representative-route-enrichment-v15149.js?v=1.6.9" onerror="window.__tratenAuditAssetErrors.push(this.src)"></script>
+<script src="representative-route-enrichment-v15150.js?v=1.6.9" onerror="window.__tratenAuditAssetErrors.push(this.src)"></script>
+<script src="representative-route-enrichment-v15151.js?v=1.6.9" onerror="window.__tratenAuditAssetErrors.push(this.src)"></script>
+<script src="representative-route-enrichment-v15152.js?v=1.6.9" onerror="window.__tratenAuditAssetErrors.push(this.src)"></script>
+<script src="representative-route-enrichment-v15153.js?v=1.6.9" onerror="window.__tratenAuditAssetErrors.push(this.src)"></script>
+<script src="representative-route-enrichment-v15154.js?v=1.6.9" onerror="window.__tratenAuditAssetErrors.push(this.src)"></script>
+<script src="representative-route-enrichment-v15155.js?v=1.6.9" onerror="window.__tratenAuditAssetErrors.push(this.src)"></script>
+<script src="representative-route-enrichment-v15156.js?v=1.6.9" onerror="window.__tratenAuditAssetErrors.push(this.src)"></script>
+<script src="representative-route-enrichment-v15157.js?v=1.6.9" onerror="window.__tratenAuditAssetErrors.push(this.src)"></script>
+<script src="representative-route-enrichment-v15158.js?v=1.6.9" onerror="window.__tratenAuditAssetErrors.push(this.src)"></script>
+<script src="representative-route-enrichment-v15159.js?v=1.6.9" onerror="window.__tratenAuditAssetErrors.push(this.src)"></script>
+<script src="representative-route-enrichment-v15160.js?v=1.6.9" onerror="window.__tratenAuditAssetErrors.push(this.src)"></script>
+<script src="representative-route-enrichment-v15161.js?v=1.6.9" onerror="window.__tratenAuditAssetErrors.push(this.src)"></script>
+<script src="representative-route-enrichment-v15162.js?v=1.6.9" onerror="window.__tratenAuditAssetErrors.push(this.src)"></script>
+<script src="representative-route-enrichment-v15163.js?v=1.6.9" onerror="window.__tratenAuditAssetErrors.push(this.src)"></script>
+<script src="representative-route-enrichment-v15164.js?v=1.6.9" onerror="window.__tratenAuditAssetErrors.push(this.src)"></script>
+<script src="representative-route-enrichment-v15165.js?v=1.6.9" onerror="window.__tratenAuditAssetErrors.push(this.src)"></script>
+<script src="route-regression-recovery-v15230.js?v=1.6.9" onerror="window.__tratenAuditAssetErrors.push(this.src)"></script>
+<script src="representative-route-recovery-v162.js?v=1.6.9" onerror="window.__tratenAuditAssetErrors.push(this.src)"></script>
 <script>
 (()=>{
 const $=id=>document.getElementById(id);let data=null,current='coordinate';
@@ -57,8 +99,8 @@ function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&l
 function fmt(m){if(!Number.isFinite(Number(m)))return '–';m=Number(m);return `${Math.floor(m/60)}:${String(m%60).padStart(2,'0')}`;}
 function render(){if(!data)return;const s=spec[current],q=$('search').value.trim().toLowerCase();let rows=s.rows(data)||[];if(q)rows=rows.filter(r=>Object.values(r).some(v=>String(v??'').toLowerCase().includes(q)));$('panelTitle').textContent=s.title;$('panelDesc').textContent=s.desc;$('shownCount').textContent=rows.length;$('thead').innerHTML='<tr>'+s.heads.map(h=>`<th>${esc(h)}</th>`).join('')+'</tr>';$('tbody').innerHTML=rows.length?rows.map(r=>'<tr>'+s.cells(r).map((v,i)=>`<td${i===0?' class="mono"':''}>${String(v).startsWith('<')||String(v).includes(' → ')?v:esc(v)}</td>`).join('')+'</tr>').join(''):'<tr><td class="empty" colspan="9">該当データはありません。 <span class="ok">✓</span></td></tr>';
  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.kind===current));}
-function audit(){try{if(!window.TratenDataAudit?.build)throw new Error('監査モジュールを読み込めませんでした');data=window.TratenDataAudit.build();$('cCoord').textContent=data.summary.coordinateIssues;$('cEstimated').textContent=data.summary.estimatedCt;$('cMissing').textContent=data.summary.missingCt;$('cNoRoute').textContent=data.summary.noRepresentative;$('cSparse').textContent=data.summary.sparseWaypoints;const t=new Date(data.generatedAt);$('status').textContent=`V${data.version} / 日本三百名山 ${data.summary.mountains}座 / 代表コース ${data.summary.representativeRoutes}本 / 監査 ${t.toLocaleString('ja-JP')}`;$('error').style.display='none';render();}catch(e){$('error').textContent=`監査に失敗しました: ${e.message||e}`;$('error').style.display='block';}}
-$('tabs').addEventListener('click',e=>{const b=e.target.closest('[data-kind]');if(!b)return;current=b.dataset.kind;render();});document.querySelectorAll('.card[data-kind]').forEach(c=>c.addEventListener('click',()=>{current=c.dataset.kind;render();document.querySelector('.toolbar').scrollIntoView({behavior:'smooth'});}));$('search').addEventListener('input',render);$('reload').addEventListener('click',audit);audit();
+async function audit(){try{if(window.__tratenAuditAssetErrors?.length)throw new Error(`監査用JS読込失敗: ${window.__tratenAuditAssetErrors.length}件`);if(!window.TratenDataAudit?.build)throw new Error('監査モジュールを読み込めませんでした');data=window.TratenDataAudit.build();const health=await fetch('/api/health',{cache:'no-store',headers:{'Cache-Control':'no-cache'}});if(!health.ok)throw new Error(`サーバー版確認 HTTP ${health.status}`);const healthData=await health.json();const serverVersion=String(healthData?.version||'').trim();const dataVersion=String(data?.version||'').trim();if(!serverVersion||serverVersion!==dataVersion)throw new Error(`バージョン不一致: app.js V${dataVersion||'?'} / server V${serverVersion||'?'}`);$('cCoord').textContent=data.summary.coordinateIssues;$('cEstimated').textContent=data.summary.estimatedCt;$('cMissing').textContent=data.summary.missingCt;$('cNoRoute').textContent=data.summary.noRepresentative;$('cSparse').textContent=data.summary.sparseWaypoints;const t=new Date(data.generatedAt);$('status').textContent=`V${data.version} / server一致 ✓ / 日本三百名山 ${data.summary.mountains}座 / 代表コース ${data.summary.representativeRoutes}本 / 監査 ${t.toLocaleString('ja-JP')}`;$('error').style.display='none';render();}catch(e){data=null;$('error').textContent=`監査に失敗しました: ${e.message||e}`;$('error').style.display='block';$('status').textContent='監査停止（バージョン整合性を確認してください）';}}
+$('tabs').addEventListener('click',e=>{const b=e.target.closest('[data-kind]');if(!b)return;current=b.dataset.kind;render();});document.querySelectorAll('.card[data-kind]').forEach(c=>c.addEventListener('click',()=>{current=c.dataset.kind;render();document.querySelector('.toolbar').scrollIntoView({behavior:'smooth'});}));$('search').addEventListener('input',render);$('reload').addEventListener('click',()=>location.reload());audit();
 })();
 </script>
 </body>
