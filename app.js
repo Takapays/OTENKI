@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.4';
+const APP_VERSION = '1.6.5';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -8159,6 +8159,16 @@ function setupAnalyzeButtonState(){
   }
 }
 
+function updateMountainSelectionGuidance(){
+  const area=$('mountainArea');
+  const mountain=$('mountainPreset');
+  if(!area||!mountain)return;
+  const hasArea=!!String(area.value||'').trim();
+  const hasMountain=!!String(mountain.value||'').trim();
+  area.classList.toggle('is-next-step',!hasArea);
+  mountain.classList.toggle('is-next-step',hasArea&&!hasMountain);
+}
+
 function init(){
   // V1.4.163: app.js is also loaded by the admin data-audit page.
   // Skip the main planner boot when its root controls do not exist.
@@ -8189,6 +8199,7 @@ function init(){
     $('mountainCount').textContent=areaKey?`${areaName}：${names.length}座を表示中 / 山名検索なら全国から直接選択できます`:`全国版：日本三百名山300座＋縦走主要ピーク${extra.length}座 / まず山域を選択`;
   };
   area.value=''; select.value=''; search.value=''; populateMountainSelect('');
+  updateMountainSelectionGuidance();
   refreshRepresentativeCourseButton();
   refreshMountainInfoButton();
   $('loadPoiBtn').addEventListener('click',loadCandidates);
@@ -8211,6 +8222,7 @@ function init(){
     resetRouteExtraAvailability();
     $('points').innerHTML=''; pointSeq=0;
     const selected=!!select.value.trim();
+    updateMountainSelectionGuidance();
     $('candidateState').textContent='';
     updateLoadButtonAppearance(false);
     resetRepresentativeCourseLoadedState();
