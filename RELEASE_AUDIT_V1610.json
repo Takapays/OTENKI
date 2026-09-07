@@ -1,0 +1,17 @@
+{
+  "version": "1.6.10",
+  "baseline": "1.6.9",
+  "changes": [
+    "bounded retry for Supabase write read-back verification",
+    "data-audit sparse waypoint threshold changed from <=3 to <=2",
+    "version/cache-buster synchronization"
+  ],
+  "safety": {
+    "unconfirmedWriteStillFails": true,
+    "ctChanged": false,
+    "routeDefinitionsChanged": false,
+    "coordinatesChanged": false,
+    "weatherGradeLogicChanged": false,
+    "representativeCourseUiChanged": false
+  }
+}

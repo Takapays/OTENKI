@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.9';
+const APP_VERSION = '1.6.10';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -14294,8 +14294,8 @@ window.TratenDataAudit = (()=>{
       if(!routeOptions.length){
         noRepresentative.push({mountain,waypointCount:resolvedPts.length,trailheads:resolvedPts.filter(p=>p.type==='trailhead').length,peaks:resolvedPts.filter(p=>p.type==='peak').length});
       }
-      // V1.5.223: only three or fewer usable fixed points are flagged as sparse.
-      if(resolvedPts.length<=3){
+      // V1.6.10: only two or fewer usable fixed points are flagged as sparse.
+      if(resolvedPts.length<=2){
         sparseWaypoints.push({mountain,count:resolvedPts.length,trailheads:resolvedPts.filter(p=>p.type==='trailhead').length,huts:resolvedPts.filter(p=>p.type==='hut').length,peaks:resolvedPts.filter(p=>p.type==='peak').length});
       }
       routeOptions.forEach((course,courseIndex)=>{
@@ -14317,7 +14317,7 @@ window.TratenDataAudit = (()=>{
     return {
       generatedAt:new Date().toISOString(),
       version:APP_VERSION,
-      thresholds:{sparseWaypointMax:3},
+      thresholds:{sparseWaypointMax:2},
       summary:{
         mountains:mountains.length,
         coordinateIssues:coords.length,
@@ -14342,7 +14342,7 @@ window.TratenDataAudit = (()=>{
 (function fixSparseAuditThresholdLabel(){
   try{
     if(typeof location==='undefined'||!String(location.pathname||'').includes('data-audit'))return;
-    const replaceNode=node=>{if(!node)return;for(const child of Array.from(node.childNodes||[])){if(child&&child.nodeType===3)child.nodeValue=String(child.nodeValue||'').replace(/4\s*点以下/g,'3点以下');else replaceNode(child);}};
+    const replaceNode=node=>{if(!node)return;for(const child of Array.from(node.childNodes||[])){if(child&&child.nodeType===3)child.nodeValue=String(child.nodeValue||'').replace(/[34]\s*点以下/g,'2点以下');else replaceNode(child);}};
     const run=()=>replaceNode(document.body);
     if(document?.readyState==='loading')document.addEventListener('DOMContentLoaded',run,{once:true});else setTimeout(run,0);
   }catch(_){ }

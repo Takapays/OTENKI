@@ -35,7 +35,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.9"
+APP_VERSION = "1.6.10"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
@@ -1137,13 +1137,12 @@ def _national_fetch_and_persist(date_text, points, due, initial=None):
                 if persistent:
                     wrote = _national_supabase_write(date_text,batch,list(valid.values()))
                     if wrote:
-                        checked,_,_ = _national_supabase_read(date_text,batch)
-                        confirmed = {name for name in valid if name in checked
-                            and checked[name].get("_cache_meta",{}).get("generated_ts",0) >= valid[name]["_cache_meta"]["generated_ts"]
-                            and _national_public_result(checked[name]) == _national_public_result(valid[name])}
+                        confirmed, verify_attempts, verify_error = _national_confirm_supabase_write(date_text,batch,valid)
                         persisted_names.update(confirmed); cr["persisted"] = len(confirmed)
-                        if len(confirmed) != len(valid):
+                        cr["verifyAttempts"] = verify_attempts
+                        if verify_error:
                             cr["error"] = "database read-back incomplete"
+                            cr["verifyDetail"] = verify_error
                     else:
                         cr["error"] = "database write failed"
                 else:
@@ -1379,6 +1378,11 @@ def _national_grade(max_wind: float, max_gust: float, max_rain: float, max_cape:
 
 NATIONAL_SUPABASE_CACHE_TABLE = os.environ.get("NATIONAL_SUPABASE_CACHE_TABLE", "national_outlook_cache")
 NATIONAL_SUPABASE_TIMEOUT = int(os.environ.get("NATIONAL_SUPABASE_TIMEOUT", "12"))
+# V1.6.10: Supabase can briefly return the previous row immediately after an upsert.
+# Keep write verification strict, but allow a short bounded read-back window before
+# declaring a database failure. This never converts an unconfirmed write to success.
+NATIONAL_SUPABASE_VERIFY_RETRIES = max(0, min(5, int(os.environ.get("NATIONAL_SUPABASE_VERIFY_RETRIES", "3"))))
+NATIONAL_SUPABASE_VERIFY_DELAY = max(0.1, min(3.0, float(os.environ.get("NATIONAL_SUPABASE_VERIFY_DELAY", "0.6"))))
 
 def _national_supabase_enabled() -> bool:
     return bool(SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY and NATIONAL_SUPABASE_CACHE_TABLE)
@@ -1445,6 +1449,29 @@ def _national_supabase_write(date_text, points, results):
     except Exception as exc:
         app.logger.warning("national_cache_write_failed %s", type(exc).__name__)
         return False
+
+
+def _national_confirm_supabase_write(date_text, points, expected):
+    """Strictly verify an acknowledged Supabase write with bounded read-back retries."""
+    expected = _national_valid_results(points, list((expected or {}).values()))
+    if not expected:
+        return set(), 0, None
+    confirmed = set(); last_error = None
+    attempts = NATIONAL_SUPABASE_VERIFY_RETRIES + 1
+    for attempt in range(attempts):
+        # Give PostgREST/Supabase a small propagation window before every verification read.
+        time.sleep(min(3.0, NATIONAL_SUPABASE_VERIFY_DELAY * (attempt + 1)))
+        try:
+            checked, _, _ = _national_supabase_read(date_text, points)
+            confirmed = {name for name, row in expected.items() if name in checked
+                and checked[name].get("_cache_meta",{}).get("generated_ts",0) >= row["_cache_meta"]["generated_ts"]
+                and _national_public_result(checked[name]) == _national_public_result(row)}
+            if len(confirmed) == len(expected):
+                return confirmed, attempt + 1, None
+            last_error = f"database read-back incomplete: {len(confirmed)}/{len(expected)}"
+        except RuntimeError as exc:
+            last_error = str(exc)
+    return confirmed, attempts, last_error or "database read-back incomplete"
 
 
 def _national_load_100_points():
