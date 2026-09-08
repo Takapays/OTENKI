@@ -71,8 +71,8 @@
     ]
   }
   </script>
-    <link rel="stylesheet" href="styles.css?v=1.6.18">
-    <link rel="stylesheet" href="ui-v1.4.254.css?v=1.6.18">
+    <link rel="stylesheet" href="styles.css?v=1.6.19">
+    <link rel="stylesheet" href="ui-v1.4.254.css?v=1.6.19">
     <style>
       /* V1.4.250: mobile TOP explainer is intentionally moved to guide.html.
          Inline fallback prevents an old/missing override stylesheet from leaving it visible. */
@@ -367,11 +367,13 @@
         }
       }
 
-      /* V1.6.18: five-level national outlook + on-demand model comparison. */
+      /* V1.6.19: five-level national outlook + on-demand model comparison. */
       .national-five-legend{display:flex;flex-wrap:wrap;align-items:center;gap:7px 9px}
       .national-five-legend span{display:inline-grid;place-items:center;width:25px;height:25px;border-radius:50%;font-weight:900;color:#fff}
       .national-five-legend .grade-a{background:#23864b}.national-five-legend .grade-b{background:#4f8f3a}.national-five-legend .grade-c{background:#b08a19}.national-five-legend .grade-d{background:#d66c20}.national-five-legend .grade-e{background:#b62d2d}.national-five-legend .grade-u{background:#78909c}
       @media(max-width:720px){.national-map-legend-overlay{top:7px;max-width:calc(100% - 70px);font-size:9px;gap:2px 4px;padding:4px 6px;border-radius:9px}.national-map-legend-overlay span{width:18px;height:18px;font-size:9px}.national-model-top{margin-bottom:8px}}
+      .national-marker.grade-b,.national-nearby-grade.grade-b,.national-rich-grade.grade-b{background:#4f8f3a!important;color:#fff!important}
+      .national-marker.grade-c,.national-nearby-grade.grade-c,.national-rich-grade.grade-c{background:#b08a19!important;color:#fff!important}
       .national-marker.grade-d,.national-nearby-grade.grade-d,.national-rich-grade.grade-d{background:#d66c20!important;color:#fff!important}
       .national-marker.grade-e,.national-nearby-grade.grade-e,.national-rich-grade.grade-e{background:#b62d2d!important;color:#fff!important}
       .national-tap-guide{margin:8px 0 10px;padding:9px 11px;border-radius:10px;background:#eef7f3;color:#315b4d;font-size:12px;line-height:1.5}.national-tap-guide b{color:#126243}
@@ -381,7 +383,7 @@
       @media(max-width:760px){.national-model-slot-desktop{display:none}.national-model-slot-mobile{display:block}.national-model-chart{padding:8px}.national-model-chart-title{align-items:flex-start;flex-direction:column;gap:2px}.national-model-chart svg{max-height:180px}.national-five-legend{font-size:10px}}
 
 
-      /* V1.6.18: simplify the nationwide mountain model charts for readability. */
+      /* V1.6.19: simplify the nationwide mountain model charts for readability. */
       .national-model-section-simple{padding-top:14px}.national-model-simple-head{display:flex;justify-content:space-between;align-items:end;gap:12px;margin:0 2px 8px}.national-model-simple-head h4{margin:0;font-size:22px;line-height:1.1;color:#123a4a}.national-model-simple-head span{font-size:12px;font-weight:700;color:#6d8089}.national-model-section-simple .national-model-chart{margin-top:14px;padding:16px 18px;border:1px solid #d6e2e7;border-radius:20px;box-shadow:0 3px 12px rgba(37,67,78,.06)}.national-model-section-simple .national-model-chart-title{align-items:center}.national-model-section-simple .national-model-chart-title strong{font-size:21px;color:#163844}.national-model-section-simple .national-model-chart-title span{font-size:12px;font-weight:700;color:#6a7d86}.national-model-section-simple .national-model-chart svg{max-height:none;margin-top:8px}.national-model-section-simple .nm-axis{font-size:11px}.national-model-section-simple .nm-line{stroke-width:3.2}.national-model-section-simple .nm-avg{stroke-width:4}.national-model-section-simple .national-model-legend{font-size:13px;gap:10px 20px;margin-top:2px}.national-model-section-simple .national-model-legend span:before{width:24px;border-top-width:4px}.national-model-section-simple .national-grade-criteria{margin-top:14px}.national-model-section-simple .national-grade-criteria summary{font-size:12px;color:#61747d;font-weight:700}.national-model-status,.national-model-note{display:none!important}
       @media(max-width:760px){.national-model-section-simple{padding-top:8px}.national-model-simple-head{align-items:flex-start;flex-direction:column;gap:3px;margin-bottom:6px}.national-model-simple-head h4{font-size:20px}.national-model-section-simple .national-model-chart{padding:12px 10px;border-radius:18px;margin-top:12px}.national-model-section-simple .national-model-chart-title{flex-direction:row;align-items:baseline;gap:8px}.national-model-section-simple .national-model-chart-title strong{font-size:20px}.national-model-section-simple .national-model-chart-title span{font-size:11px}.national-model-section-simple .national-model-chart svg{max-height:none}.national-model-section-simple .national-model-legend{font-size:12px;gap:8px 14px}}
 </style>
@@ -401,7 +403,7 @@
     <div class="topbar-center">
       <h1>全国から探す。自分の山行を読む。</h1>
       <div class="topbar-badges">
-        <span data-app-version>V1.6.18</span>
+        <span data-app-version>V1.6.19</span>
         <span>日本三百名山 網羅</span>
         <span>5系統アラート</span>
         <span>全国一括簡易判定</span>
@@ -409,7 +411,7 @@
       </div>
     </div>
     <div class="mobile-topbar-copy">全国から探す。自分の山行を読む。</div>
-    <span class="mobile-topbar-version" data-app-version>V1.6.18</span>
+    <span class="mobile-topbar-version" data-app-version>V1.6.19</span>
     <div class="mobile-topbar-badges" aria-label="トラテン機能"><span>日本三百名山 網羅</span><span>5系統アラート</span><span>全国一括簡易判定</span><span>登山口アクセス情報</span></div>
     <nav class="topbar-nav topbar-resource-nav" aria-label="トラテン主要メニュー">
       <a class="topbar-nav-link trailhead" href="trailheads.html" aria-label="登山口一覧を開く"><span class="resource-nav-icon" aria-hidden="true">⛰</span><span class="resource-nav-copy"><b>登山口</b><small>アクセス情報</small></span></a>
@@ -779,44 +781,44 @@
     </a>
   </div>
 </footer>
-<script src="app.js?v=1.6.18" defer></script>
-<script src="asama-route-v1578.js?v=1.6.18" defer></script>
-<script src="hyakumeizan-route-enrichment-v1579.js?v=1.6.18" defer></script>
-<script src="hyakumeizan-route-enrichment-v1580.js?v=1.6.18" defer></script>
-<script src="hyakumeizan-route-enrichment-v1581.js?v=1.6.18" defer></script>
-<script src="hyakumeizan-route-enrichment-v1582.js?v=1.6.18" defer></script>
-<script src="hyakumeizan-route-enrichment-v1583.js?v=1.6.18" defer></script>
-<script src="hyakumeizan-route-enrichment-v1584.js?v=1.6.18" defer></script>
-<script src="hyakumeizan-route-enrichment-v1585.js?v=1.6.18" defer></script>
-<script src="west-japan-route-enrichment-v1586.js?v=1.6.18" defer></script>
-<script src="west-japan-route-enrichment-v1588.js?v=1.6.18" defer></script>
-<script src="west-japan-route-enrichment-v1590.js?v=1.6.18" defer></script>
-<script src="west-japan-route-enrichment-v1591.js?v=1.6.18" defer></script>
-<script src="representative-route-enrichment-v15132.js?v=1.6.18" defer></script>
-<script src="representative-route-enrichment-v15134.js?v=1.6.18" defer></script>
-<script src="representative-route-cleanup-v15128.js?v=1.6.18" defer></script>
-<script src="representative-route-enrichment-v15145.js?v=1.6.18" defer></script>
-<script src="representative-route-enrichment-v15146.js?v=1.6.18" defer></script>
-<script src="representative-route-enrichment-v15147.js?v=1.6.18" defer></script>
-<script src="representative-route-enrichment-v15148.js?v=1.6.18" defer></script>
-<script src="representative-route-enrichment-v15149.js?v=1.6.18" defer></script>
-<script src="representative-route-enrichment-v15150.js?v=1.6.18" defer></script>
-<script src="representative-route-enrichment-v15151.js?v=1.6.18" defer></script>
-<script src="representative-route-enrichment-v15152.js?v=1.6.18" defer></script>
-<script src="representative-route-enrichment-v15153.js?v=1.6.18" defer></script>
-<script src="representative-route-enrichment-v15154.js?v=1.6.18" defer></script>
-<script src="representative-route-enrichment-v15155.js?v=1.6.18" defer></script>
-<script src="representative-route-enrichment-v15156.js?v=1.6.18" defer></script>
-<script src="representative-route-enrichment-v15157.js?v=1.6.18" defer></script>
-<script src="representative-route-enrichment-v15158.js?v=1.6.18" defer></script>
-<script src="representative-route-enrichment-v15159.js?v=1.6.18" defer></script>
-<script src="representative-route-enrichment-v15160.js?v=1.6.18" defer></script>
-<script src="representative-route-enrichment-v15161.js?v=1.6.18" defer></script>
-<script src="representative-route-enrichment-v15162.js?v=1.6.18" defer></script>
-<script src="representative-route-enrichment-v15163.js?v=1.6.18" defer></script>
-<script src="representative-route-enrichment-v15164.js?v=1.6.18" defer></script>
-<script src="representative-route-enrichment-v15165.js?v=1.6.18" defer></script>
-<script src="route-regression-recovery-v15230.js?v=1.6.18" defer></script>
-<script src="representative-route-recovery-v162.js?v=1.6.18" defer></script>
+<script src="app.js?v=1.6.19" defer></script>
+<script src="asama-route-v1578.js?v=1.6.19" defer></script>
+<script src="hyakumeizan-route-enrichment-v1579.js?v=1.6.19" defer></script>
+<script src="hyakumeizan-route-enrichment-v1580.js?v=1.6.19" defer></script>
+<script src="hyakumeizan-route-enrichment-v1581.js?v=1.6.19" defer></script>
+<script src="hyakumeizan-route-enrichment-v1582.js?v=1.6.19" defer></script>
+<script src="hyakumeizan-route-enrichment-v1583.js?v=1.6.19" defer></script>
+<script src="hyakumeizan-route-enrichment-v1584.js?v=1.6.19" defer></script>
+<script src="hyakumeizan-route-enrichment-v1585.js?v=1.6.19" defer></script>
+<script src="west-japan-route-enrichment-v1586.js?v=1.6.19" defer></script>
+<script src="west-japan-route-enrichment-v1588.js?v=1.6.19" defer></script>
+<script src="west-japan-route-enrichment-v1590.js?v=1.6.19" defer></script>
+<script src="west-japan-route-enrichment-v1591.js?v=1.6.19" defer></script>
+<script src="representative-route-enrichment-v15132.js?v=1.6.19" defer></script>
+<script src="representative-route-enrichment-v15134.js?v=1.6.19" defer></script>
+<script src="representative-route-cleanup-v15128.js?v=1.6.19" defer></script>
+<script src="representative-route-enrichment-v15145.js?v=1.6.19" defer></script>
+<script src="representative-route-enrichment-v15146.js?v=1.6.19" defer></script>
+<script src="representative-route-enrichment-v15147.js?v=1.6.19" defer></script>
+<script src="representative-route-enrichment-v15148.js?v=1.6.19" defer></script>
+<script src="representative-route-enrichment-v15149.js?v=1.6.19" defer></script>
+<script src="representative-route-enrichment-v15150.js?v=1.6.19" defer></script>
+<script src="representative-route-enrichment-v15151.js?v=1.6.19" defer></script>
+<script src="representative-route-enrichment-v15152.js?v=1.6.19" defer></script>
+<script src="representative-route-enrichment-v15153.js?v=1.6.19" defer></script>
+<script src="representative-route-enrichment-v15154.js?v=1.6.19" defer></script>
+<script src="representative-route-enrichment-v15155.js?v=1.6.19" defer></script>
+<script src="representative-route-enrichment-v15156.js?v=1.6.19" defer></script>
+<script src="representative-route-enrichment-v15157.js?v=1.6.19" defer></script>
+<script src="representative-route-enrichment-v15158.js?v=1.6.19" defer></script>
+<script src="representative-route-enrichment-v15159.js?v=1.6.19" defer></script>
+<script src="representative-route-enrichment-v15160.js?v=1.6.19" defer></script>
+<script src="representative-route-enrichment-v15161.js?v=1.6.19" defer></script>
+<script src="representative-route-enrichment-v15162.js?v=1.6.19" defer></script>
+<script src="representative-route-enrichment-v15163.js?v=1.6.19" defer></script>
+<script src="representative-route-enrichment-v15164.js?v=1.6.19" defer></script>
+<script src="representative-route-enrichment-v15165.js?v=1.6.19" defer></script>
+<script src="route-regression-recovery-v15230.js?v=1.6.19" defer></script>
+<script src="representative-route-recovery-v162.js?v=1.6.19" defer></script>
 </body>
 </html>
