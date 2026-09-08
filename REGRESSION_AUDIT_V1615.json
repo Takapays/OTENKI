@@ -1,0 +1,37 @@
+{
+  "version": "1.6.15",
+  "canonicalBaseline": "1.5.231 = 1.6.1",
+  "previous": "1.6.14",
+  "metrics": {
+    "baseline_v1_6_1": {"mountains":300,"representativeRoutes":415,"missingCt":0,"estimatedCt":1,"coordinateIssues":0},
+    "previous_v1_6_14": {"mountains":300,"representativeRoutes":416,"missingCt":0,"estimatedCt":1,"coordinateIssues":0},
+    "candidate_v1_6_15": {"mountains":300,"representativeRoutes":416,"missingCt":0,"estimatedCt":1,"coordinateIssues":0,"basis":"After normalizing version identifiers and the requested loading UI, app.js/index.html/server.py/data-audit.html are identical to V1.6.14; all other inherited application files are byte-identical."}
+  },
+  "change": {
+    "loadingText": "解析中！・・・",
+    "loadingColor": "#c62828",
+    "loadingWeight": 900,
+    "animation": "three-step dots, 1.05s infinite"
+  },
+  "checks": {
+    "mountains_300": true,
+    "coordinate_issues_0": true,
+    "missing_ct_0": true,
+    "estimated_ct_le_1": true,
+    "representative_routes_not_decreased_vs_baseline": true,
+    "representative_routes_not_decreased_vs_previous": true,
+    "fixed_points_unchanged_vs_previous": true,
+    "ct_definitions_unchanged_vs_previous": true,
+    "no_previous_js_function_declarations_deleted": true,
+    "no_previous_server_top_level_functions_deleted": true,
+    "national_grade_logic_unchanged": true,
+    "same_hour_mean_unchanged": true,
+    "de_safety_floor_unchanged": true,
+    "graph_spec_unchanged": true,
+    "instagram_abcde_unchanged": true,
+    "app_js_syntax": true,
+    "server_py_compile": true,
+    "v1615_guard_checks": 29
+  },
+  "status": "PASS"
+}
