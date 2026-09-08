@@ -35,7 +35,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.15"
+APP_VERSION = "1.6.18"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
@@ -1256,6 +1256,30 @@ def _refresh_rolling_100_cache(*, force=False, max_dates=None):
     report["state"] = "complete" if report["windowComplete"] else "incomplete" if report["errors"] else "scheduled-remaining"
     return report
 
+def _instagram_load_yarigatake_detail(date_text: str) -> dict[str, Any]:
+    """Load the same-day/hourly national model data used by the web detail graph."""
+    points=_national_load_prefetch_points()
+    p=next((dict(x) for x in points if str(x.get("name") or "")=="槍ヶ岳"),None)
+    if not p:
+        raise RuntimeError("Yarigatake point is unavailable")
+    met=None; gfs=None
+    try:
+        met=_national_result_from_metno(p,date_text,_request_metno_national_point(p) or {},include_series=True)
+    except Exception as exc:
+        app.logger.warning("instagram_yarigatake_metno_failed %s",type(exc).__name__)
+    try:
+        gfs=_national_gfs_results(date_text,[p],include_series=True).get("槍ヶ岳")
+    except Exception as exc:
+        app.logger.warning("instagram_yarigatake_gfs_failed %s",type(exc).__name__)
+    merged=_national_merge_two_models(p,met,gfs)
+    if not merged or (not met and not gfs):
+        raise RuntimeError("Yarigatake forecast unavailable")
+    def clean(row):
+        if not row: return None
+        return {k:v for k,v in row.items() if k != "_series"}
+    return {"date":date_text,"name":"槍ヶ岳","merged":merged,"models":{"metno":clean(met),"gfs":clean(gfs)}}
+
+
 def _instagram_maybe_post_after_refresh():
     # Do not turn auto posting on. Honor the existing bot configuration/hour/remote deduplication.
     if not instagram_bot.INSTAGRAM_AUTO_POST:
@@ -1265,7 +1289,7 @@ def _instagram_maybe_post_after_refresh():
         return {"ok":True,"skipped":True,"reason":"posting-in-progress"}
     try:
         return instagram_bot.maybe_post_tomorrow(now_jst=datetime.now(timezone.utc)+timedelta(hours=9),
-            load_results=_instagram_load_fresh_100_results)
+            load_results=_instagram_load_fresh_100_results, load_reel_detail=_instagram_load_yarigatake_detail)
     except Exception as exc:
         app.logger.exception("instagram_auto_post_failed")
         return {"ok":False,"error":type(exc).__name__}
@@ -1277,7 +1301,7 @@ def _instagram_post_with_lock(date_text, rows, *, force=False):
     if key is None:
         return {"ok":False,"skipped":True,"reason":"posting-in-progress"}
     try:
-        return instagram_bot.post_national(date_text,rows,force=force)
+        return instagram_bot.post_national(date_text,rows,force=force,load_reel_detail=_instagram_load_yarigatake_detail)
     finally:
         _national_close_lock(key)
 
@@ -2443,7 +2467,7 @@ def _process_rss_mb() -> float | None:
 def _instagram_reel_background(date_text: str, rows: list[dict[str, Any]]) -> None:
     try:
         app.logger.warning("instagram_reel_start date=%s rss_mb=%s rows=%s", date_text, _process_rss_mb(), len(rows))
-        instagram_bot.render_national_reel(date_text, rows, logo_path=os.path.join(BASE, "traten-logo.png"))
+        instagram_bot.render_national_reel(date_text, rows, logo_path=os.path.join(BASE, "traten-logo.png"), yarigatake_detail=_instagram_load_yarigatake_detail(date_text))
         app.logger.warning("instagram_reel_done date=%s rss_mb=%s", date_text, _process_rss_mb())
         with _instagram_reel_jobs_lock:
             _instagram_reel_jobs[date_text] = {"running": False, "error": None, "finished": time.time()}

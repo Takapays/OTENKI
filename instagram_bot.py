@@ -40,7 +40,7 @@ INSTAGRAM_MIN_NATIONAL_RESULTS = max(1, min(100, int(os.environ.get("INSTAGRAM_M
 INSTAGRAM_AUTO_MEDIA = (os.environ.get("INSTAGRAM_AUTO_MEDIA", "reel").strip().lower() or "reel")
 INSTAGRAM_REEL_FPS = max(8, min(20, int(os.environ.get("INSTAGRAM_REEL_FPS", "12"))))
 INSTAGRAM_REEL_SECONDS = max(6, min(12, int(os.environ.get("INSTAGRAM_REEL_SECONDS", "12"))))
-REEL_RENDER_REV = "master-20260908-scenes-v11-abcde"
+REEL_RENDER_REV = "master-20260908-scenes-v14-yarigatake-live-alps-thin"
 
 def _resolve_persist_root() -> tuple[str, bool]:
     """Return storage root and whether it is expected to survive Render restarts.
@@ -547,6 +547,28 @@ def _fetch_gsi_tile(z: int, x: int, y: int) -> "Image.Image":
         return Image.new("RGB", (256, 256), (218, 236, 246))
 
 
+def _reel_scene1_display_rows(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Reduce only Reel scene-1 marker density around the Japanese Alps.
+
+    This is display-only: national analysis rows/counts remain untouched.  The
+    selection is deterministic so the same forecast date does not flicker.
+    """
+    alps=[]; outside=[]
+    for row in results:
+        try:
+            lat=float(row.get("lat")); lon=float(row.get("lon"))
+        except Exception:
+            outside.append(row); continue
+        if 34.8 <= lat <= 37.8 and 137.0 <= lon <= 139.25:
+            alps.append(row)
+        else:
+            outside.append(row)
+    alps=sorted(alps,key=lambda r:str(r.get("name") or ""))
+    # Keep alternating points: approximately half, while retaining geographic spread.
+    kept=[row for i,row in enumerate(alps) if i % 2 == 0]
+    return outside + kept
+
+
 def _render_japan_map(results: list[dict[str, Any]], width: int, height: int) -> "Image.Image":
     # Bundled Japan base map guarantees a usable Reel even if an external tile server is unavailable.
     north, south, west, east = 46.2, 29.0, 127.0, 146.8
@@ -686,10 +708,95 @@ def _draw_reel_feature_icon(draw, kind: int, cx: int, cy: int):
         draw.rectangle((cx-5,cy+7,cx+7,cy+24),fill=(255,255,255,255))
 
 
+def _reel_grade_color(grade: str):
+    return {"A":(35,134,75,255),"B":(79,143,58,255),"C":(176,138,25,255),"D":(214,108,32,255),"E":(182,45,45,255)}.get(str(grade or "").upper(),(100,110,120,255))
+
+def _reel_series_by_hour(model: dict[str, Any] | None) -> dict[int, dict[str, float]]:
+    out={}
+    for row in ((model or {}).get("series") or []):
+        if not isinstance(row,dict): continue
+        try: h=int(row.get("hour"))
+        except Exception: continue
+        if not (6 <= h <= 15): continue
+        vals={}
+        for k in ("gust","rain"):
+            v=row.get(k)
+            try:
+                v=float(v)
+                if math.isfinite(v): vals[k]=v
+            except Exception: pass
+        if vals: out[h]=vals
+    return out
+
+def _draw_reel_line_chart(draw, box, hours, met, gfs, key, ymax):
+    x0,y0,x1,y1=box; left=x0+62; right=x1-28; top=y0+95; bottom=y1-68
+    navy=(7,48,83,255); grid=(200,211,219,210); blue=(45,126,183,255); orange=(221,105,31,255); center_c=(36,53,68,255)
+    for frac,label in ((0,'0'),(.5,str(int(ymax/2))),(1,str(int(ymax)))):
+        yy=bottom-(bottom-top)*frac; draw.line((left,yy,right,yy),fill=grid,width=2); draw.text((x0+18,yy-13),label,font=_load_font(22),fill=(92,108,120,255))
+    def xy(h,v):
+        xx=left+(right-left)*(h-hours[0])/max(1,hours[-1]-hours[0]); vv=max(0,min(ymax,float(v))); yy=bottom-(bottom-top)*(vv/ymax); return xx,yy
+    for h in hours: draw.text((xy(h,0)[0]-17,bottom+18),f'{h}時',font=_load_font(20),fill=(95,110,122,255))
+    for data,color,width in ((met,blue,5),(gfs,orange,5)):
+        pts=[xy(h,data[h][key]) for h in hours if h in data and key in data[h]]
+        if len(pts)>=2: draw.line(pts,fill=color,width=width,joint='curve')
+        for xx,yy in pts: draw.ellipse((xx-5,yy-5,xx+5,yy+5),fill=color)
+    center=[]
+    for h in hours:
+        vals=[d[h][key] for d in (met,gfs) if h in d and key in d[h]]
+        if vals: center.append(xy(h,sum(vals)/len(vals)))
+    if len(center)>=2: draw.line(center,fill=center_c,width=4,joint='curve')
+
+def _draw_reel_rain_chart(draw, box, hours, met, gfs, ymax=7.0):
+    x0,y0,x1,y1=box; left=x0+62; right=x1-28; top=y0+95; bottom=y1-68
+    grid=(200,211,219,210); blue=(45,126,183,255); orange=(221,105,31,255)
+    for frac,label in ((0,'0'),(.5,'3.5'),(1,'7')):
+        yy=bottom-(bottom-top)*frac; draw.line((left,yy,right,yy),fill=grid,width=2); draw.text((x0+15,yy-13),label,font=_load_font(21),fill=(92,108,120,255))
+    step=(right-left)/len(hours); bw=max(8,int(step*.25))
+    for i,h in enumerate(hours):
+        cx=left+step*(i+.5); draw.text((cx-17,bottom+18),f'{h}時',font=_load_font(19),fill=(95,110,122,255))
+        for off,data,color in ((-bw*.62,met,blue),(bw*.62,gfs,orange)):
+            if h not in data or 'rain' not in data[h]: continue
+            raw=max(0,float(data[h]['rain'])); shown=min(ymax,raw); yy=bottom-(bottom-top)*(shown/ymax)
+            draw.rectangle((cx+off-bw/2,yy,cx+off+bw/2,bottom),fill=color)
+            if raw>ymax: draw.text((cx+off-8,top-4),'↑',font=_load_font(25),fill=(190,49,49,255))
+
+def _build_reel_yarigatake_scene(target: date, detail: dict[str, Any], W: int, H: int) -> "Image.Image":
+    models=(detail or {}).get('models') or {}; merged=(detail or {}).get('merged') or {}
+    met=_reel_series_by_hour(models.get('metno')); gfs=_reel_series_by_hour(models.get('gfs'))
+    hours=sorted(set(met)|set(gfs))
+    if len(hours)<4: raise RuntimeError('Yarigatake hourly model data is incomplete')
+    grade=str(merged.get('grade') or '').upper()
+    if grade not in 'ABCDE': raise RuntimeError('Yarigatake A-E grade is unavailable')
+    frame=Image.new('RGB',(W,H),(236,244,247)); d=ImageDraw.Draw(frame,'RGBA')
+    navy=(7,48,83,255); muted=(88,107,120,255); yellow=(255,215,38,255)
+    d.rectangle((0,0,W,250),fill=navy)
+    weekday='月火水木金土日'[target.weekday()]
+    d.text((38,30),f'{target.month}/{target.day}（{weekday}） 北アルプス',font=_load_font(30),fill=(215,232,240,255))
+    d.text((38,80),'槍ヶ岳',font=_load_font(74),fill=(255,255,255,255))
+    d.text((40,173),'MET Norway × NOAA GFS',font=_load_font(28),fill=(196,220,231,255))
+    c=_reel_grade_color(grade); d.rounded_rectangle((660,40,824,210),radius=38,fill=c)
+    f=_load_font(78); bb=d.textbbox((0,0),grade,font=f); d.text((742-(bb[2]-bb[0])/2,54),grade,font=f,fill=(255,255,255,255))
+    labels={'A':'良好','B':'軽い注意','C':'注意','D':'悪い','E':'非常に悪い'}
+    lf=_load_font(23); txt=labels[grade]; bb=d.textbbox((0,0),txt,font=lf); d.text((742-(bb[2]-bb[0])/2,158),txt,font=lf,fill=(255,255,255,255))
+    # Gust panel
+    box1=(24,280,W-24,820); d.rounded_rectangle(box1,radius=30,fill=(255,255,255,255),outline=(207,220,227,255),width=2)
+    d.text((48,305),'突風',font=_load_font(42),fill=navy); d.text((155,315),'m/s  ｜  縦軸 0〜15',font=_load_font(23),fill=muted)
+    _draw_reel_line_chart(d,box1,hours,met,gfs,'gust',15.0)
+    # Rain panel
+    box2=(24,850,W-24,1370); d.rounded_rectangle(box2,radius=30,fill=(255,255,255,255),outline=(207,220,227,255),width=2)
+    d.text((48,875),'降水',font=_load_font(42),fill=navy); d.text((155,885),'mm/h  ｜  縦軸 0〜7',font=_load_font(23),fill=muted)
+    _draw_reel_rain_chart(d,box2,hours,met,gfs,7.0)
+    # Legend and CTA
+    d.line((58,1408,110,1408),fill=(45,126,183,255),width=7); d.text((122,1390),'MET Norway',font=_load_font(24),fill=muted)
+    d.line((335,1408,387,1408),fill=(221,105,31,255),width=7); d.text((399,1390),'NOAA GFS',font=_load_font(24),fill=muted)
+    d.rectangle((0,1452,W,H),fill=navy); d.text((70,1474),'他の山は',font=_load_font(34),fill=(255,255,255,255)); d.text((245,1466),'トラテンで！',font=_load_font(53),fill=yellow)
+    return frame
+
+
 def _build_reel_scene1(target: date, rows: list[dict[str, Any]], W: int, H: int) -> "Image.Image":
     frame=Image.new("RGB",(W,H),(239,248,252))
     d=ImageDraw.Draw(frame,"RGBA")
-    map_img=_render_japan_map(rows,W,1515)
+    map_img=_render_japan_map(_reel_scene1_display_rows(rows),W,1515)
     frame.paste(map_img,(0,240))
     d.rectangle((0,0,W,245),fill=(255,255,255,248))
     d.text((38,30),"＼ まったく新しい",font=_load_font(30),fill=(8,54,92,255))
@@ -770,15 +877,20 @@ def _render_reel_stills(work: str, target: date, rows: list[dict[str, Any]], W: 
     return scene1_path, scene2_path
 
 
-def _compose_reel_from_stills(scene1_path: str, scene2_path: str, wav_path: str, out_path: str, *, fps: int, seconds: int, scene_cut: float) -> None:
-    total_frames=max(1, fps*seconds)
-    split_index=sum(1 for i in range(total_frames) if (i / max(1,(total_frames-1))) < scene_cut)
-    first_frames=max(1, min(total_frames, split_index))
-    second_frames=max(1, total_frames-first_frames)
-    if first_frames + second_frames < total_frames:
-        second_frames += total_frames - (first_frames + second_frames)
+def _compose_reel_from_stills(scene1_path: str, scene2_path: str, scene3_path: str, wav_path: str, out_path: str, *, fps: int, seconds: int) -> None:
+    """Compose the 3-scene Reel with equal scene durations.
+
+    Scene 1: nationwide A-E map
+    Scene 2: Yarigatake model-comparison graph
+    Scene 3: existing feature introduction
+    """
+    total_frames=max(3, fps*seconds)
+    first_frames=max(1,total_frames//3)
+    second_frames=max(1,total_frames//3)
+    third_frames=max(1,total_frames-first_frames-second_frames)
     dur1=first_frames/float(fps)
     dur2=second_frames/float(fps)
+    dur3=third_frames/float(fps)
     import imageio_ffmpeg
     ffmpeg=imageio_ffmpeg.get_ffmpeg_exe()
     tmp=out_path+f".{os.getpid()}.tmp.mp4"
@@ -786,9 +898,10 @@ def _compose_reel_from_stills(scene1_path: str, scene2_path: str, wav_path: str,
         ffmpeg,"-y",
         "-loop","1","-t",f"{dur1:.6f}","-i",scene1_path,
         "-loop","1","-t",f"{dur2:.6f}","-i",scene2_path,
+        "-loop","1","-t",f"{dur3:.6f}","-i",scene3_path,
         "-i",wav_path,
-        "-filter_complex",f"[0:v]fps={fps},format=yuv420p[v0];[1:v]fps={fps},format=yuv420p[v1];[v0][v1]concat=n=2:v=1:a=0[v]",
-        "-map","[v]","-map","2:a",
+        "-filter_complex",f"[0:v]fps={fps},format=yuv420p[v0];[1:v]fps={fps},format=yuv420p[v1];[2:v]fps={fps},format=yuv420p[v2];[v0][v1][v2]concat=n=3:v=1:a=0[v]",
+        "-map","[v]","-map","3:a",
         "-c:v","libx264","-preset","ultrafast","-tune","stillimage","-threads","1",
         "-x264-params","ref=1:bframes=0:rc-lookahead=0:sync-lookahead=0",
         "-profile:v","high","-level","4.0","-pix_fmt","yuv420p","-r",str(fps),
@@ -796,7 +909,6 @@ def _compose_reel_from_stills(scene1_path: str, scene2_path: str, wav_path: str,
     ]
     subprocess.run(cmd,check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=180)
     os.replace(tmp,out_path)
-
 
 def reel_cache_path(date_text: str) -> str:
     outdir=_REELS_DIR
@@ -844,8 +956,8 @@ def render_national_static_images(date_text: str, results: list[dict[str, Any]],
         gc.collect()
         return out_paths
 
-def render_national_reel(date_text: str, results: list[dict[str, Any]], *, logo_path: str | None = None) -> str:
-    """Render the Reel from the dynamic page-1 scene and the approved static page-2 scene."""
+def render_national_reel(date_text: str, results: list[dict[str, Any]], *, logo_path: str | None = None, yarigatake_detail: dict[str, Any] | None = None) -> str:
+    """Render the 3-scene Reel: nationwide map -> Yarigatake graph -> feature introduction."""
     rows=[dict(r) for r in results if isinstance(r,dict) and str(r.get("grade") or "") in {"A","B","C","D","E"}]
     if len(rows) < INSTAGRAM_MIN_NATIONAL_RESULTS:
         raise RuntimeError(f"national reel requires at least {INSTAGRAM_MIN_NATIONAL_RESULTS} results, got {len(rows)}")
@@ -865,7 +977,22 @@ def render_national_reel(date_text: str, results: list[dict[str, Any]], *, logo_
             wav=os.path.join(work,"bgm.wav")
             _write_original_bgm(wav, INSTAGRAM_REEL_SECONDS)
             gc.collect()
-            _compose_reel_from_stills(static_paths[0], static_paths[1], wav, out, fps=INSTAGRAM_REEL_FPS, seconds=INSTAGRAM_REEL_SECONDS, scene_cut=0.66)
+            scene2_path=os.path.join(work,"scene2-yarigatake-live.jpg")
+            scene2=_build_reel_yarigatake_scene(date.fromisoformat(date_text), yarigatake_detail or {}, 864, 1536)
+            try:
+                scene2.save(scene2_path, quality=92, optimize=True, progressive=False)
+            finally:
+                try: scene2.close()
+                except Exception: pass
+            _compose_reel_from_stills(
+                static_paths[0],
+                scene2_path,
+                static_paths[1],
+                wav,
+                out,
+                fps=INSTAGRAM_REEL_FPS,
+                seconds=INSTAGRAM_REEL_SECONDS,
+            )
             gc.collect()
             return out
         finally:
@@ -1068,7 +1195,7 @@ def _resume_pending_reel_if_needed(state: dict[str, Any] | None = None) -> bool:
     return True
 
 
-def post_national(date_text: str, results: list[dict[str, Any]], *, force: bool = False) -> dict[str, Any]:
+def post_national(date_text: str, results: list[dict[str, Any]], *, force: bool = False, load_reel_detail: Callable[[str], dict[str, Any]] | None = None) -> dict[str, Any]:
     if not configured():
         return {"ok": False, "skipped": True, "reason": "not-configured"}
     grades = [str(r.get("grade") or "") for r in results if isinstance(r, dict)]
@@ -1093,7 +1220,7 @@ def post_national(date_text: str, results: list[dict[str, Any]], *, force: bool 
     caption = _persist_post_draft(date_text, counts, media_type=media_type)
 
     if INSTAGRAM_AUTO_MEDIA == "reel":
-        render_national_reel(date_text, results, logo_path=os.path.join(os.path.dirname(__file__), "traten-logo.png"))
+        render_national_reel(date_text, results, logo_path=os.path.join(os.path.dirname(__file__), "traten-logo.png"), yarigatake_detail=(load_reel_detail(date_text) if load_reel_detail else None))
         create_params = {
             "media_type": "REELS",
             "video_url": reel_url(date_text),
@@ -1148,7 +1275,7 @@ def post_national(date_text: str, results: list[dict[str, Any]], *, force: bool 
     return {"ok": True, "posted": True, "forecastDate": date_text, "mediaId": media_id, "creationId": creation_id, "mediaType": "image"}
 
 
-def maybe_post_tomorrow(*, now_jst: datetime, load_results: Callable[[str], list[dict[str, Any]]]) -> dict[str, Any]:
+def maybe_post_tomorrow(*, now_jst: datetime, load_results: Callable[[str], list[dict[str, Any]]], load_reel_detail: Callable[[str], dict[str, Any]] | None = None) -> dict[str, Any]:
     if not INSTAGRAM_AUTO_POST:
         return {"ok": True, "skipped": True, "reason": "auto-post-disabled"}
     if not configured():
@@ -1157,7 +1284,7 @@ def maybe_post_tomorrow(*, now_jst: datetime, load_results: Callable[[str], list
         return {"ok": True, "skipped": True, "reason": "before-post-hour", "postHourJst": INSTAGRAM_AUTO_POST_HOUR_JST}
     target = now_jst.date().fromordinal(now_jst.date().toordinal() + 1).isoformat()
     results = load_results(target)
-    return post_national(target, results, force=False)
+    return post_national(target, results, force=False, load_reel_detail=load_reel_detail)
 
 
 def status() -> dict[str, Any]:

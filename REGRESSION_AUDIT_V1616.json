@@ -1,0 +1,37 @@
+{
+  "version": "1.6.16",
+  "canonicalBaseline": "1.5.231 = 1.6.1",
+  "previous": "1.6.15",
+  "metrics": {
+    "baseline_v1_6_1": {"mountains":300,"representativeRoutes":415,"missingCt":0,"estimatedCt":1,"coordinateIssues":0},
+    "previous_v1_6_15": {"mountains":300,"representativeRoutes":416,"missingCt":0,"estimatedCt":1,"coordinateIssues":0},
+    "candidate_v1_6_16": {"mountains":300,"representativeRoutes":416,"missingCt":0,"estimatedCt":1,"coordinateIssues":0,"basis":"Only Instagram Reel composition/asset plus version identifiers changed; application files normalize byte-identical to V1.6.15."}
+  },
+  "reel": {
+    "scenes": 3,
+    "order": ["nationwide A-E map","Yarigatake model-difference graph","existing feature introduction"],
+    "cta": "他の山はトラテンで！",
+    "defaultSeconds": 12,
+    "defaultSceneSeconds": [4,4,4],
+    "staticCarouselPages": 2,
+    "renderRevision": "master-20260908-scenes-v12-yarigatake"
+  },
+  "checks": {
+    "mountains_300": true,
+    "coordinate_issues_0": true,
+    "missing_ct_0": true,
+    "estimated_ct_le_1": true,
+    "representative_routes_not_decreased_vs_baseline": true,
+    "representative_routes_not_decreased_vs_previous": true,
+    "fixed_points_unchanged": true,
+    "ct_definitions_unchanged": true,
+    "national_grade_logic_unchanged": true,
+    "met_gfs_merge_unchanged": true,
+    "normal_instagram_static_carousel_2_pages": true,
+    "instagram_abcde_caption_unchanged": true,
+    "three_scene_reel_render": true,
+    "python_compile": true,
+    "app_js_syntax": true
+  },
+  "status": "PASS"
+}
