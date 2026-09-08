@@ -1,0 +1,27 @@
+{
+  "version": "1.6.20",
+  "canonicalBaseline": "1.5.231 = 1.6.1",
+  "previous": "1.6.19",
+  "metrics": {
+    "baseline": {"mountains": 300, "representativeRoutes": 415, "missingCt": 0, "estimatedCt": 1, "coordinateIssues": 0},
+    "previous": {"mountains": 300, "representativeRoutes": 416, "missingCt": 0, "estimatedCt": 1, "coordinateIssues": 0},
+    "candidate": {"mountains": 300, "representativeRoutes": 416, "missingCt": 0, "estimatedCt": 1, "coordinateIssues": 0}
+  },
+  "changes": {
+    "mobileLegend": "moved below map, 14px grade circles / 7px text",
+    "desktopDetail": "hero fixed; scrollable body below hero; graph immediately below hero",
+    "nationalLogicChanged": false,
+    "instagramChanged": false,
+    "routeCtFilesChanged": false
+  },
+  "checks": {
+    "pythonCompile": true,
+    "appJsSyntax": true,
+    "v1620Guard": true,
+    "existingTopLevelJsFunctionsRemoved": 0,
+    "existingTopLevelServerFunctionsRemoved": 0,
+    "serverOnlyVersionChangedVsV1619": true,
+    "dataAuditOnlyVersionChangedVsV1619": true
+  },
+  "status": "PASS"
+}
