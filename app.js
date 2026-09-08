@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.21';
+const APP_VERSION = '1.6.22';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -7400,6 +7400,40 @@ async function hydrateNationalExternalWeatherLinks(box,name){
   await Promise.allSettled(tasks);
 }
 
+function nationalHourlyGradeForValues(wind,gust,rain){
+  // V1.6.22: instantaneous A-E scale for each 06:00-15:00 slot.
+  // Existing daily A-E aggregation is unchanged. B/C split the mild-to-severe
+  // interval so the hourly strip remains informative without weakening D/E.
+  const numeric=v=>typeof v==='number'&&Number.isFinite(v)?v:NaN;
+  const w=numeric(wind),g=numeric(gust),r=numeric(rain);
+  const finite=v=>Number.isFinite(v);
+  const rankFor=(v,b,c,d,e)=>!finite(v)?0:v>=e?5:v>=d?4:v>=c?3:v>=b?2:1;
+  const rank=Math.max(rankFor(w,5,7,9,15),rankFor(g,12,15,18,25),rankFor(r,0.1,0.5,1.5,6));
+  return ['?','A','B','C','D','E'][rank]||'?';
+}
+function nationalHourlyGradeRows(rows){
+  const maps={};
+  for(const row of rows||[])maps[row.model]=new Map((row.series||[]).map(x=>[Number(x.hour),x]));
+  const hours=Array.from({length:10},(_,i)=>i+6);
+  return hours.map(hour=>{
+    const modelRows=['metno','gfs'].map(m=>maps[m]?.get(hour)).filter(Boolean);
+    const mean=key=>{const vals=modelRows.map(x=>x?.[key]).filter(v=>typeof v==='number'&&Number.isFinite(v));return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;};
+    const center={wind:mean('wind'),gust:mean('gust'),rain:mean('rain')};
+    let grade=nationalHourlyGradeForValues(center.wind,center.gust,center.rain);
+    // Same safety philosophy as the daily merge: a single-model D/E is not
+    // averaged away. A-C remain center-value based to avoid reverting to the
+    // former always-take-the-worse-model behavior.
+    const modelGrades=modelRows.map(x=>nationalHourlyGradeForValues(x.wind,x.gust,x.rain));
+    if(modelGrades.includes('E'))grade='E';
+    else if(modelGrades.includes('D')&&grade!=='E')grade='D';
+    return {hour,grade};
+  });
+}
+function nationalHourlyGradeHtml(rows){
+  const grades=nationalHourlyGradeRows(rows);
+  return `<div class="national-hourly-grades"><div class="national-hourly-grades-head"><strong>時間別 A〜E</strong><small>6〜15時</small></div><div class="national-hourly-grade-grid">${grades.map(x=>`<div class="national-hourly-grade-item"><time>${x.hour}時</time><span class="national-hourly-grade-dot grade-${x.grade==='?'?'u':x.grade.toLowerCase()}">${x.grade}</span></div>`).join('')}</div><p class="national-hourly-grade-note">時間別は中心値で判定し、どちらかのモデルがD/Eならその時間はD/Eを下限にします。日全体の判定は継続時間も加味するため、時間別の最悪値と一致しない場合があります。</p></div>`;
+}
+
 function nationalModelChartSvg(rows,key,label,unit,maxY,chartType='line'){
   const hours=[...new Set(rows.flatMap(r=>(r.series||[]).map(x=>Number(x.hour))).filter(Number.isFinite))].sort((a,b)=>a-b);
   if(hours.length<2)return '<div class="national-model-chart-empty">時間別データを表示できません。</div>';
@@ -7433,7 +7467,7 @@ function nationalModelDetailHtml(data){
   if(models.gfs?.series)rows.push({model:'gfs',series:models.gfs.series});
   const mg=data?.merged?.modelGrades||{}; const agreement=String(data?.merged?.modelAgreement||'single');
   const diffText=agreement==='high'?'2モデルの判定は一致しています。':agreement==='medium'?'2モデルに1段階の差があります。':'2モデルの差が大きい予測です。悪条件側も確認してください。';
-  return `<section class="national-rich-section national-model-section national-model-section-simple"><div class="national-model-simple-head"><h4>時間別予測</h4><span>MET Norway × NOAA GFS</span></div>${nationalModelChartSvg(rows,'wind','風速','m/s',7)}${nationalModelChartSvg(rows,'gust','突風','m/s',15)}${nationalModelChartSvg(rows,'rain','降水','mm/h',7,'bars')}<details class="national-grade-criteria"><summary>ABCDE 判定基準を見る</summary><div><p><b>A 良好</b>：主要な注意条件なし</p><p><b>B 軽い注意</b>：注意条件が1時間</p><p><b>C 注意</b>：注意条件が2時間以上、または強い条件が1時間</p><p><b>D 悪い</b>：強い条件が2時間以上</p><p><b>E 非常に悪い</b>：極端な条件が1時間でもある</p><small>注意：風5m/s・突風12m/s・雨0.1mm/h以上／強い：風9m/s・突風18m/s・雨1.5mm/h以上／極端：風15m/s・突風25m/s・雨6mm/h以上。対象は6〜15時です。</small></div></details></section>`;
+  return `<section class="national-rich-section national-model-section national-model-section-simple"><div class="national-model-simple-head"><h4>時間別予測</h4><span>MET Norway × NOAA GFS</span></div>${nationalHourlyGradeHtml(rows)}${nationalModelChartSvg(rows,'wind','風速','m/s',7)}${nationalModelChartSvg(rows,'gust','突風','m/s',15)}${nationalModelChartSvg(rows,'rain','降水','mm/h',7,'bars')}<details class="national-grade-criteria"><summary>ABCDE 判定基準を見る</summary><div><p><b>A 良好</b>：主要な注意条件なし</p><p><b>B 軽い注意</b>：注意条件が1時間</p><p><b>C 注意</b>：注意条件が2時間以上、または強い条件が1時間</p><p><b>D 悪い</b>：強い条件が2時間以上</p><p><b>E 非常に悪い</b>：極端な条件が1時間でもある</p><small>日判定：注意＝風5m/s・突風12m/s・雨0.1mm/h以上／強い＝風9m/s・突風18m/s・雨1.5mm/h以上／極端＝風15m/s・突風25m/s・雨6mm/h以上。対象は6〜15時です。</small><small>時間別マーク：A＝注意未満、B＝風5・突風12・雨0.1以上、C＝風7・突風15・雨0.5以上、D＝風9・突風18・雨1.5以上、E＝風15・突風25・雨6以上。中心値を基本に、片方のモデルがD/EならD/Eを下限にします。</small></div></details></section>`;
 }
 async function hydrateNationalModelDetail(box,p){
   const slots=Array.from(box?.querySelectorAll('[data-national-model-detail]')||[]); if(!slots.length)return;
@@ -8248,7 +8282,8 @@ function init(){
     select.disabled=!areaKey;
     if(preserve&&names.includes(preserve))select.value=preserve;
     const areaName=MOUNTAIN_UI_AREAS.find(([k])=>k===areaKey)?.[1]||'';
-    $('mountainCount').textContent=areaKey?`${areaName}：${names.length}座を表示中 / 山名検索なら全国から直接選択できます`:`全国版：日本三百名山300座＋縦走主要ピーク${extra.length}座 / まず山域を選択`;
+    const countEl=$('mountainCount');
+    if(countEl)countEl.textContent=areaKey?`${areaName}：${names.length}座を表示中 / 山名検索なら全国から直接選択できます`:'';
   };
   area.value=''; select.value=''; search.value=''; populateMountainSelect('');
   updateMountainSelectionGuidance();
