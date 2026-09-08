@@ -1,0 +1,47 @@
+{
+  "version": "1.6.21",
+  "canonicalBaseline": "1.5.231 = 1.6.1",
+  "previous": "1.6.20",
+  "metrics": {
+    "baseline": {
+      "mountains": 300,
+      "representativeRoutes": 415,
+      "missingCt": 0,
+      "estimatedCt": 1,
+      "coordinateIssues": 0
+    },
+    "previous": {
+      "mountains": 300,
+      "representativeRoutes": 416,
+      "missingCt": 0,
+      "estimatedCt": 1,
+      "coordinateIssues": 0
+    },
+    "candidate": {
+      "mountains": 300,
+      "representativeRoutes": 416,
+      "missingCt": 0,
+      "estimatedCt": 1,
+      "coordinateIssues": 0
+    }
+  },
+  "changes": {
+    "chartAxisLabels": "desktop 15px / mobile 14px, font-weight 900, #263238",
+    "chartMargins": "SVG 620x240, left 56, bottom 48 for larger labels",
+    "nationalLogicChanged": false,
+    "instagramChanged": false,
+    "routeCtFilesChanged": false
+  },
+  "checks": {
+    "pythonCompile": true,
+    "appJsSyntax": true,
+    "v1621Guard": true,
+    "existingTopLevelJsFunctionsRemoved": 0,
+    "existingTopLevelServerFunctionsRemoved": 0,
+    "serverOnlyVersionChangedVsV1620": true,
+    "dataAuditOnlyVersionChangedVsV1620": true,
+    "appNormalizedDiffLines": 6,
+    "indexNormalizedDiffLines": 4
+  },
+  "status": "PASS"
+}

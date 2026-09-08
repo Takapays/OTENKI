@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.20';
+const APP_VERSION = '1.6.21';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -7406,14 +7406,14 @@ function nationalModelChartSvg(rows,key,label,unit,maxY,chartType='line'){
   const byModel={}; for(const r of rows){byModel[r.model]=new Map((r.series||[]).map(x=>{const raw=x?.[key];return [Number(x.hour),typeof raw==='number'&&Number.isFinite(raw)?raw:null];}));}
   const vals=[]; for(const h of hours)for(const m of Object.values(byModel)){const v=m.get(h);if(Number.isFinite(v))vals.push(v);}
   if(!vals.length)return '<div class="national-model-chart-empty">時間別データを表示できません。</div>';
-  const W=620,H=230,pl=46,pr=18,pt=22,pb=38,iw=W-pl-pr,ih=H-pt-pb,limit=Number(maxY)||Math.max(1,...vals);
+  const W=620,H=240,pl=56,pr=18,pt=22,pb=48,iw=W-pl-pr,ih=H-pt-pb,limit=Number(maxY)||Math.max(1,...vals);
   const x=h=>{const i=hours.indexOf(h);return chartType==='bars'?pl+((i+.5)/hours.length)*iw:pl+(i/(hours.length-1))*iw;}, y=v=>pt+ih-(Math.max(0,Math.min(limit,v))/limit)*ih;
   const path=model=>hours.map((h,i)=>{const v=byModel[model]?.get(h);return Number.isFinite(v)?`${i?'L':'M'}${x(h).toFixed(1)},${y(v).toFixed(1)}`:''}).filter(Boolean).join(' ');
   const avg=hours.map(h=>{const a=['metno','gfs'].map(m=>byModel[m]?.get(h)).filter(Number.isFinite);return a.length?a.reduce((sum,v)=>sum+v,0)/a.length:null;});
   const avgPath=avg.map((v,i)=>Number.isFinite(v)?`${i?'L':'M'}${x(hours[i]).toFixed(1)},${y(v).toFixed(1)}`:'').filter(Boolean).join(' ');
   const tickVals=key==='gust'?[0,5,10,15]:[0,2,4,6,7];
-  const grid=tickVals.map(v=>{const yy=y(v);return `<line x1="${pl}" y1="${yy}" x2="${W-pr}" y2="${yy}" class="nm-grid"/><text x="${pl-7}" y="${yy+4}" text-anchor="end" class="nm-axis">${v}</text>`}).join('');
-  const ticks=hours.map(h=>`<text x="${x(h)}" y="${H-10}" text-anchor="middle" class="nm-axis">${h}時</text>`).join('');
+  const grid=tickVals.map(v=>{const yy=y(v);return `<line x1="${pl}" y1="${yy}" x2="${W-pr}" y2="${yy}" class="nm-grid"/><text x="${pl-7}" y="${yy+4}" text-anchor="end" class="nm-axis nm-axis-y">${v}</text>`}).join('');
+  const ticks=hours.map(h=>`<text x="${x(h)}" y="${H-10}" text-anchor="middle" class="nm-axis nm-axis-x">${h}時</text>`).join('');
   const overMarks=(model,dx=0)=>hours.map(h=>{const v=byModel[model]?.get(h);return Number.isFinite(v)&&v>limit?`<text x="${(x(h)+dx).toFixed(1)}" y="${pt+10}" text-anchor="middle" class="nm-over">↑</text>`:''}).join('');
   let plot=''; let legend='';
   if(chartType==='bars'){
