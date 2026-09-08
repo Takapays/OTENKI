@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.13';
+const APP_VERSION = '1.6.14';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -7400,20 +7400,34 @@ async function hydrateNationalExternalWeatherLinks(box,name){
   await Promise.allSettled(tasks);
 }
 
-function nationalModelChartSvg(rows,key,label,unit){
+function nationalModelChartSvg(rows,key,label,unit,maxY,chartType='line'){
   const hours=[...new Set(rows.flatMap(r=>(r.series||[]).map(x=>Number(x.hour))).filter(Number.isFinite))].sort((a,b)=>a-b);
   if(hours.length<2)return '<div class="national-model-chart-empty">時間別データを表示できません。</div>';
   const byModel={}; for(const r of rows){byModel[r.model]=new Map((r.series||[]).map(x=>{const raw=x?.[key];return [Number(x.hour),typeof raw==='number'&&Number.isFinite(raw)?raw:null];}));}
   const vals=[]; for(const h of hours)for(const m of Object.values(byModel)){const v=m.get(h);if(Number.isFinite(v))vals.push(v);}
   if(!vals.length)return '<div class="national-model-chart-empty">時間別データを表示できません。</div>';
-  const W=620,H=190,pl=42,pr=18,pt=18,pb=34,iw=W-pl-pr,ih=H-pt-pb,max=Math.max(1,...vals)*1.12;
-  const x=h=>pl+(hours.indexOf(h)/(hours.length-1))*iw, y=v=>pt+ih-(Math.max(0,v)/max)*ih;
+  const W=620,H=190,pl=42,pr=18,pt=18,pb=34,iw=W-pl-pr,ih=H-pt-pb,limit=Number(maxY)||Math.max(1,...vals);
+  const x=h=>{const i=hours.indexOf(h);return chartType==='bars'?pl+((i+.5)/hours.length)*iw:pl+(i/(hours.length-1))*iw;}, y=v=>pt+ih-(Math.max(0,Math.min(limit,v))/limit)*ih;
   const path=model=>hours.map((h,i)=>{const v=byModel[model]?.get(h);return Number.isFinite(v)?`${i?'L':'M'}${x(h).toFixed(1)},${y(v).toFixed(1)}`:''}).filter(Boolean).join(' ');
-  const avg=hours.map(h=>{const a=['metno','gfs'].map(m=>byModel[m]?.get(h)).filter(Number.isFinite);return a.length?a.reduce((s,v)=>s+v,0)/a.length:null;});
+  const avg=hours.map(h=>{const a=['metno','gfs'].map(m=>byModel[m]?.get(h)).filter(Number.isFinite);return a.length?a.reduce((sum,v)=>sum+v,0)/a.length:null;});
   const avgPath=avg.map((v,i)=>Number.isFinite(v)?`${i?'L':'M'}${x(hours[i]).toFixed(1)},${y(v).toFixed(1)}`:'').filter(Boolean).join(' ');
-  const grid=[0,.25,.5,.75,1].map(q=>{const v=max*q,yy=y(v);return `<line x1="${pl}" y1="${yy}" x2="${W-pr}" y2="${yy}" class="nm-grid"/><text x="${pl-7}" y="${yy+4}" text-anchor="end" class="nm-axis">${v.toFixed(v<10?1:0)}</text>`}).join('');
+  const tickVals=key==='gust'?[0,5,10,15]:[0,2,4,6,7];
+  const grid=tickVals.map(v=>{const yy=y(v);return `<line x1="${pl}" y1="${yy}" x2="${W-pr}" y2="${yy}" class="nm-grid"/><text x="${pl-7}" y="${yy+4}" text-anchor="end" class="nm-axis">${v}</text>`}).join('');
   const ticks=hours.map(h=>`<text x="${x(h)}" y="${H-10}" text-anchor="middle" class="nm-axis">${h}時</text>`).join('');
-  return `<div class="national-model-chart"><div class="national-model-chart-title"><strong>${esc(label)}</strong><span>MET Norway / NOAA GFS / 中心値</span></div><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}のモデル比較グラフ">${grid}${ticks}<path d="${path('metno')}" class="nm-line nm-met"/><path d="${path('gfs')}" class="nm-line nm-gfs"/><path d="${avgPath}" class="nm-line nm-avg"/></svg><div class="national-model-legend"><span class="met">MET Norway</span><span class="gfs">NOAA GFS</span><span class="avg">中心値</span><small>${esc(unit)}</small></div></div>`;
+  const overMarks=(model,dx=0)=>hours.map(h=>{const v=byModel[model]?.get(h);return Number.isFinite(v)&&v>limit?`<text x="${(x(h)+dx).toFixed(1)}" y="${pt+10}" text-anchor="middle" class="nm-over">↑</text>`:''}).join('');
+  let plot=''; let legend=''; let subtitle='';
+  if(chartType==='bars'){
+    const step=iw/hours.length, bw=Math.max(5,Math.min(17,step*.24)), gap=2;
+    const bars=model=>hours.map(h=>{const v=byModel[model]?.get(h);if(!Number.isFinite(v))return '';const left=x(h)+(model==='metno'?-(bw+gap/2):gap/2);const yy=y(v),hh=pt+ih-yy;return `<rect x="${left.toFixed(1)}" y="${yy.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0,hh).toFixed(1)}" class="nm-bar ${model==='metno'?'nm-bar-met':'nm-bar-gfs'}"/>`;}).join('');
+    plot=bars('metno')+bars('gfs')+overMarks('metno',-(bw/2+gap/2))+overMarks('gfs',(bw/2+gap/2));
+    subtitle='MET Norway / NOAA GFS';
+    legend='<span class="met bar">MET Norway</span><span class="gfs bar">NOAA GFS</span>';
+  }else{
+    plot=`<path d="${path('metno')}" class="nm-line nm-met"/><path d="${path('gfs')}" class="nm-line nm-gfs"/><path d="${avgPath}" class="nm-line nm-avg"/>${overMarks('metno')}${overMarks('gfs')}`;
+    subtitle='MET Norway / NOAA GFS / 中心値';
+    legend='<span class="met">MET Norway</span><span class="gfs">NOAA GFS</span><span class="avg">中心値</span>';
+  }
+  return `<div class="national-model-chart"><div class="national-model-chart-title"><strong>${esc(label)}</strong><span>${subtitle}</span></div><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}のモデル比較グラフ">${grid}${ticks}${plot}</svg><div class="national-model-legend">${legend}<small>${esc(unit)}｜縦軸 0〜${limit}${vals.some(v=>v>limit)?'（↑は上限超過）':''}</small></div></div>`;
 }
 function nationalModelDetailHtml(data){
   const models=data?.models||{}; const rows=[];
@@ -7421,7 +7435,7 @@ function nationalModelDetailHtml(data){
   if(models.gfs?.series)rows.push({model:'gfs',series:models.gfs.series});
   const mg=data?.merged?.modelGrades||{}; const agreement=String(data?.merged?.modelAgreement||'single');
   const diffText=agreement==='high'?'2モデルの判定は一致しています。':agreement==='medium'?'2モデルに1段階の差があります。':'2モデルの差が大きい予測です。悪条件側も確認してください。';
-  return `<section class="national-rich-section national-model-section"><div class="national-rich-section-head"><div><span>MODEL COMPARISON</span><h4>地点別予測｜モデル差</h4></div></div><div class="national-model-status ${agreement}"><b>MET ${esc(mg.metno||'–')} / GFS ${esc(mg.gfs||'–')}</b><span>${esc(diffText)}</span></div>${nationalModelChartSvg(rows,'wind','風速','m/s')}${nationalModelChartSvg(rows,'gust','突風','m/s')}${nationalModelChartSvg(rows,'rain','降水','mm/h')}<p class="national-model-note">中心値は2モデルの同時刻予測の平均です。ただしD・E相当の強い／極端な条件は平均で解除しません。</p><details class="national-grade-criteria"><summary>ABCDE 判定基準を見る</summary><div><p><b>A 良好</b>：主要な注意条件なし</p><p><b>B 軽い注意</b>：注意条件が1時間</p><p><b>C 注意</b>：注意条件が2時間以上、または強い条件が1時間</p><p><b>D 悪い</b>：強い条件が2時間以上</p><p><b>E 非常に悪い</b>：極端な条件が1時間でもある</p><small>注意：風5m/s・突風12m/s・雨0.1mm/h以上／強い：風9m/s・突風18m/s・雨1.5mm/h以上／極端：風15m/s・突風25m/s・雨6mm/h以上。対象は6〜15時です。</small></div></details></section>`;
+  return `<section class="national-rich-section national-model-section"><div class="national-rich-section-head"><div><span>MODEL COMPARISON</span><h4>地点別予測｜モデル差</h4></div></div><div class="national-model-status ${agreement}"><b>MET ${esc(mg.metno||'–')} / GFS ${esc(mg.gfs||'–')}</b><span>${esc(diffText)}</span></div>${nationalModelChartSvg(rows,'wind','風速','m/s',7)}${nationalModelChartSvg(rows,'gust','突風','m/s',15)}${nationalModelChartSvg(rows,'rain','降水','mm/h',7,'bars')}<p class="national-model-note">中心値は2モデルの同時刻予測の平均です。ただしD・E相当の強い／極端な条件は平均で解除しません。</p><details class="national-grade-criteria"><summary>ABCDE 判定基準を見る</summary><div><p><b>A 良好</b>：主要な注意条件なし</p><p><b>B 軽い注意</b>：注意条件が1時間</p><p><b>C 注意</b>：注意条件が2時間以上、または強い条件が1時間</p><p><b>D 悪い</b>：強い条件が2時間以上</p><p><b>E 非常に悪い</b>：極端な条件が1時間でもある</p><small>注意：風5m/s・突風12m/s・雨0.1mm/h以上／強い：風9m/s・突風18m/s・雨1.5mm/h以上／極端：風15m/s・突風25m/s・雨6mm/h以上。対象は6〜15時です。</small></div></details></section>`;
 }
 async function hydrateNationalModelDetail(box,p){
   const slots=Array.from(box?.querySelectorAll('[data-national-model-detail]')||[]); if(!slots.length)return;
