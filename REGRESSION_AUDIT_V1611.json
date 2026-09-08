@@ -1,0 +1,110 @@
+{
+  "version": "1.6.11",
+  "canonicalBaseline": "1.5.231 = 1.6.1",
+  "previous": "1.6.10",
+  "metrics": {
+    "baseline_v1_6_1": {
+      "mountains": 300,
+      "representativeRoutes": 415,
+      "missingCt": 0,
+      "estimatedCt": 1,
+      "derivedCt": 0,
+      "coordinateIssues": 0
+    },
+    "previous_v1_6_10_inherited": {
+      "mountains": 300,
+      "representativeRoutes": 416,
+      "missingCt": 0,
+      "estimatedCt": 1,
+      "derivedCt": 0,
+      "coordinateIssues": 0,
+      "evidence": "V1.6.8 runtime catalog verified; V1.6.9 and V1.6.10 audits state route/CT/coordinate data unchanged"
+    },
+    "candidate_v1_6_11": {
+      "mountains": 300,
+      "representativeRoutes": 416,
+      "missingCt": 0,
+      "estimatedCt": 1,
+      "derivedCt": 0,
+      "coordinateIssues": 0,
+      "basis": "candidate does not alter mountain/route/fixed-point/CT definitions; protected definitions and inherited files compared byte-for-byte"
+    }
+  },
+  "protectedDefinitions": {
+    "directCourseTimeInfoByNames": {
+      "present_prev": true,
+      "present_candidate": true,
+      "identical_prev_to_candidate": true,
+      "sha256": "4d876e4c2e92bc8fa04be2afd328b5f3162a3bd3d38484deab07c159cbcd1b36"
+    },
+    "fixedNameFallbackCandidates": {
+      "present_prev": true,
+      "present_candidate": true,
+      "identical_prev_to_candidate": true,
+      "sha256": "3abf2683fc3bd02bfdbe0a8116af8f7631841122ed6857bef5f480dcc207bad7"
+    },
+    "regionalCandidates": {
+      "present_prev": true,
+      "present_candidate": true,
+      "identical_prev_to_candidate": true,
+      "sha256": "f92a817d9876f8aee0d52219654669b597d609f8ba6bdcf544ebd27f3860878b"
+    },
+    "builtinCandidates": {
+      "present_prev": true,
+      "present_candidate": true,
+      "identical_prev_to_candidate": true,
+      "sha256": "381721d07b0d8ab4227bf712d70b74b39feaf8e889af2963ed0e7dfbbb78b5b1"
+    },
+    "representativeCourseOptions": {
+      "present_prev": true,
+      "present_candidate": true,
+      "identical_prev_to_candidate": true,
+      "sha256": "d66fccfdbab3bf8a4a0e57300976039f69a3499fdefa075b75b5ef5bba7864f5"
+    }
+  },
+  "functionCounts": {
+    "baseline": {
+      "js": 462,
+      "server": 147
+    },
+    "previous": {
+      "js": 473,
+      "server": 148
+    },
+    "candidate": {
+      "js": 476,
+      "server": 149
+    },
+    "missingBaselineJs": [],
+    "missingPreviousJs": [],
+    "missingBaselineServer": [],
+    "missingPreviousServer": []
+  },
+  "inheritedFiles": {
+    "previousCount": 954,
+    "candidateCount": 954,
+    "changed": [],
+    "missingFromCandidate": [],
+    "extraInCandidate": []
+  },
+  "checks": {
+    "mountains_300": true,
+    "coordinate_issues_0": true,
+    "missing_ct_0": true,
+    "estimated_ct_le_1": true,
+    "representative_routes_not_decreased_vs_baseline": true,
+    "representative_routes_not_decreased_vs_previous": true,
+    "japan_300_definition_unchanged_vs_previous": true,
+    "protected_route_fixed_ct_definitions_unchanged_vs_previous": true,
+    "all_inherited_non_target_files_unchanged": true,
+    "no_baseline_js_top_level_functions_deleted": true,
+    "no_previous_js_top_level_functions_deleted": true,
+    "no_baseline_server_top_level_functions_deleted": true,
+    "no_previous_server_top_level_functions_deleted": true
+  },
+  "status": "PASS",
+  "limitations": [
+    "The historical V1.6.2-to-V1.6.4 library chain omits inherited representative-route-recovery-v162.js, so a freshly reconstructed full V1.6.10 runtime catalog cannot be executed from library ZIPs alone. Catalog values use verified V1.6.8 output plus V1.6.9/V1.6.10 no-data-change audits, and candidate protected definitions are byte-compared to V1.6.10 source.",
+    "Live MET Norway, NOAA GFS, Supabase, Render and Instagram were not invoked by this regression audit."
+  ]
+}

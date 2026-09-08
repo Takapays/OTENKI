@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.10';
+const APP_VERSION = '1.6.11';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -7218,7 +7218,7 @@ function nationalOutlookSelectedLabel(){
   return labels.join('・')||'選択なし';
 }
 function nationalMarkerIcon(grade='?'){
-  const g=['A','B','C'].includes(grade)?grade:'?';
+  const g=['A','B','C','D','E'].includes(grade)?grade:'?';
   return L.divIcon({className:'national-marker-wrap',html:`<div class="national-marker grade-${g==='?'?'u':g.toLowerCase()}">${g}</div>`,iconSize:[26,26],iconAnchor:[13,13]});
 }
 function renderNationalOutlookMarkers(){
@@ -7265,7 +7265,7 @@ function nationalAreaLabel(name){
   return MOUNTAIN_UI_AREAS.find(([k])=>k===key)?.[1]||'日本';
 }
 function nationalGradeLabel(grade){
-  return grade==='A'?'適性高め':grade==='B'?'注意あり':grade==='C'?'厳しい':'未判定';
+  return grade==='A'?'良好':grade==='B'?'軽い注意':grade==='C'?'注意':grade==='D'?'悪い':grade==='E'?'非常に悪い':'未判定';
 }
 function nationalOutlookConfidence(result){
   if(!result)return {label:'未判定',tone:'u',note:'全国判定後に表示'};
@@ -7279,7 +7279,7 @@ function nationalOutlookConfidence(result){
   const agreement=String(result.modelAgreement||'');
   if(result.source==='metno+gfs'){
     if(days>=8)return {label:'低',tone:'l',note:'先の日付のため変化に注意'};
-    if(agreement==='high')return {label:'高',tone:'h',note:'MET Norway / GFS のABCが一致'};
+    if(agreement==='high')return {label:'高',tone:'h',note:'MET Norway / GFS のABCDEが一致'};
     if(agreement==='low')return {label:'低',tone:'l',note:'MET Norway / GFS の判定差が大きい'};
     return {label:'中',tone:'m',note:'MET Norway / GFS の判定に差あり'};
   }
@@ -7400,6 +7400,41 @@ async function hydrateNationalExternalWeatherLinks(box,name){
   await Promise.allSettled(tasks);
 }
 
+function nationalModelChartSvg(rows,key,label,unit){
+  const hours=[...new Set(rows.flatMap(r=>(r.series||[]).map(x=>Number(x.hour))).filter(Number.isFinite))].sort((a,b)=>a-b);
+  if(hours.length<2)return '<div class="national-model-chart-empty">時間別データを表示できません。</div>';
+  const byModel={}; for(const r of rows){byModel[r.model]=new Map((r.series||[]).map(x=>{const raw=x?.[key];return [Number(x.hour),typeof raw==='number'&&Number.isFinite(raw)?raw:null];}));}
+  const vals=[]; for(const h of hours)for(const m of Object.values(byModel)){const v=m.get(h);if(Number.isFinite(v))vals.push(v);}
+  if(!vals.length)return '<div class="national-model-chart-empty">時間別データを表示できません。</div>';
+  const W=620,H=190,pl=42,pr=18,pt=18,pb=34,iw=W-pl-pr,ih=H-pt-pb,max=Math.max(1,...vals)*1.12;
+  const x=h=>pl+(hours.indexOf(h)/(hours.length-1))*iw, y=v=>pt+ih-(Math.max(0,v)/max)*ih;
+  const path=model=>hours.map((h,i)=>{const v=byModel[model]?.get(h);return Number.isFinite(v)?`${i?'L':'M'}${x(h).toFixed(1)},${y(v).toFixed(1)}`:''}).filter(Boolean).join(' ');
+  const avg=hours.map(h=>{const a=['metno','gfs'].map(m=>byModel[m]?.get(h)).filter(Number.isFinite);return a.length?a.reduce((s,v)=>s+v,0)/a.length:null;});
+  const avgPath=avg.map((v,i)=>Number.isFinite(v)?`${i?'L':'M'}${x(hours[i]).toFixed(1)},${y(v).toFixed(1)}`:'').filter(Boolean).join(' ');
+  const grid=[0,.25,.5,.75,1].map(q=>{const v=max*q,yy=y(v);return `<line x1="${pl}" y1="${yy}" x2="${W-pr}" y2="${yy}" class="nm-grid"/><text x="${pl-7}" y="${yy+4}" text-anchor="end" class="nm-axis">${v.toFixed(v<10?1:0)}</text>`}).join('');
+  const ticks=hours.map(h=>`<text x="${x(h)}" y="${H-10}" text-anchor="middle" class="nm-axis">${h}時</text>`).join('');
+  return `<div class="national-model-chart"><div class="national-model-chart-title"><strong>${esc(label)}</strong><span>MET Norway / NOAA GFS / 中心値</span></div><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}のモデル比較グラフ">${grid}${ticks}<path d="${path('metno')}" class="nm-line nm-met"/><path d="${path('gfs')}" class="nm-line nm-gfs"/><path d="${avgPath}" class="nm-line nm-avg"/></svg><div class="national-model-legend"><span class="met">MET Norway</span><span class="gfs">NOAA GFS</span><span class="avg">中心値</span><small>${esc(unit)}</small></div></div>`;
+}
+function nationalModelDetailHtml(data){
+  const models=data?.models||{}; const rows=[];
+  if(models.metno?.series)rows.push({model:'metno',series:models.metno.series});
+  if(models.gfs?.series)rows.push({model:'gfs',series:models.gfs.series});
+  const mg=data?.merged?.modelGrades||{}; const agreement=String(data?.merged?.modelAgreement||'single');
+  const diffText=agreement==='high'?'2モデルの判定は一致しています。':agreement==='medium'?'2モデルに1段階の差があります。':'2モデルの差が大きい予測です。悪条件側も確認してください。';
+  return `<section class="national-rich-section national-model-section"><div class="national-rich-section-head"><div><span>MODEL COMPARISON</span><h4>地点別予測｜モデル差</h4></div></div><div class="national-model-status ${agreement}"><b>MET ${esc(mg.metno||'–')} / GFS ${esc(mg.gfs||'–')}</b><span>${esc(diffText)}</span></div>${nationalModelChartSvg(rows,'wind','風速','m/s')}${nationalModelChartSvg(rows,'gust','突風','m/s')}${nationalModelChartSvg(rows,'rain','降水','mm/h')}<p class="national-model-note">中心値は2モデルの同時刻予測の平均です。ただしD・E相当の強い／極端な条件は平均で解除しません。</p><details class="national-grade-criteria"><summary>ABCDE 判定基準を見る</summary><div><p><b>A 良好</b>：主要な注意条件なし</p><p><b>B 軽い注意</b>：注意条件が1時間</p><p><b>C 注意</b>：注意条件が2時間以上、または強い条件が1時間</p><p><b>D 悪い</b>：強い条件が2時間以上</p><p><b>E 非常に悪い</b>：極端な条件が1時間でもある</p><small>注意：風5m/s・突風12m/s・雨0.1mm/h以上／強い：風9m/s・突風18m/s・雨1.5mm/h以上／極端：風15m/s・突風25m/s・雨6mm/h以上。対象は6〜15時です。</small></div></details></section>`;
+}
+async function hydrateNationalModelDetail(box,p){
+  const slot=box?.querySelector('[data-national-model-detail]'); if(!slot)return;
+  const date=$('nationalOutlookDate')?.value||'';
+  slot.innerHTML='<div class="national-model-loading">2モデルの時間別予測を取得しています…</div>';
+  try{
+    const r=await fetch('/api/national-outlook/detail',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date,point:{name:p.name,lat:p.lat,lon:p.lon,elevation:p.elevation}})});
+    const j=await r.json(); if(!r.ok)throw new Error(j?.error||`HTTP ${r.status}`);
+    if(box.querySelector('.national-rich-hero h3')?.textContent?.trim()!==p.name)return;
+    slot.innerHTML=nationalModelDetailHtml(j);
+  }catch(e){slot.innerHTML='<div class="national-model-chart-empty">時間別モデル比較を取得できませんでした。全国判定と既存情報はそのまま利用できます。</div>';}
+}
+
 function showNationalOutlookDetail(p,result){
   const box=$('nationalOutlookDetail');if(!box)return;
   const grade=result?.grade||'?';
@@ -7436,7 +7471,7 @@ function showNationalOutlookDetail(p,result){
     </div>
     <div class="national-rich-content">
       <div class="national-rich-summary"><strong>${grade==='?'?'全国一括簡易判定':'6〜15時の簡易判定'}</strong><p>${summary}</p>${sourceNote}</div>
-      ${result?`<div class="national-rich-metrics">${metrics}</div>`:''}
+      ${result?`<div class="national-rich-metrics">${metrics}</div><div data-national-model-detail></div>`:''}
       ${guideHtml}
       ${courseHtml}
       ${nationalExternalWeatherLinksHtml(p.name)}
@@ -7446,6 +7481,7 @@ function showNationalOutlookDetail(p,result){
     </div>`;
   box.classList.add('is-open');
   void hydrateNationalExternalWeatherLinks(box,p.name);
+  if(result)void hydrateNationalModelDetail(box,p);
   box.querySelector('.national-detail-open')?.addEventListener('click',()=>openMountainFromNationalMap(p.name));
   box.querySelector('.national-detail-close')?.addEventListener('click',()=>box.classList.remove('is-open'));
   box.querySelector('[data-mountain-water]')?.addEventListener('click',()=>loadMountainWaterReports(p.name,p));
@@ -7492,9 +7528,9 @@ async function openMountainFromNationalMap(name){
   }
   $('mountainPreset')?.scrollIntoView({behavior:'smooth',block:'center'});
 }
-const NATIONAL_OUTLOOK_BROWSER_CACHE_KEY='traten:national-outlook:v7-conservative-231';
+const NATIONAL_OUTLOOK_BROWSER_CACHE_KEY='traten:national-outlook:v8-abcde-mean-floor';
 const NATIONAL_OUTLOOK_BROWSER_CACHE_TTL=4*60*60*1000;
-const NATIONAL_OUTLOOK_CACHE_ENGINE='metno-gfs-v4-conservative-recovered';
+const NATIONAL_OUTLOOK_CACHE_ENGINE='metno-gfs-v5-abcde-mean-floor';
 function readNationalOutlookBrowserCache(date){
   try{
     const obj=JSON.parse(localStorage.getItem(NATIONAL_OUTLOOK_BROWSER_CACHE_KEY)||'null');
@@ -7545,13 +7581,13 @@ async function loadNationalOutlookSharedCacheOnly({silentMiss=false}={}){
     nationalOutlookResults=new Map(results.map(x=>[x.name,x]));
     renderNationalOutlookMarkers();
     writeNationalOutlookBrowserCache(date,results,data.cache,data.engine);
-    const counts={A:0,B:0,C:0};for(const r of nationalOutlookResults.values())if(counts[r.grade]!=null)counts[r.grade]++;
+    const counts={A:0,B:0,C:0,D:0,E:0};for(const r of nationalOutlookResults.values())if(counts[r.grade]!=null)counts[r.grade]++;
     const state=String(data.cache?.state||'');
     const freshness=state.includes('stale')?'保存済みの最新キャッシュ':'共有キャッシュ';
     const expected=eligible.length;
     const missing=Math.max(0,expected-results.length);
     const coverage=`共有キャッシュ <b>${results.length}/${expected}座</b>`;
-    if(status)status.innerHTML=`${freshness}から${esc(nationalOutlookSelectedLabel())}を初期表示：<b>A ${counts.A}座</b> / <b>B ${counts.B}座</b> / <b>C ${counts.C}座</b><br><span class="national-cache-stats">${coverage}${missing?` / 残り <b>${missing}座</b> はキャッシュ更新待ち`: ' / 充足済み'}</span>`;
+    if(status)status.innerHTML=`${freshness}から${esc(nationalOutlookSelectedLabel())}を初期表示：<b>A ${counts.A}座</b> / <b>B ${counts.B}座</b> / <b>C ${counts.C}座</b> / <b>D ${counts.D}座</b> / <b>E ${counts.E}座</b><br><span class="national-cache-stats">${coverage}${missing?` / 残り <b>${missing}座</b> はキャッシュ更新待ち`: ' / 充足済み'}</span>`;
     return true;
   }catch(_){
     if(status&&!silentMiss)status.textContent='共有キャッシュを確認できませんでした。「全国を判定」は利用できます。';
@@ -7572,14 +7608,14 @@ async function runNationalOutlook(){
     const selectedCached=browserCached.filter(x=>wanted.has(x.name));
     nationalOutlookResults=new Map(selectedCached.map(x=>[x.name,x]));
     renderNationalOutlookMarkers();
-    const counts={A:0,B:0,C:0};for(const r of nationalOutlookResults.values())if(counts[r.grade]!=null)counts[r.grade]++;
+    const counts={A:0,B:0,C:0,D:0,E:0};for(const r of nationalOutlookResults.values())if(counts[r.grade]!=null)counts[r.grade]++;
     const missing=Math.max(0,eligible.length-nationalOutlookResults.size);
-    if(status)status.innerHTML=`保存済み ${nationalOutlookResults.size}座を先に表示：<b>A ${counts.A}座</b> / <b>B ${counts.B}座</b> / <b>C ${counts.C}座</b>${missing?`<br><small>未取得 ${missing}座だけ追加確認中…</small>`:'<br><small>共有キャッシュの更新有無を確認中…</small>'}`;
+    if(status)status.innerHTML=`保存済み ${nationalOutlookResults.size}座を先に表示：<b>A ${counts.A}座</b> / <b>B ${counts.B}座</b> / <b>C ${counts.C}座</b> / <b>D ${counts.D}座</b> / <b>E ${counts.E}座</b>${missing?`<br><small>未取得 ${missing}座だけ追加確認中…</small>`:'<br><small>共有キャッシュの更新有無を確認中…</small>'}`;
     // Do not return: server-side partial cache is checked and only missing mountains are fetched.
   }else{
     nationalOutlookResults=new Map();
     renderNationalOutlookMarkers();
-    if(status)status.textContent='全国共有キャッシュを確認中… MET Norway + NOAA GFSで簡易判定します。';
+    if(status)status.textContent='全国共有キャッシュを確認中… MET Norway + NOAA GFSの同時刻中心値で判定します。';
   }
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),110000);
@@ -7590,7 +7626,7 @@ async function runNationalOutlook(){
     // Server returns the merged shared cache, so replace the local map with that snapshot.
     nationalOutlookResults=new Map((data.results||[]).map(x=>[x.name,x]));
     renderNationalOutlookMarkers();
-    const counts={A:0,B:0,C:0};for(const r of nationalOutlookResults.values())if(counts[r.grade]!=null)counts[r.grade]++;
+    const counts={A:0,B:0,C:0,D:0,E:0};for(const r of nationalOutlookResults.values())if(counts[r.grade]!=null)counts[r.grade]++;
     const got=nationalOutlookResults.size;
     // V1.4.124: save partial results too. The next run can show them instantly and fill only missing mountains.
     if(got)writeNationalOutlookBrowserCache(date,[...nationalOutlookResults.values()],data.cache,data.engine);
@@ -7623,10 +7659,10 @@ async function runNationalOutlook(){
       }
       const dualCount=Number(data.dualModelCount||0);
       const metnoOnly=Number(data.metnoOnlyCount||0), gfsOnly=Number(data.gfsOnlyCount||0);
-      if(dualCount>0)note+=`<br><small>MET Norway + NOAA GFSの2モデルを比較して判定（2モデル取得 ${dualCount}座）。</small>`;
+      if(dualCount>0)note+=`<br><small>MET Norway + NOAA GFSの同時刻中心値で判定し、D/E相当は悪条件側を維持（2モデル取得 ${dualCount}座）。</small>`;
       if(metnoOnly||gfsOnly)note+=`<br><small>片方のみ取得：MET Norway ${metnoOnly}座 / NOAA GFS ${gfsOnly}座。</small>`;
       if(data.warning)note+=`<br><small>${esc(String(data.warning))}</small>`;
-      if(status)status.innerHTML=`${lead}：<b>A ${counts.A}座</b> / <b>B ${counts.B}座</b> / <b>C ${counts.C}座</b>${missing?` / 未取得 ${missing}座`:''}${note}`;
+      if(status)status.innerHTML=`${lead}：<b>A ${counts.A}座</b> / <b>B ${counts.B}座</b> / <b>C ${counts.C}座</b> / <b>D ${counts.D}座</b> / <b>E ${counts.E}座</b>${missing?` / 未取得 ${missing}座`:''}${note}`;
     }
   }catch(e){
     const msg=e?.name==='AbortError'?'全国共有キャッシュの生成がタイムアウトしました。少し時間をおいて再度お試しください。':(e.message||e);

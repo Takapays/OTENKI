@@ -35,7 +35,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.10"
+APP_VERSION = "1.6.11"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
@@ -136,7 +136,7 @@ NATIONAL_OUTLOOK_AUTO_REFRESH = os.environ.get("NATIONAL_OUTLOOK_AUTO_REFRESH", 
 NATIONAL_CACHE_REFRESH_TOKEN = os.environ.get("NATIONAL_CACHE_REFRESH_TOKEN", "")
 NATIONAL_100_POINTS_FILE = os.path.join(BASE, "national-100-points.json")
 NATIONAL_OUTLOOK_CHUNK_SIZE = max(1, min(50, int(os.environ.get("NATIONAL_OUTLOOK_CHUNK_SIZE", "25"))))
-NATIONAL_OUTLOOK_ENGINE = "metno-gfs-v4-conservative-recovered"
+NATIONAL_OUTLOOK_ENGINE = "metno-gfs-v5-abcde-mean-floor"
 NATIONAL_GFS_MIN_INTERVAL = float(os.environ.get("NATIONAL_GFS_MIN_INTERVAL", "0.35"))
 _national_gfs_lock = threading.Lock()
 _national_gfs_last_request = 0.0
@@ -1016,7 +1016,7 @@ def _bytes_response(status: int, ctype: str, body: bytes, *, cache_control: str 
 
 
 def _national_public_result(row):
-    return {k:v for k,v in row.items() if not k.startswith("_cache_")}
+    return {k:v for k,v in row.items() if not k.startswith("_")}
 
 def _national_meta(row, *, fetched_at=None):
     meta = row.get("_cache_meta") if isinstance(row, dict) else None
@@ -1036,7 +1036,7 @@ def _national_valid_results(points, results, *, fetched_at=None):
     wanted = {p["name"] for p in points}
     rows = {}
     for row in results or []:
-        if not isinstance(row, dict) or row.get("name") not in wanted or row.get("grade") not in {"A","B","C"}:
+        if not isinstance(row, dict) or row.get("name") not in wanted or row.get("grade") not in {"A","B","C","D","E"}:
             continue
         meta = _national_meta(row, fetched_at=fetched_at)
         if meta is None or meta["stale_until"] <= time.time():
@@ -1366,14 +1366,18 @@ def _run_national_refresh_cycle(trigger):
         _save_national_refresh_runtime()
 
 def _national_grade(max_wind: float, max_gust: float, max_rain: float, max_cape: float, min_temp: float, min_visibility: float | None, *, caution_hours: int = 0, severe_hours: int = 0, extreme_hours: int = 0):
-    # V1.5.64: nationwide A/B/C is intentionally conservative. A is reserved
-    # for a day with no caution hour during 06-15. Strong conditions sustained
-    # for two hours, or any extreme hour, are C.
-    if extreme_hours >= 1 or severe_hours >= 2:
-        return "C", "6〜15時に強い風・突風・雨・低視程などが見込まれ、登山には厳しめの条件です。時間帯別の詳細を確認してください。"
-    if severe_hours >= 1 or caution_hours >= 1:
-        return "B", "6〜15時の一部に風・突風・雨・低視程などの注意要素があります。詳細分析で通過時刻を確認してください。"
-    return "A", "6〜15時に主要な注意条件が見当たらない日です。詳細分析でルートと到着時刻を最終確認してください。"
+    # V1.6.11: five-level nationwide condition scale. Thresholds are unchanged;
+    # the former B/C buckets are split so light/transient and extreme conditions
+    # are distinguishable without weakening the severe/extreme safeguards.
+    if extreme_hours >= 1:
+        return "E", "6〜15時に極端な風・突風・雨が見込まれます。モデル差と時間帯別予測を必ず確認してください。"
+    if severe_hours >= 2:
+        return "D", "6〜15時に強い風・突風・雨が複数時間見込まれ、厳しい条件です。時間帯別予測を確認してください。"
+    if severe_hours >= 1 or caution_hours >= 2:
+        return "C", "6〜15時に注意条件が続く、または強い条件が一時的に見込まれます。時間帯別予測を確認してください。"
+    if caution_hours >= 1:
+        return "B", "6〜15時の一部に軽い注意要素があります。山をタップして時間帯とモデル差を確認してください。"
+    return "A", "6〜15時に主要な注意条件が見当たらない日です。山をタップして時間帯別予測を最終確認してください。"
 
 
 NATIONAL_SUPABASE_CACHE_TABLE = os.environ.get("NATIONAL_SUPABASE_CACHE_TABLE", "national_outlook_cache")
@@ -1413,7 +1417,7 @@ def _national_supabase_read(date_text, points):
             continue
         name = wanted.get(str(dbrow.get("cache_key") or ""))
         row = dbrow.get("result")
-        if not name or not isinstance(row,dict) or row.get("grade") not in {"A","B","C"}:
+        if not name or not isinstance(row,dict) or row.get("grade") not in {"A","B","C","D","E"}:
             continue
         meta = _national_meta({"_cache_meta":{k:dbrow.get(k) for k in ("generated_ts","fresh_until","stale_until")}})
         if meta is None or meta["stale_until"] <= time.time():
@@ -1513,7 +1517,11 @@ def _instagram_load_fresh_100_results(date_text: str) -> list[dict[str, Any]]:
         if not isinstance(row, dict):
             continue
         item = dict(row)
-        # Reel/static scene 1 needs lat/lon to re-plot the A/B/C markers each day.
+        # V1.6.11: Instagram templates remain legacy ABC until their artwork is
+        # explicitly migrated. Preserve their semantics without losing the new grade.
+        item["grade5"] = item.get("grade")
+        item["grade"] = {"A":"A","B":"B","C":"B","D":"C","E":"C"}.get(str(item.get("grade")),"C")
+        # Reel/static scene 1 needs lat/lon to re-plot the legacy ABC markers each day.
         item["name"] = p["name"]
         item["lat"] = p.get("lat")
         item["lon"] = p.get("lon")
@@ -1807,7 +1815,7 @@ def _request_metno_national_point(p: dict[str, Any], timeout: int = UPSTREAM_TIM
     return None
 
 
-def _national_result_from_metno(p: dict[str, Any], date_text: str, payload: dict[str, Any]) -> dict[str, Any] | None:
+def _national_result_from_metno(p: dict[str, Any], date_text: str, payload: dict[str, Any], *, include_series: bool = False) -> dict[str, Any] | None:
     rows=[]
     for item in ((payload.get("properties") or {}).get("timeseries") or []):
         iso=str(item.get("time") or "")
@@ -1817,24 +1825,31 @@ def _national_result_from_metno(p: dict[str, Any], date_text: str, payload: dict
             continue
         if dt.strftime("%Y-%m-%d")!=date_text or not (6<=dt.hour<=15): continue
         data=item.get("data") or {}; instant=((data.get("instant") or {}).get("details") or {})
-        nxt=((data.get("next_1_hours") or {}).get("details") or {})
+        next_1=data.get("next_1_hours") or {}
+        nxt=(next_1.get("details") or {})
         def fv(obj,key,default=None):
             try:
                 v=float(obj.get(key)); return v if math.isfinite(v) else default
             except (TypeError,ValueError): return default
-        temp=fv(instant,"air_temperature"); wind=fv(instant,"wind_speed"); gust=fv(instant,"wind_speed_of_gust",wind); rain=fv(nxt,"precipitation_amount",0.0)
+        temp=fv(instant,"air_temperature"); wind=fv(instant,"wind_speed"); gust=fv(instant,"wind_speed_of_gust",wind)
+        rain_known=bool(next_1) and "precipitation_amount" in nxt
+        rain=fv(nxt,"precipitation_amount",0.0)
         if temp is None or wind is None: continue
-        rows.append((wind,gust if gust is not None else wind,rain if rain is not None else 0.0,temp))
+        rows.append((dt.hour,wind,gust if gust is not None else wind,rain if rain is not None else 0.0,temp,rain_known))
     if not rows: return None
-    winds=[x[0] for x in rows]; gusts=[x[1] for x in rows]; rains=[x[2] for x in rows]; temps=[x[3] for x in rows]
+    winds=[x[1] for x in rows]; gusts=[x[2] for x in rows]; rains=[x[3] for x in rows]; temps=[x[4] for x in rows]
     caution_hours=severe_hours=extreme_hours=0
-    for w,g,r,_ in rows:
+    for _,w,g,r,_,_ in rows:
         if w>=15 or g>=25 or r>=6: extreme_hours+=1
         if w>=9 or g>=18 or r>=1.5: severe_hours+=1
         if w>=5 or g>=12 or r>=0.1: caution_hours+=1
     max_w=max(winds); max_g=max(gusts); max_r=max(rains); min_t=min(temps)
     grade,summary=_national_grade(max_w,max_g,max_r,0,min_t,None,caution_hours=caution_hours,severe_hours=severe_hours,extreme_hours=extreme_hours)
-    return {"name":p["name"],"grade":grade,"summary":summary,"maxWind":round(max_w,1),"maxGust":round(max_g,1),"maxRain":round(max_r,1),"maxCape":0,"minTemp":round(min_t,1),"minVisibility":None,"thunder":"–","cautionHours":caution_hours,"severeHours":severe_hours,"source":"metno"}
+    series=[{"hour":h,"wind":round(w,1),"gust":round(g,1),"rain":round(r,1) if rain_known else None,"temp":round(t,1)} for h,w,g,r,t,rain_known in rows]
+    out={"name":p["name"],"grade":grade,"summary":summary,"maxWind":round(max_w,1),"maxGust":round(max_g,1),"maxRain":round(max_r,1),"maxCape":0,"minTemp":round(min_t,1),"minVisibility":None,"thunder":"–","cautionHours":caution_hours,"severeHours":severe_hours,"source":"metno","_series":series}
+    if include_series:
+        out["series"]=series
+    return out
 
 
 def _national_fill_metno(date_text: str, points: list[dict[str, Any]], results_by_name: dict[str, dict[str, Any]]) -> int:
@@ -1920,7 +1935,7 @@ def _parse_noaa_grib_points(path: str, points: list[dict[str, Any]]) -> dict[str
     return out
 
 
-def _national_gfs_results(date_text: str, points: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+def _national_gfs_results(date_text: str, points: list[dict[str, Any]], *, include_series: bool = False) -> dict[str, dict[str, Any]]:
     global _national_gfs_last_request
     try: target_date=datetime.strptime(date_text,"%Y-%m-%d").date()
     except ValueError: return {}
@@ -1959,7 +1974,7 @@ def _national_gfs_results(date_text: str, points: list[dict[str, Any]]) -> dict[
                 for p in points:
                     vals=parsed.get(p["name"]) or {}
                     if vals.get("wind") is None or vals.get("temp") is None: continue
-                    cycle_rows[p["name"]].append({"wind":float(vals.get("wind") or 0),"gust":float(vals.get("gust") or vals.get("wind") or 0),"rain":float(vals.get("rain") or 0),"temp":float(vals.get("temp")),"cloud":vals.get("cloud")})
+                    cycle_rows[p["name"]].append({"hour":target_dt.astimezone(timezone(timedelta(hours=9))).hour,"wind":float(vals.get("wind") or 0),"gust":float(vals.get("gust") or vals.get("wind") or 0),"rain":float(vals.get("rain") or 0),"temp":float(vals.get("temp")),"cloud":vals.get("cloud")})
                 ok_hours+=1
             finally:
                 if tmp_path:
@@ -1976,7 +1991,11 @@ def _national_gfs_results(date_text: str, points: list[dict[str, Any]]) -> dict[
         severe=sum(1 for x in rr if x["wind"]>=9 or x.get("gust",x["wind"])>=18 or x["rain"]>=1.5)
         extreme=sum(1 for x in rr if x["wind"]>=15 or x.get("gust",x["wind"])>=25 or x["rain"]>=6)
         grade,summary=_national_grade(max(winds),max(gusts),max(rains),0,min(temps),None,caution_hours=caution,severe_hours=severe,extreme_hours=extreme)
-        results[p["name"]]={"name":p["name"],"grade":grade,"summary":summary,"maxWind":round(max(winds),1),"maxGust":round(max(gusts),1),"maxRain":round(max(rains),1),"maxCape":0,"minTemp":round(min(temps),1),"minVisibility":None,"thunder":"–","cautionHours":caution,"severeHours":severe,"source":"gfs"}
+        series=[{"hour":int(x.get("hour")),"wind":round(float(x["wind"]),1),"gust":round(float(x.get("gust",x["wind"])),1),"rain":round(float(x["rain"]),1),"temp":round(float(x["temp"]),1)} for x in rr]
+        out={"name":p["name"],"grade":grade,"summary":summary,"maxWind":round(max(winds),1),"maxGust":round(max(gusts),1),"maxRain":round(max(rains),1),"maxCape":0,"minTemp":round(min(temps),1),"minVisibility":None,"thunder":"–","cautionHours":caution,"severeHours":severe,"source":"gfs","_series":series}
+        if include_series:
+            out["series"]=series
+        results[p["name"]]=out
     return results
 
 
@@ -2007,27 +2026,68 @@ def _national_metno_results(date_text: str, points: list[dict[str, Any]]) -> tup
 
 
 def _national_grade_rank(g: str) -> int:
-    return {"A":1,"B":2,"C":3}.get(str(g),0)
+    return {"A":1,"B":2,"C":3,"D":4,"E":5}.get(str(g),0)
 
 
 def _national_merge_two_models(p: dict[str, Any], met: dict[str, Any] | None, gfs: dict[str, Any] | None) -> dict[str, Any] | None:
     if not met and not gfs: return None
-    if not met: return dict(gfs,source="gfs",modelGrades={"gfs":gfs.get("grade")},modelAgreement="single")
-    if not gfs: return dict(met,source="metno",modelGrades={"metno":met.get("grade")},modelAgreement="single")
-    worse=met if _national_grade_rank(met.get("grade"))>=_national_grade_rank(gfs.get("grade")) else gfs
-    def mx(k):
-        vals=[x.get(k) for x in (met,gfs) if isinstance(x.get(k),(int,float)) and math.isfinite(float(x.get(k)))]
-        return max(vals) if vals else None
-    def mn(k):
-        vals=[x.get(k) for x in (met,gfs) if isinstance(x.get(k),(int,float)) and math.isfinite(float(x.get(k)))]
-        return min(vals) if vals else None
+    if not met:
+        return {k:v for k,v in dict(gfs,source="gfs",modelGrades={"gfs":gfs.get("grade")},modelAgreement="single",integration="single").items() if k != "_series"}
+    if not gfs:
+        return {k:v for k,v in dict(met,source="metno",modelGrades={"metno":met.get("grade")},modelAgreement="single",integration="single").items() if k != "_series"}
+
+    # V1.6.11: align both models by JST hour and average the weather values at the
+    # same hour before grading. This avoids averaging daily maxima that may occur
+    # at different times. D/E from either model remain hard floors.
+    met_series={int(x.get("hour")):x for x in (met.get("_series") or met.get("series") or []) if isinstance(x,dict) and isinstance(x.get("hour"),(int,float))}
+    gfs_series={int(x.get("hour")):x for x in (gfs.get("_series") or gfs.get("series") or []) if isinstance(x,dict) and isinstance(x.get("hour"),(int,float))}
+    common=sorted(set(met_series)&set(gfs_series))
+    center=[]
+    for h in common:
+        a,b=met_series[h],gfs_series[h]
+        def mean_key(k, fallback=0.0):
+            vals=[]
+            for row in (a,b):
+                v=row.get(k)
+                if isinstance(v,(int,float)) and math.isfinite(float(v)): vals.append(float(v))
+            return sum(vals)/len(vals) if vals else fallback
+        center.append({"hour":h,"wind":mean_key("wind"),"gust":mean_key("gust"),"rain":mean_key("rain"),"temp":mean_key("temp",0.0)})
+
+    if center:
+        caution=sum(1 for x in center if x["wind"]>=5 or x["gust"]>=12 or x["rain"]>=0.1)
+        severe=sum(1 for x in center if x["wind"]>=9 or x["gust"]>=18 or x["rain"]>=1.5)
+        extreme=sum(1 for x in center if x["wind"]>=15 or x["gust"]>=25 or x["rain"]>=6)
+        avg_w=max(x["wind"] for x in center); avg_g=max(x["gust"] for x in center); avg_r=max(x["rain"] for x in center); avg_t=min(x["temp"] for x in center)
+        base_grade,base_summary=_national_grade(avg_w,avg_g,avg_r,0,avg_t,None,caution_hours=caution,severe_hours=severe,extreme_hours=extreme)
+        integration="hourly-mean-with-severe-floor"
+    else:
+        # Fallback only when hourly alignment is unavailable. Keep backward-safe
+        # aggregate handling, and surface the reduced comparison quality.
+        def avg(k):
+            vals=[float(x.get(k)) for x in (met,gfs) if isinstance(x.get(k),(int,float)) and math.isfinite(float(x.get(k)))]
+            return sum(vals)/len(vals) if vals else None
+        avg_w=avg("maxWind") or 0.0; avg_g=avg("maxGust") or avg_w; avg_r=avg("maxRain") or 0.0; avg_t=avg("minTemp")
+        caution=round((int(met.get("cautionHours") or 0)+int(gfs.get("cautionHours") or 0))/2)
+        severe=round((int(met.get("severeHours") or 0)+int(gfs.get("severeHours") or 0))/2)
+        base_grade,base_summary=_national_grade(avg_w,avg_g,avg_r,0,avg_t or 0,None,caution_hours=caution,severe_hours=severe,extreme_hours=0)
+        integration="aggregate-mean-fallback-with-severe-floor"
+
     mg,gg=met.get("grade"),gfs.get("grade")
+    floor=max((_national_grade_rank(mg),_national_grade_rank(gg)))
+    if floor>=5: grade="E"
+    elif floor>=4: grade="D"
+    else: grade=base_grade
     diff=abs(_national_grade_rank(mg)-_national_grade_rank(gg))
-    return {"name":p["name"],"grade":worse.get("grade","?"),"summary":worse.get("summary") or "2モデルのうち厳しい側を採用しています。",
-        "maxWind":round(mx("maxWind") or 0,1),"maxGust":round(mx("maxGust") or mx("maxWind") or 0,1),"maxRain":round(mx("maxRain") or 0,1),
-        "maxCape":0,"minTemp":round(mn("minTemp"),1) if mn("minTemp") is not None else None,"minVisibility":None,"thunder":"–",
-        "cautionHours":max(int(met.get("cautionHours") or 0),int(gfs.get("cautionHours") or 0)),"severeHours":max(int(met.get("severeHours") or 0),int(gfs.get("severeHours") or 0)),
-        "source":"metno+gfs","modelGrades":{"metno":mg,"gfs":gg},"modelAgreement":"high" if diff==0 else "medium" if diff==1 else "low"}
+    summary=base_summary
+    if diff>=2:
+        summary += " 2モデルの差が大きいため、時間別グラフで両方の予測を確認してください。"
+    return {"name":p["name"],"grade":grade,"summary":summary,
+        "maxWind":round(avg_w,1),"maxGust":round(avg_g,1),"maxRain":round(avg_r,1),
+        "maxCape":0,"minTemp":round(avg_t,1) if avg_t is not None else None,"minVisibility":None,"thunder":"–",
+        "cautionHours":caution,"severeHours":severe,"source":"metno+gfs","integration":integration,
+        "modelGrades":{"metno":mg,"gfs":gg},"modelAgreement":"high" if diff==0 else "medium" if diff==1 else "low",
+        "modelValues":{"metno":{"maxWind":met.get("maxWind"),"maxGust":met.get("maxGust"),"maxRain":met.get("maxRain"),"minTemp":met.get("minTemp")},
+                       "gfs":{"maxWind":gfs.get("maxWind"),"maxGust":gfs.get("maxGust"),"maxRain":gfs.get("maxRain"),"minTemp":gfs.get("minTemp")}}}
 
 
 def _national_fetch_shared(date_text, points):
@@ -2603,6 +2663,38 @@ def national_outlook():
             cached_count=count,newly_fetched_count=report["pointsFetched"])
     finally:
         _national_unlock(date_text,fp)
+
+@app.post("/api/national-outlook/detail")
+def national_outlook_detail():
+    payload=request.get_json(silent=True) or {}
+    date_text=str(payload.get("date") or "")[:10]
+    point=payload.get("point") or {}
+    try:
+        target=datetime.strptime(date_text,"%Y-%m-%d").date()
+        name=str(point.get("name") or "")[:80]; lat=float(point["lat"]); lon=float(point["lon"]); elev=float(point["elevation"]) if point.get("elevation") is not None else None
+    except (ValueError,TypeError,KeyError):
+        return jsonify(error="invalid request"),400
+    today=(datetime.now(timezone.utc)+timedelta(hours=9)).date()
+    if target<today or target>today+timedelta(days=15) or not name or not (20<=lat<=50 and 120<=lon<=155):
+        return jsonify(error="invalid request"),400
+    p={"name":name,"lat":lat,"lon":lon,"elevation":elev}
+    met=None; gfs=None; warnings=[]
+    try:
+        met=_national_result_from_metno(p,date_text,_request_metno_national_point(p) or {},include_series=True)
+    except Exception as exc:
+        warnings.append("MET Norway unavailable"); app.logger.warning("national_detail_metno_failed %s",type(exc).__name__)
+    try:
+        gfs=_national_gfs_results(date_text,[p],include_series=True).get(name)
+    except Exception as exc:
+        warnings.append("NOAA GFS unavailable"); app.logger.warning("national_detail_gfs_failed %s",type(exc).__name__)
+    merged=_national_merge_two_models(p,met,gfs)
+    if not merged:
+        return jsonify(error="forecast unavailable",warning="; ".join(warnings) or None),503
+    def detail_model(row):
+        if not row: return None
+        return {k:v for k,v in row.items() if k != "_series"}
+    return jsonify(ok=True,date=date_text,name=name,merged=merged,models={"metno":detail_model(met),"gfs":detail_model(gfs)},warning="; ".join(warnings) or None,version=APP_VERSION)
+
 
 @app.get("/api/health")
 def health():
