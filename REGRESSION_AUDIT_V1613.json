@@ -1,0 +1,28 @@
+{
+  "version": "1.6.13",
+  "canonicalBaseline": "1.5.231 = 1.6.1",
+  "previous": "1.6.12",
+  "metrics": {
+    "baseline_v1_6_1": {"mountains":300,"representativeRoutes":415,"missingCt":0,"estimatedCt":1,"coordinateIssues":0},
+    "previous_v1_6_12": {"mountains":300,"representativeRoutes":416,"missingCt":0,"estimatedCt":1,"coordinateIssues":0},
+    "candidate_v1_6_13": {"mountains":300,"representativeRoutes":416,"missingCt":0,"estimatedCt":1,"coordinateIssues":0,"basis":"No mountain/route/fixed-point/CT/catalog definitions changed from V1.6.12; candidate changes are responsive graph placement, UI copy, legend sizing, and version identifiers only."}
+  },
+  "checks": {
+    "mountains_300": true,
+    "coordinate_issues_0": true,
+    "missing_ct_0": true,
+    "estimated_ct_le_1": true,
+    "representative_routes_not_decreased_vs_baseline": true,
+    "representative_routes_not_decreased_vs_previous": true,
+    "no_previous_js_function_declarations_deleted": true,
+    "no_previous_server_top_level_functions_deleted": true,
+    "national_grade_logic_unchanged": true,
+    "instagram_abcde_byte_identical": true,
+    "desktop_copy_updated": true,
+    "mobile_copy_updated": true,
+    "mobile_graph_below_mountain_banner": true,
+    "mobile_legend_reduced": true,
+    "v1613_guard_checks": 38
+  },
+  "status": "PASS"
+}
