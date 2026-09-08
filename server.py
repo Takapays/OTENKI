@@ -35,7 +35,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.11"
+APP_VERSION = "1.6.12"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
@@ -1517,11 +1517,10 @@ def _instagram_load_fresh_100_results(date_text: str) -> list[dict[str, Any]]:
         if not isinstance(row, dict):
             continue
         item = dict(row)
-        # V1.6.11: Instagram templates remain legacy ABC until their artwork is
-        # explicitly migrated. Preserve their semantics without losing the new grade.
+        # V1.6.12: Instagram uses the same A-E nationwide grade as the web UI.
+        # Keep the exact grade; do not collapse C/D/E back into legacy ABC.
         item["grade5"] = item.get("grade")
-        item["grade"] = {"A":"A","B":"B","C":"B","D":"C","E":"C"}.get(str(item.get("grade")),"C")
-        # Reel/static scene 1 needs lat/lon to re-plot the legacy ABC markers each day.
+        # Reel/static scene 1 needs lat/lon to re-plot the A-E markers each day.
         item["name"] = p["name"]
         item["lat"] = p.get("lat")
         item["lon"] = p.get("lon")

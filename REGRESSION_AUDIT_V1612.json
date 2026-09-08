@@ -1,0 +1,88 @@
+{
+  "version": "1.6.12",
+  "canonicalBaseline": "1.5.231 = 1.6.1",
+  "previous": "1.6.11",
+  "metrics": {
+    "baseline_v1_6_1": {
+      "mountains": 300,
+      "representativeRoutes": 415,
+      "missingCt": 0,
+      "estimatedCt": 1,
+      "derivedCt": 0,
+      "coordinateIssues": 0
+    },
+    "previous_v1_6_11": {
+      "mountains": 300,
+      "representativeRoutes": 416,
+      "missingCt": 0,
+      "estimatedCt": 1,
+      "derivedCt": 0,
+      "coordinateIssues": 0,
+      "basis": "candidate does not alter mountain/route/fixed-point/CT definitions; protected definitions and inherited files compared byte-for-byte"
+    },
+    "candidate_v1_6_12": {
+      "mountains": 300,
+      "representativeRoutes": 416,
+      "missingCt": 0,
+      "estimatedCt": 1,
+      "derivedCt": 0,
+      "coordinateIssues": 0,
+      "basis": "No mountain/route/fixed-point/CT/catalog definition change from V1.6.11; app data regions are byte-identical after version normalization."
+    }
+  },
+  "protectedDefinitions": {
+    "directCourseTimeInfoByNames": {
+      "present_prev": true,
+      "present_candidate": true,
+      "identical_prev_to_candidate": true,
+      "sha256": "4d876e4c2e92bc8fa04be2afd328b5f3162a3bd3d38484deab07c159cbcd1b36"
+    },
+    "fixedNameFallbackCandidates": {
+      "present_prev": true,
+      "present_candidate": true,
+      "identical_prev_to_candidate": true,
+      "sha256": "3abf2683fc3bd02bfdbe0a8116af8f7631841122ed6857bef5f480dcc207bad7"
+    },
+    "regionalCandidates": {
+      "present_prev": true,
+      "present_candidate": true,
+      "identical_prev_to_candidate": true,
+      "sha256": "f92a817d9876f8aee0d52219654669b597d609f8ba6bdcf544ebd27f3860878b"
+    },
+    "builtinCandidates": {
+      "present_prev": true,
+      "present_candidate": true,
+      "identical_prev_to_candidate": true,
+      "sha256": "381721d07b0d8ab4227bf712d70b74b39feaf8e889af2963ed0e7dfbbb78b5b1"
+    },
+    "representativeCourseOptions": {
+      "present_prev": true,
+      "present_candidate": true,
+      "identical_prev_to_candidate": true,
+      "sha256": "d66fccfdbab3bf8a4a0e57300976039f69a3499fdefa075b75b5ef5bba7864f5"
+    }
+  },
+  "checks": {
+    "mountains_300": true,
+    "coordinate_issues_0": true,
+    "missing_ct_0": true,
+    "estimated_ct_le_1": true,
+    "representative_routes_not_decreased_vs_baseline": true,
+    "representative_routes_not_decreased_vs_previous": true,
+    "protected_route_fixed_ct_definitions_unchanged_vs_previous": true,
+    "no_previous_js_top_level_functions_deleted": true,
+    "no_previous_server_top_level_functions_deleted": true,
+    "national_grade_logic_unchanged": true,
+    "model_graph_moved_above_detail_hero": true,
+    "legend_inside_map": true,
+    "instagram_native_abcde": true,
+    "instagram_old_abc_collapse_removed": true,
+    "instagram_render_revision_bumped": true,
+    "v1612_guard_checks": 44,
+    "local_instagram_synthetic_render": "PASS"
+  },
+  "status": "PASS",
+  "limitations": [
+    "Live MET Norway, NOAA GFS, Supabase, Render and Instagram posting were not invoked. Instagram A-E rendering was tested locally with synthetic rows."
+  ]
+}

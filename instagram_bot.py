@@ -40,7 +40,7 @@ INSTAGRAM_MIN_NATIONAL_RESULTS = max(1, min(100, int(os.environ.get("INSTAGRAM_M
 INSTAGRAM_AUTO_MEDIA = (os.environ.get("INSTAGRAM_AUTO_MEDIA", "reel").strip().lower() or "reel")
 INSTAGRAM_REEL_FPS = max(8, min(20, int(os.environ.get("INSTAGRAM_REEL_FPS", "12"))))
 INSTAGRAM_REEL_SECONDS = max(6, min(12, int(os.environ.get("INSTAGRAM_REEL_SECONDS", "12"))))
-REEL_RENDER_REV = "master-20260906-scenes-v10-huge-date-no-created-label"
+REEL_RENDER_REV = "master-20260908-scenes-v11-abcde"
 
 def _resolve_persist_root() -> tuple[str, bool]:
     """Return storage root and whether it is expected to survive Render restarts.
@@ -219,7 +219,7 @@ def _latlon_to_scene1_px(lat: float, lon: float, W: int, H: int) -> tuple[int, i
 
 
 def _draw_scene1_grade_marker(draw, x: int, y: int, grade: str, radius: int = 20):
-    colors = {"A": (31, 143, 84, 255), "B": (225, 158, 18, 255), "C": (205, 61, 64, 255)}
+    colors = {"A": (35, 134, 75, 255), "B": (79, 143, 58, 255), "C": (176, 138, 25, 255), "D": (214, 108, 32, 255), "E": (182, 45, 45, 255)}
     grade = str(grade or "").upper()
     if grade not in colors:
         return
@@ -282,7 +282,7 @@ def build_dynamic_scene1(target: date, rows: list[dict[str, Any]]) -> "Image.Ima
             grade = str(row.get("grade") or "").upper()
         except Exception:
             continue
-        if grade not in {"A", "B", "C"}:
+        if grade not in {"A", "B", "C", "D", "E"}:
             continue
         x, y = _latlon_to_scene1_px(lat, lon, 864, 1536)
         if 0 <= x <= 864 and 0 <= y <= 1536:
@@ -290,6 +290,8 @@ def build_dynamic_scene1(target: date, rows: list[dict[str, Any]]) -> "Image.Ima
             plotted += 1
     if plotted < INSTAGRAM_MIN_NATIONAL_RESULTS:
         raise RuntimeError(f"scene1 marker plotting incomplete: {plotted}")
+    # Cover the legacy ABC card in the source artwork and render the current A-E legend.
+    _draw_reel_legend(draw, 382, 1168, width=454)
     return base.convert("RGB")
 
 
@@ -425,8 +427,8 @@ def render_national_image(date_text: str, results: list[dict[str, Any]], *, logo
     except ValueError as exc:
         raise RuntimeError("invalid date") from exc
 
-    rows = [dict(r) for r in results if isinstance(r, dict) and str(r.get("grade") or "") in {"A", "B", "C"}]
-    counts = {g: sum(1 for r in rows if r.get("grade") == g) for g in "ABC"}
+    rows = [dict(r) for r in results if isinstance(r, dict) and str(r.get("grade") or "") in {"A", "B", "C", "D", "E"}]
+    counts = {g: sum(1 for r in rows if r.get("grade") == g) for g in "ABCDE"}
     total = sum(counts.values())
     if total < INSTAGRAM_MIN_NATIONAL_RESULTS:
         raise RuntimeError(f"national image requires at least {INSTAGRAM_MIN_NATIONAL_RESULTS} results, got {total}")
@@ -452,46 +454,49 @@ def render_national_image(date_text: str, results: list[dict[str, Any]], *, logo
     draw.text((432, 127), "翌日の登山コンディションを百名山で比較", font=sub_font, fill=(65, 82, 96))
     draw.text((432, 171), f"{target.year}/{target.month}/{target.day}", font=date_font, fill=(8, 54, 92))
 
-    # Grade cards
+    # Grade cards: V1.6.12 uses the same A-E scale as nationwide analysis.
     grade_colors = {
-        "A": ((20, 134, 76), (225, 246, 233)),
-        "B": ((205, 133, 16), (255, 246, 219)),
-        "C": ((194, 55, 55), (255, 232, 232)),
+        "A": ((35, 134, 75), (229, 245, 234)),
+        "B": ((79, 143, 58), (235, 246, 230)),
+        "C": ((176, 138, 25), (250, 245, 224)),
+        "D": ((214, 108, 32), (253, 237, 225)),
+        "E": ((182, 45, 45), (252, 230, 230)),
     }
-    card_y1, card_y2 = 290, 565
-    gap = 28
-    margin = 58
-    card_w = (W - margin * 2 - gap * 2) // 3
-    grade_big_font = _load_font(92)
-    count_font = _load_font(65)
-    label_font = _load_font(27)
-    labels = {"A": "比較的好条件", "B": "注意条件あり", "C": "厳しい条件"}
-    for idx, grade in enumerate("ABC"):
+    card_y1, card_y2 = 290, 535
+    gap = 12
+    margin = 38
+    card_w = (W - margin * 2 - gap * 4) // 5
+    grade_big_font = _load_font(66)
+    count_font = _load_font(42)
+    label_font = _load_font(21)
+    labels = {"A": "良好", "B": "軽い注意", "C": "注意", "D": "悪い", "E": "非常に悪い"}
+    for idx, grade in enumerate("ABCDE"):
         x1 = margin + idx * (card_w + gap)
         x2 = x1 + card_w
         fg, bg = grade_colors[grade]
-        _rounded_box(draw, (x1, card_y1, x2, card_y2), 28, bg, outline=fg, width=3)
-        draw.text((x1 + 30, card_y1 + 22), grade, font=grade_big_font, fill=fg)
+        _rounded_box(draw, (x1, card_y1, x2, card_y2), 20, bg, outline=fg, width=3)
+        draw.text((x1 + 18, card_y1 + 16), grade, font=grade_big_font, fill=fg)
         count_text = str(counts[grade])
         bbox = draw.textbbox((0, 0), count_text, font=count_font)
-        draw.text((x2 - 28 - (bbox[2] - bbox[0]), card_y1 + 43), count_text, font=count_font, fill=fg)
-        draw.text((x1 + 30, card_y1 + 145), "座", font=label_font, fill=fg)
+        draw.text((x2 - 16 - (bbox[2] - bbox[0]), card_y1 + 34), count_text, font=count_font, fill=fg)
+        draw.text((x1 + 18, card_y1 + 105), "座", font=label_font, fill=fg)
         pct = round(counts[grade] / total * 100)
-        draw.text((x1 + 30, card_y1 + 190), f"{pct}%  {labels[grade]}", font=_fit_text(draw, f"{pct}%  {labels[grade]}", card_w - 60, 27, 20), fill=(55, 68, 78))
+        text=f"{pct}% {labels[grade]}"
+        draw.text((x1 + 12, card_y1 + 160), text, font=_fit_text(draw, text, card_w - 24, 21, 15), fill=(55, 68, 78))
 
     # Mountain lists: concise, high-value teaser rather than reproducing the whole site.
     a_names = [str(r.get("name") or "") for r in rows if r.get("grade") == "A"][:8]
-    c_names = [str(r.get("name") or "") for r in rows if r.get("grade") == "C"][:8]
+    e_names = [str(r.get("name") or "") for r in rows if r.get("grade") == "E"][:8]
     section_font = _load_font(34)
     list_font = _load_font(27)
     x_left, x_right = 58, 554
     y = 625
     draw.text((x_left, y), "A判定の例", font=section_font, fill=(20, 110, 70))
-    draw.text((x_right, y), "C判定の例", font=section_font, fill=(170, 55, 55))
+    draw.text((x_right, y), "E判定の例", font=section_font, fill=(170, 55, 55))
     y += 58
     for i in range(8):
         left = a_names[i] if i < len(a_names) else "—"
-        right = c_names[i] if i < len(c_names) else "—"
+        right = e_names[i] if i < len(e_names) else "—"
         draw.text((x_left, y + i * 43), f"・{left}", font=_fit_text(draw, f"・{left}", 440, 27, 20), fill=(40, 57, 70))
         draw.text((x_right, y + i * 43), f"・{right}", font=_fit_text(draw, f"・{right}", 440, 27, 20), fill=(40, 57, 70))
 
@@ -551,7 +556,7 @@ def _render_japan_map(results: list[dict[str, Any]], width: int, height: int) ->
     else:
         crop = Image.new("RGB", (width, height), (207, 234, 245))
     d = ImageDraw.Draw(crop, "RGBA")
-    grade_colors = {"A": (22, 142, 83, 255), "B": (220, 153, 12, 255), "C": (205, 62, 62, 255)}
+    grade_colors = {"A": (35, 134, 75, 255), "B": (79, 143, 58, 255), "C": (176, 138, 25, 255), "D": (214, 108, 32, 255), "E": (182, 45, 45, 255)}
     font = _load_font(max(22, width // 25))
     r = max(17, width // 36)
     for row in results:
@@ -623,7 +628,7 @@ def _draw_reel_starburst(draw, cx: int, cy: int, r_outer: int, r_inner: int, fil
 
 
 def _draw_reel_grade_marker(draw, x: int, y: int, grade: str, radius: int = 26):
-    colors={"A":(31,143,84,255),"B":(225,158,18,255),"C":(205,61,64,255)}
+    colors={"A":(35,134,75,255),"B":(79,143,58,255),"C":(176,138,25,255),"D":(214,108,32,255),"E":(182,45,45,255)}
     c=colors[grade]
     draw.ellipse((x-radius-4,y-radius-4,x+radius+4,y+radius+4),fill=(255,255,255,245))
     draw.ellipse((x-radius,y-radius,x+radius,y+radius),fill=c)
@@ -642,15 +647,20 @@ def _draw_reel_footer(draw, W: int, H: int):
     draw.text((520,y+53),"登る前に、トラテン。",font=_load_font(30),fill=(255,255,255,235))
 
 
-def _draw_reel_legend(draw, x: int, y: int):
-    draw.rounded_rectangle((x,y,x+560,y+250),radius=26,fill=(255,255,255,238))
-    rows=[("A","良い","絶好の登山日和！"),("B","まずまず","注意して楽しめる"),("C","注意","無理せず計画を再検討")]
-    for i,(g,l1,l2) in enumerate(rows):
-        yy=y+48+i*70
-        _draw_reel_grade_marker(draw,x+46,yy,g,22)
-        fg={"A":(28,137,80,255),"B":(218,147,8,255),"C":(198,58,62,255)}[g]
-        draw.text((x+88,yy-20),l1,font=_load_font(24),fill=fg)
-        draw.text((x+230,yy-17),l2,font=_load_font(20),fill=(40,55,69,255))
+def _draw_reel_legend(draw, x: int, y: int, width: int = 560):
+    # Compact horizontal A-E legend.  The opaque card also covers the legacy
+    # ABC legend baked into the approved scene-1 template without hiding footer copy.
+    height=205
+    draw.rounded_rectangle((x,y,x+width,y+height),radius=24,fill=(255,255,255,248))
+    rows=[("A","良好"),("B","軽い注意"),("C","注意"),("D","悪い"),("E","非常に悪い")]
+    fgmap={"A":(35,134,75,255),"B":(79,143,58,255),"C":(176,138,25,255),"D":(214,108,32,255),"E":(182,45,45,255)}
+    cell=width/5.0
+    for i,(g,label) in enumerate(rows):
+        cx=int(x+cell*(i+0.5))
+        _draw_reel_grade_marker(draw,cx,y+62,g,max(14,min(19,int(cell*0.19))))
+        f=_fit_text(draw,label,int(cell-10),18,12)
+        bb=draw.textbbox((0,0),label,font=f)
+        draw.text((cx-(bb[2]-bb[0])/2,y+112),label,font=f,fill=fgmap[g])
 
 
 def _draw_reel_feature_icon(draw, kind: int, cx: int, cy: int):
@@ -806,7 +816,7 @@ def static_image_cache_ready(date_text: str) -> bool:
 
 
 def render_national_static_images(date_text: str, results: list[dict[str, Any]], *, logo_path: str | None = None) -> list[str]:
-    rows=[dict(r) for r in results if isinstance(r,dict) and str(r.get("grade") or "") in {"A","B","C"}]
+    rows=[dict(r) for r in results if isinstance(r,dict) and str(r.get("grade") or "") in {"A","B","C","D","E"}]
     if len(rows) < INSTAGRAM_MIN_NATIONAL_RESULTS:
         raise RuntimeError(f"national static images require at least {INSTAGRAM_MIN_NATIONAL_RESULTS} results, got {len(rows)}")
     target=date.fromisoformat(date_text)
@@ -836,7 +846,7 @@ def render_national_static_images(date_text: str, results: list[dict[str, Any]],
 
 def render_national_reel(date_text: str, results: list[dict[str, Any]], *, logo_path: str | None = None) -> str:
     """Render the Reel from the dynamic page-1 scene and the approved static page-2 scene."""
-    rows=[dict(r) for r in results if isinstance(r,dict) and str(r.get("grade") or "") in {"A","B","C"}]
+    rows=[dict(r) for r in results if isinstance(r,dict) and str(r.get("grade") or "") in {"A","B","C","D","E"}]
     if len(rows) < INSTAGRAM_MIN_NATIONAL_RESULTS:
         raise RuntimeError(f"national reel requires at least {INSTAGRAM_MIN_NATIONAL_RESULTS} results, got {len(rows)}")
     outdir=_REELS_DIR
@@ -866,7 +876,7 @@ def caption_for(date_text: str, counts: dict[str, int]) -> str:
     marker = f"#traten{target.strftime('%Y%m%d')}"
     return (
         f"🏔 {target.month}/{target.day} 日本三百名山・全国登山天気\n\n"
-        f"A：{counts.get('A', 0)}座　B：{counts.get('B', 0)}座　C：{counts.get('C', 0)}座\n\n"
+        f"A：{counts.get('A', 0)}座　B：{counts.get('B', 0)}座　C：{counts.get('C', 0)}座\nD：{counts.get('D', 0)}座　E：{counts.get('E', 0)}座\n\n"
         "風・雨・気温は時間帯で大きく変わります。\n"
         "山ごとの詳しい予報は、プロフィールのリンクから『トラテン｜トラバース天気』へ。\n\n"
         "※全国判定は登山可否を保証するものではありません。現地の最新情報・警報・登山道状況も確認してください。\n\n"
@@ -964,7 +974,7 @@ def _persist_post_draft(date_text: str, counts: dict[str, int], *, media_type: s
         "forecastDate": date_text,
         "mediaType": media_type,
         "caption": caption,
-        "counts": {g: int(counts.get(g, 0)) for g in "ABC"},
+        "counts": {g: int(counts.get(g, 0)) for g in "ABCDE"},
         "savedAt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "renderRevision": REEL_RENDER_REV,
     }
@@ -1062,7 +1072,7 @@ def post_national(date_text: str, results: list[dict[str, Any]], *, force: bool 
     if not configured():
         return {"ok": False, "skipped": True, "reason": "not-configured"}
     grades = [str(r.get("grade") or "") for r in results if isinstance(r, dict)]
-    counts = {g: grades.count(g) for g in "ABC"}
+    counts = {g: grades.count(g) for g in "ABCDE"}
     if sum(counts.values()) < INSTAGRAM_MIN_NATIONAL_RESULTS:
         return {"ok": False, "skipped": True, "reason": "incomplete", "count": sum(counts.values()), "minimum": INSTAGRAM_MIN_NATIONAL_RESULTS}
 

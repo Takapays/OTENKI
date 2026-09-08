@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.11';
+const APP_VERSION = '1.6.12';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -7462,6 +7462,7 @@ function showNationalOutlookDetail(p,result){
   const summary=result?esc(result.summary||''):(p.eligible?'まだ判定していません。日付を選んで「全国を判定」を押してください。':'全国簡易判定は対象外です。');
   const sourceNote=result?`<span class="national-backup-source">簡易判定：${result.source==='metno+gfs'?'MET Norway + NOAA GFS':result.source==='metno'?'MET Norway':result.source==='gfs'?'NOAA GFS':'MET Norway / NOAA GFS'}</span>`:'';
   box.innerHTML=`
+    ${result?`<div class="national-model-top" data-national-model-detail><div class="national-model-loading">2モデルの時間別予測を取得しています…</div></div>`:''}
     <div class="national-rich-hero${photo?' has-photo':''}"${heroStyle}>
       <button type="button" class="national-detail-close" aria-label="山の情報を閉じる"><span aria-hidden="true">×</span><b>閉じる</b></button>
       <div class="national-rich-hero-overlay"></div>
@@ -7471,7 +7472,7 @@ function showNationalOutlookDetail(p,result){
     </div>
     <div class="national-rich-content">
       <div class="national-rich-summary"><strong>${grade==='?'?'全国一括簡易判定':'6〜15時の簡易判定'}</strong><p>${summary}</p>${sourceNote}</div>
-      ${result?`<div class="national-rich-metrics">${metrics}</div><div data-national-model-detail></div>`:''}
+      ${result?`<div class="national-rich-metrics">${metrics}</div>`:''}
       ${guideHtml}
       ${courseHtml}
       ${nationalExternalWeatherLinksHtml(p.name)}
