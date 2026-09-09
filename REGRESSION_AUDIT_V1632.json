@@ -1,0 +1,48 @@
+{
+  "version": "1.6.32",
+  "baseline": "1.6.1",
+  "previous": "1.6.31",
+  "metrics": {
+    "canonical": {
+      "mountains": 300,
+      "representativeRoutes": 415,
+      "missingCt": 0,
+      "estimatedCt": 1,
+      "coordinateIssues": 0
+    },
+    "previous": {
+      "mountains": 300,
+      "representativeRoutes": 416,
+      "missingCt": 0,
+      "estimatedCt": 1,
+      "coordinateIssues": 0
+    },
+    "candidate": {
+      "mountains": 300,
+      "representativeRoutes": 416,
+      "missingCt": 0,
+      "estimatedCt": 1,
+      "coordinateIssues": 0
+    }
+  },
+  "behavior": {
+    "threeModelsFirst": true,
+    "openMeteoBackground": true,
+    "openMeteo429CircuitMinutes": 60,
+    "ratingThresholdsChanged": false,
+    "weatherElementPolicyChanged": false
+  },
+  "functions": {
+    "server_before": 184,
+    "server_after": 184,
+    "server_missing": [],
+    "js_before": 479,
+    "js_after": 480,
+    "js_missing": [],
+    "js_added": [
+      "analyzeFallbackThreeBatch"
+    ]
+  },
+  "changeIsolation": "app.js changes limited to version, analyzeFallbackThreeBatch, analyze orchestration, and Open-Meteo 429 circuit duration; server.py version only; route/CT/fixed-point declarations unchanged.",
+  "status": "PASS"
+}
