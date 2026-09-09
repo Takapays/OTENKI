@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.22';
+const APP_VERSION = '1.6.23';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -7431,7 +7431,7 @@ function nationalHourlyGradeRows(rows){
 }
 function nationalHourlyGradeHtml(rows){
   const grades=nationalHourlyGradeRows(rows);
-  return `<div class="national-hourly-grades"><div class="national-hourly-grades-head"><strong>時間別 A〜E</strong><small>6〜15時</small></div><div class="national-hourly-grade-grid">${grades.map(x=>`<div class="national-hourly-grade-item"><time>${x.hour}時</time><span class="national-hourly-grade-dot grade-${x.grade==='?'?'u':x.grade.toLowerCase()}">${x.grade}</span></div>`).join('')}</div><p class="national-hourly-grade-note">時間別は中心値で判定し、どちらかのモデルがD/Eならその時間はD/Eを下限にします。日全体の判定は継続時間も加味するため、時間別の最悪値と一致しない場合があります。</p></div>`;
+  return `<div class="national-hourly-grades"><div class="national-hourly-grades-head"><strong>時間別 A〜E</strong><small>6〜15時</small></div><div class="national-hourly-grade-grid">${grades.map(x=>`<div class="national-hourly-grade-item"><time>${x.hour}時</time><span class="national-hourly-grade-dot grade-${x.grade==='?'?'u':x.grade.toLowerCase()}">${x.grade}</span></div>`).join('')}</div></div>`;
 }
 
 function nationalModelChartSvg(rows,key,label,unit,maxY,chartType='line'){

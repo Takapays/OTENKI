@@ -1,0 +1,31 @@
+{
+  "version": "1.6.23",
+  "canonicalBaseline": "1.5.231 = 1.6.1",
+  "previous": "1.6.22",
+  "metrics": {
+    "baseline": {"mountains": 300, "representativeRoutes": 415, "missingCt": 0, "estimatedCt": 1, "coordinateIssues": 0},
+    "previous": {"mountains": 300, "representativeRoutes": 416, "missingCt": 0, "estimatedCt": 1, "coordinateIssues": 0},
+    "candidate": {"mountains": 300, "representativeRoutes": 416, "missingCt": 0, "estimatedCt": 1, "coordinateIssues": 0}
+  },
+  "changes": {
+    "mobileHourlyGradeLayout": "10 slots in one row",
+    "hourlyExplanatorySentenceRemoved": true,
+    "hourlyGradeLogicChanged": false,
+    "dailyNationalLogicChanged": false,
+    "instagramChanged": false,
+    "routeCtFilesChanged": false
+  },
+  "checks": {
+    "pythonCompile": true,
+    "appJsSyntax": true,
+    "v1623Guard": true,
+    "hourlyGradeTests": true,
+    "existingV1622TopLevelJsFunctionsRemoved": 0,
+    "existingV1622TopLevelServerFunctionsRemoved": 0,
+    "canonicalTopLevelJsFunctionsRemoved": 0,
+    "canonicalTopLevelServerFunctionsRemoved": 0,
+    "serverOnlyVersionChangedVsV1622": true,
+    "dataAuditOnlyVersionChangedVsV1622": true
+  },
+  "status": "PASS"
+}
