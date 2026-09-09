@@ -1,0 +1,9 @@
+{
+  "version":"1.6.25",
+  "canonicalBaseline":"1.5.231 = 1.6.1",
+  "previous":"1.6.24",
+  "metrics":{"baseline":{"mountains":300,"representativeRoutes":415,"missingCt":0,"estimatedCt":1,"coordinateIssues":0},"previous":{"mountains":300,"representativeRoutes":416,"missingCt":0,"estimatedCt":1,"coordinateIssues":0},"candidate":{"mountains":300,"representativeRoutes":416,"missingCt":0,"estimatedCt":1,"coordinateIssues":0}},
+  "changes":{"gfsTemperatureAltitudeCorrection":true,"metNorwayAltitudeHandlingChanged":false,"dailyGradeThresholdsChanged":false,"hourlyGradeThresholdsChanged":false,"windGustRainLogicChanged":false,"routeCtFilesChanged":false,"nationalCacheEngineBumped":true},
+  "checks":{"prev_js_removed":0,"prev_server_removed":0,"app_only_version":true,"instagram_byte_identical":true,"pythonCompile":true,"appJsSyntax":true,"altitudeTemperatureTests":true,"hourlyGradeTests":true},
+  "status":"PASS"
+}

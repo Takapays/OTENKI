@@ -35,7 +35,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.24"
+APP_VERSION = "1.6.25"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
@@ -136,7 +136,7 @@ NATIONAL_OUTLOOK_AUTO_REFRESH = os.environ.get("NATIONAL_OUTLOOK_AUTO_REFRESH", 
 NATIONAL_CACHE_REFRESH_TOKEN = os.environ.get("NATIONAL_CACHE_REFRESH_TOKEN", "")
 NATIONAL_100_POINTS_FILE = os.path.join(BASE, "national-100-points.json")
 NATIONAL_OUTLOOK_CHUNK_SIZE = max(1, min(50, int(os.environ.get("NATIONAL_OUTLOOK_CHUNK_SIZE", "25"))))
-NATIONAL_OUTLOOK_ENGINE = "metno-gfs-v5-abcde-mean-floor"
+NATIONAL_OUTLOOK_ENGINE = "metno-gfs-v6-altitude-temp-abcde"
 NATIONAL_GFS_MIN_INTERVAL = float(os.environ.get("NATIONAL_GFS_MIN_INTERVAL", "0.35"))
 _national_gfs_lock = threading.Lock()
 _national_gfs_last_request = 0.0
@@ -1909,13 +1909,23 @@ def _noaa_filter_url_region(cycle: datetime, fh: int, points: list[dict[str, Any
     params={
         "file":f"gfs.t{cycle.hour:02d}z.pgrb2.0p25.f{fh:03d}",
         "lev_2_m_above_ground":"on","lev_10_m_above_ground":"on","lev_surface":"on","lev_entire_atmosphere":"on",
-        "var_TMP":"on","var_UGRD":"on","var_VGRD":"on","var_GUST":"on","var_PRATE":"on","var_TCDC":"on",
+        "var_TMP":"on","var_UGRD":"on","var_VGRD":"on","var_GUST":"on","var_PRATE":"on","var_TCDC":"on","var_HGT":"on",
         "subregion":"",
         "leftlon":f"{max(0,min(lons)-pad):.2f}","rightlon":f"{min(359.75,max(lons)+pad):.2f}",
         "toplat":f"{min(90,max(lats)+pad):.2f}","bottomlat":f"{max(-90,min(lats)-pad):.2f}",
         "dir":f"/gfs.{cycle:%Y%m%d}/{cycle.hour:02d}/atmos",
     }
     return NOAA_GFS_FILTER+"?"+urllib.parse.urlencode(params)
+
+
+def _national_adjust_gfs_temperature(temp_c: float, model_elevation_m: float, target_elevation_m: float) -> float:
+    """Adjust GFS grid 2 m temperature to the registered mountain elevation.
+
+    GFS 0.25 degree terrain is smoothed and can sit far below a summit. Use the
+    standard-atmosphere environmental lapse rate (6.5 C/km) only for this
+    vertical temperature translation; the underlying forecast is otherwise kept.
+    """
+    return float(temp_c) - 0.0065 * (float(target_elevation_m) - float(model_elevation_m))
 
 
 def _parse_noaa_grib_points(path: str, points: list[dict[str, Any]]) -> dict[str, dict[str, float]]:
@@ -1936,6 +1946,7 @@ def _parse_noaa_grib_points(path: str, points: list[dict[str, Any]]) -> dict[str
                 elif short in {"gust","10fg"}: key="gust"
                 elif short=="prate": key="rain"
                 elif short in {"tcc","tcdc"}: key="cloud"
+                elif short in {"orog","gh","z"} and level_type=="surface": key="model_elevation"
                 if not key: continue
                 for p in points:
                     try:
@@ -1952,9 +1963,22 @@ def _parse_noaa_grib_points(path: str, points: list[dict[str, Any]]) -> dict[str
                         continue
             finally:
                 codes_release(gid)
-    for vals in out.values():
+    # GFS 2 m temperature follows the model-grid terrain, which can be far below
+    # a mountain summit at 0.25 degree resolution. Correct temperature from the
+    # GFS surface-orography height to Traten's registered mountain elevation.
+    # Wind/gust/rain are intentionally unchanged.
+    for p in points:
+        vals=out.get(p["name"]) or {}
         if "u" in vals and "v" in vals:
             vals["wind"]=math.hypot(vals["u"],vals["v"])
+        if "temp" in vals and "model_elevation" in vals and p.get("elevation") is not None:
+            try:
+                model_elev=float(vals["model_elevation"]); target_elev=float(p["elevation"])
+                if math.isfinite(model_elev) and math.isfinite(target_elev) and -500<=model_elev<=9000 and -500<=target_elev<=9000:
+                    vals["temp"]=_national_adjust_gfs_temperature(float(vals["temp"]),model_elev,target_elev)
+                    vals["temperature_altitude_adjusted"]=1.0
+            except (TypeError,ValueError):
+                pass
     return out
 
 
