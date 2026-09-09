@@ -1,0 +1,19 @@
+{
+  "server": {
+    "before": 156,
+    "after": 159,
+    "missing": [],
+    "added": [
+      "_diagnose_openmeteo",
+      "_diagnostic_http_probe",
+      "diagnostic_open_meteo"
+    ]
+  },
+  "js": {
+    "before": 481,
+    "after": 481,
+    "missing": []
+  },
+  "app_normalized_identical": true,
+  "diagnosis_test_cases_passed": 6
+}

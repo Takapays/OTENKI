@@ -35,7 +35,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.28"
+APP_VERSION = "1.6.30"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
@@ -2873,6 +2873,138 @@ def national_outlook_detail():
         if not row: return None
         return {k:v for k,v in row.items() if k != "_series"}
     return jsonify(ok=True,date=date_text,name=name,merged=merged,models={"metno":detail_model(met),"gfs":detail_model(gfs),"meteoblue":detail_model(mb)},warning="; ".join(warnings) or None,version=APP_VERSION)
+
+
+
+def _diagnostic_http_probe(name: str, url: str, *, user_agent: str | None = None, timeout: int = 12) -> dict[str, Any]:
+    """One-shot upstream probe for Render diagnostics. No cache and no retries."""
+    started = time.monotonic()
+    parsed = urllib.parse.urlparse(url)
+    req = urllib.request.Request(
+        url,
+        headers={"User-Agent": user_agent or UA, "Accept": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            body = resp.read(800)
+            headers = resp.headers
+            return {
+                "name": name,
+                "ok": 200 <= int(resp.status) < 300,
+                "status": int(resp.status),
+                "elapsed_ms": round((time.monotonic() - started) * 1000),
+                "host": parsed.hostname,
+                "path": parsed.path,
+                "retry_after": headers.get("Retry-After"),
+                "rate_limit_limit": headers.get("X-RateLimit-Limit"),
+                "rate_limit_remaining": headers.get("X-RateLimit-Remaining"),
+                "rate_limit_reset": headers.get("X-RateLimit-Reset"),
+                "server": headers.get("Server"),
+                "body_head": body.decode("utf-8", errors="replace")[:400],
+            }
+    except urllib.error.HTTPError as exc:
+        try:
+            body = exc.read(800).decode("utf-8", errors="replace")[:400]
+        except Exception:
+            body = ""
+        headers = exc.headers or {}
+        return {
+            "name": name,
+            "ok": False,
+            "status": int(exc.code),
+            "elapsed_ms": round((time.monotonic() - started) * 1000),
+            "host": parsed.hostname,
+            "path": parsed.path,
+            "retry_after": headers.get("Retry-After"),
+            "rate_limit_limit": headers.get("X-RateLimit-Limit"),
+            "rate_limit_remaining": headers.get("X-RateLimit-Remaining"),
+            "rate_limit_reset": headers.get("X-RateLimit-Reset"),
+            "server": headers.get("Server"),
+            "error_type": "HTTPError",
+            "body_head": body,
+        }
+    except Exception as exc:
+        return {
+            "name": name,
+            "ok": False,
+            "status": None,
+            "elapsed_ms": round((time.monotonic() - started) * 1000),
+            "host": parsed.hostname,
+            "path": parsed.path,
+            "error_type": type(exc).__name__,
+            "error": str(exc)[:300],
+        }
+
+
+def _diagnose_openmeteo(probes: list[dict[str, Any]]) -> dict[str, str]:
+    openmeteo = [p for p in probes if str(p.get("host") or "").endswith("open-meteo.com")]
+    metno = next((p for p in probes if p.get("host") == "api.met.no"), None)
+    statuses = [p.get("status") for p in openmeteo]
+    if any(s == 429 for s in statuses):
+        return {"code": "open_meteo_rate_limited", "message": "Open-Meteoが429を返しています。レート制限が最有力です。"}
+    if any(s == 403 for s in statuses):
+        return {"code": "open_meteo_access_restricted", "message": "Open-Meteoが403を返しています。Renderの送信元IPを含むアクセス制限を疑ってください。"}
+    if openmeteo and all(p.get("ok") for p in openmeteo):
+        return {"code": "open_meteo_reachable", "message": "RenderからOpen-Meteoへの疎通は正常です。本体側のクエリ条件・並列数・パース処理を確認してください。"}
+    open_network_errors = [p for p in openmeteo if not p.get("ok") and p.get("status") is None]
+    if open_network_errors and metno and metno.get("ok"):
+        return {"code": "open_meteo_route_or_dns_issue", "message": "MET Norwayは成功しOpen-Meteoだけ通信例外です。Open-Meteo向け経路/DNS/接続側の問題を疑ってください。"}
+    if open_network_errors and metno and not metno.get("ok") and metno.get("status") is None:
+        return {"code": "render_outbound_or_dns_issue", "message": "Open-MeteoとMET Norwayの両方が通信例外です。Render側の外向き通信/DNSを疑ってください。"}
+    if any(isinstance(s, int) and s >= 500 for s in statuses):
+        return {"code": "open_meteo_upstream_error", "message": "Open-Meteoが5xxを返しています。上流サービス側の一時障害の可能性があります。"}
+    return {"code": "mixed_or_unknown", "message": "結果が混在しています。各probeのstatus・error_type・body_headを確認してください。"}
+
+
+@app.get("/api/diag/open-meteo")
+def diagnostic_open_meteo():
+    # Reuse the usage-dashboard Basic Auth so this endpoint cannot be abused to burn API quota.
+    if not _dashboard_auth_ok():
+        return _dashboard_unauthorized()
+
+    lat, lon, altitude = 35.3606, 138.7274, 3776
+    common = f"latitude={lat}&longitude={lon}&forecast_days=1&timezone=Asia%2FTokyo&wind_speed_unit=ms"
+    probes = [
+        _diagnostic_http_probe(
+            "open_meteo_minimal",
+            f"https://api.open-meteo.com/v1/forecast?{common}&hourly=temperature_2m",
+        ),
+        _diagnostic_http_probe(
+            "open_meteo_jma_operational_like",
+            f"https://api.open-meteo.com/v1/jma?{common}&hourly=temperature_2m,precipitation,wind_speed_10m,wind_direction_10m",
+        ),
+        _diagnostic_http_probe(
+            "met_norway_control",
+            f"https://api.met.no/weatherapi/locationforecast/2.0/compact?lat={lat}&lon={lon}&altitude={altitude}",
+            user_agent=METNO_USER_AGENT,
+        ),
+    ]
+    if request.args.get("full") in {"1", "true", "yes"}:
+        for name, endpoint in (
+            ("open_meteo_ecmwf", "ecmwf"),
+            ("open_meteo_gfs", "gfs"),
+            ("open_meteo_icon", "dwd-icon"),
+        ):
+            probes.append(_diagnostic_http_probe(
+                name,
+                f"https://api.open-meteo.com/v1/{endpoint}?{common}&hourly=temperature_2m,precipitation,wind_speed_10m,wind_gusts_10m",
+            ))
+
+    diagnosis = _diagnose_openmeteo(probes)
+    payload = {
+        "ok": all(p.get("ok") for p in probes),
+        "version": APP_VERSION,
+        "server_time_utc": datetime.now(timezone.utc).isoformat(),
+        "test_point": {"name": "富士山", "lat": lat, "lon": lon, "altitude": altitude},
+        "full": request.args.get("full") in {"1", "true", "yes"},
+        "diagnosis": diagnosis,
+        "probes": probes,
+        "note": "診断はキャッシュ・リトライを使わずRender本番から上流へ直接1回ずつ接続します。",
+    }
+    resp = jsonify(payload)
+    resp.headers["Cache-Control"] = "no-store, no-cache, max-age=0, must-revalidate"
+    resp.headers["Pragma"] = "no-cache"
+    return resp
 
 
 @app.get("/api/health")

@@ -1,0 +1,41 @@
+{
+  "version": "1.6.30",
+  "base": "1.6.29",
+  "files": [
+    {
+      "path": "app.js",
+      "bytes": 1255071,
+      "sha256": "7662fa21acdf25e37e24dc2a982439d6dc59db0e125e6bc394d22e25840ee18d"
+    },
+    {
+      "path": "server.py",
+      "bytes": 198826,
+      "sha256": "5795b37548ae19da5b0e2418fbb797b35f70f94844c56a5ac4ddde3324cf65a2"
+    },
+    {
+      "path": "index.html",
+      "bytes": 64725,
+      "sha256": "2646c6d3c836d6ded089eb64c516ffb238868d2e191c7f17acab77452e883fb3"
+    },
+    {
+      "path": "data-audit.html",
+      "bytes": 16780,
+      "sha256": "c8f69febcbcdc2ee5e59e1b572cf180375df9509ec28946565bb284ec69a83ff"
+    },
+    {
+      "path": "README_V1630.md",
+      "bytes": 608,
+      "sha256": "f7628a431b5899c8f86bf570f48adaf6a2698eb08bfeab2729ddce6c4517eda1"
+    },
+    {
+      "path": "RELEASE_AUDIT_V1630.md",
+      "bytes": 2251,
+      "sha256": "a127b8fa9e48ba7cb0e0b05ecb6816a596488c6df0fe5f6d0526498f268841b1"
+    },
+    {
+      "path": "REGRESSION_FUNCTION_AUDIT_V1630.json",
+      "bytes": 331,
+      "sha256": "a1428cf84d1fd343204ddfae020baa754d2a46a5bce743aa8d067c6ca690464a"
+    }
+  ]
+}

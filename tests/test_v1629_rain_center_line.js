@@ -1,0 +1,12 @@
+const fs=require('fs');
+const src=fs.readFileSync(__dirname+'/../app.js','utf8');
+const a=src.indexOf('function nationalModelChartSvg');
+const b=src.indexOf('function nationalModelDetailHtml',a);
+if(a<0||b<0)throw new Error('chart function not found');
+const fn=src.slice(a,b);
+if(!fn.includes("chartType==='bars'"))throw new Error('rain bars branch missing');
+if(!fn.includes('class="nm-line nm-avg"'))throw new Error('integrated black line missing from bars');
+if(!fn.includes('class="nm-center-dot"'))throw new Error('integrated point markers missing');
+if(!fn.includes('トラテン統合値'))throw new Error('integrated legend missing');
+if(!fn.includes("bars('metno')+bars('gfs')"))throw new Error('MET/GFS rain bars changed');
+console.log('V1.6.29 rain integrated-line test: PASS');

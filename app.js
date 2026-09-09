@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.28';
+const APP_VERSION = '1.6.30';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -7448,8 +7448,9 @@ function nationalModelChartSvg(rows,key,label,unit,maxY,chartType='line'){
   if(chartType==='bars'){
     const step=iw/hours.length, bw=Math.max(5,Math.min(17,step*.24)), gap=2;
     const bars=model=>hours.map(h=>{const v=byModel[model]?.get(h);if(!Number.isFinite(v))return '';const left=x(h)+(model==='metno'?-(bw+gap/2):gap/2);const yy=y(v),hh=pt+ih-yy;return `<rect x="${left.toFixed(1)}" y="${yy.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0,hh).toFixed(1)}" class="nm-bar ${model==='metno'?'nm-bar-met':'nm-bar-gfs'}"/>`;}).join('');
-    plot=bars('metno')+bars('gfs')+overMarks('metno',-(bw/2+gap/2))+overMarks('gfs',(bw/2+gap/2));
-    legend='<span class="met bar">MET Norway</span><span class="gfs bar">NOAA GFS</span>';
+    const centerPoints=avg.map((v,i)=>Number.isFinite(v)?`<circle cx="${x(hours[i]).toFixed(1)}" cy="${y(v).toFixed(1)}" r="3.2" class="nm-center-dot"/>`:'').join('');
+    plot=bars('metno')+bars('gfs')+`<path d="${avgPath}" class="nm-line nm-avg"/>${centerPoints}`+overMarks('metno',-(bw/2+gap/2))+overMarks('gfs',(bw/2+gap/2));
+    legend='<span class="met bar">MET Norway</span><span class="gfs bar">NOAA GFS</span><span class="avg">トラテン統合値</span>';
   }else{
     plot=`<path d="${path('metno')}" class="nm-line nm-met"/><path d="${path('gfs')}" class="nm-line nm-gfs"/><path d="${path('meteoblue')}" class="nm-line nm-mb"/><path d="${avgPath}" class="nm-line nm-avg"/>${overMarks('metno')}${overMarks('gfs')}${overMarks('meteoblue')}`;
     legend='<span class="met">MET Norway</span><span class="gfs">NOAA GFS</span><span class="mb">meteoblue</span><span class="avg">統合値</span>';
