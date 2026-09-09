@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.37';
+const APP_VERSION = '1.6.38';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -11025,16 +11025,48 @@ function meteoblueRows(payload){
     };
   }).filter(x=>x.time);
 }
+const METEOBLUE_CLIENT_MAX_CONCURRENCY=2;
+let meteoblueClientActive=0;
+const meteoblueClientQueue=[];
+async function withMeteoblueClientSlot(task){
+  if(meteoblueClientActive>=METEOBLUE_CLIENT_MAX_CONCURRENCY){
+    await new Promise(resolve=>meteoblueClientQueue.push(resolve));
+  }
+  meteoblueClientActive++;
+  try{return await task();}
+  finally{
+    meteoblueClientActive=Math.max(0,meteoblueClientActive-1);
+    const next=meteoblueClientQueue.shift();
+    if(next)next();
+  }
+}
 async function fetchMeteobluePayload(point){
   // Free Weather API basic/cloud packages provide a 7-day hourly forecast.
+  // V1.6.38: route analyses can contain many points. Limit concurrent upstream
+  // meteoblue calls so a large route does not create a short burst of requests.
   if(daysAhead(point.date)>7)return null;
-  const q=new URLSearchParams({lat:String(point.lat),lon:String(point.lon)});
-  if(Number.isFinite(Number(point.elevation))&&Number(point.elevation)>0)q.set('asl',String(Math.round(Number(point.elevation))));
-  const r=await fetch(`/api/meteoblue?${q}`,{headers:{Accept:'application/json'}});
-  const payload=await r.json().catch(()=>null);
-  if(r.status===503&&payload?.configured===false)return null;
-  if(!r.ok)throw new Error(payload?.error||`meteoblue HTTP ${r.status}`);
-  return payload;
+  return await withMeteoblueClientSlot(async()=>{
+    const q=new URLSearchParams({lat:String(point.lat),lon:String(point.lon)});
+    if(Number.isFinite(Number(point.elevation))&&Number(point.elevation)>0)q.set('asl',String(Math.round(Number(point.elevation))));
+    let lastError=null;
+    for(let attempt=0;attempt<2;attempt++){
+      const r=await fetch(`/api/meteoblue?${q}`,{headers:{Accept:'application/json'}});
+      const payload=await r.json().catch(()=>null);
+      if(r.status===503&&payload?.configured===false)return null;
+      if(r.ok)return payload;
+      const err=new Error(payload?.error||`meteoblue HTTP ${r.status}`);
+      err.status=r.status;
+      err.detail=payload?.detail||'';
+      lastError=err;
+      // Retry only transient throttling/upstream failures. Do not retry other 4xx.
+      if(attempt===0&&(r.status===429||r.status>=500)){
+        await new Promise(resolve=>setTimeout(resolve,r.status===429?1400:500));
+        continue;
+      }
+      throw err;
+    }
+    throw lastError||new Error('meteoblue取得失敗');
+  });
 }
 async function fetchMeteoblueFallback(point){
   const payload=await fetchMeteobluePayload(point);
@@ -13197,7 +13229,13 @@ function renderAll(points,overnight=[]){
   renderWeatherCharts(points); renderRouteMaps(points); renderPointForecastTimeline(points);
   const overnightWithArrival=overnight.map(o=>{const match=points.find(r=>r.point===o.point||(r.point.name===o.point.name&&r.point.date===o.point.date&&r.point.time===o.point.time));return {...o,arrivalTemp:match?.temp};});
   renderOvernights(overnightWithArrival);
-  $('modelDetails').innerHTML=points.map(r=>`<article class="model-block"><h3>${esc(r.point.name)} <small>${r.point.date} ${r.point.time}</small></h3><div class="table-wrap"><table><thead><tr><th>モデル</th><th>気温</th><th>体感</th><th>風</th><th>瞬間最大風速</th><th>雨</th><th>雲</th><th>大気不安定度</th><th>視程</th></tr></thead><tbody>${r.providerRows.map(x=>`<tr><td>${x.provider.name}</td><td>${num(x.row.temp)}℃</td><td>${num(apparentTemperatureMountain(x.row.temp,x.row.rh,x.row.wind))}℃</td><td>${num(x.row.wind)}m/s</td><td>${num(x.row.gust)}m/s</td><td>${num(x.row.rain)}mm</td><td>${num(x.row.cloud,0)}%</td><td>${num(x.row.cape,0)} J/kg</td><td>${Number.isFinite(x.row.visibility)?Math.round(x.row.visibility)+'m':'–'}</td></tr>`).join('')}</tbody></table></div></article>`).join('');
+  $('modelDetails').innerHTML=points.map(r=>{
+    const rowsHtml=r.providerRows.map(x=>`<tr><td>${x.provider.name}</td><td>${num(x.row.temp)}℃</td><td>${num(apparentTemperatureMountain(x.row.temp,x.row.rh,x.row.wind))}℃</td><td>${num(x.row.wind)}m/s</td><td>${num(x.row.gust)}m/s</td><td>${num(x.row.rain)}mm</td><td>${num(x.row.cloud,0)}%</td><td>${num(x.row.cape,0)} J/kg</td><td>${Number.isFinite(x.row.visibility)?Math.round(x.row.visibility)+'m':'–'}</td></tr>`).join('');
+    const hasMb=(r.providerRows||[]).some(x=>x?.provider?.id==='meteoblue');
+    const mbErr=(r.errors||[]).find(v=>/meteoblue/i.test(String(v||'')));
+    const mbFailureRow=!hasMb?`<tr class="model-row-unavailable"><td>meteoblue（取得できず）</td><td colspan="8">${esc(mbErr||'今回の取得でデータを確認できませんでした')}</td></tr>`:'';
+    return `<article class="model-block"><h3>${esc(r.point.name)} <small>${r.point.date} ${r.point.time}</small></h3><div class="table-wrap"><table><thead><tr><th>モデル</th><th>気温</th><th>体感</th><th>風</th><th>瞬間最大風速</th><th>雨</th><th>雲</th><th>大気不安定度</th><th>視程</th></tr></thead><tbody>${rowsHtml}${mbFailureRow}</tbody></table></div></article>`;
+  }).join('');
   $('updatedAt').textContent=new Date().toLocaleString('ja-JP');
 }
 // V1.5.176: upstream-call audit + duplicate coalescing + persistent 429 circuit breaker.
