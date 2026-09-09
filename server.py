@@ -35,7 +35,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.25"
+APP_VERSION = "1.6.26"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
@@ -3597,6 +3597,7 @@ PUBLIC_FILES = {
     'live-cameras.html',
     'live-cameras.js',
     'manifest.json',
+    'poc-models.html',
     'national-100-points.json',
     'national-300-points.json',
     'reel_master_scene1.png',
@@ -3702,7 +3703,9 @@ def security_headers(response):
     response.headers.setdefault("X-Frame-Options","SAMEORIGIN")
     response.headers.setdefault("Permissions-Policy","geolocation=(), microphone=(), camera=()")
     response.headers.setdefault("X-Content-Type-Options","nosniff")
-    if request.path in {"/","/guide.html"}:
+    if request.path == "/poc-models.html":
+        response.headers.setdefault("X-Robots-Tag","noindex, nofollow")
+    elif request.path in {"/","/guide.html"}:
         response.headers.setdefault("X-Robots-Tag","index, follow, max-image-preview:large")
     ctype = (response.content_type or "").lower()
     compressible = any(t in ctype for t in ("text/","javascript","json","xml","svg"))
