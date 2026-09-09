@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.33';
+const APP_VERSION = '1.6.34';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -12920,13 +12920,10 @@ function fitRouteMapToPoints(state,latlngs){
       return;
     }
     const bounds=L.latLngBounds(latlngs);
-    if(window.matchMedia?.('(max-width: 900px)')?.matches){
-      // Smartphone: keep a consistent, close initial scale like the route-map reference image.
-      // Users can still zoom with the +/- controls afterwards.
-      state.map.setView(bounds.getCenter(),MOBILE_ROUTE_MAP_INITIAL_ZOOM,{animate:false});
-      return;
-    }
-    state.map.fitBounds(bounds,{padding:[28,28],maxZoom:13,animate:false});
+    // V1.6.34: initial route-map scale must fit the whole route on both mobile and PC.
+    // A fixed mobile zoom could crop long routes or make short routes look too small.
+    const mobile=window.matchMedia?.('(max-width: 900px)')?.matches;
+    state.map.fitBounds(bounds,{padding:mobile?[20,20]:[28,28],maxZoom:13,animate:false});
   }catch(_){}
 }
 function renderSingleRouteMap({mapId,emptyId,listId},points){
