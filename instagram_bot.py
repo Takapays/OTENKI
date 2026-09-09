@@ -40,7 +40,7 @@ INSTAGRAM_MIN_NATIONAL_RESULTS = max(1, min(100, int(os.environ.get("INSTAGRAM_M
 INSTAGRAM_AUTO_MEDIA = (os.environ.get("INSTAGRAM_AUTO_MEDIA", "reel").strip().lower() or "reel")
 INSTAGRAM_REEL_FPS = max(8, min(20, int(os.environ.get("INSTAGRAM_REEL_FPS", "12"))))
 INSTAGRAM_REEL_SECONDS = max(6, min(12, int(os.environ.get("INSTAGRAM_REEL_SECONDS", "12"))))
-REEL_RENDER_REV = "master-20260909-scenes-v15-yarigatake-hourly-grades"
+REEL_RENDER_REV = "master-20260909-scenes-v16-yarigatake-phone-frame"
 
 def _resolve_persist_root() -> tuple[str, bool]:
     """Return storage root and whether it is expected to survive Render restarts.
@@ -819,6 +819,52 @@ def _draw_reel_rain_chart(draw, box, hours, met, gfs, ymax=7.0):
             draw.rectangle((cx+off-bw/2,yy,cx+off+bw/2,bottom),fill=color)
             if raw>ymax: draw.text((cx+off-8,top-4),'↑',font=_load_font(25),fill=(190,49,49,255))
 
+def _wrap_reel_scene_in_phone(content: "Image.Image", W: int, H: int) -> "Image.Image":
+    """V1.6.36: place the existing Yarigatake scene inside a centered phone mockup.
+
+    This is presentation-only: the underlying dynamic forecast graphic is unchanged,
+    merely scaled into the phone screen so the surroundings remain visually clear.
+    """
+    bg=Image.new("RGB",(W,H),(244,244,242))
+    d=ImageDraw.Draw(bg,"RGBA")
+    # Soft shadow behind the handset.
+    shadow=Image.new("RGBA",(W,H),(0,0,0,0))
+    sd=ImageDraw.Draw(shadow,"RGBA")
+    sd.rounded_rectangle((52,42,W-52,H-42),radius=92,fill=(0,0,0,38))
+    try:
+        shadow=shadow.filter(__import__('PIL.ImageFilter',fromlist=['GaussianBlur']).GaussianBlur(18))
+    except Exception:
+        pass
+    bg=Image.alpha_composite(bg.convert("RGBA"),shadow)
+    d=ImageDraw.Draw(bg,"RGBA")
+    # Red outer rim + black handset body.
+    outer=(48,26,W-48,H-26)
+    d.rounded_rectangle(outer,radius=92,fill=(226,52,47,255))
+    body=(58,36,W-58,H-36)
+    d.rounded_rectangle(body,radius=84,fill=(18,20,22,255))
+    # Screen keeps the 9:16 content ratio and leaves a clear bezel around it.
+    screen_w=W-150
+    screen_h=round(screen_w*16/9)
+    max_h=H-210
+    if screen_h>max_h:
+        screen_h=max_h
+        screen_w=round(screen_h*9/16)
+    sx=(W-screen_w)//2
+    sy=(H-screen_h)//2
+    resized=content.convert("RGB").resize((screen_w,screen_h),Image.Resampling.LANCZOS)
+    mask=Image.new("L",(screen_w,screen_h),0)
+    md=ImageDraw.Draw(mask)
+    md.rounded_rectangle((0,0,screen_w-1,screen_h-1),radius=46,fill=255)
+    bg.paste(resized,(sx,sy),mask)
+    # Speaker/camera and home indicator live in the bezel, not over the forecast.
+    d=ImageDraw.Draw(bg,"RGBA")
+    speaker_y=max(48,sy-34)
+    d.rounded_rectangle((W//2-62,speaker_y,W//2+36,speaker_y+10),radius=5,fill=(66,69,72,255))
+    d.ellipse((W//2+49,speaker_y-2,W//2+63,speaker_y+12),fill=(30,43,57,255),outline=(83,99,116,255),width=2)
+    home_y=min(H-54,sy+screen_h+34)
+    d.rounded_rectangle((W//2-70,home_y,W//2+70,home_y+9),radius=5,fill=(225,225,225,245))
+    return bg.convert("RGB")
+
 def _build_reel_yarigatake_scene(target: date, detail: dict[str, Any], W: int, H: int) -> "Image.Image":
     models=(detail or {}).get('models') or {}; merged=(detail or {}).get('merged') or {}
     met=_reel_series_by_hour(models.get('metno')); gfs=_reel_series_by_hour(models.get('gfs'))
@@ -851,7 +897,7 @@ def _build_reel_yarigatake_scene(target: date, detail: dict[str, Any], W: int, H
     d.line((58,1318,110,1318),fill=(45,126,183,255),width=7); d.text((122,1300),'MET Norway',font=_load_font(23),fill=muted)
     d.line((335,1318,387,1318),fill=(221,105,31,255),width=7); d.text((399,1300),'NOAA GFS',font=_load_font(23),fill=muted)
     d.rectangle((0,1365,W,H),fill=navy); d.text((68,1410),'他の山は',font=_load_font(36),fill=(255,255,255,255)); d.text((250,1398),'トラテンで！',font=_load_font(56),fill=yellow)
-    return frame
+    return _wrap_reel_scene_in_phone(frame,W,H)
 
 
 def _build_reel_scene1(target: date, rows: list[dict[str, Any]], W: int, H: int) -> "Image.Image":

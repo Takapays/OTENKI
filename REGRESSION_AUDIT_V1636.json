@@ -1,0 +1,20 @@
+{
+  "version":"1.6.36",
+  "baseline":"1.6.1",
+  "previous":"1.6.35",
+  "metrics":{
+    "canonical":{"mountains":300,"representativeRoutes":415,"missingCt":0,"estimatedCt":1,"coordinateIssues":0},
+    "previous":{"mountains":300,"representativeRoutes":416,"missingCt":0,"estimatedCt":1,"coordinateIssues":0},
+    "candidate":{"mountains":300,"representativeRoutes":416,"missingCt":0,"estimatedCt":1,"coordinateIssues":0}
+  },
+  "instagram":{
+    "scene2":"existing dynamic Yarigatake panel wrapped in smartphone mockup",
+    "oldFunctions":70,
+    "newFunctions":71,
+    "missingFunctions":[],
+    "addedFunctions":["_wrap_reel_scene_in_phone"],
+    "renderRevision":"master-20260909-scenes-v16-yarigatake-phone-frame"
+  },
+  "functions":{"js_before":480,"js_after":480,"js_missing":[],"server_before":167,"server_after":167,"server_missing":[]},
+  "status":"PASS"
+}

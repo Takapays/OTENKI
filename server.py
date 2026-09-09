@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.34"
+APP_VERSION = "1.6.36"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
@@ -141,7 +141,7 @@ NATIONAL_OUTLOOK_AUTO_REFRESH = os.environ.get("NATIONAL_OUTLOOK_AUTO_REFRESH", 
 NATIONAL_CACHE_REFRESH_TOKEN = os.environ.get("NATIONAL_CACHE_REFRESH_TOKEN", "")
 NATIONAL_100_POINTS_FILE = os.path.join(BASE, "national-100-points.json")
 NATIONAL_OUTLOOK_CHUNK_SIZE = max(1, min(50, int(os.environ.get("NATIONAL_OUTLOOK_CHUNK_SIZE", "25"))))
-NATIONAL_OUTLOOK_ENGINE = "metno-gfs-mb-v8-element-policy"
+NATIONAL_OUTLOOK_ENGINE = "metno-gfs-mb-v9-element-policy"
 NATIONAL_GFS_MIN_INTERVAL = float(os.environ.get("NATIONAL_GFS_MIN_INTERVAL", "0.35"))
 _national_gfs_lock = threading.Lock()
 _national_gfs_last_request = 0.0
@@ -2221,13 +2221,26 @@ def _national_request_meteoblue(p: dict[str, Any]) -> dict[str, Any] | None:
         try: params["asl"]=str(round(float(p["elevation"])))
         except (TypeError,ValueError): pass
     public_params={k:v for k,v in params.items() if k!="apikey"}
-    cache_key="meteoblue:national-element-policy:v1628:"+urllib.parse.urlencode(public_params)
+    cache_key="meteoblue:national-element-policy:v1635:"+urllib.parse.urlencode(public_params)
     cached=_cache_get(cache_key)
     body=cached[2] if cached else None
     if body is None:
         url="https://my.meteoblue.com/packages/basic-1h_clouds-3h_wind-3h_air-3h?"+urllib.parse.urlencode(params)
         req=urllib.request.Request(url,headers={"User-Agent":UA,"Accept":"application/json"})
-        with urllib.request.urlopen(req,timeout=UPSTREAM_TIMEOUT) as resp: body=resp.read()
+        last_exc=None
+        for attempt in range(2):
+            try:
+                with urllib.request.urlopen(req,timeout=UPSTREAM_TIMEOUT) as resp: body=resp.read()
+                break
+            except urllib.error.HTTPError as exc:
+                last_exc=exc
+                # Configuration/quota/client errors are not helped by immediate retry.
+                if 400 <= int(exc.code) < 500: raise
+                if attempt==0: time.sleep(0.35)
+            except (urllib.error.URLError,TimeoutError) as exc:
+                last_exc=exc
+                if attempt==0: time.sleep(0.35)
+        if body is None and last_exc is not None: raise last_exc
         # One meteoblue response spans several forecast days. Reuse it aggressively
         # so national/detail users do not spend a new API call for the same mountain.
         _cache_put(cache_key,200,"application/json",body,ttl=21600)
@@ -3056,7 +3069,7 @@ def national_outlook_detail():
     def detail_model(row):
         if not row: return None
         return {k:v for k,v in row.items() if k != "_series"}
-    return jsonify(ok=True,date=date_text,name=name,merged=merged,models={"metno":detail_model(met),"gfs":detail_model(gfs),"meteoblue":detail_model(mb)},warning="; ".join(warnings) or None,version=APP_VERSION)
+    return jsonify(ok=True,date=date_text,name=name,merged=merged,models={"metno":detail_model(met),"gfs":detail_model(gfs),"meteoblue":detail_model(mb)},meteoblueStatus={"configured":bool(METEOBLUE_API_KEY),"fetched":bool(mb),"used":bool((merged or {}).get("meteoblueUsed"))},warning="; ".join(warnings) or None,version=APP_VERSION)
 
 
 
@@ -3621,16 +3634,31 @@ def meteoblue_forecast():
             try: params["asl"] = str(round(float(asl)))
             except (TypeError, ValueError): pass
         url = "https://my.meteoblue.com/packages/basic-1h_clouds-3h_wind-3h_air-3h?" + urllib.parse.urlencode(params)
-        cache_key = "meteoblue:basic-1h_clouds-3h_wind-3h_air-3h:v1628:" + urllib.parse.urlencode({k:v for k,v in params.items() if k != "apikey"})
+        cache_key = "meteoblue:basic-1h_clouds-3h_wind-3h_air-3h:v1635:" + urllib.parse.urlencode({k:v for k,v in params.items() if k != "apikey"})
         cached = _cache_get(cache_key)
         if cached:
             status, ctype, body = cached
             return _bytes_response(status, ctype, body, cache_control="public, max-age=21600")
         req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/json"})
-        with urllib.request.urlopen(req, timeout=UPSTREAM_TIMEOUT) as resp:
-            status = resp.status
-            ctype = resp.headers.get("Content-Type", "application/json")
-            body = resp.read()
+        last_exc = None
+        body = None
+        status = 200
+        ctype = "application/json"
+        for attempt in range(2):
+            try:
+                with urllib.request.urlopen(req, timeout=UPSTREAM_TIMEOUT) as resp:
+                    status = resp.status
+                    ctype = resp.headers.get("Content-Type", "application/json")
+                    body = resp.read()
+                break
+            except urllib.error.HTTPError as exc:
+                last_exc = exc
+                if 400 <= int(exc.code) < 500: raise
+                if attempt == 0: time.sleep(0.35)
+            except (urllib.error.URLError, TimeoutError) as exc:
+                last_exc = exc
+                if attempt == 0: time.sleep(0.35)
+        if body is None and last_exc is not None: raise last_exc
         _cache_put(cache_key, status, ctype, body, ttl=21600)
         return _bytes_response(status, ctype, body, cache_control="public, max-age=21600")
     except urllib.error.HTTPError as exc:

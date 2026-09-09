@@ -1,0 +1,20 @@
+{
+  "version":"1.6.35",
+  "baseline":"1.6.1",
+  "previous":"1.6.34",
+  "metrics":{
+    "canonical":{"mountains":300,"representativeRoutes":415,"missingCt":0,"estimatedCt":1,"coordinateIssues":0},
+    "previous":{"mountains":300,"representativeRoutes":416,"missingCt":0,"estimatedCt":1,"coordinateIssues":0},
+    "candidate":{"mountains":300,"representativeRoutes":416,"missingCt":0,"estimatedCt":1,"coordinateIssues":0}
+  },
+  "meteoblue":{
+    "nationalOverview":"selective quota-protected third-model arbitration retained",
+    "nationalTappedDetail":"always requested for eligible 0-7 day forecast; cache generation refreshed; one transient retry; explicit fetched/configured status",
+    "waypoint":"first visible 3-model pass retained; browser point-cache generation refreshed; one transient server retry",
+    "openMeteoOrdering":"unchanged: 3 models first, Open-Meteo enrichment later"
+  },
+  "copy":{"tapHint":"山をタップで時間帯別分析📊","loading":"時間帯別解析中・・"},
+  "functions":{"js_before":480,"js_after":480,"js_missing":[],"server_before":167,"server_after":167,"server_missing":[]},
+  "changeIsolation":"Compared with V1.6.34: only version/cache-generation, meteoblue retry/status, and requested national-analysis copy were changed. Route/CT/fixed-point declarations and ABCDE thresholds were not edited.",
+  "status":"PASS"
+}

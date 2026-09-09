@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.34';
+const APP_VERSION = '1.6.36';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -7463,12 +7463,14 @@ function nationalModelDetailHtml(data){
   if(models.gfs?.series)rows.push({model:'gfs',series:models.gfs.series});
   if(models.meteoblue?.series)rows.push({model:'meteoblue',series:models.meteoblue.series});
   const centerSeries=data?.merged?.series||[]; if(centerSeries.length)rows.push({model:'center',series:centerSeries});
-  return `<section class="national-rich-section national-model-section national-model-section-simple"><div class="national-model-simple-head"><h4>時間別予測</h4><span>要素別統合</span></div>${nationalHourlyGradeHtml(rows,centerSeries)}${nationalModelChartSvg(rows,'wind','風速','m/s',7)}${nationalModelChartSvg(rows,'gust','突風','m/s',15)}${nationalModelChartSvg(rows,'rain','降水','mm/h',7,'bars')}<details class="national-grade-criteria"><summary>ABCDE 判定基準を見る</summary><div><p><b>A 良好</b>：主要な注意条件なし</p><p><b>B 軽い注意</b>：注意条件が1時間</p><p><b>C 注意</b>：注意条件が2時間以上、または強い条件が1時間</p><p><b>D 悪い</b>：強い条件が2時間以上</p><p><b>E 非常に悪い</b>：極端な条件が1時間でもある</p><small>日判定：注意＝風5m/s・突風12m/s・雨0.1mm/h以上／強い＝風9m/s・突風18m/s・雨1.5mm/h以上／極端＝風15m/s・突風25m/s・雨6mm/h以上。対象は6〜15時です。</small><small>時間別マーク：A＝注意未満、B＝風5・突風12・雨0.1以上、C＝風7・突風15・雨0.5以上、D＝風9・突風18・雨1.5以上、E＝風15・突風25・雨6以上。気温はMET主軸、突風はMET実値→meteoblue、風・雨はMET/GFSを基本にモデル差が大きい時だけmeteoblueで仲裁します。</small></div></details></section>`;
+  const mbStatus=data?.meteoblueStatus||null;
+  const mbNote=mbStatus&&!mbStatus.fetched?`<div class="national-model-chart-empty">meteoblue：${mbStatus.configured?'今回取得できず（MET Norway / NOAA GFSで表示）':'API未設定'}</div>`:'';
+  return `<section class="national-rich-section national-model-section national-model-section-simple"><div class="national-model-simple-head"><h4>時間別予測</h4><span>要素別統合</span></div>${mbNote}${nationalHourlyGradeHtml(rows,centerSeries)}${nationalModelChartSvg(rows,'wind','風速','m/s',7)}${nationalModelChartSvg(rows,'gust','突風','m/s',15)}${nationalModelChartSvg(rows,'rain','降水','mm/h',7,'bars')}<details class="national-grade-criteria"><summary>ABCDE 判定基準を見る</summary><div><p><b>A 良好</b>：主要な注意条件なし</p><p><b>B 軽い注意</b>：注意条件が1時間</p><p><b>C 注意</b>：注意条件が2時間以上、または強い条件が1時間</p><p><b>D 悪い</b>：強い条件が2時間以上</p><p><b>E 非常に悪い</b>：極端な条件が1時間でもある</p><small>日判定：注意＝風5m/s・突風12m/s・雨0.1mm/h以上／強い＝風9m/s・突風18m/s・雨1.5mm/h以上／極端＝風15m/s・突風25m/s・雨6mm/h以上。対象は6〜15時です。</small><small>時間別マーク：A＝注意未満、B＝風5・突風12・雨0.1以上、C＝風7・突風15・雨0.5以上、D＝風9・突風18・雨1.5以上、E＝風15・突風25・雨6以上。気温はMET主軸、突風はMET実値→meteoblue、風・雨はMET/GFSを基本にモデル差が大きい時だけmeteoblueで仲裁します。</small></div></details></section>`;
 }
 async function hydrateNationalModelDetail(box,p){
   const slots=Array.from(box?.querySelectorAll('[data-national-model-detail]')||[]); if(!slots.length)return;
   const date=$('nationalOutlookDate')?.value||'';
-  slots.forEach(slot=>slot.innerHTML='<div class="national-model-loading">解析中！<span class="national-loading-dots" aria-hidden="true">・・・</span></div>');
+  slots.forEach(slot=>slot.innerHTML='<div class="national-model-loading">時間帯別解析中・・<span class="national-loading-dots" aria-hidden="true"></span></div>');
   try{
     const r=await fetch('/api/national-outlook/detail',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date,point:{name:p.name,lat:p.lat,lon:p.lon,elevation:p.elevation}})});
     const j=await r.json(); if(!r.ok)throw new Error(j?.error||`HTTP ${r.status}`);
@@ -7514,8 +7516,8 @@ function showNationalOutlookDetail(p,result){
       ${photoCredit}
     </div>
     <div class="national-detail-scroll-body">
-      ${result?`<div class="national-model-top national-model-slot-desktop" data-national-model-detail="desktop"><div class="national-model-loading">解析中！<span class="national-loading-dots" aria-hidden="true">・・・</span></div></div>`:''}
-      ${result?`<div class="national-model-top national-model-slot-mobile" data-national-model-detail="mobile"><div class="national-model-loading">解析中！<span class="national-loading-dots" aria-hidden="true">・・・</span></div></div>`:''}
+      ${result?`<div class="national-model-top national-model-slot-desktop" data-national-model-detail="desktop"><div class="national-model-loading">時間帯別解析中・・<span class="national-loading-dots" aria-hidden="true"></span></div></div>`:''}
+      ${result?`<div class="national-model-top national-model-slot-mobile" data-national-model-detail="mobile"><div class="national-model-loading">時間帯別解析中・・<span class="national-loading-dots" aria-hidden="true"></span></div></div>`:''}
       <div class="national-rich-content">
       <div class="national-rich-summary"><strong>${grade==='?'?'全国一括簡易判定':'6〜15時の簡易判定'}</strong><p>${summary}</p>${sourceNote}</div>
       ${result?`<div class="national-rich-metrics">${metrics}</div>`:''}
@@ -10835,7 +10837,7 @@ function blendTimelineRows(providerRows){
 // The server proxy also caches upstream Open-Meteo responses, but this avoids even the
 // round trip to Render when the user only tweaks the route or re-runs the same plan.
 const WEATHER_POINT_CACHE_TTL_MS=60*60*1000;
-const WEATHER_POINT_CACHE_PREFIX='traten:weather-point:v15131:';
+const WEATHER_POINT_CACHE_PREFIX='traten:weather-point:v1635:';
 const weatherPointMemoryCache=new Map();
 function weatherPointCacheKey(provider,point){
   return `${provider.id}|${Number(point.lat).toFixed(4)}|${Number(point.lon).toFixed(4)}|${Math.round(Number(point.elevation)||0)}|${point.date}|${point.time}`;
