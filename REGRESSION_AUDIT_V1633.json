@@ -1,0 +1,58 @@
+{
+  "version": "1.6.33",
+  "baseline": "1.6.1",
+  "previous": "1.6.32",
+  "metrics": {
+    "canonical": {
+      "mountains": 300,
+      "representativeRoutes": 415,
+      "missingCt": 0,
+      "estimatedCt": 1,
+      "coordinateIssues": 0
+    },
+    "previous": {
+      "mountains": 300,
+      "representativeRoutes": 416,
+      "missingCt": 0,
+      "estimatedCt": 1,
+      "coordinateIssues": 0
+    },
+    "candidate": {
+      "mountains": 300,
+      "representativeRoutes": 416,
+      "missingCt": 0,
+      "estimatedCt": 1,
+      "coordinateIssues": 0
+    }
+  },
+  "behavior": {
+    "nationalMeteoblueSelectiveArbiter": true,
+    "nationalMeteoblueCandidateRules": [
+      "one direct model missing",
+      "MET gust missing on provisional B-E",
+      "MET/GFS hourly wind difference >=3.0 m/s",
+      "MET/GFS hourly rain difference >=0.7 mm/h"
+    ],
+    "waypointMeteoblueFirstPass": true,
+    "openMeteoBackground": true,
+    "openMeteo429CircuitMinutes": 60,
+    "ratingThresholdsChanged": false,
+    "weatherElementPolicyThresholdsChanged": false,
+    "nationalCacheEngineBumped": true
+  },
+  "functions": {
+    "server_before": 165,
+    "server_after": 167,
+    "server_missing": [],
+    "server_added": [
+      "_national_meteoblue_candidate",
+      "_national_meteoblue_results"
+    ],
+    "js_before": 482,
+    "js_after": 482,
+    "js_missing": [],
+    "js_added": []
+  },
+  "changeIsolation": "Route/CT/fixed-point declarations are unchanged versus V1.6.32. app.js changes are version + model-source visibility/status only. server.py changes are version/cache engine + selective nationwide meteoblue acquisition and response counters.",
+  "status": "PASS"
+}

@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.32';
+const APP_VERSION = '1.6.33';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -7502,7 +7502,9 @@ function showNationalOutlookDetail(p,result){
     nationalMetricHtml('判定信頼度',`<span class="national-confidence tone-${confidence.tone}">${confidence.label}</span>`,confidence.note)
   ].join(''):'';
   const summary=result?esc(result.summary||''):(p.eligible?'まだ判定していません。日付を選んで「全国を判定」を押してください。':'全国簡易判定は対象外です。');
-  const sourceNote=result?`<span class="national-backup-source">簡易判定：${String(result.source||'').includes('element-policy')?'要素別統合（MET Norway / NOAA GFS）':result.source==='metno'?'MET Norway':result.source==='gfs'?'NOAA GFS':'MET Norway / NOAA GFS'}</span>`:'';
+  const mbFetched=!!result?.modelValues?.meteoblue;
+  const mbUsed=!!result?.meteoblueUsed;
+  const sourceNote=result?`<span class="national-backup-source">簡易判定：${String(result.source||'').includes('element-policy')?`要素別統合（MET Norway / NOAA GFS${mbFetched?' / meteoblue':''}${mbUsed?'・仲裁あり':''}）`:result.source==='metno'?'MET Norway':result.source==='gfs'?'NOAA GFS':'MET Norway / NOAA GFS'}</span>`:'';
   box.innerHTML=`
     <div class="national-rich-hero${photo?' has-photo':''}"${heroStyle}>
       <button type="button" class="national-detail-close" aria-label="山の情報を閉じる"><span aria-hidden="true">×</span><b>閉じる</b></button>
@@ -7704,8 +7706,9 @@ async function runNationalOutlook(){
         note+=`<br><small class="national-cache-help">先行保存対象は翌日〜7日先を共有キャッシュへ保存し、各結果は4時間TTLで更新します。キャッシュがない対象は全国判定に1〜2分程度かかることがあります。</small>`;
       }
       const dualCount=Number(data.dualModelCount||0);
+      const mbFetchedCount=Number(data.meteoblueFetchedCount||0), mbUsedCount=Number(data.meteoblueUsedCount||0);
       const metnoOnly=Number(data.metnoOnlyCount||0), gfsOnly=Number(data.gfsOnlyCount||0);
-      if(dualCount>0)note+=`<br><small>気温はMET主軸、風・雨はMET/GFSを統合し、GFS突風は判定から除外（2モデル取得 ${dualCount}座）。</small>`;
+      if(dualCount>0)note+=`<br><small>気温はMET主軸、風・雨はMET/GFSを基本統合し、必要時のみmeteoblueで仲裁。GFS突風は判定から除外（MET+GFS ${dualCount}座 / meteoblue取得 ${mbFetchedCount}座 / 実際に仲裁・補完 ${mbUsedCount}座）。</small>`;
       if(metnoOnly||gfsOnly)note+=`<br><small>片方のみ取得：MET Norway ${metnoOnly}座 / NOAA GFS ${gfsOnly}座。</small>`;
       if(data.warning)note+=`<br><small>${esc(String(data.warning))}</small>`;
       if(status)status.innerHTML=`${lead}：<b>A ${counts.A}座</b> / <b>B ${counts.B}座</b> / <b>C ${counts.C}座</b> / <b>D ${counts.D}座</b> / <b>E ${counts.E}座</b>${missing?` / 未取得 ${missing}座`:''}${note}`;
@@ -11258,7 +11261,8 @@ async function analyze(){
     const mountain=currentMountainLabel();
     renderSummaryCore(latestResults);
     const initialMs=Math.round(performance.now()-started);
-    setStatus(`先行3モデルで総合判断を表示：${points.length}地点（Open-Meteoは後追い更新）`,false);
+    const initialMeteoblueCount=latestResults.filter(r=>(r?.providerRows||[]).some(x=>x?.provider?.id==='meteoblue')).length;
+    setStatus(`先行3モデルで総合判断を表示：${points.length}地点（meteoblue ${initialMeteoblueCount}/${points.length}地点 / Open-Meteoは後追い更新）`,false);
     scrollToSummaryResult();
     delete $('analyzeBtn').dataset.busy; refreshAnalyzeButtonState();
     requestAnimationFrame(()=>{if(runId===activeAnalysisRun)renderAll(latestResults,latestOvernight);});
@@ -11325,7 +11329,8 @@ async function analyze(){
     progressiveDone.filter(x=>x&&!x.ok).forEach(x=>notes.push(`${x.provider?.name||'追加モデル'}取得失敗: ${x.error?.message||'取得失敗'}`));
     if(overnightState.warning)notes.push(overnightState.warning.replace(/^ \/ /,''));
     const apiAudit=weatherApiAuditSnapshot();
-    const apiAuditText=`Open-Meteo ${apiAudit.openMeteoRequests}回${apiAudit.openMeteo429?` / 429:${apiAudit.openMeteo429}`:''}${apiAudit.deduped?` / 重複抑制:${apiAudit.deduped}`:''}${apiAudit.circuitSkipped?` / 429後抑制:${apiAudit.circuitSkipped}`:''}${apiAudit.openMeteoCircuitSeconds?` / 抑制残:${Math.ceil(apiAudit.openMeteoCircuitSeconds/60)}分`:''}`;
+    const finalMeteoblueCount=latestResults.filter(r=>(r?.providerRows||[]).some(x=>x?.provider?.id==='meteoblue')).length;
+    const apiAuditText=`meteoblue ${finalMeteoblueCount}/${points.length}地点 / Open-Meteo ${apiAudit.openMeteoRequests}回${apiAudit.openMeteo429?` / 429:${apiAudit.openMeteo429}`:''}${apiAudit.deduped?` / 重複抑制:${apiAudit.deduped}`:''}${apiAudit.circuitSkipped?` / 429後抑制:${apiAudit.circuitSkipped}`:''}${apiAudit.openMeteoCircuitSeconds?` / 抑制残:${Math.ceil(apiAudit.openMeteoCircuitSeconds/60)}分`:''}`;
     logEvent('weather_api_audit',{success:true,mountain,route_points:points.length,metadata:{...apiAudit,three_models_first:true,open_meteo_background:true}});
     setStatus(notes.length?`先行3モデル解析は完了。${notes.join(' / ')} / ${apiAuditText}`:`分析完了：${points.length}地点${stayPoints.length?` / 宿泊 ${stayPoints.length}泊`:''}（先行3モデル → Open-Meteo後追い / ${apiAuditText}）`,false);
   }catch(e){

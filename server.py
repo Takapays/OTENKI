@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.32"
+APP_VERSION = "1.6.33"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
@@ -141,7 +141,7 @@ NATIONAL_OUTLOOK_AUTO_REFRESH = os.environ.get("NATIONAL_OUTLOOK_AUTO_REFRESH", 
 NATIONAL_CACHE_REFRESH_TOKEN = os.environ.get("NATIONAL_CACHE_REFRESH_TOKEN", "")
 NATIONAL_100_POINTS_FILE = os.path.join(BASE, "national-100-points.json")
 NATIONAL_OUTLOOK_CHUNK_SIZE = max(1, min(50, int(os.environ.get("NATIONAL_OUTLOOK_CHUNK_SIZE", "25"))))
-NATIONAL_OUTLOOK_ENGINE = "metno-gfs-v7-element-policy"
+NATIONAL_OUTLOOK_ENGINE = "metno-gfs-mb-v8-element-policy"
 NATIONAL_GFS_MIN_INTERVAL = float(os.environ.get("NATIONAL_GFS_MIN_INTERVAL", "0.35"))
 _national_gfs_lock = threading.Lock()
 _national_gfs_last_request = 0.0
@@ -2393,12 +2393,60 @@ def _national_merge_two_models(p: dict[str, Any], met: dict[str, Any] | None, gf
         "modelGrades":grades,"modelAgreement":"high" if diff==0 else "medium" if diff==1 else "low","meteoblueUsed":bool(mb_used),
         "modelValues":{k:{"maxWind":v.get("maxWind"),"maxGust":v.get("maxGust"),"maxRain":v.get("maxRain"),"minTemp":v.get("minTemp")} for k,v in (("metno",met),("gfs",gfs),("meteoblue",mb)) if v}}
 
+def _national_meteoblue_candidate(met: dict[str, Any] | None, gfs: dict[str, Any] | None) -> bool:
+    """Use meteoblue only where it can materially improve the nationwide decision.
+
+    This keeps the free meteoblue quota under control: nationwide A-grade calm
+    points are not sprayed to meteoblue. We ask for MB when one direct model is
+    missing, MET has no gust on an already non-A point, or MET/GFS materially
+    disagree on hourly wind/rain. A tapped mountain detail still asks MB directly.
+    """
+    if not METEOBLUE_API_KEY:
+        return False
+    if not met or not gfs:
+        return bool(met or gfs)
+    provisional=_national_merge_two_models({"name":met.get("name") or gfs.get("name") or ""},met,gfs)
+    if met.get("maxGust") is None and _national_grade_rank((provisional or {}).get("grade"))>=2:
+        return True
+    mrows={int(x.get("hour")):x for x in (met.get("_series") or met.get("series") or []) if isinstance(x,dict) and _finite(x.get("hour"))}
+    grows={int(x.get("hour")):x for x in (gfs.get("_series") or gfs.get("series") or []) if isinstance(x,dict) and _finite(x.get("hour"))}
+    for h in set(mrows)&set(grows):
+        mr,gr=mrows[h],grows[h]
+        if _finite(mr.get("wind")) and _finite(gr.get("wind")) and abs(float(mr["wind"])-float(gr["wind"]))>=3.0:
+            return True
+        if _finite(mr.get("rain")) and _finite(gr.get("rain")) and abs(float(mr["rain"])-float(gr["rain"]))>=0.7:
+            return True
+    return False
+
+
+def _national_meteoblue_results(date_text: str, points: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    out={}
+    if not points or not METEOBLUE_API_KEY:
+        return out
+    def one(p):
+        try:
+            return p,_national_fetch_meteoblue_detail(p,date_text)
+        except Exception:
+            return p,None
+    # Small worker pool: meteoblue is a selective arbiter, not the 300-mountain
+    # primary transport. Shared 6-hour payload cache is reused across forecast days.
+    with ThreadPoolExecutor(max_workers=min(4,len(points)),thread_name_prefix="traten-national-mb") as ex:
+        futures=[ex.submit(one,p) for p in points]
+        for fut in as_completed(futures):
+            p,result=fut.result()
+            if result:
+                out[p["name"]]=result
+    return out
+
+
 def _national_fetch_shared(date_text, points):
-    # National analysis never invokes Open-Meteo or the separate detailed forecast API.
-    rows = {}; missing = []; warnings = []; metno = {}; gfs = {}; stats = {}
+    # Nationwide primary transport is direct MET Norway + NOAA GFS. meteoblue is
+    # fetched selectively as the third-model arbiter; Open-Meteo is never used here.
+    rows = {}; missing = []; warnings = []; metno = {}; gfs = {}; mb = {}; stats = {}
     for p in points:
         cached = _national_point_cache_get(date_text,p)
-        if cached and cached.get("source") in {"metno+gfs","metno","gfs"}:
+        source=str((cached or {}).get("source") or "")
+        if cached and (source in {"metno+gfs","metno","gfs"} or source.endswith("-element-policy")):
             rows[p["name"]] = dict(cached,name=p["name"])
         else:
             missing.append(p)
@@ -2414,8 +2462,16 @@ def _national_fetch_shared(date_text, points):
         except Exception as exc:
             warnings.append("NOAA GFS unavailable")
             app.logger.warning("national_gfs_failed %s",type(exc).__name__)
+        mb_points=[p for p in missing if _national_meteoblue_candidate(metno.get(p["name"]),gfs.get(p["name"]))]
+        if mb_points:
+            try:
+                mb=_national_meteoblue_results(date_text,mb_points)
+            except Exception as exc:
+                warnings.append("meteoblue unavailable")
+                app.logger.warning("national_meteoblue_failed %s",type(exc).__name__)
+        app.logger.info("national_model_mix date=%s points=%s mb_candidates=%s mb_ok=%s",date_text,len(missing),len(mb_points),len(mb))
         for p in missing:
-            result = _national_merge_two_models(p,metno.get(p["name"]),gfs.get(p["name"]))
+            result = _national_merge_two_models(p,metno.get(p["name"]),gfs.get(p["name"]),mb.get(p["name"]))
             if result:
                 row = dict(result,_cache_meta=_national_meta(result,fetched_at=fetched_at))
                 rows[p["name"]] = row
@@ -2450,7 +2506,9 @@ def _national_response(data, state, *, warning=None, cached_count=None, newly_fe
             "staleCount":got-fresh_count,"newlyFetchedCount":nf,"staleFallbackCount":max(stale_fallback_count,got-fresh_count),
             "missingCount":max(0,total-got),"remainingDueCount":max(0,total-fresh_count),"cacheHit":cc>0 and nf==0},
         "rateLimited":bool(data.get("rateLimited")),
-        "dualModelCount":sum(r.get("source")=="metno+gfs" for r in results),
+        "dualModelCount":sum(str(r.get("source") or "").startswith("metno+gfs") for r in results),
+        "meteoblueFetchedCount":sum(bool((r.get("modelValues") or {}).get("meteoblue")) for r in results),
+        "meteoblueUsedCount":sum(bool(r.get("meteoblueUsed")) for r in results),
         "metnoOnlyCount":sum(r.get("source")=="metno" for r in results),
         "gfsOnlyCount":sum(r.get("source")=="gfs" for r in results)}
     if data.get("cacheReadError"):
