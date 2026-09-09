@@ -15,6 +15,7 @@ import heapq
 import json
 import math
 import os
+import queue
 import threading
 import time
 import urllib.error
@@ -35,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.30"
+APP_VERSION = "1.6.31"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
@@ -55,6 +56,10 @@ USAGE_EVENT_MAX_BYTES = int(os.environ.get("USAGE_EVENT_MAX_BYTES", str(32 * 102
 USAGE_DASHBOARD_USERNAME = os.environ.get("USAGE_DASHBOARD_USERNAME", "admin")
 USAGE_DASHBOARD_PASSWORD = os.environ.get("USAGE_DASHBOARD_PASSWORD", "")
 USAGE_DASHBOARD_MAX_EVENTS = int(os.environ.get("USAGE_DASHBOARD_MAX_EVENTS", "50000"))
+OPENMETEO_DAILY_LIMIT_ESTIMATE = int(os.environ.get("OPENMETEO_DAILY_LIMIT_ESTIMATE", "10000"))
+_openmeteo_audit_queue: "queue.Queue[dict[str, Any]]" = queue.Queue(maxsize=20000)
+_openmeteo_audit_worker_started = False
+_openmeteo_audit_worker_lock = threading.Lock()
 # V1.5.190: history/error panels intentionally start fresh from this release.
 USAGE_DASHBOARD_RESET_AT = "2026-09-06T02:00:01+00:00"
 
@@ -64,7 +69,7 @@ INDEXNOW_ENDPOINT = "https://api.indexnow.org/IndexNow"
 INDEXNOW_HOST = "otenki.onrender.com"
 INDEXNOW_PUBLIC_URLS = ['https://otenki.onrender.com/', 'https://otenki.onrender.com/guide.html', 'https://otenki.onrender.com/live-cameras.html', 'https://otenki.onrender.com/trailheads.html', 'https://otenki.onrender.com/huts.html', 'https://otenki.onrender.com/water-sources.html']
 
-ALLOWED_EVENT_NAMES = {'trail_route_calculated', 'route_created', 'page_view', 'result_screenshot', 'route_camera', 'water_list', 'weather_api_audit', 'arrival_times_calculated', 'classic_route_loaded', 'planner_clear', 'representative_course_loaded', 'route_candidates_loaded', 'water_report', 'route_point_used', 'mountain_selected', 'point_selected', 'weather_analysis'}
+ALLOWED_EVENT_NAMES = {'openmeteo_request', 'trail_route_calculated', 'route_created', 'page_view', 'result_screenshot', 'route_camera', 'water_list', 'weather_api_audit', 'arrival_times_calculated', 'classic_route_loaded', 'planner_clear', 'representative_course_loaded', 'route_candidates_loaded', 'water_report', 'route_point_used', 'mountain_selected', 'point_selected', 'weather_analysis'}
 
 ALLOWED_HOSTS = {
     "api.open-meteo.com",
@@ -454,6 +459,119 @@ def _write_supabase_event(row: dict[str, Any]) -> bool:
     with urllib.request.urlopen(req, timeout=USAGE_EVENT_TIMEOUT) as resp:
         return 200 <= resp.status < 300
 
+def _openmeteo_audit_worker() -> None:
+    while True:
+        row = _openmeteo_audit_queue.get()
+        try:
+            _write_supabase_event(row)
+        except Exception as exc:
+            print(f"[openmeteo-audit-error] {exc}", flush=True)
+        finally:
+            _openmeteo_audit_queue.task_done()
+
+
+def _ensure_openmeteo_audit_worker() -> None:
+    global _openmeteo_audit_worker_started
+    if _openmeteo_audit_worker_started or not (SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY):
+        return
+    with _openmeteo_audit_worker_lock:
+        if _openmeteo_audit_worker_started:
+            return
+        threading.Thread(target=_openmeteo_audit_worker, name="openmeteo-audit", daemon=True).start()
+        _openmeteo_audit_worker_started = True
+
+
+def _audit_openmeteo_request(url: str, *, source: str, status: int | None, elapsed_ms: int, error_type: str | None = None) -> None:
+    """Persist one row per actual Render -> Open-Meteo HTTP attempt without blocking the weather request."""
+    parsed = urllib.parse.urlparse(url)
+    if not (parsed.hostname or "").endswith("open-meteo.com"):
+        return
+    _ensure_openmeteo_audit_worker()
+    row = {
+        "session_id": "server-openmeteo",
+        "app_version": APP_VERSION,
+        "event_name": "openmeteo_request",
+        "success": bool(status is not None and 200 <= status < 300),
+        "duration_ms": max(0, min(int(elapsed_ms), 3_600_000)),
+        "mountain": str(source)[:120],
+        "route_points": None,
+        "stay_count": None,
+        "error_message": (str(error_type)[:700] if error_type else None),
+        "metadata": {
+            "host": parsed.hostname,
+            "path": parsed.path,
+            "status": status,
+            "source": str(source)[:80],
+        },
+    }
+    if not (SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY):
+        print("[openmeteo-request] " + json.dumps(row, ensure_ascii=False, separators=(",", ":")), flush=True)
+        return
+    try:
+        _openmeteo_audit_queue.put_nowait(row)
+    except queue.Full:
+        print("[openmeteo-audit-drop] queue full", flush=True)
+
+
+def _supabase_count_openmeteo_requests(start_utc: datetime, end_utc: datetime, source: str | None = None) -> int:
+    if not (SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY):
+        raise RuntimeError("Supabase is not configured")
+    params = {
+        "select": "created_at",
+        "event_name": "eq.openmeteo_request",
+        "created_at": f"gte.{start_utc.isoformat().replace('+00:00','Z')}",
+        "and": f"(created_at.lt.{end_utc.isoformat().replace('+00:00','Z')})",
+    }
+    if source:
+        params["mountain"] = "eq." + source
+    url = f"{SUPABASE_URL}/rest/v1/usage_events?{urllib.parse.urlencode(params, safe=',.:+-()')}"
+    req = urllib.request.Request(url, headers={**_supabase_headers(accept_json=True), "Prefer": "count=exact", "Range": "0-0", "Range-Unit": "items"})
+    with urllib.request.urlopen(req, timeout=max(USAGE_EVENT_TIMEOUT, 15)) as resp:
+        content_range = resp.headers.get("Content-Range", "")
+    try:
+        return int(content_range.rsplit("/", 1)[1])
+    except Exception:
+        return 0
+
+
+def _openmeteo_daily_usage_payload() -> dict[str, Any]:
+    now = datetime.now(timezone.utc)
+    jst = timezone(timedelta(hours=9))
+    local_now = now.astimezone(jst)
+    local_start = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
+    local_end = local_start + timedelta(days=1)
+    jst_start_utc = local_start.astimezone(timezone.utc)
+    jst_end_utc = local_end.astimezone(timezone.utc)
+    utc_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    utc_end = utc_start + timedelta(days=1)
+    last24_start = now - timedelta(hours=24)
+
+    total_jst = _supabase_count_openmeteo_requests(jst_start_utc, jst_end_utc)
+    total_utc = _supabase_count_openmeteo_requests(utc_start, utc_end)
+    total_24h = _supabase_count_openmeteo_requests(last24_start, now + timedelta(seconds=1))
+    sources = {}
+    for source in ("proxy", "diagnostic"):
+        sources[source] = _supabase_count_openmeteo_requests(jst_start_utc, jst_end_utc, source)
+    estimated_remaining = max(0, OPENMETEO_DAILY_LIMIT_ESTIMATE - total_jst)
+    return {
+        "date_jst": local_start.date().isoformat(),
+        "counted_requests": total_jst,
+        "counted_requests_jst_day": total_jst,
+        "counted_requests_utc_day": total_utc,
+        "counted_requests_last_24h": total_24h,
+        "sources_jst_day": sources,
+        "daily_limit_reference": OPENMETEO_DAILY_LIMIT_ESTIMATE,
+        "estimated_remaining_if_one_request_equals_one_call": estimated_remaining,
+        "usage_percent_if_one_request_equals_one_call": round((total_jst / OPENMETEO_DAILY_LIMIT_ESTIMATE) * 100, 1) if OPENMETEO_DAILY_LIMIT_ESTIMATE > 0 else None,
+        "tracking_started_version": "1.6.31",
+        "scope": "TRATEN server requests recorded in Supabase only; this does not include other Render services sharing an egress IP.",
+        "counting_note": "Counts actual HTTP attempts made by TRATEN. Open-Meteo may weight API usage by query size/variables, so remaining quota is only a comparison estimate.",
+        "queue_pending": _openmeteo_audit_queue.qsize(),
+        "server_time_utc": now.isoformat(),
+    }
+
+
+
 def _dashboard_auth_ok() -> bool:
     if not USAGE_DASHBOARD_PASSWORD:
         return False
@@ -805,9 +923,17 @@ def _request_url(url: str, timeout: int = UPSTREAM_TIMEOUT):
                         url,
                         headers={"User-Agent": UA, "Accept": "application/json"},
                     )
+                    started = time.monotonic()
                     try:
                         with urllib.request.urlopen(req, timeout=timeout) as resp:
                             result = (resp.status, resp.headers.get("Content-Type", "application/json"), resp.read())
+                            _audit_openmeteo_request(url, source="proxy", status=int(resp.status), elapsed_ms=round((time.monotonic()-started)*1000))
+                    except urllib.error.HTTPError as exc:
+                        _audit_openmeteo_request(url, source="proxy", status=int(exc.code), elapsed_ms=round((time.monotonic()-started)*1000), error_type="HTTPError")
+                        raise
+                    except Exception as exc:
+                        _audit_openmeteo_request(url, source="proxy", status=None, elapsed_ms=round((time.monotonic()-started)*1000), error_type=type(exc).__name__)
+                        raise
                     finally:
                         _openmeteo_last_request = time.monotonic()
                     return result
@@ -2888,6 +3014,8 @@ def _diagnostic_http_probe(name: str, url: str, *, user_agent: str | None = None
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             body = resp.read(800)
             headers = resp.headers
+            if (parsed.hostname or "").endswith("open-meteo.com"):
+                _audit_openmeteo_request(url, source="diagnostic", status=int(resp.status), elapsed_ms=round((time.monotonic() - started) * 1000))
             return {
                 "name": name,
                 "ok": 200 <= int(resp.status) < 300,
@@ -2908,6 +3036,8 @@ def _diagnostic_http_probe(name: str, url: str, *, user_agent: str | None = None
         except Exception:
             body = ""
         headers = exc.headers or {}
+        if (parsed.hostname or "").endswith("open-meteo.com"):
+            _audit_openmeteo_request(url, source="diagnostic", status=int(exc.code), elapsed_ms=round((time.monotonic() - started) * 1000), error_type="HTTPError")
         return {
             "name": name,
             "ok": False,
@@ -2924,6 +3054,8 @@ def _diagnostic_http_probe(name: str, url: str, *, user_agent: str | None = None
             "body_head": body,
         }
     except Exception as exc:
+        if (parsed.hostname or "").endswith("open-meteo.com"):
+            _audit_openmeteo_request(url, source="diagnostic", status=None, elapsed_ms=round((time.monotonic() - started) * 1000), error_type=type(exc).__name__)
         return {
             "name": name,
             "ok": False,
@@ -3005,6 +3137,20 @@ def diagnostic_open_meteo():
     resp.headers["Cache-Control"] = "no-store, no-cache, max-age=0, must-revalidate"
     resp.headers["Pragma"] = "no-cache"
     return resp
+
+
+@app.get("/api/admin/open-meteo-usage")
+def openmeteo_daily_usage():
+    if not _dashboard_auth_ok():
+        return _dashboard_unauthorized()
+    try:
+        payload = _openmeteo_daily_usage_payload()
+        response = jsonify(ok=True, version=APP_VERSION, **payload)
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["X-Robots-Tag"] = "noindex, nofollow"
+        return response
+    except Exception as exc:
+        return jsonify(ok=False, version=APP_VERSION, error=str(exc)[:700]), 502
 
 
 @app.get("/api/health")

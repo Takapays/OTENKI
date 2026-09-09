@@ -1,0 +1,46 @@
+{
+  "version": "1.6.31",
+  "baseline": "1.6.1",
+  "previous": "1.6.30",
+  "metrics": {
+    "canonical": {
+      "mountains": 300,
+      "representativeRoutes": 415,
+      "missingCt": 0,
+      "estimatedCt": 1,
+      "coordinateIssues": 0
+    },
+    "previous": {
+      "mountains": 300,
+      "representativeRoutes": 416,
+      "missingCt": 0,
+      "estimatedCt": 1,
+      "coordinateIssues": 0
+    },
+    "candidate": {
+      "mountains": 300,
+      "representativeRoutes": 416,
+      "missingCt": 0,
+      "estimatedCt": 1,
+      "coordinateIssues": 0
+    }
+  },
+  "functions": {
+    "server_before": 178,
+    "server_after": 184,
+    "server_missing": [],
+    "server_added": [
+      "_audit_openmeteo_request",
+      "_ensure_openmeteo_audit_worker",
+      "_openmeteo_audit_worker",
+      "_openmeteo_daily_usage_payload",
+      "_supabase_count_openmeteo_requests",
+      "openmeteo_daily_usage"
+    ],
+    "js_before": 424,
+    "js_after": 424,
+    "js_missing": []
+  },
+  "weather_logic_changed": false,
+  "status": "PASS"
+}
