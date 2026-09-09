@@ -820,7 +820,7 @@ def _draw_reel_rain_chart(draw, box, hours, met, gfs, ymax=7.0):
             if raw>ymax: draw.text((cx+off-8,top-4),'↑',font=_load_font(25),fill=(190,49,49,255))
 
 def _wrap_reel_scene_in_phone(content: "Image.Image", W: int, H: int) -> "Image.Image":
-    """V1.6.36: place the existing Yarigatake scene inside a centered phone mockup.
+    """V1.6.37: place the existing Yarigatake scene inside a centered phone mockup.
 
     This is presentation-only: the underlying dynamic forecast graphic is unchanged,
     merely scaled into the phone screen so the surroundings remain visually clear.
