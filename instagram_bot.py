@@ -40,7 +40,7 @@ INSTAGRAM_MIN_NATIONAL_RESULTS = max(1, min(100, int(os.environ.get("INSTAGRAM_M
 INSTAGRAM_AUTO_MEDIA = (os.environ.get("INSTAGRAM_AUTO_MEDIA", "reel").strip().lower() or "reel")
 INSTAGRAM_REEL_FPS = max(8, min(20, int(os.environ.get("INSTAGRAM_REEL_FPS", "12"))))
 INSTAGRAM_REEL_SECONDS = max(6, min(12, int(os.environ.get("INSTAGRAM_REEL_SECONDS", "12"))))
-REEL_RENDER_REV = "master-20260908-scenes-v14-yarigatake-live-alps-thin"
+REEL_RENDER_REV = "master-20260909-scenes-v15-yarigatake-hourly-grades"
 
 def _resolve_persist_root() -> tuple[str, bool]:
     """Return storage root and whether it is expected to survive Render restarts.
@@ -719,7 +719,7 @@ def _reel_series_by_hour(model: dict[str, Any] | None) -> dict[int, dict[str, fl
         except Exception: continue
         if not (6 <= h <= 15): continue
         vals={}
-        for k in ("gust","rain"):
+        for k in ("wind","gust","rain"):
             v=row.get(k)
             try:
                 v=float(v)
@@ -727,6 +727,65 @@ def _reel_series_by_hour(model: dict[str, Any] | None) -> dict[int, dict[str, fl
             except Exception: pass
         if vals: out[h]=vals
     return out
+
+def _reel_hourly_grade_for_values(wind, gust, rain) -> str:
+    """V1.6.24: same instantaneous 06:00-15:00 A-E thresholds as the web detail strip."""
+    def rank_for(value, b, c, d, e):
+        try:
+            v=float(value)
+        except (TypeError, ValueError):
+            return 0
+        if not math.isfinite(v):
+            return 0
+        if v >= e: return 5
+        if v >= d: return 4
+        if v >= c: return 3
+        if v >= b: return 2
+        return 1
+    rank=max(
+        rank_for(wind,5,7,9,15),
+        rank_for(gust,12,15,18,25),
+        rank_for(rain,0.1,0.5,1.5,6),
+    )
+    return ['?','A','B','C','D','E'][rank] if 0 <= rank <= 5 else '?'
+
+def _reel_hourly_grades(hours, met, gfs):
+    out=[]
+    for h in hours:
+        model_rows=[d[h] for d in (met,gfs) if h in d]
+        def mean(key):
+            vals=[]
+            for row in model_rows:
+                v=row.get(key)
+                try:
+                    v=float(v)
+                    if math.isfinite(v): vals.append(v)
+                except (TypeError, ValueError):
+                    pass
+            return sum(vals)/len(vals) if vals else None
+        grade=_reel_hourly_grade_for_values(mean('wind'),mean('gust'),mean('rain'))
+        model_grades=[_reel_hourly_grade_for_values(row.get('wind'),row.get('gust'),row.get('rain')) for row in model_rows]
+        if 'E' in model_grades: grade='E'
+        elif 'D' in model_grades and grade != 'E': grade='D'
+        out.append((h,grade))
+    return out
+
+def _draw_reel_hourly_grade_strip(draw, box, hours, met, gfs):
+    x0,y0,x1,y1=box
+    navy=(7,48,83,255); muted=(78,98,112,255)
+    draw.rounded_rectangle(box,radius=26,fill=(255,255,255,255),outline=(207,220,227,255),width=2)
+    draw.text((x0+24,y0+13),'時間別 A〜E',font=_load_font(25),fill=navy)
+    grades=_reel_hourly_grades(hours,met,gfs)
+    left=x0+24; right=x1-24; top=y0+46
+    step=(right-left)/max(1,len(grades))
+    for i,(hour,grade) in enumerate(grades):
+        cx=left+step*(i+.5)
+        draw.text((cx-15,top),f'{hour}時',font=_load_font(16),fill=muted)
+        cy=top+48; r=22
+        color=_reel_grade_color(grade) if grade in 'ABCDE' else (100,110,120,255)
+        draw.ellipse((cx-r,cy-r,cx+r,cy+r),fill=color)
+        f=_load_font(24); bb=draw.textbbox((0,0),grade,font=f)
+        draw.text((cx-(bb[2]-bb[0])/2,cy-(bb[3]-bb[1])/2-2),grade,font=f,fill=(255,255,255,255))
 
 def _draw_reel_line_chart(draw, box, hours, met, gfs, key, ymax):
     x0,y0,x1,y1=box; left=x0+62; right=x1-28; top=y0+95; bottom=y1-68
@@ -769,27 +828,29 @@ def _build_reel_yarigatake_scene(target: date, detail: dict[str, Any], W: int, H
     if grade not in 'ABCDE': raise RuntimeError('Yarigatake A-E grade is unavailable')
     frame=Image.new('RGB',(W,H),(236,244,247)); d=ImageDraw.Draw(frame,'RGBA')
     navy=(7,48,83,255); muted=(88,107,120,255); yellow=(255,215,38,255)
-    d.rectangle((0,0,W,250),fill=navy)
+    d.rectangle((0,0,W,238),fill=navy)
     weekday='月火水木金土日'[target.weekday()]
-    d.text((38,30),f'{target.month}/{target.day}（{weekday}） 北アルプス',font=_load_font(30),fill=(215,232,240,255))
-    d.text((38,80),'槍ヶ岳',font=_load_font(74),fill=(255,255,255,255))
-    d.text((40,173),'MET Norway × NOAA GFS',font=_load_font(28),fill=(196,220,231,255))
-    c=_reel_grade_color(grade); d.rounded_rectangle((660,40,824,210),radius=38,fill=c)
-    f=_load_font(78); bb=d.textbbox((0,0),grade,font=f); d.text((742-(bb[2]-bb[0])/2,54),grade,font=f,fill=(255,255,255,255))
+    d.text((38,26),f'{target.month}/{target.day}（{weekday}） 北アルプス',font=_load_font(29),fill=(215,232,240,255))
+    d.text((38,74),'槍ヶ岳',font=_load_font(70),fill=(255,255,255,255))
+    d.text((40,163),'MET Norway × NOAA GFS',font=_load_font(27),fill=(196,220,231,255))
+    c=_reel_grade_color(grade); d.rounded_rectangle((660,35,824,200),radius=38,fill=c)
+    f=_load_font(76); bb=d.textbbox((0,0),grade,font=f); d.text((742-(bb[2]-bb[0])/2,48),grade,font=f,fill=(255,255,255,255))
     labels={'A':'良好','B':'軽い注意','C':'注意','D':'悪い','E':'非常に悪い'}
-    lf=_load_font(23); txt=labels[grade]; bb=d.textbbox((0,0),txt,font=lf); d.text((742-(bb[2]-bb[0])/2,158),txt,font=lf,fill=(255,255,255,255))
+    lf=_load_font(22); txt=labels[grade]; bb=d.textbbox((0,0),txt,font=lf); d.text((742-(bb[2]-bb[0])/2,148),txt,font=lf,fill=(255,255,255,255))
+    # V1.6.24: same 06:00-15:00 instantaneous A-E strip as the web mountain detail.
+    _draw_reel_hourly_grade_strip(d,(24,252,W-24,370),hours,met,gfs)
     # Gust panel
-    box1=(24,280,W-24,820); d.rounded_rectangle(box1,radius=30,fill=(255,255,255,255),outline=(207,220,227,255),width=2)
-    d.text((48,305),'突風',font=_load_font(42),fill=navy); d.text((155,315),'m/s  ｜  縦軸 0〜15',font=_load_font(23),fill=muted)
+    box1=(24,390,W-24,820); d.rounded_rectangle(box1,radius=30,fill=(255,255,255,255),outline=(207,220,227,255),width=2)
+    d.text((48,412),'突風',font=_load_font(40),fill=navy); d.text((150,421),'m/s  ｜  縦軸 0〜15',font=_load_font(22),fill=muted)
     _draw_reel_line_chart(d,box1,hours,met,gfs,'gust',15.0)
     # Rain panel
-    box2=(24,850,W-24,1370); d.rounded_rectangle(box2,radius=30,fill=(255,255,255,255),outline=(207,220,227,255),width=2)
-    d.text((48,875),'降水',font=_load_font(42),fill=navy); d.text((155,885),'mm/h  ｜  縦軸 0〜7',font=_load_font(23),fill=muted)
+    box2=(24,840,W-24,1270); d.rounded_rectangle(box2,radius=30,fill=(255,255,255,255),outline=(207,220,227,255),width=2)
+    d.text((48,862),'降水',font=_load_font(40),fill=navy); d.text((150,871),'mm/h  ｜  縦軸 0〜7',font=_load_font(22),fill=muted)
     _draw_reel_rain_chart(d,box2,hours,met,gfs,7.0)
     # Legend and CTA
-    d.line((58,1408,110,1408),fill=(45,126,183,255),width=7); d.text((122,1390),'MET Norway',font=_load_font(24),fill=muted)
-    d.line((335,1408,387,1408),fill=(221,105,31,255),width=7); d.text((399,1390),'NOAA GFS',font=_load_font(24),fill=muted)
-    d.rectangle((0,1452,W,H),fill=navy); d.text((70,1474),'他の山は',font=_load_font(34),fill=(255,255,255,255)); d.text((245,1466),'トラテンで！',font=_load_font(53),fill=yellow)
+    d.line((58,1318,110,1318),fill=(45,126,183,255),width=7); d.text((122,1300),'MET Norway',font=_load_font(23),fill=muted)
+    d.line((335,1318,387,1318),fill=(221,105,31,255),width=7); d.text((399,1300),'NOAA GFS',font=_load_font(23),fill=muted)
+    d.rectangle((0,1365,W,H),fill=navy); d.text((68,1410),'他の山は',font=_load_font(36),fill=(255,255,255,255)); d.text((250,1398),'トラテンで！',font=_load_font(56),fill=yellow)
     return frame
 
 

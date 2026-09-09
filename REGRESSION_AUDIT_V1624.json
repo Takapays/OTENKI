@@ -1,0 +1,54 @@
+{
+  "version": "1.6.24",
+  "canonicalBaseline": "1.5.231 = 1.6.1",
+  "previous": "1.6.23",
+  "metrics": {
+    "baseline": {
+      "mountains": 300,
+      "representativeRoutes": 415,
+      "missingCt": 0,
+      "estimatedCt": 1,
+      "coordinateIssues": 0
+    },
+    "previous": {
+      "mountains": 300,
+      "representativeRoutes": 416,
+      "missingCt": 0,
+      "estimatedCt": 1,
+      "coordinateIssues": 0
+    },
+    "candidate": {
+      "mountains": 300,
+      "representativeRoutes": 416,
+      "missingCt": 0,
+      "estimatedCt": 1,
+      "coordinateIssues": 0
+    }
+  },
+  "changes": {
+    "reelScene2HourlyGrades": true,
+    "webHourlyGradeLogicChanged": false,
+    "dailyNationalLogicChanged": false,
+    "routeCtFilesChanged": false,
+    "reelCacheRevisionBumped": true
+  },
+  "checks": {
+    "prev_js_removed": 0,
+    "prev_server_removed": 0,
+    "base_js_removed": 0,
+    "base_server_removed": 0,
+    "base_instagram_removed": 0,
+    "prev_instagram_removed": 0,
+    "instagram_added": [
+      "_draw_reel_hourly_grade_strip",
+      "_reel_hourly_grade_for_values",
+      "_reel_hourly_grades"
+    ],
+    "pythonCompile": true,
+    "appJsSyntax": true,
+    "v1624Guard": true,
+    "hourlyGradeTests": true,
+    "reelScene2PreviewGenerated": true
+  },
+  "status": "PASS"
+}
