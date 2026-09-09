@@ -1,0 +1,46 @@
+{
+  "app.js": {
+    "sha256": "003a4e7e655a00b03db31dd413c0237c33e304fe1e091a7d371a8e42eb83b7d8",
+    "bytes": 1254794
+  },
+  "server.py": {
+    "sha256": "b4213e195446cb725e3d81dcd07047926c24c586b720cba9ee0f2552be5420f3",
+    "bytes": 192156
+  },
+  "index.html": {
+    "sha256": "045c5be14b31a3c8aadbb6c89a15c5485114bfec80a4ea963680f0b820494ec2",
+    "bytes": 64725
+  },
+  "data-audit.html": {
+    "sha256": "96bf1a658dcb4a60ec93b4901ca66bc492aabe2b42864be4d567c42b94531170",
+    "bytes": 16780
+  },
+  "poc-models.html": {
+    "sha256": "4709e370f169f94d8dfa14b0a7a0839a81fb63420f1c75041ed3dc3d29c173e3",
+    "bytes": 12096
+  },
+  "README_V1628.md": {
+    "sha256": "c75f2200554fc139d3a29ac358306c7bd682364570dd1706d92762d6d3ababa5",
+    "bytes": 1194
+  },
+  "RELEASE_AUDIT_V1628.md": {
+    "sha256": "e7d04505507e2876f2f5d5b291086f67c00fade06443f335ecba5eadbc152249",
+    "bytes": 1885
+  },
+  "REGRESSION_FUNCTION_AUDIT_V1628.json": {
+    "sha256": "a2283180af490213bf7f76ea2ae92461a34b8f871233bd2038262cba5b89c152",
+    "bytes": 345
+  },
+  "tests/test_v1628_policy.py": {
+    "sha256": "6fe531eed63cecfc185ea731e3e9820185cfefbf4f8f7a63be0a4688d445d8bc",
+    "bytes": 2689
+  },
+  "tests/test_v1628_app_policy.js": {
+    "sha256": "e0be3b1b10d2d65c1aa65a07dd2ef8561a57f2a0a679c2adc995c58a7c71b5ea",
+    "bytes": 1252
+  },
+  "tests/test_v1627_poc.js": {
+    "sha256": "4407b277d3a4977605773a586c232c233f1105ab5a2b2b693b7e36a2e7504e94",
+    "bytes": 1109
+  }
+}

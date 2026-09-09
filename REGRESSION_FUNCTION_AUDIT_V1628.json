@@ -1,0 +1,15 @@
+{
+  "jsFunctionsBase": 481,
+  "jsFunctionsCandidate": 481,
+  "jsMissing": [],
+  "serverFunctionsBase": 151,
+  "serverFunctionsCandidate": 156,
+  "serverMissing": [],
+  "serverAdded": [
+    "_finite",
+    "_meteoblue_time_jst",
+    "_national_fetch_meteoblue_detail",
+    "_national_request_meteoblue",
+    "_national_result_from_meteoblue"
+  ]
+}
