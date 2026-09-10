@@ -1,0 +1,97 @@
+{
+  "dataType": "synthetic, not live weather",
+  "testsRun": 20,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "cases": [
+    {
+      "case": "dry",
+      "previous": "A",
+      "candidate": "A",
+      "expected": "A",
+      "cautionHours": 0,
+      "bcCautionHours": 0
+    },
+    {
+      "case": "rain 0.1 x 10h",
+      "previous": "C",
+      "candidate": "B",
+      "expected": "B",
+      "cautionHours": 10,
+      "bcCautionHours": 0
+    },
+    {
+      "case": "rain 0.2 x 10h",
+      "previous": "C",
+      "candidate": "B",
+      "expected": "B",
+      "cautionHours": 10,
+      "bcCautionHours": 0
+    },
+    {
+      "case": "rain 0.4 x 10h",
+      "previous": "C",
+      "candidate": "B",
+      "expected": "B",
+      "cautionHours": 10,
+      "bcCautionHours": 0
+    },
+    {
+      "case": "rain 0.5 x 1h",
+      "previous": "B",
+      "candidate": "B",
+      "expected": "B",
+      "cautionHours": 1,
+      "bcCautionHours": 1
+    },
+    {
+      "case": "rain 0.5 x 2h",
+      "previous": "C",
+      "candidate": "C",
+      "expected": "C",
+      "cautionHours": 2,
+      "bcCautionHours": 2
+    },
+    {
+      "case": "rain 1.5 x 1h",
+      "previous": "C",
+      "candidate": "C",
+      "expected": "C",
+      "cautionHours": 1,
+      "bcCautionHours": 1
+    },
+    {
+      "case": "rain 1.5 x 2h",
+      "previous": "D",
+      "candidate": "D",
+      "expected": "D",
+      "cautionHours": 2,
+      "bcCautionHours": 2
+    },
+    {
+      "case": "rain 6 x 1h",
+      "previous": "E",
+      "candidate": "E",
+      "expected": "E",
+      "cautionHours": 1,
+      "bcCautionHours": 1
+    },
+    {
+      "case": "wind 5 x 2h + drizzle",
+      "previous": "C",
+      "candidate": "C",
+      "expected": "C",
+      "cautionHours": 10,
+      "bcCautionHours": 2
+    },
+    {
+      "case": "gust 18 x 2h",
+      "previous": "D",
+      "candidate": "D",
+      "expected": "D",
+      "cautionHours": 2,
+      "bcCautionHours": 2
+    }
+  ]
+}

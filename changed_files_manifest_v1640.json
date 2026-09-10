@@ -1,0 +1,26 @@
+{
+  "previous_version": "1.6.39",
+  "candidate_version": "1.6.40",
+  "files": {
+    "server.py": {
+      "previous_sha256": "b53c2181496cf9a2ffce4be92e6e699188063f39baf95a4712912e7434c6d4f3",
+      "candidate_sha256": "c23aa452d01ac0a9b409e5f11ae9c147473b000e6822da908683405106959912"
+    },
+    "app.js": {
+      "previous_sha256": "42f369e58f50e455993619f4c1e4bd6f882c23ce372931fd33c6a858cf2e7ce1",
+      "candidate_sha256": "46b9fda922fe93a67d31da9f922f8f75cb793ad2a490a80eb922263529603742"
+    },
+    "index.html": {
+      "previous_sha256": "7e49b1ac5cf89429c1d6ac505807e7fb8950b3459000d12b51cb33b1fe800c93",
+      "candidate_sha256": "c94661b4a10ef6b846e84b9fb5e75cdb16d671b6c5c9e1f5390f53652e407fe2"
+    },
+    "data-audit.html": {
+      "previous_sha256": "52bea21d7e1ae06426c8cdd641bab371f024fbe5a6d623d7f15eca34a45a43f2",
+      "candidate_sha256": "5faa7a25b5295b8c02d8a3dd611f83f4df41c7544c6f39074994b4b8f5f7f140"
+    },
+    "instagram_bot.py": {
+      "previous_sha256": "701049f7a3a7999817cc0a1aa05af89be5d674c7aa1240a70923e147df275e2e",
+      "candidate_sha256": "92d1f7acefad6f88baa0f18c76a628ebca4638c09e86e20538c7e059b17162e2"
+    }
+  }
+}

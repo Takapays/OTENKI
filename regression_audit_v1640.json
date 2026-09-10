@@ -1,0 +1,121 @@
+{
+  "release": "1.6.40",
+  "baseline": "1.6.1",
+  "previous": "1.6.39",
+  "checks": {
+    "previous_runtime_mountains": true,
+    "previous_runtime_catalogs": true,
+    "previous_runtime_summary": true,
+    "previous_runtime_national": true,
+    "previous_runtime_ctRoutes": true,
+    "previous_runtime_ctIssues": true,
+    "previous_runtime_ctSegments": true,
+    "previous_runtime_referencedJs": true,
+    "baseline_routes_preserved": true,
+    "baseline_fixed_records_preserved": true,
+    "baseline_ct_records_preserved": true,
+    "server_functions_retained": true,
+    "server_changed_functions_allowlist": true,
+    "server_outside_scope_identical": true,
+    "js_functions_retained": true,
+    "js_only_criteria_function_changed": true,
+    "js_source_hunks_allowlist": true,
+    "instagram_functions_identical_to_previous": true,
+    "instagram_baseline_functions_retained": true,
+    "instagram_only_render_cache_key_changed": true,
+    "index.html_only_version_changed": true,
+    "data-audit.html_only_version_changed": true,
+    "changed_existing_files_allowlist": true,
+    "meteoblue_429_helper_identical": true,
+    "national_prefetch_count_300": true
+  },
+  "issues": [],
+  "data_comparison": [
+    {
+      "version": "1.6.1",
+      "mountains": 300,
+      "coordinateIssues": 0,
+      "estimatedCt": 1,
+      "derivedCt": 0,
+      "missingCt": 0,
+      "noRepresentative": 6,
+      "sparseWaypoints": 156,
+      "representativeRoutes": 415,
+      "fixed_candidate_records": 1825,
+      "ct_segment_records": 1501
+    },
+    {
+      "version": "1.6.39",
+      "mountains": 300,
+      "coordinateIssues": 0,
+      "estimatedCt": 1,
+      "derivedCt": 0,
+      "missingCt": 0,
+      "noRepresentative": 5,
+      "sparseWaypoints": 76,
+      "representativeRoutes": 416,
+      "fixed_candidate_records": 1828,
+      "ct_segment_records": 1504
+    },
+    {
+      "version": "1.6.40",
+      "mountains": 300,
+      "coordinateIssues": 0,
+      "estimatedCt": 1,
+      "derivedCt": 0,
+      "missingCt": 0,
+      "noRepresentative": 5,
+      "sparseWaypoints": 76,
+      "representativeRoutes": 416,
+      "fixed_candidate_records": 1828,
+      "ct_segment_records": 1504
+    }
+  ],
+  "server": {
+    "baseline_functions": 147,
+    "previous_functions": 168,
+    "candidate_functions": 169,
+    "missing_previous": [],
+    "missing_baseline": [],
+    "modified": [
+      "_national_gfs_results",
+      "_national_grade",
+      "_national_merge_two_models",
+      "_national_result_from_meteoblue",
+      "_national_result_from_metno"
+    ],
+    "added": [
+      "_national_bc_caution_hours"
+    ]
+  },
+  "javascript": {
+    "baseline_named_declarations": 467,
+    "previous_named_declarations": 487,
+    "candidate_named_declarations": 487,
+    "missing_previous": [],
+    "missing_baseline": [],
+    "changed_runtime_functions": [
+      "nationalModelDetailHtml"
+    ]
+  },
+  "instagram": {
+    "missing_baseline": [],
+    "functions_equal_previous": true
+  },
+  "baseline_ct_missing": [],
+  "baseline_ct_changed": [],
+  "baseline_fixed_changed": [],
+  "changed_existing_files": [
+    "instagram_bot.py",
+    "app.js",
+    "server.py",
+    "index.html",
+    "data-audit.html"
+  ],
+  "runtime_recovery_source": {
+    "file": "representative-route-recovery-v162.js",
+    "origin": "Existing user-provided September 8 webarchive; missing from differential ZIPs. Read-only reconstruction for audit; not changed or shipped.",
+    "sha256": "997c966424bf1f216c64090c29bcf60ba5406e1f32fe5b786cb056147a12625d"
+  },
+  "local_scope": "Actual production pure-function execution, Node VM runtime catalogs, AST and byte diffs. No live weather, production Render, or real Flask HTTP validation."
+}

@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.38"
+APP_VERSION = "1.6.41"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
@@ -115,6 +115,48 @@ app.config["MAX_CONTENT_LENGTH"] = MAX_OVERPASS_BYTES
 _cache: "OrderedDict[str, tuple[float, int, str, bytes]]" = OrderedDict()
 _cache_lock = threading.Lock()
 
+# V1.6.39: meteoblue free API protection. All server-side meteoblue paths
+# (national refresh and browser proxy) share this pacing/circuit within a process.
+_meteoblue_lock = threading.Lock()
+_meteoblue_last_request = 0.0
+_meteoblue_circuit_until = 0.0
+METEOBLUE_MIN_INTERVAL = float(os.environ.get("METEOBLUE_MIN_INTERVAL", "2.0"))
+METEOBLUE_429_COOLDOWN = float(os.environ.get("METEOBLUE_429_COOLDOWN", "60"))
+
+class MeteoblueCircuitOpen(Exception):
+    def __init__(self, retry_after: float):
+        self.retry_after = max(1.0, float(retry_after))
+        super().__init__(f"meteoblue cooldown {self.retry_after:.0f}s")
+
+def _meteoblue_upstream_fetch(url: str) -> tuple[int, str, bytes]:
+    global _meteoblue_last_request, _meteoblue_circuit_until
+    with _meteoblue_lock:
+        now = time.monotonic()
+        if now < _meteoblue_circuit_until:
+            raise MeteoblueCircuitOpen(_meteoblue_circuit_until - now)
+        wait = METEOBLUE_MIN_INTERVAL - (now - _meteoblue_last_request)
+        if wait > 0:
+            time.sleep(wait)
+        req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=UPSTREAM_TIMEOUT) as resp:
+                body = resp.read()
+                status = int(resp.status)
+                ctype = resp.headers.get("Content-Type", "application/json")
+                return status, ctype, body
+        except urllib.error.HTTPError as exc:
+            if int(exc.code) == 429:
+                retry_after = None
+                try:
+                    retry_after = float(exc.headers.get("Retry-After") or 0) if exc.headers else None
+                except (TypeError, ValueError):
+                    retry_after = None
+                cooldown = max(METEOBLUE_429_COOLDOWN, retry_after or 0)
+                _meteoblue_circuit_until = time.monotonic() + cooldown
+            raise
+        finally:
+            _meteoblue_last_request = time.monotonic()
+
 # Open-Meteo free endpoints can return HTTP 429 when several model requests
 # arrive in a burst. Serialize those calls, keep a small gap between them, and
 # retry briefly when the upstream asks us to slow down.
@@ -141,7 +183,7 @@ NATIONAL_OUTLOOK_AUTO_REFRESH = os.environ.get("NATIONAL_OUTLOOK_AUTO_REFRESH", 
 NATIONAL_CACHE_REFRESH_TOKEN = os.environ.get("NATIONAL_CACHE_REFRESH_TOKEN", "")
 NATIONAL_100_POINTS_FILE = os.path.join(BASE, "national-100-points.json")
 NATIONAL_OUTLOOK_CHUNK_SIZE = max(1, min(50, int(os.environ.get("NATIONAL_OUTLOOK_CHUNK_SIZE", "25"))))
-NATIONAL_OUTLOOK_ENGINE = "metno-gfs-mb-v9-element-policy"
+NATIONAL_OUTLOOK_ENGINE = "metno-gfs-mb-v10-daily-light-rain"
 NATIONAL_GFS_MIN_INTERVAL = float(os.environ.get("NATIONAL_GFS_MIN_INTERVAL", "0.35"))
 _national_gfs_lock = threading.Lock()
 _national_gfs_last_request = 0.0
@@ -1516,18 +1558,34 @@ def _run_national_refresh_cycle(trigger):
         _national_refresh_runtime["lastRunFinishedAt"] = datetime.now(timezone.utc).isoformat()
         _save_national_refresh_runtime()
 
-def _national_grade(max_wind: float, max_gust: float, max_rain: float, max_cape: float, min_temp: float, min_visibility: float | None, *, caution_hours: int = 0, severe_hours: int = 0, extreme_hours: int = 0):
-    # V1.6.11: five-level nationwide condition scale. Thresholds are unchanged;
-    # the former B/C buckets are split so light/transient and extreme conditions
-    # are distinguishable without weakening the severe/extreme safeguards.
+NATIONAL_DAILY_RAIN_C_MM_H = 0.5
+
+
+def _national_bc_caution_hours(rows: list[dict[str, Any]]) -> int:
+    """Count daily B/C caution slots, not necessarily consecutive hours.
+
+    Trace/light rain (0.1 <= rain < 0.5 mm/h) still contributes to B, but
+    cannot by itself accumulate into C. Wind, gust and D/E limits are unchanged.
+    Missing values stay missing; this helper never mutates a forecast value.
+    """
+    return sum(1 for row in rows if
+               (_finite(row.get("wind")) and float(row["wind"]) >= 5) or
+               (_finite(row.get("gust")) and float(row["gust"]) >= 12) or
+               (_finite(row.get("rain")) and float(row["rain"]) >= NATIONAL_DAILY_RAIN_C_MM_H))
+
+
+def _national_grade(max_wind: float, max_gust: float, max_rain: float, max_cape: float, min_temp: float, min_visibility: float | None, *, caution_hours: int = 0, severe_hours: int = 0, extreme_hours: int = 0, bc_caution_hours: int | None = None):
+    # V1.6.40: only the daily light-rain B/C accumulation changes.
+    # Legacy callers without hourly evidence retain their previous behavior.
+    significant_hours = caution_hours if bc_caution_hours is None else bc_caution_hours
     if extreme_hours >= 1:
         return "E", "6〜15時に極端な風・突風・雨が見込まれます。モデル差と時間帯別予測を必ず確認してください。"
     if severe_hours >= 2:
         return "D", "6〜15時に強い風・突風・雨が複数時間見込まれ、厳しい条件です。時間帯別予測を確認してください。"
-    if severe_hours >= 1 or caution_hours >= 2:
-        return "C", "6〜15時に注意条件が続く、または強い条件が一時的に見込まれます。時間帯別予測を確認してください。"
+    if severe_hours >= 1 or significant_hours >= 2:
+        return "C", "6〜15時に風・突風・0.5mm/h以上の雨の注意条件が合計2時間以上、または強い条件が1時間見込まれます。時間帯別予測を確認してください。"
     if caution_hours >= 1:
-        return "B", "6〜15時の一部に軽い注意要素があります。山をタップして時間帯とモデル差を確認してください。"
+        return "B", "6〜15時に弱い雨、または一時的な注意要素があります。山をタップして時間帯とモデル差を確認してください。"
     return "A", "6〜15時に主要な注意条件が見当たらない日です。山をタップして時間帯別予測を最終確認してください。"
 
 
@@ -1996,9 +2054,10 @@ def _national_result_from_metno(p: dict[str, Any], date_text: str, payload: dict
         if w>=9 or gv>=18 or rv>=1.5: severe_hours+=1
         if w>=5 or gv>=12 or rv>=0.1: caution_hours+=1
     max_w=max(winds); max_g=max(gusts) if gusts else None; max_r=max(rains) if rains else None; min_t=min(temps)
-    grade,summary=_national_grade(max_w,max_g if max_g is not None else 0,max_r if max_r is not None else 0,0,min_t,None,caution_hours=caution_hours,severe_hours=severe_hours,extreme_hours=extreme_hours)
+    bc_caution_hours=_national_bc_caution_hours([{"wind":w,"gust":g,"rain":r} for _,w,g,r,_,_ in rows])
+    grade,summary=_national_grade(max_w,max_g if max_g is not None else 0,max_r if max_r is not None else 0,0,min_t,None,caution_hours=caution_hours,severe_hours=severe_hours,extreme_hours=extreme_hours,bc_caution_hours=bc_caution_hours)
     series=[{"hour":h,"wind":round(w,1),"gust":round(g,1) if isinstance(g,(int,float)) else None,"rain":round(r,1) if rain_known and isinstance(r,(int,float)) else None,"temp":round(t,1)} for h,w,g,r,t,rain_known in rows]
-    out={"name":p["name"],"grade":grade,"summary":summary,"maxWind":round(max_w,1),"maxGust":round(max_g,1) if max_g is not None else None,"maxRain":round(max_r,1) if max_r is not None else None,"maxCape":0,"minTemp":round(min_t,1),"minVisibility":None,"thunder":"–","cautionHours":caution_hours,"severeHours":severe_hours,"source":"metno","_series":series}
+    out={"name":p["name"],"grade":grade,"summary":summary,"maxWind":round(max_w,1),"maxGust":round(max_g,1) if max_g is not None else None,"maxRain":round(max_r,1) if max_r is not None else None,"maxCape":0,"minTemp":round(min_t,1),"minVisibility":None,"thunder":"–","cautionHours":caution_hours,"bcCautionHours":bc_caution_hours,"lightRainOnlyHours":max(0,caution_hours-bc_caution_hours),"severeHours":severe_hours,"source":"metno","_series":series}
     if include_series:
         out["series"]=series
     return out
@@ -2166,9 +2225,10 @@ def _national_gfs_results(date_text: str, points: list[dict[str, Any]], *, inclu
         caution=sum(1 for x in rr if x["wind"]>=5 or x.get("gust",x["wind"])>=12 or x["rain"]>=0.1)
         severe=sum(1 for x in rr if x["wind"]>=9 or x.get("gust",x["wind"])>=18 or x["rain"]>=1.5)
         extreme=sum(1 for x in rr if x["wind"]>=15 or x.get("gust",x["wind"])>=25 or x["rain"]>=6)
-        grade,summary=_national_grade(max(winds),max(gusts),max(rains),0,min(temps),None,caution_hours=caution,severe_hours=severe,extreme_hours=extreme)
+        bc_caution_hours=_national_bc_caution_hours(rr)
+        grade,summary=_national_grade(max(winds),max(gusts),max(rains),0,min(temps),None,caution_hours=caution,severe_hours=severe,extreme_hours=extreme,bc_caution_hours=bc_caution_hours)
         series=[{"hour":int(x.get("hour")),"wind":round(float(x["wind"]),1),"gust":round(float(x.get("gust",x["wind"])),1),"rain":round(float(x["rain"]),1),"temp":round(float(x["temp"]),1)} for x in rr]
-        out={"name":p["name"],"grade":grade,"summary":summary,"maxWind":round(max(winds),1),"maxGust":round(max(gusts),1),"maxRain":round(max(rains),1),"maxCape":0,"minTemp":round(min(temps),1),"minVisibility":None,"thunder":"–","cautionHours":caution,"severeHours":severe,"source":"gfs","_series":series}
+        out={"name":p["name"],"grade":grade,"summary":summary,"maxWind":round(max(winds),1),"maxGust":round(max(gusts),1),"maxRain":round(max(rains),1),"maxCape":0,"minTemp":round(min(temps),1),"minVisibility":None,"thunder":"–","cautionHours":caution,"bcCautionHours":bc_caution_hours,"lightRainOnlyHours":max(0,caution-bc_caution_hours),"severeHours":severe,"source":"gfs","_series":series}
         if include_series:
             out["series"]=series
         results[p["name"]]=out
@@ -2226,21 +2286,7 @@ def _national_request_meteoblue(p: dict[str, Any]) -> dict[str, Any] | None:
     body=cached[2] if cached else None
     if body is None:
         url="https://my.meteoblue.com/packages/basic-1h_clouds-3h_wind-3h_air-3h?"+urllib.parse.urlencode(params)
-        req=urllib.request.Request(url,headers={"User-Agent":UA,"Accept":"application/json"})
-        last_exc=None
-        for attempt in range(2):
-            try:
-                with urllib.request.urlopen(req,timeout=UPSTREAM_TIMEOUT) as resp: body=resp.read()
-                break
-            except urllib.error.HTTPError as exc:
-                last_exc=exc
-                # Configuration/quota/client errors are not helped by immediate retry.
-                if 400 <= int(exc.code) < 500: raise
-                if attempt==0: time.sleep(0.35)
-            except (urllib.error.URLError,TimeoutError) as exc:
-                last_exc=exc
-                if attempt==0: time.sleep(0.35)
-        if body is None and last_exc is not None: raise last_exc
+        status,ctype,body=_meteoblue_upstream_fetch(url)
         # One meteoblue response spans several forecast days. Reuse it aggressively
         # so national/detail users do not spend a new API call for the same mountain.
         _cache_put(cache_key,200,"application/json",body,ttl=21600)
@@ -2290,8 +2336,9 @@ def _national_result_from_meteoblue(p: dict[str, Any], date_text: str, payload: 
     severe=sum(1 for x in rows if (_finite(x.get("wind")) and x["wind"]>=9) or (_finite(x.get("gust")) and x["gust"]>=18) or (_finite(x.get("rain")) and x["rain"]>=1.5))
     extreme=sum(1 for x in rows if (_finite(x.get("wind")) and x["wind"]>=15) or (_finite(x.get("gust")) and x["gust"]>=25) or (_finite(x.get("rain")) and x["rain"]>=6))
     mw=max(winds) if winds else 0; mg=max(gusts) if gusts else None; mr=max(rains) if rains else None; mt=min(temps) if temps else None
-    grade,summary=_national_grade(mw,mg or 0,mr or 0,0,mt or 0,None,caution_hours=caution,severe_hours=severe,extreme_hours=extreme)
-    return {"name":p["name"],"grade":grade,"summary":summary,"maxWind":round(mw,1),"maxGust":round(mg,1) if mg is not None else None,"maxRain":round(mr,1) if mr is not None else None,"minTemp":round(mt,1) if mt is not None else None,"cautionHours":caution,"severeHours":severe,"source":"meteoblue","_series":rows,"series":rows}
+    bc_caution_hours=_national_bc_caution_hours(rows)
+    grade,summary=_national_grade(mw,mg or 0,mr or 0,0,mt or 0,None,caution_hours=caution,severe_hours=severe,extreme_hours=extreme,bc_caution_hours=bc_caution_hours)
+    return {"name":p["name"],"grade":grade,"summary":summary,"maxWind":round(mw,1),"maxGust":round(mg,1) if mg is not None else None,"maxRain":round(mr,1) if mr is not None else None,"minTemp":round(mt,1) if mt is not None else None,"cautionHours":caution,"bcCautionHours":bc_caution_hours,"lightRainOnlyHours":max(0,caution-bc_caution_hours),"severeHours":severe,"source":"meteoblue","_series":rows,"series":rows}
 
 
 def _national_fetch_meteoblue_detail(p: dict[str, Any], date_text: str) -> dict[str, Any] | None:
@@ -2368,7 +2415,7 @@ def _national_merge_two_models(p: dict[str, Any], met: dict[str, Any] | None, gf
         if avg_g is None: avg_g=pick(mb,"maxGust"); mb_used=mb_used or avg_g is not None
         avg_t=pick(met,"minTemp")
         if avg_t is None: avg_t=pick(mb,"minTemp"); mb_used=mb_used or avg_t is not None
-        caution=severe=extreme=0
+        caution=severe=extreme=bc_caution_hours=0
         base_grade,base_summary=_national_grade(avg_w,avg_g or 0,avg_r or 0,0,avg_t or 0,None)
         integration="aggregate-element-policy"
     else:
@@ -2381,7 +2428,8 @@ def _national_merge_two_models(p: dict[str, Any], met: dict[str, Any] | None, gf
         gusts=[float(x["gust"]) for x in center if _finite(x.get("gust"))]; avg_g=max(gusts) if gusts else None
         rains=[float(x["rain"]) for x in center if _finite(x.get("rain"))]; avg_r=max(rains) if rains else None
         temps=[float(x["temp"]) for x in center if _finite(x.get("temp"))]; avg_t=min(temps) if temps else None
-        base_grade,base_summary=_national_grade(avg_w,avg_g or 0,avg_r or 0,0,avg_t or 0,None,caution_hours=caution,severe_hours=severe,extreme_hours=extreme)
+        bc_caution_hours=_national_bc_caution_hours(center)
+        base_grade,base_summary=_national_grade(avg_w,avg_g or 0,avg_r or 0,0,avg_t or 0,None,caution_hours=caution,severe_hours=severe,extreme_hours=extreme,bc_caution_hours=bc_caution_hours)
         integration="hourly-element-policy"
 
     # Safety floor only from usable wind/rain evidence; do not let GFS temp/gust drive it.
@@ -2402,7 +2450,7 @@ def _national_merge_two_models(p: dict[str, Any], met: dict[str, Any] | None, gf
     return {"name":p["name"],"grade":grade,"summary":summary,
         "maxWind":round(avg_w,1),"maxGust":round(avg_g,1) if avg_g is not None else None,"maxRain":round(avg_r,1) if avg_r is not None else None,
         "maxCape":0,"minTemp":round(avg_t,1) if avg_t is not None else None,"minVisibility":None,"thunder":"–",
-        "cautionHours":caution,"severeHours":severe,"source":source,"integration":integration,"_series":public_series,"series":public_series,
+        "cautionHours":caution,"bcCautionHours":bc_caution_hours,"lightRainOnlyHours":max(0,caution-bc_caution_hours),"severeHours":severe,"source":source,"integration":integration,"_series":public_series,"series":public_series,
         "modelGrades":grades,"modelAgreement":"high" if diff==0 else "medium" if diff==1 else "low","meteoblueUsed":bool(mb_used),
         "modelValues":{k:{"maxWind":v.get("maxWind"),"maxGust":v.get("maxGust"),"maxRain":v.get("maxRain"),"minTemp":v.get("minTemp")} for k,v in (("metno",met),("gfs",gfs),("meteoblue",mb)) if v}}
 
@@ -2443,7 +2491,7 @@ def _national_meteoblue_results(date_text: str, points: list[dict[str, Any]]) ->
             return p,None
     # Small worker pool: meteoblue is a selective arbiter, not the 300-mountain
     # primary transport. Shared 6-hour payload cache is reused across forecast days.
-    with ThreadPoolExecutor(max_workers=min(4,len(points)),thread_name_prefix="traten-national-mb") as ex:
+    with ThreadPoolExecutor(max_workers=1,thread_name_prefix="traten-national-mb") as ex:
         futures=[ex.submit(one,p) for p in points]
         for fut in as_completed(futures):
             p,result=fut.result()
@@ -3639,31 +3687,17 @@ def meteoblue_forecast():
         if cached:
             status, ctype, body = cached
             return _bytes_response(status, ctype, body, cache_control="public, max-age=21600")
-        req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/json"})
-        last_exc = None
-        body = None
-        status = 200
-        ctype = "application/json"
-        for attempt in range(2):
-            try:
-                with urllib.request.urlopen(req, timeout=UPSTREAM_TIMEOUT) as resp:
-                    status = resp.status
-                    ctype = resp.headers.get("Content-Type", "application/json")
-                    body = resp.read()
-                break
-            except urllib.error.HTTPError as exc:
-                last_exc = exc
-                if 400 <= int(exc.code) < 500: raise
-                if attempt == 0: time.sleep(0.35)
-            except (urllib.error.URLError, TimeoutError) as exc:
-                last_exc = exc
-                if attempt == 0: time.sleep(0.35)
-        if body is None and last_exc is not None: raise last_exc
+        status, ctype, body = _meteoblue_upstream_fetch(url)
         _cache_put(cache_key, status, ctype, body, ttl=21600)
         return _bytes_response(status, ctype, body, cache_control="public, max-age=21600")
+    except MeteoblueCircuitOpen as exc:
+        return jsonify(error="meteoblue 429 cooldown active", retry_after_seconds=int(math.ceil(exc.retry_after)), cooldown=True), 429
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")[:1200]
-        return jsonify(error=f"meteoblue HTTP {exc.code}", detail=detail), exc.code
+        retry_after = None
+        try: retry_after = exc.headers.get("Retry-After") if exc.headers else None
+        except Exception: retry_after = None
+        return jsonify(error=f"meteoblue HTTP {exc.code}", detail=detail, retry_after=retry_after), exc.code
     except (KeyError, ValueError) as exc:
         return jsonify(error=f"meteoblue input error: {exc}"), 400
     except Exception as exc:

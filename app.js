@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.38';
+const APP_VERSION = '1.6.41';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -7465,7 +7465,7 @@ function nationalModelDetailHtml(data){
   const centerSeries=data?.merged?.series||[]; if(centerSeries.length)rows.push({model:'center',series:centerSeries});
   const mbStatus=data?.meteoblueStatus||null;
   const mbNote=mbStatus&&!mbStatus.fetched?`<div class="national-model-chart-empty">meteoblue：${mbStatus.configured?'今回取得できず（MET Norway / NOAA GFSで表示）':'API未設定'}</div>`:'';
-  return `<section class="national-rich-section national-model-section national-model-section-simple"><div class="national-model-simple-head"><h4>時間別予測</h4><span>要素別統合</span></div>${mbNote}${nationalHourlyGradeHtml(rows,centerSeries)}${nationalModelChartSvg(rows,'wind','風速','m/s',7)}${nationalModelChartSvg(rows,'gust','突風','m/s',15)}${nationalModelChartSvg(rows,'rain','降水','mm/h',7,'bars')}<details class="national-grade-criteria"><summary>ABCDE 判定基準を見る</summary><div><p><b>A 良好</b>：主要な注意条件なし</p><p><b>B 軽い注意</b>：注意条件が1時間</p><p><b>C 注意</b>：注意条件が2時間以上、または強い条件が1時間</p><p><b>D 悪い</b>：強い条件が2時間以上</p><p><b>E 非常に悪い</b>：極端な条件が1時間でもある</p><small>日判定：注意＝風5m/s・突風12m/s・雨0.1mm/h以上／強い＝風9m/s・突風18m/s・雨1.5mm/h以上／極端＝風15m/s・突風25m/s・雨6mm/h以上。対象は6〜15時です。</small><small>時間別マーク：A＝注意未満、B＝風5・突風12・雨0.1以上、C＝風7・突風15・雨0.5以上、D＝風9・突風18・雨1.5以上、E＝風15・突風25・雨6以上。気温はMET主軸、突風はMET実値→meteoblue、風・雨はMET/GFSを基本にモデル差が大きい時だけmeteoblueで仲裁します。</small></div></details></section>`;
+  return `<section class="national-rich-section national-model-section national-model-section-simple"><div class="national-model-simple-head"><h4>時間別予測</h4><span>要素別統合</span></div>${mbNote}${nationalHourlyGradeHtml(rows,centerSeries)}${nationalModelChartSvg(rows,'wind','風速','m/s',7)}${nationalModelChartSvg(rows,'gust','突風','m/s',15)}${nationalModelChartSvg(rows,'rain','降水','mm/h',7,'bars')}<details class="national-grade-criteria"><summary>ABCDE 判定基準を見る</summary><div><p><b>A 良好</b>：主要な注意条件なし</p><p><b>B 軽い注意</b>：弱い雨のみ、または注意条件が1時間</p><p><b>C 注意</b>：風・突風・0.5mm/h以上の雨の注意条件が合計2時間以上、または強い条件が1時間</p><p><b>D 悪い</b>：強い条件が2時間以上</p><p><b>E 非常に悪い</b>：極端な条件が1時間でもある</p><small>日判定：弱い雨＝0.1以上0.5mm/h未満（続いても雨だけではCにしない）／Cへの累積対象＝風5m/s・突風12m/s・雨0.5mm/h以上／強い＝風9m/s・突風18m/s・雨1.5mm/h以上／極端＝風15m/s・突風25m/s・雨6mm/h以上。対象は6〜15時です。</small><small>時間別マーク：A＝注意未満、B＝風5・突風12・雨0.1以上、C＝風7・突風15・雨0.5以上、D＝風9・突風18・雨1.5以上、E＝風15・突風25・雨6以上。気温はMET主軸、突風はMET実値→meteoblue、風・雨はMET/GFSを基本にモデル差が大きい時だけmeteoblueで仲裁します。</small></div></details></section>`;
 }
 async function hydrateNationalModelDetail(box,p){
   const slots=Array.from(box?.querySelectorAll('[data-national-model-detail]')||[]); if(!slots.length)return;
@@ -7578,9 +7578,9 @@ async function openMountainFromNationalMap(name){
   }
   $('mountainPreset')?.scrollIntoView({behavior:'smooth',block:'center'});
 }
-const NATIONAL_OUTLOOK_BROWSER_CACHE_KEY='traten:national-outlook:v8-abcde-mean-floor';
+const NATIONAL_OUTLOOK_BROWSER_CACHE_KEY='traten:national-outlook:v10-daily-light-rain';
 const NATIONAL_OUTLOOK_BROWSER_CACHE_TTL=4*60*60*1000;
-const NATIONAL_OUTLOOK_CACHE_ENGINE='metno-gfs-v5-abcde-mean-floor';
+const NATIONAL_OUTLOOK_CACHE_ENGINE='metno-gfs-mb-v10-daily-light-rain';
 function readNationalOutlookBrowserCache(date){
   try{
     const obj=JSON.parse(localStorage.getItem(NATIONAL_OUTLOOK_BROWSER_CACHE_KEY)||'null');
@@ -11025,8 +11025,10 @@ function meteoblueRows(payload){
     };
   }).filter(x=>x.time);
 }
-const METEOBLUE_CLIENT_MAX_CONCURRENCY=2;
+const METEOBLUE_CLIENT_MAX_CONCURRENCY=1;
+const METEOBLUE_CLIENT_MIN_INTERVAL_MS=1800;
 let meteoblueClientActive=0;
+let meteoblueClientLastStart=0;
 const meteoblueClientQueue=[];
 async function withMeteoblueClientSlot(task){
   if(meteoblueClientActive>=METEOBLUE_CLIENT_MAX_CONCURRENCY){
@@ -11046,6 +11048,9 @@ async function fetchMeteobluePayload(point){
   // meteoblue calls so a large route does not create a short burst of requests.
   if(daysAhead(point.date)>7)return null;
   return await withMeteoblueClientSlot(async()=>{
+    const gap=METEOBLUE_CLIENT_MIN_INTERVAL_MS-(Date.now()-meteoblueClientLastStart);
+    if(gap>0)await new Promise(resolve=>setTimeout(resolve,gap));
+    meteoblueClientLastStart=Date.now();
     const q=new URLSearchParams({lat:String(point.lat),lon:String(point.lon)});
     if(Number.isFinite(Number(point.elevation))&&Number(point.elevation)>0)q.set('asl',String(Math.round(Number(point.elevation))));
     let lastError=null;
@@ -11058,9 +11063,10 @@ async function fetchMeteobluePayload(point){
       err.status=r.status;
       err.detail=payload?.detail||'';
       lastError=err;
-      // Retry only transient throttling/upstream failures. Do not retry other 4xx.
-      if(attempt===0&&(r.status===429||r.status>=500)){
-        await new Promise(resolve=>setTimeout(resolve,r.status===429?1400:500));
+      // V1.6.39: a 429 opens a server-side cooldown. Immediate retry would only
+      // consume another local request and delay the first display, so retry 5xx only.
+      if(attempt===0&&r.status>=500){
+        await new Promise(resolve=>setTimeout(resolve,700));
         continue;
       }
       throw err;
