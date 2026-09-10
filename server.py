@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.41"
+APP_VERSION = "1.6.42"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
@@ -3206,6 +3206,104 @@ def _diagnose_openmeteo(probes: list[dict[str, Any]]) -> dict[str, str]:
         return {"code": "open_meteo_upstream_error", "message": "Open-Meteoが5xxを返しています。上流サービス側の一時障害の可能性があります。"}
     return {"code": "mixed_or_unknown", "message": "結果が混在しています。各probeのstatus・error_type・body_headを確認してください。"}
 
+
+def _diagnose_meteoblue_probe(probe: dict[str, Any]) -> dict[str, str]:
+    status = probe.get("status")
+    body = str(probe.get("body_head") or "").lower()
+    if status == 200:
+        return {"code": "meteoblue_reachable", "message": "Renderからmeteoblueへの直接取得は成功しています。本体側のキャッシュ・時刻照合・429 cooldown状態を確認してください。"}
+    if status == 429:
+        if any(word in body for word in ("quota", "credit", "limit", "package", "subscription", "apikey", "api key")):
+            return {"code": "meteoblue_quota_or_plan_limit", "message": "meteoblueが429を返し、本文にもquota/plan/API key系の情報があります。APIキーまたは契約枠の制限が最有力です。"}
+        return {"code": "meteoblue_rate_limited", "message": "meteoblueが429を返しています。Retry-After・rate-limitヘッダー・body_headを確認してください。短時間制限またはAPIキー/契約枠制限の可能性があります。"}
+    if status in (401, 403):
+        return {"code": "meteoblue_auth_or_access_restricted", "message": "meteoblueが401/403を返しています。APIキー、許可パッケージ、送信元制限を確認してください。"}
+    if isinstance(status, int) and status >= 500:
+        return {"code": "meteoblue_upstream_error", "message": "meteoblueが5xxを返しています。上流側の一時障害の可能性があります。"}
+    if status is None:
+        return {"code": "meteoblue_network_error", "message": "meteoblueへの接続でHTTP応答前に例外が発生しています。Render側のDNS/外向き通信も候補です。"}
+    return {"code": "meteoblue_mixed_or_unknown", "message": "meteoblueの応答を取得しました。status・headers・body_headを確認してください。"}
+
+
+def _diagnostic_meteoblue_probe() -> dict[str, Any]:
+    """One uncached, un-retried request that bypasses the app cooldown."""
+    if not METEOBLUE_API_KEY:
+        return {"name": "meteoblue_operational_like", "ok": False, "status": None,
+                "error_type": "NotConfigured", "error": "METEOBLUE_API_KEY is not configured"}
+    lat, lon, altitude = 35.3606, 138.7274, 3776
+    params = {
+        "lat": f"{lat:.5f}", "lon": f"{lon:.5f}", "asl": str(altitude),
+        "apikey": METEOBLUE_API_KEY, "format": "json", "tz": "Asia/Tokyo",
+        "windspeed": "ms-1", "winddirection": "degree",
+        "precipitationamount": "mm", "temperature": "C",
+    }
+    endpoint = "/packages/basic-1h_clouds-3h_wind-3h_air-3h"
+    url = "https://my.meteoblue.com" + endpoint + "?" + urllib.parse.urlencode(params)
+    started = time.monotonic()
+    req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=UPSTREAM_TIMEOUT) as resp:
+            body = resp.read(1200).decode("utf-8", errors="replace")
+            headers = resp.headers or {}
+            return {
+                "name": "meteoblue_operational_like", "ok": 200 <= int(resp.status) < 300,
+                "status": int(resp.status), "elapsed_ms": round((time.monotonic() - started) * 1000),
+                "host": "my.meteoblue.com", "path": endpoint,
+                "retry_after": headers.get("Retry-After"),
+                "rate_limit_limit": headers.get("X-RateLimit-Limit"),
+                "rate_limit_remaining": headers.get("X-RateLimit-Remaining"),
+                "rate_limit_reset": headers.get("X-RateLimit-Reset"),
+                "server": headers.get("Server"),
+                "body_head": body.replace(METEOBLUE_API_KEY, "***")[:800],
+            }
+    except urllib.error.HTTPError as exc:
+        try:
+            body = exc.read(1600).decode("utf-8", errors="replace")
+        except Exception:
+            body = ""
+        headers = exc.headers or {}
+        return {
+            "name": "meteoblue_operational_like", "ok": False, "status": int(exc.code),
+            "elapsed_ms": round((time.monotonic() - started) * 1000),
+            "host": "my.meteoblue.com", "path": endpoint,
+            "retry_after": headers.get("Retry-After"),
+            "rate_limit_limit": headers.get("X-RateLimit-Limit"),
+            "rate_limit_remaining": headers.get("X-RateLimit-Remaining"),
+            "rate_limit_reset": headers.get("X-RateLimit-Reset"),
+            "server": headers.get("Server"), "error_type": "HTTPError",
+            "body_head": body.replace(METEOBLUE_API_KEY, "***")[:800],
+        }
+    except Exception as exc:
+        return {
+            "name": "meteoblue_operational_like", "ok": False, "status": None,
+            "elapsed_ms": round((time.monotonic() - started) * 1000),
+            "host": "my.meteoblue.com", "path": endpoint,
+            "error_type": type(exc).__name__,
+            "error": str(exc).replace(METEOBLUE_API_KEY, "***")[:500],
+        }
+
+
+@app.get("/api/diag/meteoblue")
+def diagnostic_meteoblue():
+    if not _dashboard_auth_ok():
+        return _dashboard_unauthorized()
+    probe = _diagnostic_meteoblue_probe()
+    with _meteoblue_lock:
+        cooldown_remaining = max(0, int(math.ceil(_meteoblue_circuit_until - time.monotonic())))
+    payload = {
+        "ok": bool(probe.get("ok")), "version": APP_VERSION,
+        "server_time_utc": datetime.now(timezone.utc).isoformat(),
+        "test_point": {"name": "富士山", "lat": 35.3606, "lon": 138.7274, "altitude": 3776},
+        "configured": bool(METEOBLUE_API_KEY),
+        "package": "basic-1h_clouds-3h_wind-3h_air-3h",
+        "app_cooldown_remaining_seconds": cooldown_remaining,
+        "app_min_interval_seconds": METEOBLUE_MIN_INTERVAL,
+        "diagnosis": _diagnose_meteoblue_probe(probe), "probe": probe,
+        "note": "キャッシュ・通常リトライ・アプリ内429 cooldownを通さず、Render本番からmeteoblueへ直接1回だけ接続します。APIキーは応答に含めません。",
+    }
+    resp = jsonify(payload)
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
 
 @app.get("/api/diag/open-meteo")
 def diagnostic_open_meteo():
