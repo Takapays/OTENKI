@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.42"
+APP_VERSION = "1.6.43"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
@@ -183,7 +183,7 @@ NATIONAL_OUTLOOK_AUTO_REFRESH = os.environ.get("NATIONAL_OUTLOOK_AUTO_REFRESH", 
 NATIONAL_CACHE_REFRESH_TOKEN = os.environ.get("NATIONAL_CACHE_REFRESH_TOKEN", "")
 NATIONAL_100_POINTS_FILE = os.path.join(BASE, "national-100-points.json")
 NATIONAL_OUTLOOK_CHUNK_SIZE = max(1, min(50, int(os.environ.get("NATIONAL_OUTLOOK_CHUNK_SIZE", "25"))))
-NATIONAL_OUTLOOK_ENGINE = "metno-gfs-mb-v10-daily-light-rain"
+NATIONAL_OUTLOOK_ENGINE = "metno-gfs-mb-v11-selective-arbiter"
 NATIONAL_GFS_MIN_INTERVAL = float(os.environ.get("NATIONAL_GFS_MIN_INTERVAL", "0.35"))
 _national_gfs_lock = threading.Lock()
 _national_gfs_last_request = 0.0
@@ -1439,7 +1439,7 @@ def _instagram_load_yarigatake_detail(date_text: str) -> dict[str, Any]:
         gfs=_national_gfs_results(date_text,[p],include_series=True).get("槍ヶ岳")
     except Exception as exc:
         app.logger.warning("instagram_yarigatake_gfs_failed %s",type(exc).__name__)
-    mb=_national_fetch_meteoblue_detail(p,date_text)
+    mb=_national_fetch_meteoblue_detail(p,date_text) if _national_meteoblue_candidate(met,gfs) else None
     merged=_national_merge_two_models(p,met,gfs,mb)
     if not merged or (not met and not gfs):
         raise RuntimeError("Yarigatake forecast unavailable")
@@ -3109,15 +3109,16 @@ def national_outlook_detail():
         gfs=_national_gfs_results(date_text,[p],include_series=True).get(name)
     except Exception as exc:
         warnings.append("NOAA GFS unavailable"); app.logger.warning("national_detail_gfs_failed %s",type(exc).__name__)
-    mb=_national_fetch_meteoblue_detail(p,date_text)
-    if not mb and METEOBLUE_API_KEY and (target-today).days<=7: warnings.append("meteoblue unavailable")
+    mb_candidate=_national_meteoblue_candidate(met,gfs)
+    mb=_national_fetch_meteoblue_detail(p,date_text) if mb_candidate else None
+    if mb_candidate and not mb and METEOBLUE_API_KEY and (target-today).days<=7: warnings.append("meteoblue arbiter unavailable")
     merged=_national_merge_two_models(p,met,gfs,mb)
     if not merged:
         return jsonify(error="forecast unavailable",warning="; ".join(warnings) or None),503
     def detail_model(row):
         if not row: return None
         return {k:v for k,v in row.items() if k != "_series"}
-    return jsonify(ok=True,date=date_text,name=name,merged=merged,models={"metno":detail_model(met),"gfs":detail_model(gfs),"meteoblue":detail_model(mb)},meteoblueStatus={"configured":bool(METEOBLUE_API_KEY),"fetched":bool(mb),"used":bool((merged or {}).get("meteoblueUsed"))},warning="; ".join(warnings) or None,version=APP_VERSION)
+    return jsonify(ok=True,date=date_text,name=name,merged=merged,models={"metno":detail_model(met),"gfs":detail_model(gfs),"meteoblue":detail_model(mb)},meteoblueStatus={"configured":bool(METEOBLUE_API_KEY),"candidate":bool(mb_candidate),"fetched":bool(mb),"used":bool((merged or {}).get("meteoblueUsed"))},warning="; ".join(warnings) or None,version=APP_VERSION)
 
 
 

@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.42';
+const APP_VERSION = '1.6.43';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -7464,7 +7464,7 @@ function nationalModelDetailHtml(data){
   if(models.meteoblue?.series)rows.push({model:'meteoblue',series:models.meteoblue.series});
   const centerSeries=data?.merged?.series||[]; if(centerSeries.length)rows.push({model:'center',series:centerSeries});
   const mbStatus=data?.meteoblueStatus||null;
-  const mbNote=mbStatus&&!mbStatus.fetched?`<div class="national-model-chart-empty">meteoblue：${mbStatus.configured?'今回取得できず（MET Norway / NOAA GFSで表示）':'API未設定'}</div>`:'';
+  const mbNote=mbStatus&&mbStatus.candidate&&!mbStatus.fetched?`<div class="national-model-chart-empty">meteoblue：${mbStatus.configured?'仲裁対象・今回取得できず（MET Norway / NOAA GFSで表示）':'API未設定'}</div>`:'';
   return `<section class="national-rich-section national-model-section national-model-section-simple"><div class="national-model-simple-head"><h4>時間別予測</h4><span>要素別統合</span></div>${mbNote}${nationalHourlyGradeHtml(rows,centerSeries)}${nationalModelChartSvg(rows,'wind','風速','m/s',7)}${nationalModelChartSvg(rows,'gust','突風','m/s',15)}${nationalModelChartSvg(rows,'rain','降水','mm/h',7,'bars')}<details class="national-grade-criteria"><summary>ABCDE 判定基準を見る</summary><div><p><b>A 良好</b>：主要な注意条件なし</p><p><b>B 軽い注意</b>：弱い雨のみ、または注意条件が1時間</p><p><b>C 注意</b>：風・突風・0.5mm/h以上の雨の注意条件が合計2時間以上、または強い条件が1時間</p><p><b>D 悪い</b>：強い条件が2時間以上</p><p><b>E 非常に悪い</b>：極端な条件が1時間でもある</p><small>日判定：弱い雨＝0.1以上0.5mm/h未満（続いても雨だけではCにしない）／Cへの累積対象＝風5m/s・突風12m/s・雨0.5mm/h以上／強い＝風9m/s・突風18m/s・雨1.5mm/h以上／極端＝風15m/s・突風25m/s・雨6mm/h以上。対象は6〜15時です。</small><small>時間別マーク：A＝注意未満、B＝風5・突風12・雨0.1以上、C＝風7・突風15・雨0.5以上、D＝風9・突風18・雨1.5以上、E＝風15・突風25・雨6以上。気温はMET主軸、突風はMET実値→meteoblue、風・雨はMET/GFSを基本にモデル差が大きい時だけmeteoblueで仲裁します。</small></div></details></section>`;
 }
 async function hydrateNationalModelDetail(box,p){
@@ -11178,30 +11178,48 @@ async function analyzePointsBatch(points,providerList=providers,statusLabel='気
   });
 }
 
-async function analyzeFallbackThreeBatch(points,statusLabel='先行3モデル'){
-  // V1.6.32: MET Norway + NOAA direct GFS + meteoblue are now the first
-  // visible analysis. Open-Meteo is enrichment only and is fetched later.
+function meteoblueArbiterNeeded(metRow,gfsRow){
+  // V1.6.43: meteoblue is quota-limited. It is an arbiter, not a routine third model.
+  if(!metRow&&!gfsRow)return false;
+  if(!metRow||!gfsRow)return true;
+  if(Number.isFinite(metRow.wind)&&Number.isFinite(gfsRow.wind)&&Math.abs(metRow.wind-gfsRow.wind)>=3)return true;
+  if(Number.isFinite(metRow.rain)&&Number.isFinite(gfsRow.rain)&&Math.abs(metRow.rain-gfsRow.rain)>=0.7)return true;
+  // MET gust is frequently absent. Spend a meteoblue call only when the provisional
+  // MET/GFS conditions already contain a caution signal; Open-Meteo can enrich later.
+  if(!Number.isFinite(metRow.gust)){
+    const provisional=blendProviderRowsSingleGroup([
+      {provider:{id:'metno',kind:'fallback'},row:metRow},
+      {provider:{id:'noaa-gfs',kind:'fallback'},row:gfsRow}
+    ]);
+    if((Number.isFinite(provisional?.wind)&&provisional.wind>=5)||(Number.isFinite(provisional?.rain)&&provisional.rain>=0.1))return true;
+  }
+  return false;
+}
+async function analyzeFallbackThreeBatch(points,statusLabel='先行基本モデル'){
+  // V1.6.43: paint MET Norway + NOAA GFS first. meteoblue is requested only for
+  // points where it can materially arbitrate wind/rain or fill a relevant MET gap.
   const metnoProvider={id:'metno',name:'MET Norway（先行）',kind:'fallback'};
   const noaaProvider={id:'noaa-gfs',name:'NOAA GFS（直取得・先行）',kind:'fallback'};
-  const meteoblueProvider={id:'meteoblue',name:'meteoblue（先行・複数モデル統合）',kind:'fallback',integratedEnsemble:true};
-  setStatus(`${statusLabel}：MET Norway / NOAA GFS / meteoblue を先に取得中…`);
+  const meteoblueProvider={id:'meteoblue',name:'meteoblue（必要時仲裁）',kind:'fallback',integratedEnsemble:true};
+  setStatus(`${statusLabel}：MET Norway / NOAA GFS を先に取得中…`);
   return await Promise.all(points.map(async point=>{
     const errors=[],providerRows=[];
-    const [metState,noaaState,mbState]=await Promise.allSettled([
-      fetchMetNoFallback(point),fetchNoaaGfsFallback(point),fetchMeteoblueFallback(point)
-    ]);
+    const [metState,noaaState]=await Promise.allSettled([fetchMetNoFallback(point),fetchNoaaGfsFallback(point)]);
     const metRow=metState.status==='fulfilled'?metState.value:null;
     const noaaRow=noaaState.status==='fulfilled'?noaaState.value:null;
-    const mbRow=mbState.status==='fulfilled'?mbState.value:null;
     if(metRow)providerRows.push({provider:metnoProvider,row:metRow});
     else if(metState.status==='rejected')errors.push(metState.reason?.message||'MET Norway取得失敗');
     else errors.push('MET Norway: 対象期間外または指定時刻なし');
     if(noaaRow)providerRows.push({provider:noaaProvider,row:noaaRow});
     else if(noaaState.status==='rejected')errors.push(noaaState.reason?.message||'NOAA GFS取得失敗');
     else errors.push('NOAA GFS: 対象期間外または指定時刻なし');
-    if(mbRow)providerRows.push({provider:meteoblueProvider,row:mbRow});
-    else if(mbState.status==='rejected')errors.push(mbState.reason?.message||'meteoblue取得失敗');
-    if(!providerRows.length)throw new Error(`${point.name}: 先行3モデルを取得できませんでした。 ${errors.join(' / ')}`);
+    if(meteoblueArbiterNeeded(metRow,noaaRow)){
+      try{
+        const mbRow=await fetchMeteoblueFallback(point);
+        if(mbRow)providerRows.push({provider:meteoblueProvider,row:mbRow});
+      }catch(e){errors.push(e?.message||'meteoblue仲裁取得失敗');}
+    }
+    if(!providerRows.length)throw new Error(`${point.name}: 先行基本モデルを取得できませんでした。 ${errors.join(' / ')}`);
     const avg=blendProviderRows(providerRows);
     return {point,providerRows,errors,timelineRows:blendTimelineRows(providerRows),...avg,grade:assessGrade(avg),confidence:ensembleConfidence(providerRows,avg),thunder:thunderLevel(avg),hazards:assessHazards(avg)};
   }));
@@ -11288,27 +11306,27 @@ async function analyze(){
     $('resultScreenshotToolbarDesktop')?.classList.add('hidden');
     validateChronology(points);
     $('analyzeBtn').dataset.busy='1'; $('analyzeBtn').disabled=true; $('analyzeBtn').setAttribute('aria-disabled','true');
-    setStatus(`解析中！ 先行3モデルを準備しています…`);
+    setStatus(`解析中！ 基本2モデルを準備しています…`);
     await ensureElevations(points);
     const stayPoints=points.filter(p=>p.stay);
     const maxAhead=Math.max(...points.map(p=>daysAhead(p.date)));
 
     // V1.6.32: always paint the independent three-model result first.
     // Open-Meteo is no longer a gate for the first visible decision.
-    let latestResults=await analyzeFallbackThreeBatch(points,'先行3モデル');
+    let latestResults=await analyzeFallbackThreeBatch(points,'先行基本モデル');
     if(runId!==activeAnalysisRun)return;
     let latestOvernight=[];
     const mountain=currentMountainLabel();
     renderSummaryCore(latestResults);
     const initialMs=Math.round(performance.now()-started);
     const initialMeteoblueCount=latestResults.filter(r=>(r?.providerRows||[]).some(x=>x?.provider?.id==='meteoblue')).length;
-    setStatus(`先行3モデルで総合判断を表示：${points.length}地点（meteoblue ${initialMeteoblueCount}/${points.length}地点 / Open-Meteoは後追い更新）`,false);
+    setStatus(`基本2モデルで総合判断を表示：${points.length}地点（meteoblue仲裁 ${initialMeteoblueCount}/${points.length}地点 / Open-Meteoは後追い更新）`,false);
     scrollToSummaryResult();
     delete $('analyzeBtn').dataset.busy; refreshAnalyzeButtonState();
     requestAnimationFrame(()=>{if(runId===activeAnalysisRun)renderAll(latestResults,latestOvernight);});
     saveLastRouteSnapshot(mountain,points);
     points.forEach(p=>logEvent('route_point_used',{success:true,mountain,metadata:{point_name:p.name||'',point_type:p.type||'other',point_role:p.role||'',source:p.source||''}}));
-    logEvent('weather_analysis',{success:true,duration_ms:initialMs,mountain,route_points:points.length,stay_count:stayPoints.length,metadata:{provider_count:latestResults[0]?.providerRows?.length||0,provider_count_final:providers.length,manual_datetime:true,batch_weather:true,parallel_models:true,open_meteo_probe_gate:false,three_models_first:true,point_cache:true,progressive:true,first_provider:'metno+noaa-gfs+meteoblue'}});
+    logEvent('weather_analysis',{success:true,duration_ms:initialMs,mountain,route_points:points.length,stay_count:stayPoints.length,metadata:{provider_count:latestResults[0]?.providerRows?.length||0,provider_count_final:providers.length,manual_datetime:true,batch_weather:true,parallel_models:true,open_meteo_probe_gate:false,two_models_first_mb_arbiter:true,point_cache:true,progressive:true,first_provider:'metno+noaa-gfs;meteoblue=selective-arbiter'}});
 
     // Overnight details are also background work; they must not delay the first screen.
     const overnightPromise=stayPoints.length
@@ -11371,7 +11389,7 @@ async function analyze(){
     const apiAudit=weatherApiAuditSnapshot();
     const finalMeteoblueCount=latestResults.filter(r=>(r?.providerRows||[]).some(x=>x?.provider?.id==='meteoblue')).length;
     const apiAuditText=`meteoblue ${finalMeteoblueCount}/${points.length}地点 / Open-Meteo ${apiAudit.openMeteoRequests}回${apiAudit.openMeteo429?` / 429:${apiAudit.openMeteo429}`:''}${apiAudit.deduped?` / 重複抑制:${apiAudit.deduped}`:''}${apiAudit.circuitSkipped?` / 429後抑制:${apiAudit.circuitSkipped}`:''}${apiAudit.openMeteoCircuitSeconds?` / 抑制残:${Math.ceil(apiAudit.openMeteoCircuitSeconds/60)}分`:''}`;
-    logEvent('weather_api_audit',{success:true,mountain,route_points:points.length,metadata:{...apiAudit,three_models_first:true,open_meteo_background:true}});
+    logEvent('weather_api_audit',{success:true,mountain,route_points:points.length,metadata:{...apiAudit,two_models_first_mb_arbiter:true,open_meteo_background:true}});
     setStatus(notes.length?`先行3モデル解析は完了。${notes.join(' / ')} / ${apiAuditText}`:`分析完了：${points.length}地点${stayPoints.length?` / 宿泊 ${stayPoints.length}泊`:''}（先行3モデル → Open-Meteo後追い / ${apiAuditText}）`,false);
   }catch(e){
     if(runId===activeAnalysisRun)setStatus(e.message||String(e),true);
