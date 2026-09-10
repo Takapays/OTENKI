@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.43"
+APP_VERSION = "1.6.44"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
@@ -1279,16 +1279,28 @@ def _national_cached_snapshot(date_text, fingerprint, points):
         snap["cacheReadError"] = read_error
     return snap
 
-def _national_fetch_and_persist(date_text, points, due, initial=None):
-    """Fetch at most CHUNK_SIZE, checkpoint immediately and verify database writes."""
+def _national_fetch_and_persist(date_text, points, due, initial=None, *, deadline=None, allow_scheduled_remaining=False):
+    """Fetch due rows in checkpointed chunks and verify persistent writes.
+
+    Foreground calls keep the historical all-due behavior. Scheduled/background callers may pass
+    a deadline; then the function stops only at a chunk boundary and leaves the remaining rows for
+    the next scheduled cycle instead of turning expected unfinished work into an HTTP failure.
+    """
     fp = _national_points_fingerprint(points)
     rows = _national_valid_results(points,(initial or {}).get("results") or [])
-    fetched_names = set(); persisted_names = set(); errors = []; chunks = []; limited = False
-    persistent = _national_supabase_enabled()
+    fetched_names = set(); persisted_names = set(); verification_pending = set(); errors = []; warnings = []; chunks = []; limited = False
+    persistent = _national_supabase_enabled(); attempted = 0; deferred_by_budget = 0
     for start in range(0,len(due),NATIONAL_OUTLOOK_CHUNK_SIZE):
         if _national_refresh_stop.is_set():
             errors.append("refresh interrupted"); break
+        # V1.6.44: do not begin another expensive chunk when the scheduler deadline is close.
+        # Always allow the first chunk so every run makes progress.
+        if deadline is not None and start > 0 and time.monotonic() + NATIONAL_SCHEDULED_REFRESH_BATCH_GUARD >= deadline:
+            deferred_by_budget = len(due) - start
+            warnings.append(f"scheduled refresh budget reached; {deferred_by_budget} rows deferred")
+            break
         batch = due[start:start+NATIONAL_OUTLOOK_CHUNK_SIZE]
+        attempted += len(batch)
         cr = {"start":start,"requested":len(batch),"fetched":0,"persisted":0,"completeFetch":False,"error":None}
         at = time.time()
         try:
@@ -1305,12 +1317,23 @@ def _national_fetch_and_persist(date_text, points, due, initial=None):
                 if persistent:
                     wrote = _national_supabase_write(date_text,batch,list(valid.values()))
                     if wrote:
-                        confirmed, verify_attempts, verify_error = _national_confirm_supabase_write(date_text,batch,valid)
-                        persisted_names.update(confirmed); cr["persisted"] = len(confirmed)
-                        cr["verifyAttempts"] = verify_attempts
-                        if verify_error:
-                            cr["error"] = "database read-back incomplete"
-                            cr["verifyDetail"] = verify_error
+                        if allow_scheduled_remaining:
+                            # Scheduled refreshes do not pay for a read-after-write round trip per chunk.
+                            # A single authoritative read below verifies all acknowledged chunks at once.
+                            cr["writeAcknowledged"] = len(valid)
+                        else:
+                            confirmed, verify_attempts, verify_error = _national_confirm_supabase_write(date_text,batch,valid)
+                            persisted_names.update(confirmed); cr["persisted"] = len(confirmed)
+                            cr["verifyAttempts"] = verify_attempts
+                            if verify_error:
+                                # A 2xx upsert was acknowledged. A transient read-after-write lag must not
+                                # fail the foreground request; unconfirmed rows remain due and are rechecked.
+                                pending = set(valid) - set(confirmed)
+                                verification_pending.update(pending)
+                                cr["verificationPending"] = len(pending)
+                                cr["verifyDetail"] = verify_error
+                                cr["warning"] = "database write acknowledged; read-back verification pending"
+                                warnings.append("database read-back incomplete; next refresh will verify/retry")
                     else:
                         cr["error"] = "database write failed"
                 else:
@@ -1334,18 +1357,30 @@ def _national_fetch_and_persist(date_text, points, due, initial=None):
         except RuntimeError as exc:
             fresh,stale = {},{}
             errors.append(str(exc))
+        fresh_names = set(fresh)
+        persisted_names.update(fresh_names & fetched_names)
+        unconfirmed = fetched_names - fresh_names
+        if unconfirmed and not errors:
+            verification_pending.update(unconfirmed)
+            warnings.append(f"database final read-back pending for {len(unconfirmed)} rows; next refresh will verify/retry")
         fresh_count = len(fresh); stored = len(set(fresh)|set(stale))
     else:
         fresh_count = sum(r["_cache_meta"]["fresh_until"] > time.time() for r in snap["results"])
         stored = len(snap["results"])
     remaining = max(0,len(points)-fresh_count)
-    report = {"ok":not errors and remaining==0,"requested":len(due),"pointsFetched":len(fetched_names),
-        "pointsUpdated":len(persisted_names) if persistent else fresh_count,
-        "persistedCount":len(persisted_names),"freshAfter":fresh_count,"missingAfter":max(0,len(points)-stored),
-        "remainingDueAfter":remaining,"chunkSize":NATIONAL_OUTLOOK_CHUNK_SIZE,"chunks":chunks,
-        "errors":list(dict.fromkeys(errors)),"rateLimited":limited,"backend":"supabase+local" if persistent else "local-only"}
+    report = {"ok":not errors and remaining==0,"requested":len(due),"attempted":attempted,
+        "pointsFetched":len(fetched_names),"pointsUpdated":len(persisted_names) if persistent else fresh_count,
+        "persistedCount":len(persisted_names),"verificationPendingCount":len(verification_pending),
+        "freshAfter":fresh_count,"missingAfter":max(0,len(points)-stored),
+        "remainingDueAfter":remaining,"deferredByBudget":deferred_by_budget,
+        "chunkSize":NATIONAL_OUTLOOK_CHUNK_SIZE,"chunks":chunks,
+        "warnings":list(dict.fromkeys(warnings)),"errors":list(dict.fromkeys(errors)),"rateLimited":limited,
+        "backend":"supabase+local" if persistent else "local-only"}
     if remaining and not report["errors"]:
-        report["errors"].append(f"fresh cache incomplete: {fresh_count}/{len(points)}")
+        if allow_scheduled_remaining:
+            report["warnings"].append(f"scheduled refresh incomplete: {fresh_count}/{len(points)}; next run will resume")
+        else:
+            report["errors"].append(f"fresh cache incomplete: {fresh_count}/{len(points)}")
     snap["persistence"] = report; snap["rateLimited"] = limited
     return snap,report
 
@@ -1382,7 +1417,7 @@ def _national_100_date_cache_status(date_text, points, *, force=False):
         "missingBefore":max(0,len(points)-len(set(fresh)|set(stale))),"pointsDue":len(due),
         "pointsUpdated":0,"ok":not due,"processed":False}, due
 
-def _refresh_rolling_100_cache(*, force=False, max_dates=None):
+def _refresh_rolling_100_cache(*, force=False, max_dates=None, deadline=None):
     # Legacy function name is retained for compatibility, scope is explicit in the report.
     points = _national_load_prefetch_points(); dates = _national_rolling_100_date_texts()
     report = {"ok":True,"rollingDays":len(dates),"seedCount":len(points),"targetRows":len(points)*len(dates),
@@ -1398,8 +1433,9 @@ def _refresh_rolling_100_cache(*, force=False, max_dates=None):
         if due:
             due_dates.append((d,due,status))
     report["datesDue"] = len(due_dates)
-    # Fill missing dates first; within equal deficit, earliest forecast day first.
-    due_dates.sort(key=lambda x:(-len(x[1]),x[0]))
+    # V1.6.44: finish a date already in progress before starting another one.
+    # This prevents a bounded scheduler from spreading partial rows across all seven dates.
+    due_dates.sort(key=lambda x:(0 if 0 < int(x[2].get("freshBefore") or 0) < len(points) else 1,x[0]))
     for d,due,status in due_dates[:max(1,int(max_dates or NATIONAL_100_ROLLING_DATES_PER_CYCLE))]:
         fp = _national_points_fingerprint(points)
         if not _national_try_lock(d,fp):
@@ -1408,10 +1444,12 @@ def _refresh_rolling_100_cache(*, force=False, max_dates=None):
             initial = _national_cached_snapshot(d,fp,points)
             # Re-read inside the lock so another request's new rows are not refetched.
             _,due = _national_100_date_cache_status(d,points,force=force)
-            _,done = _national_fetch_and_persist(d,points,due,initial)
+            _,done = _national_fetch_and_persist(d,points,due,initial,deadline=deadline,allow_scheduled_remaining=True)
             status.update(done,processed=True); report["datesProcessed"]+=1; report["pointsUpdated"]+=done["pointsUpdated"]
-            if not done["ok"]:
+            if not done["ok"] and done["errors"]:
                 report["errors"].append({"date":d,"error":done["errors"]})
+            elif not done["ok"]:
+                status["scheduledRemaining"] = True
             if done["rateLimited"]:
                 break
         except Exception as exc:
@@ -1420,7 +1458,7 @@ def _refresh_rolling_100_cache(*, force=False, max_dates=None):
             _national_unlock(d,fp)
     report["remainingDueAfter"] = sum(x.get("remainingDueAfter",x["pointsDue"]) for x in report["dateReports"])
     report["windowComplete"] = report["remainingDueAfter"]==0
-    report["ok"] = not report["errors"]
+    report["ok"] = bool(report["windowComplete"] and not report["errors"])
     report["state"] = "complete" if report["windowComplete"] else "incomplete" if report["errors"] else "scheduled-remaining"
     return report
 
@@ -1474,7 +1512,7 @@ def _instagram_post_with_lock(date_text, rows, *, force=False):
     finally:
         _national_close_lock(key)
 
-def _refresh_national_local_cache():
+def _refresh_national_local_cache(*, deadline=None):
     report = {"ok":True,"pointsUpdated":0,"errors":[],"datesProcessed":0}
     today = (datetime.now(timezone.utc)+timedelta(hours=9)).date()
     for filename in sorted(os.listdir(NATIONAL_OUTLOOK_CACHE_DIR)):
@@ -1493,7 +1531,7 @@ def _refresh_national_local_cache():
                 continue
             try:
                 fresh = {r["name"] for r in snap["results"] if r["_cache_meta"]["fresh_until"]>time.time()}
-                _,done = _national_fetch_and_persist(d,ps,[p for p in ps if p["name"] not in fresh],snap)
+                _,done = _national_fetch_and_persist(d,ps,[p for p in ps if p["name"] not in fresh],snap,deadline=deadline,allow_scheduled_remaining=True)
                 report["datesProcessed"]+=1;report["pointsUpdated"]+=done["pointsUpdated"];report["errors"].extend(done["errors"])
             finally:
                 _national_unlock(d,fp)
@@ -1596,6 +1634,10 @@ NATIONAL_SUPABASE_TIMEOUT = int(os.environ.get("NATIONAL_SUPABASE_TIMEOUT", "12"
 # declaring a database failure. This never converts an unconfirmed write to success.
 NATIONAL_SUPABASE_VERIFY_RETRIES = max(0, min(5, int(os.environ.get("NATIONAL_SUPABASE_VERIFY_RETRIES", "3"))))
 NATIONAL_SUPABASE_VERIFY_DELAY = max(0.1, min(3.0, float(os.environ.get("NATIONAL_SUPABASE_VERIFY_DELAY", "0.6"))))
+# V1.6.44: keep a scheduled refresh comfortably below the external 300-second HTTP ceiling.
+# The foreground/user path is intentionally unbounded so a user-triggered national analysis can still finish all due rows.
+NATIONAL_SCHEDULED_REFRESH_BUDGET = max(90, min(240, int(os.environ.get("NATIONAL_SCHEDULED_REFRESH_BUDGET", "210"))))
+NATIONAL_SCHEDULED_REFRESH_BATCH_GUARD = max(15, min(90, int(os.environ.get("NATIONAL_SCHEDULED_REFRESH_BATCH_GUARD", "60"))))
 
 def _national_supabase_enabled() -> bool:
     return bool(SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY and NATIONAL_SUPABASE_CACHE_TABLE)
@@ -1797,8 +1839,9 @@ def _refresh_national_persistent_cache(*, force=False):
     if key is None:
         return {"ok":False,"skipped":True,"state":"running-elsewhere","pointsUpdated":0,"errors":["refresh cycle locked"]}
     started = time.time()
+    deadline = time.monotonic() + NATIONAL_SCHEDULED_REFRESH_BUDGET
     try:
-        rolling = _refresh_rolling_100_cache(force=force) if NATIONAL_100_ROLLING_AUTO_CACHE else {"ok":True,"disabled":True,"pointsUpdated":0,"errors":[],"dateReports":[]}
+        rolling = _refresh_rolling_100_cache(force=force,deadline=deadline) if NATIONAL_100_ROLLING_AUTO_CACHE else {"ok":True,"disabled":True,"pointsUpdated":0,"errors":[],"dateReports":[]}
         report = {"ok":rolling["ok"],"force":force,"rolling100":rolling,"rolling":rolling,
             "datesChecked":rolling.get("datesInspected",0),"datesDue":rolling.get("datesDue",0),
             "datesProcessed":rolling.get("datesProcessed",0),"pointsDue":rolling.get("pointsDue",0),
@@ -1812,6 +1855,9 @@ def _refresh_national_persistent_cache(*, force=False):
         dates = set(_national_rolling_100_date_texts())
         groups = _national_supabase_refresh_candidates(force=force)
         for d,ps in sorted(groups.items()):
+            if time.monotonic() + NATIONAL_SCHEDULED_REFRESH_BATCH_GUARD >= deadline:
+                report["maintenanceDeferred"] = True
+                break
             ps = [p for p in ps if d not in dates or p["name"] not in seeds]
             if not ps:
                 continue
@@ -1824,16 +1870,21 @@ def _refresh_national_persistent_cache(*, force=False):
                 initial = _national_cached_snapshot(d,fp,ps)
                 fresh = {r["name"] for r in initial["results"] if r["_cache_meta"]["fresh_until"]>time.time()}
                 due = ps if force else [p for p in ps if p["name"] not in fresh]
-                _,done = _national_fetch_and_persist(d,ps,due,initial)
+                _,done = _national_fetch_and_persist(d,ps,due,initial,deadline=deadline,allow_scheduled_remaining=True)
                 report["onDemandReports"].append(dict(done,date=d));report["pointsUpdated"]+=done["pointsUpdated"]
                 report["pointsDue"]+=len(due);report["datesProcessed"]+=1
-                if not done["ok"]:
+                if not done["ok"] and done["errors"]:
                     report["errors"].append({"date":d,"error":done["errors"]})
+                elif not done["ok"]:
+                    report["maintenanceDeferred"] = True
             finally:
                 _national_unlock(d,fp)
         # Only independently verified fresh social rows are eligible, not the refresh count.
         report["instagram"] = _instagram_maybe_post_after_refresh()
-        report["ok"] = not report["errors"]
+        rolling_complete = bool(rolling.get("windowComplete", True))
+        on_demand_complete = all(int(x.get("remainingDueAfter") or 0) == 0 for x in report["onDemandReports"])
+        report["ok"] = bool(not report["errors"] and rolling_complete and on_demand_complete and not report.get("maintenanceDeferred"))
+        report["scheduledBudgetSeconds"] = NATIONAL_SCHEDULED_REFRESH_BUDGET
         report["elapsedSeconds"] = round(time.time()-started,2)
         report["finishedAt"] = datetime.now(timezone.utc).isoformat()
         _national_last_refresh_report = report
@@ -2658,12 +2709,14 @@ def national_outlook_refresh_cache():
             elif isinstance(v,dict):
                 for x in v.values(): collect(x)
         collect(r.get("errors") or [])
-        fatal_tokens = ("database write failed","database read-back incomplete","supabase national cache is not configured",
+        fatal_tokens = ("database write failed","persistent cache read failed","supabase national cache is not configured",
                         "seed count/configuration mismatch","token is not configured","unauthorized")
         fatal = any(t in m for m in messages for t in fatal_tokens)
-        transient_tokens = ("429","rate limit","forecast acquisition incomplete","fresh cache incomplete","timeout","timed out")
+        transient_tokens = ("429","rate limit","forecast acquisition incomplete","fresh cache incomplete","database read-back incomplete","timeout","timed out")
         transient = rate_limited or any(t in m for m in messages for t in transient_tokens)
-        return bool(transient and not fatal)
+        on_demand_remaining = any(int(x.get("remainingDueAfter") or 0) > 0 for x in (r.get("onDemandReports") or []))
+        scheduled_remaining = rolling.get("state") == "scheduled-remaining" or bool(r.get("maintenanceDeferred")) or on_demand_remaining
+        return bool((transient or scheduled_remaining) and not fatal)
     recoverable = _recoverable_partial_refresh(report)
     if recoverable:
         report["schedulerAccepted"] = True

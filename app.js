@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.43';
+const APP_VERSION = '1.6.44';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -7580,6 +7580,7 @@ async function openMountainFromNationalMap(name){
 }
 const NATIONAL_OUTLOOK_BROWSER_CACHE_KEY='traten:national-outlook:v10-daily-light-rain';
 const NATIONAL_OUTLOOK_BROWSER_CACHE_TTL=4*60*60*1000;
+const NATIONAL_OUTLOOK_BROWSER_STALE_BRIDGE_TTL=5*60*1000;
 const NATIONAL_OUTLOOK_CACHE_ENGINE='metno-gfs-mb-v10-daily-light-rain';
 function readNationalOutlookBrowserCache(date){
   try{
@@ -7590,11 +7591,17 @@ function readNationalOutlookBrowserCache(date){
 }
 function writeNationalOutlookBrowserCache(date,results,cache,engine){
   try{
-    const expiresAt=Math.min(Date.parse(cache?.freshUntil||''),Date.now()+NATIONAL_OUTLOOK_BROWSER_CACHE_TTL);
-    if(engine!==NATIONAL_OUTLOOK_CACHE_ENGINE||!Number.isFinite(expiresAt)||expiresAt<=Date.now()){
+    if(engine!==NATIONAL_OUTLOOK_CACHE_ENGINE||!Array.isArray(results)||!results.length){
       localStorage.removeItem(NATIONAL_OUTLOOK_BROWSER_CACHE_KEY);return;
     }
-    localStorage.setItem(NATIONAL_OUTLOOK_BROWSER_CACHE_KEY,JSON.stringify({date,engine,expiresAt,generatedAt:cache.generatedAt,results}));
+    const now=Date.now();
+    const serverFreshUntil=Date.parse(cache?.freshUntil||'');
+    // The server aggregate uses the oldest row. One stale mountain must not erase an otherwise
+    // useful 300-mountain browser snapshot while the background refresh is catching up.
+    const expiresAt=Number.isFinite(serverFreshUntil)&&serverFreshUntil>now
+      ? Math.min(serverFreshUntil,now+NATIONAL_OUTLOOK_BROWSER_CACHE_TTL)
+      : now+NATIONAL_OUTLOOK_BROWSER_STALE_BRIDGE_TTL;
+    localStorage.setItem(NATIONAL_OUTLOOK_BROWSER_CACHE_KEY,JSON.stringify({date,engine,expiresAt,generatedAt:cache?.generatedAt,results}));
   }catch(_){}
 }
 async function loadNationalOutlookSharedCacheOnly({silentMiss=false}={}){
