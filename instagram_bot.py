@@ -20,7 +20,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any, Callable
 
 try:
-    from PIL import Image, ImageDraw, ImageFont
+    from PIL import Image, ImageDraw, ImageFont, ImageOps
 except Exception:  # pragma: no cover - server.py handles disabled state gracefully
     Image = ImageDraw = ImageFont = None
 
@@ -43,7 +43,7 @@ if INSTAGRAM_AUTO_MEDIA not in {"carousel", "reel", "image"}:
 INSTAGRAM_REEL_FPS = max(8, min(20, int(os.environ.get("INSTAGRAM_REEL_FPS", "12"))))
 INSTAGRAM_REEL_SECONDS = max(6, min(12, int(os.environ.get("INSTAGRAM_REEL_SECONDS", "12"))))
 REEL_RENDER_REV = "master-20260909-scenes-v16-yarigatake-phone-frame-daily-rain-v1640"
-CAROUSEL_RENDER_REV = "carousel-v1649-approved-poster-map"
+CAROUSEL_RENDER_REV = "carousel-v1650-approved-ocean-islands-bg"
 CAROUSEL_PAGE_COUNT = 9
 CAROUSEL_WIDTH = 1080
 CAROUSEL_HEIGHT = 1920
@@ -1236,6 +1236,134 @@ def _carousel_fit_cover(img: "Image.Image", size: tuple[int, int]) -> "Image.Ima
     return src.crop((left, top, left + W, top + H))
 
 
+def _carousel_forecast_background_path() -> str:
+    path = os.path.join(os.path.dirname(__file__), "instagram_carousel_forecast_bg.png")
+    if not os.path.exists(path):
+        raise RuntimeError("carousel forecast background asset is missing: instagram_carousel_forecast_bg.png")
+    return path
+
+
+def _carousel_forecast_background(size: tuple[int, int]) -> "Image.Image":
+    with Image.open(_carousel_forecast_background_path()) as src:
+        return _carousel_fit_cover(src, size)
+
+
+def _carousel_remove_edge_white_background(logo: "Image.Image") -> "Image.Image":
+    rgba = logo.convert("RGBA")
+    pix = rgba.load()
+    w, h = rgba.size
+    visited = bytearray(w * h)
+    stack = []
+
+    def is_bg(x: int, y: int) -> bool:
+        r, g, b, a = pix[x, y]
+        return a > 0 and r >= 242 and g >= 242 and b >= 242
+
+    for x in range(w):
+        stack.append((x, 0))
+        stack.append((x, h - 1))
+    for y in range(h):
+        stack.append((0, y))
+        stack.append((w - 1, y))
+
+    while stack:
+        x, y = stack.pop()
+        if x < 0 or y < 0 or x >= w or y >= h:
+            continue
+        idx = y * w + x
+        if visited[idx]:
+            continue
+        visited[idx] = 1
+        if not is_bg(x, y):
+            continue
+        r, g, b, _ = pix[x, y]
+        pix[x, y] = (r, g, b, 0)
+        stack.extend(((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)))
+    return rgba
+
+
+def _carousel_overlay_logo_transparent(frame: "Image.Image", *, logo_path: str | None, x: int, y: int, max_w: int = 460) -> None:
+    path = _carousel_official_logo_path(logo_path)
+    if not path:
+        return
+    try:
+        logo = Image.open(path)
+        logo = _carousel_remove_edge_white_background(logo)
+        ratio = min(max_w / logo.width, 1.0)
+        logo = logo.resize((int(logo.width * ratio), int(logo.height * ratio)), Image.LANCZOS)
+        frame.paste(logo, (x, y), logo)
+    except Exception:
+        return
+
+
+def _carousel_background_marker_rect(W: int, H: int) -> tuple[int, int, int, int]:
+    return (
+        int(round(W * 0.132)),
+        int(round(H * 0.304)),
+        int(round(W * 0.964)),
+        int(round(H * 0.935)),
+    )
+
+
+def _carousel_project_background_marker(lat: float, lon: float, W: int, H: int) -> tuple[int, int]:
+    north, south, west, east = 46.2, 29.0, 127.0, 146.8
+    left, top, right, bottom = _carousel_background_marker_rect(W, H)
+    width = max(1, right - left)
+    height = max(1, bottom - top)
+    px = left + (lon - west) / (east - west) * width
+    py = top + (north - lat) / (north - south) * height
+
+    # Mild shear/region tuning so real mountain coordinates sit more naturally on the supplied art.
+    mid_lon = (west + east) / 2.0
+    mid_lat = (north + south) / 2.0
+    px += 1.5 * (lat - mid_lat)
+
+    # Global rightward shift requested in preview review.
+    px += 14.0
+
+    # Keep the easternmost marker fixed while stretching the rest slightly leftward.
+    right_anchor_lon = 145.122246  # 羅臼岳: easternmost point in national-100-points.json
+    anchor_px = left + (right_anchor_lon - west) / (east - west) * width
+    anchor_px += 1.5 * (44.075917 - mid_lat)
+    anchor_px += 14.0
+    if px < anchor_px:
+        px = anchor_px + (px - anchor_px) * 1.10
+
+    py += -0.8 * (lon - mid_lon)
+
+    # Global upward lift requested in preview review.
+    py -= 54.0
+
+    if lat < 33.0:
+        px += 5.0
+        py -= 10.0
+    elif lat > 42.0:
+        py -= 2.0
+    return int(round(px)), int(round(py))
+
+
+def _carousel_draw_background_markers(draw, rows: list[dict[str, Any]], W: int, H: int) -> None:
+    colors = {"A": (35, 134, 75, 255), "B": (79, 143, 58, 255), "C": (188, 145, 20, 255), "D": (226, 105, 22, 255), "E": (190, 43, 48, 255)}
+    r = max(13, min(18, int(min(W, H) * 0.0155)))
+    font = _load_font(max(18, int(r * 1.02)))
+    for row in rows:
+        try:
+            lat = float(row.get("lat"))
+            lon = float(row.get("lon"))
+            grade = str(row.get("grade") or "").upper()
+        except Exception:
+            continue
+        if grade not in colors:
+            continue
+        px, py = _carousel_project_background_marker(lat, lon, W, H)
+        if not (-r <= px <= W + r and -r <= py <= H + r):
+            continue
+        draw.ellipse((px - r - 2, py - r - 2, px + r + 2, py + r + 2), fill=(255, 255, 255, 248))
+        draw.ellipse((px - r, py - r, px + r, py + r), fill=colors[grade])
+        bb = draw.textbbox((0, 0), grade, font=font)
+        draw.text((px - (bb[2] - bb[0]) / 2, py - (bb[3] - bb[1]) / 2 - 1), grade, font=font, fill=(255, 255, 255, 255))
+
+
 def _carousel_overlay_logo(frame: "Image.Image", *, logo_path: str | None, y: int, max_w: int = 650) -> None:
     path = _carousel_official_logo_path(logo_path)
     if not path:
@@ -1297,77 +1425,56 @@ def _carousel_end_page(start_date: date, judged_at: datetime, *, logo_path: str 
 
 
 def _carousel_forecast_page(target: date, rows: list[dict[str, Any]], page: int, judged_at: datetime, *, logo_path: str | None = None) -> "Image.Image":
-    """Approved portrait forecast-page composition for carousel pages 2-8.
+    """Forecast-page composition for carousel pages 2-8 using the approved sky/ocean background.
 
-    The map is generated from the real nationwide rows.  Only display markers in
-    the Northern/Southern Alps are mildly thinned; judgment/cache data is untouched.
+    The cleaned supplied background is used as the fixed art layer. Real judged A-E
+    markers are then overlaid onto the islands with the existing nationwide rows.
     """
     W, H = CAROUSEL_WIDTH, CAROUSEL_HEIGHT
-    navy=(4,43,80,255)
-    frame = Image.new("RGB", (W, H), (246, 251, 254))
+    navy = (4, 43, 80, 255)
+    frame = _carousel_forecast_background((W, H))
     d = ImageDraw.Draw(frame, "RGBA")
 
-    # Gentle poster background; important content stays inside Instagram safe area.
-    for y in range(H):
-        t=y/max(1,H-1)
-        c=(int(252-16*t), int(254-11*t), int(255-2*t))
-        d.line((0,y,W,y), fill=(*c,255))
-
-    # Official logo.
-    logo_file = _carousel_official_logo_path(logo_path)
-    if logo_file:
-        try:
-            logo = Image.open(logo_file).convert("RGB")
-            ratio = min(350 / logo.width, 1.0)
-            logo = logo.resize((int(logo.width*ratio), int(logo.height*ratio)), Image.Resampling.LANCZOS)
-            frame.paste(logo, (78, 54))
-        except Exception:
-            pass
+    _carousel_overlay_logo_transparent(frame, logo_path=logo_path, x=46, y=48, max_w=360)
 
     jst = judged_at.astimezone(timezone(timedelta(hours=9)))
-    d.text((604,92), "判定日時", font=_load_font(34), fill=navy)
-    d.text((604,140), jst.strftime('%Y.%m.%d %H:%M'), font=_load_font(41), fill=navy)
+    d.text((630, 90), "判定日時", font=_load_font(34), fill=navy)
+    d.text((630, 138), jst.strftime('%Y.%m.%d %H:%M'), font=_load_font(41), fill=navy)
 
     wd = "月火水木金土日"[target.weekday()]
     date_text = f"{target.month}/{target.day}（{wd}）"
-    d.text((70,285), date_text, font=_load_font(102), fill=navy)
+    d.text((72, 270), date_text, font=_load_font(98), fill=navy)
     if page == 2:
-        badge, fill, bw = "明日", (255,181,0,255), 300
+        badge, fill, bw = "明日", (255, 188, 0, 255), 300
     elif page == 3:
-        badge, fill, bw = "明後日", (24,137,218,255), 330
+        badge, fill, bw = "明後日", (24, 137, 218, 255), 330
     else:
-        badge, fill, bw = "", (0,0,0,0), 0
+        badge, fill, bw = "", (0, 0, 0, 0), 0
     if badge:
-        x1=985-bw
-        d.rounded_rectangle((x1,300,985,430), radius=30, fill=fill)
-        bf=_load_font(58)
-        bb=d.textbbox((0,0),badge,font=bf)
-        d.text((x1+bw/2-(bb[2]-bb[0])/2,328), badge, font=bf, fill=(255,255,255,255))
+        x1 = 985 - bw
+        d.rounded_rectangle((x1, 292, 985, 422), radius=30, fill=fill)
+        bf = _load_font(58)
+        bb = d.textbbox((0, 0), badge, font=bf)
+        d.text((x1 + bw / 2 - (bb[2] - bb[0]) / 2, 320), badge, font=bf, fill=(255, 255, 255, 255))
 
-    d.line((70,462,1010,462), fill=(10,54,91,210), width=3)
-    d.text((70,500), "日本百名山の判定", font=_load_font(61), fill=navy)
+    d.line((70, 455, 1010, 455), fill=(10, 54, 91, 210), width=3)
+    d.text((70, 492), "日本百名山の判定", font=_load_font(61), fill=navy)
 
-    # Real existing national basemap and real judgment rows.
     display_rows = _carousel_display_rows(rows)
-    map_img = _carousel_render_japan_map(display_rows, 1030, 1240)
-    frame.paste(map_img, (25, 620))
+    _carousel_draw_background_markers(d, display_rows, W, H)
 
-    # Floating legend, sized like the approved mock.
-    d.rounded_rectangle((66,660,420,1125), radius=34, fill=(255,255,255,242), outline=(220,232,240,255), width=2)
-    labels=[("A","快適"),("B","やや良好"),("C","普通"),("D","注意"),("E","厳しい")]
-    for i,(g,label) in enumerate(labels):
-        yy=715+i*78
-        _draw_reel_grade_marker(d, 125, yy+17, g, 24)
-        d.text((175,yy-2), f"{g}：{label}", font=_load_font(36), fill=navy)
+    d.rounded_rectangle((58, 648, 438, 1115), radius=34, fill=(255, 255, 255, 242), outline=(220, 232, 240, 255), width=2)
+    labels = [("A", "快適"), ("B", "やや良好"), ("C", "普通"), ("D", "注意"), ("E", "厳しい")]
+    for i, (g, label) in enumerate(labels):
+        yy = 702 + i * 78
+        _draw_reel_grade_marker(d, 125, yy + 17, g, 24)
+        d.text((175, yy - 2), f"{g}：{label}", font=_load_font(36), fill=navy)
 
-    # Page index is useful but intentionally quiet and away from the outer edge.
-    page_text=f"{page}/9"
-    pf=_load_font(26)
-    bb=d.textbbox((0,0),page_text,font=pf)
-    d.rounded_rectangle((902,545,997,598), radius=22, fill=(4,49,86,205))
-    d.text((950-(bb[2]-bb[0])/2,555), page_text, font=pf, fill=(255,255,255,255))
-
-    # No bottom slogan/message by design.
+    page_text = f"{page}/9"
+    pf = _load_font(26)
+    bb = d.textbbox((0, 0), page_text, font=pf)
+    d.rounded_rectangle((935, 610, 1034, 664), radius=26, fill=(4, 49, 86, 205))
+    d.text((985 - (bb[2] - bb[0]) / 2, 621), page_text, font=pf, fill=(255, 255, 255, 255))
     return frame
 
 def render_national_carousel_images(start_date_text: str, results_by_date: dict[str, list[dict[str, Any]]], *, logo_path: str | None = None, judged_at: datetime | None = None) -> list[str]:
