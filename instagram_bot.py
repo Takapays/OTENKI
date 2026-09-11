@@ -37,10 +37,16 @@ INSTAGRAM_IMAGE_SECRET = os.environ.get("INSTAGRAM_IMAGE_SECRET", "").strip()
 INSTAGRAM_FONT_PATH = os.environ.get("INSTAGRAM_FONT_PATH", "").strip()
 INSTAGRAM_HTTP_TIMEOUT = max(5, min(60, int(os.environ.get("INSTAGRAM_HTTP_TIMEOUT", "25"))))
 INSTAGRAM_MIN_NATIONAL_RESULTS = max(1, min(100, int(os.environ.get("INSTAGRAM_MIN_NATIONAL_RESULTS", "98"))))
-INSTAGRAM_AUTO_MEDIA = (os.environ.get("INSTAGRAM_AUTO_MEDIA", "reel").strip().lower() or "reel")
+INSTAGRAM_AUTO_MEDIA = (os.environ.get("INSTAGRAM_AUTO_MEDIA", "carousel").strip().lower() or "carousel")
+if INSTAGRAM_AUTO_MEDIA not in {"carousel", "reel", "image"}:
+    INSTAGRAM_AUTO_MEDIA = "carousel"
 INSTAGRAM_REEL_FPS = max(8, min(20, int(os.environ.get("INSTAGRAM_REEL_FPS", "12"))))
 INSTAGRAM_REEL_SECONDS = max(6, min(12, int(os.environ.get("INSTAGRAM_REEL_SECONDS", "12"))))
 REEL_RENDER_REV = "master-20260909-scenes-v16-yarigatake-phone-frame-daily-rain-v1640"
+CAROUSEL_RENDER_REV = "carousel-v1647-forecast-design-v2"
+CAROUSEL_PAGE_COUNT = 9
+CAROUSEL_WIDTH = 1080
+CAROUSEL_HEIGHT = 1920
 
 def _resolve_persist_root() -> tuple[str, bool]:
     """Return storage root and whether it is expected to survive Render restarts.
@@ -1105,16 +1111,283 @@ def render_national_reel(date_text: str, results: list[dict[str, Any]], *, logo_
         finally:
             shutil.rmtree(work,ignore_errors=True)
 
+
+def carousel_signature(date_text: str, page: int) -> str:
+    payload = f"traten-national-carousel:{date_text}:{int(page)}:{CAROUSEL_RENDER_REV}"
+    return hmac.new(image_secret(), payload.encode("utf-8"), hashlib.sha256).hexdigest()[:32]
+
+
+def valid_carousel_signature(date_text: str, page: int, supplied: str) -> bool:
+    expected = carousel_signature(date_text, page)
+    supplied = str(supplied or "")
+    return bool(expected and supplied and hmac.compare_digest(expected, supplied))
+
+
+def carousel_image_url(date_text: str, page: int) -> str:
+    sig = carousel_signature(date_text, page)
+    return f"{PUBLIC_BASE_URL}/api/instagram/carousel-static/{urllib.parse.quote(date_text)}/{int(page)}?sig={urllib.parse.quote(sig)}"
+
+
+def carousel_image_urls(date_text: str) -> list[str]:
+    return [carousel_image_url(date_text, i) for i in range(1, CAROUSEL_PAGE_COUNT + 1)]
+
+
+def carousel_cache_path(date_text: str, page: int) -> str:
+    return os.path.join(_STATIC_DIR, f"traten-{date_text}-{CAROUSEL_RENDER_REV}-p{int(page)}.png")
+
+
+def carousel_cache_ready(date_text: str) -> bool:
+    return all(os.path.exists(carousel_cache_path(date_text, i)) and os.path.getsize(carousel_cache_path(date_text, i)) > 100000 for i in range(1, CAROUSEL_PAGE_COUNT + 1))
+
+
+def _carousel_master_path(kind: str) -> str:
+    name = "instagram_carousel_cover_master.png" if kind == "cover" else "instagram_carousel_end_master.png"
+    path = os.path.join(os.path.dirname(__file__), name)
+    if not os.path.exists(path):
+        raise RuntimeError(f"carousel master asset is missing: {name}")
+    return path
+
+
+def _carousel_official_logo_path(logo_path: str | None = None) -> str | None:
+    candidates = [
+        os.path.join(os.path.dirname(__file__), "instagram-carousel-logo.jpg"),
+        logo_path,
+        os.path.join(os.path.dirname(__file__), "traten-logo.png"),
+    ]
+    for path in candidates:
+        if path and os.path.exists(path):
+            return path
+    return None
+
+
+def _carousel_fit_cover(img: "Image.Image", size: tuple[int, int]) -> "Image.Image":
+    W, H = size
+    src = img.convert("RGB")
+    scale = max(W / src.width, H / src.height)
+    nw, nh = int(round(src.width * scale)), int(round(src.height * scale))
+    src = src.resize((nw, nh), Image.LANCZOS)
+    left = max(0, (nw - W) // 2)
+    top = max(0, (nh - H) // 2)
+    return src.crop((left, top, left + W, top + H))
+
+
+def _carousel_overlay_logo(frame: "Image.Image", *, logo_path: str | None, y: int, max_w: int = 650) -> None:
+    path = _carousel_official_logo_path(logo_path)
+    if not path:
+        return
+    try:
+        logo = Image.open(path).convert("RGB")
+        # The approved supplied logo has a white background; retain it deliberately
+        # so its exact artwork is never redrawn by Pillow or an AI generator.
+        ratio = min(max_w / logo.width, 1.0)
+        logo = logo.resize((int(logo.width * ratio), int(logo.height * ratio)), Image.LANCZOS)
+        pad_x, pad_y = 34, 22
+        box_w, box_h = logo.width + pad_x * 2, logo.height + pad_y * 2
+        x = (frame.width - box_w) // 2
+        overlay = Image.new("RGB", (box_w, box_h), (255, 255, 255))
+        overlay.paste(logo, (pad_x, pad_y))
+        frame.paste(overlay, (x, y))
+    except Exception:
+        return
+
+
+def _carousel_timestamp(draw, judged_at: datetime, *, y: int, center_x: int = 540) -> None:
+    text = f"判定日時  {judged_at.astimezone(timezone(timedelta(hours=9))).strftime('%Y.%m.%d %H:%M')}"
+    font = _load_font(37)
+    bb = draw.textbbox((0, 0), text, font=font)
+    tw, th = bb[2]-bb[0], bb[3]-bb[1]
+    x0 = center_x - tw//2 - 28
+    y0 = y - 15
+    draw.rounded_rectangle((x0, y0, center_x + tw//2 + 28, y0 + th + 32), radius=24, fill=(255,255,255,230))
+    draw.text((center_x - tw//2, y), text, font=font, fill=(7,48,83,255))
+
+
+def _carousel_cover_page(start_date: date, judged_at: datetime, *, logo_path: str | None = None) -> "Image.Image":
+    master = Image.open(_carousel_master_path("cover"))
+    frame = _carousel_fit_cover(master, (CAROUSEL_WIDTH, CAROUSEL_HEIGHT))
+    # Clear the generated mock-logo area, then place the exact supplied official logo.
+    # This preserves the approved visual composition without relying on AI-rendered brand text.
+    d = ImageDraw.Draw(frame, "RGBA")
+    d.rounded_rectangle((170, 58, 825, 485), radius=34, fill=(255,255,255,245))
+    _carousel_overlay_logo(frame, logo_path=logo_path, y=74, max_w=430)
+    d = ImageDraw.Draw(frame, "RGBA")
+    _carousel_timestamp(d, judged_at, y=395)
+    # Page marker stays inside safe area, away from Instagram edge chrome.
+    d.rounded_rectangle((835, 235, 965, 300), radius=28, fill=(4,49,86,210))
+    d.text((871, 246), "1/9", font=_load_font(31), fill=(255,255,255,255))
+    return frame
+
+
+def _carousel_end_page(start_date: date, judged_at: datetime, *, logo_path: str | None = None) -> "Image.Image":
+    master = Image.open(_carousel_master_path("end"))
+    frame = _carousel_fit_cover(master, (CAROUSEL_WIDTH, CAROUSEL_HEIGHT))
+    d = ImageDraw.Draw(frame, "RGBA")
+    d.rounded_rectangle((190, 42, 805, 390), radius=34, fill=(255,255,255,245))
+    _carousel_overlay_logo(frame, logo_path=logo_path, y=50, max_w=340)
+    d = ImageDraw.Draw(frame, "RGBA")
+    _carousel_timestamp(d, judged_at, y=305)
+    d.rounded_rectangle((835, 235, 965, 300), radius=28, fill=(4,49,86,210))
+    d.text((871, 246), "9/9", font=_load_font(31), fill=(255,255,255,255))
+    return frame
+
+
+def _carousel_forecast_page(target: date, rows: list[dict[str, Any]], page: int, judged_at: datetime, *, logo_path: str | None = None) -> "Image.Image":
+    """Forecast page design master. Reuses the existing approved nationwide map renderer unchanged."""
+    W, H = CAROUSEL_WIDTH, CAROUSEL_HEIGHT
+    navy=(7,48,83,255)
+    pale=(238,248,253,255)
+    frame = Image.new("RGB", (W, H), (245, 250, 253))
+    d = ImageDraw.Draw(frame, "RGBA")
+
+    # Soft sky-like background bands, kept subtle so the judgment map remains the visual focus.
+    for y in range(H):
+        t=y/max(1,H-1)
+        c=(int(250-17*t), int(253-10*t), int(255-4*t))
+        d.line((0,y,W,y), fill=(*c,255))
+
+    # Header safe area: all critical information is kept well inside Instagram UI edges.
+    d.rounded_rectangle((62,70,1018,590), radius=42, fill=(255,255,255,244))
+
+    # Exact supplied logo artwork; never redraw the mark or Japanese wordmark.
+    logo_file = _carousel_official_logo_path(logo_path)
+    if logo_file:
+        try:
+            logo = Image.open(logo_file).convert("RGB")
+            ratio = min(345 / logo.width, 1.0)
+            logo = logo.resize((int(logo.width * ratio), int(logo.height * ratio)), Image.LANCZOS)
+            frame.paste(logo, (105, 108))
+        except Exception:
+            pass
+
+    # Judgment timestamp, deliberately prominent but secondary to the date.
+    jst = judged_at.astimezone(timezone(timedelta(hours=9)))
+    d.text((610,122), "判定日時", font=_load_font(31), fill=navy)
+    d.text((610,164), jst.strftime('%Y.%m.%d %H:%M'), font=_load_font(39), fill=navy)
+
+    # Page marker sits inside the safe zone and is visually quiet.
+    d.rounded_rectangle((860,246,968,306), radius=24, fill=(7,48,83,215))
+    page_text=f"{page}/9"
+    pf=_load_font(28)
+    bb=d.textbbox((0,0),page_text,font=pf)
+    d.text((914-(bb[2]-bb[0])/2,258), page_text, font=pf, fill=(255,255,255,255))
+
+    wd = "月火水木金土日"[target.weekday()]
+    date_text = f"{target.month}/{target.day}（{wd}）"
+    d.text((102,320), date_text, font=_load_font(88), fill=navy)
+
+    if page == 2:
+        badge, fill = "明日", (255,181,0,255)
+    elif page == 3:
+        badge, fill = "明後日", (24,137,218,255)
+    else:
+        badge, fill = "", (0,0,0,0)
+    if badge:
+        bw=220 if page==2 else 270
+        x1=970-bw
+        d.rounded_rectangle((x1,332,970,435), radius=28, fill=fill)
+        bf=_load_font(52)
+        bb=d.textbbox((0,0),badge,font=bf)
+        d.text((x1+bw/2-(bb[2]-bb[0])/2,350), badge, font=bf, fill=(255,255,255,255))
+
+    d.line((102,458,978,458), fill=(38,105,150,170), width=3)
+    d.text((102,490), "日本百名山の判定", font=_load_font(49), fill=navy)
+
+    # Reuse the current judgment map renderer exactly as-is. Only the surrounding composition changes.
+    map_img = _render_japan_map(_reel_scene1_display_rows(rows), 1030, 1200)
+    frame.paste(map_img, (25, 610))
+
+    # Floating legend card follows the approved mock: compact, readable, and clear of Instagram edges.
+    d.rounded_rectangle((92,690,405,1095), radius=30, fill=(255,255,255,238), outline=(218,230,239,255), width=2)
+    labels=[("A","快適"),("B","やや良好"),("C","普通"),("D","注意"),("E","厳しい")]
+    for i,(g,label) in enumerate(labels):
+        yy=735+i*70
+        _draw_reel_grade_marker(d, 140, yy+18, g, 20)
+        d.text((180,yy), f"{g}：{label}", font=_load_font(32), fill=navy)
+
+    # Minimal footer: no extra information competing with the map.
+    d.rounded_rectangle((185,1818,895,1888), radius=34, fill=(255,255,255,224))
+    footer="今日よりもっと、山を楽しむために。"
+    ff=_load_font(30)
+    bb=d.textbbox((0,0),footer,font=ff)
+    d.text((540-(bb[2]-bb[0])/2,1836), footer, font=ff, fill=navy)
+    return frame
+
+def render_national_carousel_images(start_date_text: str, results_by_date: dict[str, list[dict[str, Any]]], *, logo_path: str | None = None, judged_at: datetime | None = None) -> list[str]:
+    start = date.fromisoformat(start_date_text)
+    judged_at = judged_at or datetime.now(timezone.utc)
+    expected = [(start + timedelta(days=i)).isoformat() for i in range(7)]
+    for dtext in expected:
+        rows = [dict(r) for r in (results_by_date.get(dtext) or []) if isinstance(r,dict) and str(r.get("grade") or "") in {"A","B","C","D","E"}]
+        if len(rows) < INSTAGRAM_MIN_NATIONAL_RESULTS:
+            raise RuntimeError(f"carousel requires at least {INSTAGRAM_MIN_NATIONAL_RESULTS} results for {dtext}, got {len(rows)}")
+        results_by_date[dtext] = rows
+    os.makedirs(_STATIC_DIR, exist_ok=True)
+    out_paths=[carousel_cache_path(start_date_text,i) for i in range(1,CAROUSEL_PAGE_COUNT+1)]
+    if all(os.path.exists(x) and os.path.getsize(x)>100000 for x in out_paths):
+        return out_paths
+    lock=_reel_render_lock(f"carousel:{start_date_text}:{CAROUSEL_RENDER_REV}")
+    with lock:
+        if all(os.path.exists(x) and os.path.getsize(x)>100000 for x in out_paths):
+            return out_paths
+        builders=[]
+        builders.append(_carousel_cover_page(start, judged_at, logo_path=logo_path))
+        for i,dtext in enumerate(expected):
+            builders.append(_carousel_forecast_page(date.fromisoformat(dtext), results_by_date[dtext], i+2, judged_at, logo_path=logo_path))
+        builders.append(_carousel_end_page(start, judged_at, logo_path=logo_path))
+        try:
+            for idx,img in enumerate(builders,1):
+                tmp=out_paths[idx-1]+f".{os.getpid()}.tmp.png"
+                img.save(tmp, optimize=True)
+                os.replace(tmp,out_paths[idx-1])
+        finally:
+            for img in builders:
+                try: img.close()
+                except Exception: pass
+            gc.collect()
+        return out_paths
+
+
+def _wait_media_container(creation_id: str, *, timeout: int = 90) -> str:
+    deadline=time.time()+timeout
+    last_status=""
+    while time.time()<deadline:
+        status=_graph_request(creation_id,{"fields":"status_code,status"})
+        last_status=str(status.get("status_code") or status.get("status") or "")
+        if last_status=="FINISHED": return last_status
+        if last_status in {"ERROR","EXPIRED"}:
+            raise RuntimeError(f"Instagram media container status: {last_status}")
+        time.sleep(2)
+    raise RuntimeError(f"Instagram media container did not finish: {last_status}")
+
+
+def _create_carousel_container(start_date_text: str, caption: str) -> str:
+    child_ids=[]
+    for page,url in enumerate(carousel_image_urls(start_date_text),1):
+        child=_graph_request(f"{INSTAGRAM_USER_ID}/media",{"image_url":url,"is_carousel_item":"true"},method="POST")
+        cid=str(child.get("id") or "")
+        if not cid: raise RuntimeError(f"Instagram carousel child id missing for page {page}")
+        _wait_media_container(cid, timeout=90)
+        child_ids.append(cid)
+    parent=_graph_request(f"{INSTAGRAM_USER_ID}/media",{
+        "media_type":"CAROUSEL",
+        "children":",".join(child_ids),
+        "caption":caption,
+    },method="POST")
+    pid=str(parent.get("id") or "")
+    if not pid: raise RuntimeError("Instagram carousel parent id was not returned")
+    _wait_media_container(pid, timeout=120)
+    return pid
+
 def caption_for(date_text: str, counts: dict[str, int]) -> str:
     target = date.fromisoformat(date_text)
     marker = f"#traten{target.strftime('%Y%m%d')}"
     return (
-        f"🏔 {target.month}/{target.day} 日本三百名山・全国登山天気\n\n"
+        f"🏔 {target.month}/{target.day} 日本百名山・明日から7日先までの山行予報\n\n"
         f"A：{counts.get('A', 0)}座　B：{counts.get('B', 0)}座　C：{counts.get('C', 0)}座\nD：{counts.get('D', 0)}座　E：{counts.get('E', 0)}座\n\n"
         "風・雨・気温は時間帯で大きく変わります。\n"
         "山ごとの詳しい予報は、プロフィールのリンクから『トラテン｜トラバース天気』へ。\n\n"
         "※全国判定は登山可否を保証するものではありません。現地の最新情報・警報・登山道状況も確認してください。\n\n"
-        "#登山 #登山天気 #日本三百名山 #三百名山 #日本百名山 #百名山 #山の天気 #天気予報 #登山情報 "
+        "#登山 #登山天気 #日本百名山 #百名山 #山の天気 #天気予報 #登山情報 "
         "#登山好きな人と繋がりたい #山好きな人と繋がりたい #山登り #ハイキング #トレッキング "
         "#アウトドア #山旅 #登山計画 #登山初心者 #ソロ登山 #週末登山 #絶景登山 #山岳気象 "
         "#北アルプス #中央アルプス #南アルプス #八ヶ岳 #富士山 #トラテン "
@@ -1302,7 +1575,7 @@ def _resume_pending_reel_if_needed(state: dict[str, Any] | None = None) -> bool:
     return True
 
 
-def post_national(date_text: str, results: list[dict[str, Any]], *, force: bool = False, load_reel_detail: Callable[[str], dict[str, Any]] | None = None) -> dict[str, Any]:
+def post_national(date_text: str, results: list[dict[str, Any]], *, force: bool = False, load_reel_detail: Callable[[str], dict[str, Any]] | None = None, load_carousel_results: Callable[[str], list[dict[str, Any]]] | None = None) -> dict[str, Any]:
     if not configured():
         return {"ok": False, "skipped": True, "reason": "not-configured"}
     grades = [str(r.get("grade") or "") for r in results if isinstance(r, dict)]
@@ -1323,10 +1596,31 @@ def post_national(date_text: str, results: list[dict[str, Any]], *, force: bool 
 
     # Persist the exact posting copy before any network call.  This is the
     # restart-safe source of truth for the Bot manuscript/caption.
-    media_type = "reel" if INSTAGRAM_AUTO_MEDIA == "reel" else "image"
+    media_type = INSTAGRAM_AUTO_MEDIA if INSTAGRAM_AUTO_MEDIA in {"carousel", "reel", "image"} else "carousel"
     caption = _persist_post_draft(date_text, counts, media_type=media_type)
 
-    if INSTAGRAM_AUTO_MEDIA == "reel":
+    if media_type == "carousel":
+        if load_carousel_results is None:
+            raise RuntimeError("carousel result loader is not configured")
+        start = date.fromisoformat(date_text)
+        week = {}
+        for offset in range(7):
+            dtext=(start+timedelta(days=offset)).isoformat()
+            week[dtext] = results if offset == 0 else load_carousel_results(dtext)
+        render_national_carousel_images(date_text, week, logo_path=os.path.join(os.path.dirname(__file__), "instagram-carousel-logo.jpg"))
+        creation_id = _create_carousel_container(date_text, caption)
+        publish = _graph_request(f"{INSTAGRAM_USER_ID}/media_publish", {"creation_id": creation_id}, method="POST")
+        media_id = str(publish.get("id") or "")
+        if not media_id:
+            raise RuntimeError("Instagram carousel publish id was not returned")
+        state = {
+            "lastForecastDate": date_text, "lastMediaId": media_id, "lastCreationId": creation_id,
+            "lastPostedAt": datetime.utcnow().isoformat() + "Z", "lastMediaType": "carousel",
+        }
+        _save_local_state(state)
+        return {"ok": True, "posted": True, "forecastDate": date_text, "mediaId": media_id, "creationId": creation_id, "mediaType": "carousel", "pages": 9}
+
+    if media_type == "reel":
         render_national_reel(date_text, results, logo_path=os.path.join(os.path.dirname(__file__), "traten-logo.png"), yarigatake_detail=(load_reel_detail(date_text) if load_reel_detail else None))
         create_params = {
             "media_type": "REELS",
@@ -1345,7 +1639,7 @@ def post_national(date_text: str, results: list[dict[str, Any]], *, force: bool 
     if not creation_id:
         raise RuntimeError("Instagram media container id was not returned")
 
-    if INSTAGRAM_AUTO_MEDIA == "reel":
+    if media_type == "reel":
         pending = _load_local_state()
         pending.update({
             "pendingForecastDate": date_text,
@@ -1391,7 +1685,7 @@ def maybe_post_tomorrow(*, now_jst: datetime, load_results: Callable[[str], list
         return {"ok": True, "skipped": True, "reason": "before-post-hour", "postHourJst": INSTAGRAM_AUTO_POST_HOUR_JST}
     target = now_jst.date().fromordinal(now_jst.date().toordinal() + 1).isoformat()
     results = load_results(target)
-    return post_national(target, results, force=False, load_reel_detail=load_reel_detail)
+    return post_national(target, results, force=False, load_reel_detail=load_reel_detail, load_carousel_results=load_results)
 
 
 def status() -> dict[str, Any]:

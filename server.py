@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.44"
+APP_VERSION = "1.6.47"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
@@ -194,14 +194,13 @@ _national_point_cache_lock = threading.Lock()
 _national_refresh_thread_started = False
 _national_refresh_thread_lock = threading.Lock()
 
-# V1.6.1: preserve legacy environment names, separating proactive 300 and social 100.
+# V1.6.45: proactive rolling cache is intentionally limited to the Japan 100 mountains.
+# Keep nationwide 300-mountain analysis available on demand; do not pre-warm 200/300-mountain members.
 NATIONAL_OUTLOOK_BOOT_GRACE = max(0, int(os.environ.get("NATIONAL_OUTLOOK_BOOT_GRACE", "45")))
 NATIONAL_100_ROLLING_AUTO_CACHE = os.environ.get("NATIONAL_100_ROLLING_AUTO_CACHE", os.environ.get("NATIONAL_NEXTDAY_100_AUTO_CACHE", "1")).lower() not in {"0", "false", "no", "off", ""}
 NATIONAL_100_ROLLING_DAYS = max(1, min(15, int(os.environ.get("NATIONAL_100_ROLLING_DAYS", "7"))))
 NATIONAL_100_ROLLING_DATES_PER_CYCLE = max(1, min(15, int(os.environ.get("NATIONAL_100_ROLLING_DATES_PER_CYCLE", "1"))))
-NATIONAL_PREFETCH_COUNT = int(os.environ.get("NATIONAL_PREFETCH_COUNT", "300"))
-if NATIONAL_PREFETCH_COUNT not in {100, 300}:
-    raise ValueError("NATIONAL_PREFETCH_COUNT must be 100 or 300")
+NATIONAL_PREFETCH_COUNT = 100
 NATIONAL_PREFETCH_POINTS_FILE = os.path.join(BASE, "national-runtime-points-v161.json")
 NATIONAL_REFRESH_STATUS_FILE = os.path.join(NATIONAL_OUTLOOK_CACHE_DIR, "refresh-status.json")
 _national_last_refresh_report = {}
@@ -1508,7 +1507,7 @@ def _instagram_post_with_lock(date_text, rows, *, force=False):
     if key is None:
         return {"ok":False,"skipped":True,"reason":"posting-in-progress"}
     try:
-        return instagram_bot.post_national(date_text,rows,force=force,load_reel_detail=_instagram_load_yarigatake_detail)
+        return instagram_bot.post_national(date_text,rows,force=force,load_reel_detail=_instagram_load_yarigatake_detail,load_carousel_results=_instagram_load_fresh_100_results)
     finally:
         _national_close_lock(key)
 
@@ -2763,7 +2762,7 @@ video{display:block;width:min(100%,540px);height:auto;max-height:76vh;border-rad
 </style>
 </head><body><main class="wrap">
 <h1>トラテン Instagram 管理</h1>
-<div class="sub">V1.5.190 / 接続確認・静止画/リールプレビュー・手動投稿</div>
+<div class="sub">V1.6.47 / 接続確認・9枚カルーセル/リールプレビュー・手動投稿</div>
 
 <section class="card">
 <label>管理トークン（任意・Basic認証利用時は空欄でOK）</label>
@@ -2784,10 +2783,10 @@ video{display:block;width:min(100%,540px);height:auto;max-height:76vh;border-rad
 <section class="card">
 <h2>2. 投稿画像プレビュー</h2>
 <div class="row"><div><label>予報日</label><input id="date" type="date"></div></div>
-<button onclick="preview()">静止画をプレビュー</button>
+<button onclick="preview()">9枚カルーセルをプレビュー</button>
 <button onclick="previewReelVideo()">リールをプレビュー</button>
 <div id="previewMsg" class="small"></div>
-<div id="previewStaticWrap" hidden style="display:grid;gap:12px;margin-top:10px"><img id="previewImg1" alt="Instagram投稿画像プレビュー 1枚目" hidden><img id="previewImg2" alt="Instagram投稿画像プレビュー 2枚目" hidden></div>
+<div id="previewStaticWrap" hidden style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:10px"></div>
 <div id="reelControls" hidden style="margin-top:10px"><button id="reelPlayBtn" class="secondary" type="button" onclick="playPreviewReel()" disabled>▶ リールを再生</button> <a id="reelOpenLink" href="#" target="_blank" rel="noopener" style="display:none;margin-left:8px">別タブで開く</a></div>
 <video id="previewReelVideo" controls playsinline preload="metadata" hidden style="min-height:360px;aspect-ratio:9/16;pointer-events:auto"></video>
 </section>
@@ -2822,7 +2821,6 @@ async function loadStatus(){
   try{
     const j=await api('/api/instagram/status');show('out',j);$('date').value=j.tomorrow||'';
     $('summary').innerHTML=`<span class="pill">configured: ${j.configured}</span><span class="pill">autoPost: ${j.autoPost}</span><span class="pill">autoMedia: ${j.autoMedia}</span><span class="pill">fresh: ${j.tomorrowFreshCount}</span>`;
-    if(Array.isArray(j.previewImageUrls) && j.previewImageUrls.length){$('previewStaticWrap').hidden=false;$('previewImg1').src=j.previewImageUrls[0];$('previewImg1').hidden=false;if(j.previewImageUrls[1]){$('previewImg2').src=j.previewImageUrls[1];$('previewImg2').hidden=false;}}
   }catch(e){$('out').textContent=e.message}
 }
 async function testConnection(){
@@ -2832,21 +2830,20 @@ async function testConnection(){
 async function preview(){
   try{
     const d=$('date').value;if(!d)throw new Error('予報日を選択してください');
-    const r=await api('/api/instagram/preview-url?date='+encodeURIComponent(d));
+    const r=await api('/api/instagram/carousel-preview-url?date='+encodeURIComponent(d));
     $('previewReelVideo').pause();$('previewReelVideo').hidden=true;$('reelControls').hidden=true;$('reelPlayBtn').disabled=true;$('reelOpenLink').style.display='none';
-    $('previewStaticWrap').hidden=false;$('previewImg1').hidden=true;$('previewImg2').hidden=true;
-    const urls=Array.isArray(r.previewImageUrls)&&r.previewImageUrls.length?r.previewImageUrls:(r.previewImageUrl?[r.previewImageUrl]:[]);
-    if(!urls.length) throw new Error('静止画URLを取得できませんでした');
-    if(urls[0]){$('previewImg1').src=urls[0]+'&t='+Date.now();$('previewImg1').hidden=false;}
-    if(urls[1]){$('previewImg2').src=urls[1]+'&t='+Date.now();$('previewImg2').hidden=false;}
-    $('previewMsg').textContent=`静止画: ${r.date} / ${r.count}座 / ${urls.length}枚（リールと同デザイン）`;
+    const wrap=$('previewStaticWrap');wrap.innerHTML='';wrap.hidden=false;
+    const urls=Array.isArray(r.previewImageUrls)?r.previewImageUrls:[];
+    if(urls.length!==9) throw new Error('9枚のカルーセルURLを取得できませんでした');
+    urls.forEach((u,i)=>{const img=document.createElement('img');img.alt=`Instagramカルーセル ${i+1}/9`;img.src=u+'&t='+Date.now();img.style.width='100%';img.style.marginTop='0';wrap.appendChild(img);});
+    $('previewMsg').textContent=`カルーセル: ${r.date} から7日分 / 9枚 / 百名山`; 
   }catch(e){$('previewMsg').textContent=e.message}
 }
 async function previewReelVideo(){
   try{
     const d=$('date').value;if(!d)throw new Error('予報日を選択してください');
     $('previewMsg').textContent='リール生成を開始しています…';
-    $('previewStaticWrap').hidden=true;$('previewImg1').hidden=true;$('previewImg2').hidden=true;
+    $('previewStaticWrap').hidden=true;$('previewStaticWrap').innerHTML='';
     $('reelControls').hidden=true;$('reelPlayBtn').disabled=true;$('reelOpenLink').style.display='none';
     const start=await api('/api/instagram/reel-preview-url?date='+encodeURIComponent(d));
     let r=start;
@@ -2857,7 +2854,6 @@ async function previewReelVideo(){
       if(r.error)throw new Error(r.error);
     }
     if(!r.ready)throw new Error('リール生成がタイムアウトしました。少し待って再度お試しください。');
-    $('previewImg1').hidden=true;$('previewImg2').hidden=true;
     const v=$('previewReelVideo');
     const url=r.previewReelUrl+'&t='+Date.now();
     v.hidden=false;v.controls=true;v.src=url;
@@ -2885,6 +2881,32 @@ async function postNow(){
 $('token').value=sessionStorage.getItem('tratenIgAdminToken')||'';
 </script>
 </body></html>""", content_type="text/html; charset=utf-8")
+
+
+def _instagram_load_week_100_results(start_date_text: str) -> dict[str, list[dict[str, Any]]]:
+    start = datetime.strptime(start_date_text, "%Y-%m-%d").date()
+    return {(start + timedelta(days=i)).isoformat(): _instagram_load_fresh_100_results((start + timedelta(days=i)).isoformat()) for i in range(7)}
+
+
+@app.get("/api/instagram/carousel-preview-url")
+def instagram_carousel_preview_url():
+    if not _instagram_admin_authorized():
+        return jsonify(error="unauthorized"), 401
+    date_text = str(request.args.get("date") or _national_nextday_date_text())[:10]
+    try:
+        datetime.strptime(date_text, "%Y-%m-%d")
+    except ValueError:
+        return jsonify(error="invalid date"), 400
+    week = _instagram_load_week_100_results(date_text)
+    incomplete = {d: len(rows) for d, rows in week.items() if len(rows) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS}
+    if incomplete:
+        return jsonify(error="fresh 7-day Hyakumeizan cache is incomplete", incomplete=incomplete, minimum=instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS), 409
+    try:
+        instagram_bot.render_national_carousel_images(date_text, week, logo_path=os.path.join(BASE, "instagram-carousel-logo.jpg"))
+    except Exception as exc:
+        app.logger.exception("instagram_carousel_preview_failed date=%s", date_text)
+        return jsonify(error=str(exc)[:500]), 500
+    return jsonify(date=date_text, previewImageUrls=instagram_bot.carousel_image_urls(date_text), pages=9)
 
 
 @app.get("/api/instagram/preview-url")
@@ -2994,6 +3016,28 @@ def instagram_national_image(date_text: str):
     return response
 
 
+@app.get("/api/instagram/carousel-static/<date_text>/<int:page>")
+def instagram_carousel_static(date_text: str, page: int):
+    try:
+        datetime.strptime(date_text, "%Y-%m-%d")
+    except ValueError:
+        return jsonify(error="invalid date"), 400
+    if not 1 <= page <= instagram_bot.CAROUSEL_PAGE_COUNT:
+        return jsonify(error="invalid page"), 400
+    if not instagram_bot.valid_carousel_signature(date_text, page, request.args.get("sig", "")):
+        return jsonify(error="unauthorized"), 401
+    week = _instagram_load_week_100_results(date_text)
+    incomplete = {d: len(rows) for d, rows in week.items() if len(rows) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS}
+    if incomplete:
+        return jsonify(error="fresh 7-day Hyakumeizan cache is incomplete", incomplete=incomplete), 409
+    try:
+        paths = instagram_bot.render_national_carousel_images(date_text, week, logo_path=os.path.join(BASE, "instagram-carousel-logo.jpg"))
+        return send_file(paths[page-1], mimetype="image/png", conditional=True, download_name=f"traten-{date_text}-carousel-p{page}.png")
+    except Exception as exc:
+        app.logger.exception("instagram_carousel_static_failed date=%s page=%s", date_text, page)
+        return jsonify(error=str(exc)[:500]), 500
+
+
 @app.get("/api/instagram/national-static/<date_text>/<int:page>")
 def instagram_national_static(date_text: str, page: int):
     try:
@@ -3047,6 +3091,7 @@ def instagram_status():
     if instagram_bot.configured():
         status["previewImageUrl"] = instagram_bot.static_image_url(target, 1)
         status["previewImageUrls"] = instagram_bot.static_image_urls(target)
+        status["previewCarouselUrls"] = instagram_bot.carousel_image_urls(target)
     return jsonify(status)
 
 
