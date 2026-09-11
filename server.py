@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.47"
+APP_VERSION = "1.6.49"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
@@ -2762,7 +2762,7 @@ video{display:block;width:min(100%,540px);height:auto;max-height:76vh;border-rad
 </style>
 </head><body><main class="wrap">
 <h1>トラテン Instagram 管理</h1>
-<div class="sub">V1.6.47 / 接続確認・9枚カルーセル/リールプレビュー・手動投稿</div>
+<div class="sub">V1.6.49 / 接続確認・9枚カルーセル/リールプレビュー・手動投稿</div>
 
 <section class="card">
 <label>管理トークン（任意・Basic認証利用時は空欄でOK）</label>

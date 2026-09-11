@@ -43,7 +43,7 @@ if INSTAGRAM_AUTO_MEDIA not in {"carousel", "reel", "image"}:
 INSTAGRAM_REEL_FPS = max(8, min(20, int(os.environ.get("INSTAGRAM_REEL_FPS", "12"))))
 INSTAGRAM_REEL_SECONDS = max(6, min(12, int(os.environ.get("INSTAGRAM_REEL_SECONDS", "12"))))
 REEL_RENDER_REV = "master-20260909-scenes-v16-yarigatake-phone-frame-daily-rain-v1640"
-CAROUSEL_RENDER_REV = "carousel-v1647-forecast-design-v2"
+CAROUSEL_RENDER_REV = "carousel-v1649-approved-poster-map"
 CAROUSEL_PAGE_COUNT = 9
 CAROUSEL_WIDTH = 1080
 CAROUSEL_HEIGHT = 1920
@@ -605,6 +605,71 @@ def _render_japan_map(results: list[dict[str, Any]], width: int, height: int) ->
     d.text((22,height-34), "全国マップ", font=_load_font(18), fill=(50,70,84,255))
     return crop
 
+
+
+def _carousel_display_rows(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Mild display-only thinning for carousel pages in the Northern/Southern Alps.
+
+    Judgment rows, counts and cache contents remain untouched. Central Alps and
+    every other region remain complete. Only the named Northern/Southern Alps
+    groups retain about two out of every three markers, deterministically.
+    """
+    alps_names={
+        "白馬岳","五竜岳","鹿島槍ヶ岳","剱岳","立山","薬師岳",
+        "黒部五郎岳","水晶岳（黒岳）","鷲羽岳","槍ヶ岳","奥穂高岳",
+        "常念岳","笠ヶ岳（岐阜）","焼岳","乗鞍岳",
+        "甲斐駒ヶ岳","仙丈ヶ岳","観音岳(鳳凰)","北岳","間ノ岳",
+        "塩見岳","荒川岳","赤石岳","聖岳","光岳",
+    }
+    alps=[]; outside=[]
+    for row in results:
+        if str(row.get("name") or "") in alps_names:
+            alps.append(row)
+        else:
+            outside.append(row)
+    alps=sorted(alps,key=lambda r:(-float(r.get("lat") or 0), float(r.get("lon") or 0), str(r.get("name") or "")))
+    kept=[row for i,row in enumerate(alps) if i % 3 != 2]
+    return outside + kept
+
+
+def _carousel_render_japan_map(results: list[dict[str, Any]], width: int, height: int) -> "Image.Image":
+    """Carousel-only aligned map renderer. Existing Reel renderer is untouched.
+
+    The bundled basemap contains white top/bottom safety bands. Crop those bands
+    before applying the geographic projection so real A-E markers align with the
+    islands. This function is intentionally not used by Reel generation.
+    """
+    north, south, west, east = 46.2, 29.0, 127.0, 146.8
+    base_path = os.path.join(os.path.dirname(__file__), "instagram-japan-base.png")
+    if os.path.exists(base_path):
+        src = Image.open(base_path).convert("RGB")
+        pix=src.load(); sw,sh=src.size; ys=[]; step=max(1,sw//80)
+        for y in range(sh):
+            if any(not (pix[x,y][0]>247 and pix[x,y][1]>247 and pix[x,y][2]>247) for x in range(0,sw,step)):
+                ys.append(y)
+        if ys:
+            src=src.crop((0,max(0,min(ys)-1),sw,min(sh,max(ys)+2)))
+        crop=src.resize((width,height),Image.Resampling.LANCZOS)
+    else:
+        crop=Image.new("RGB",(width,height),(210,237,249))
+    d=ImageDraw.Draw(crop,"RGBA")
+    colors={"A":(35,134,75,255),"B":(79,143,58,255),"C":(188,145,20,255),"D":(226,105,22,255),"E":(190,43,48,255)}
+    r=max(14,min(22,width//46)); font=_load_font(max(20,int(r*1.05)))
+    for row in results:
+        try:
+            lat=float(row.get("lat")); lon=float(row.get("lon")); grade=str(row.get("grade") or "").upper()
+        except Exception:
+            continue
+        if grade not in colors:
+            continue
+        px=int(round((lon-west)/(east-west)*width)); py=int(round((north-lat)/(north-south)*height))
+        if not (-r<=px<=width+r and -r<=py<=height+r):
+            continue
+        d.ellipse((px-r-2,py-r-2,px+r+2,py+r+2),fill=(255,255,255,242))
+        d.ellipse((px-r,py-r,px+r,py+r),fill=colors[grade])
+        bb=d.textbbox((0,0),grade,font=font)
+        d.text((px-(bb[2]-bb[0])/2,py-(bb[3]-bb[1])/2-1),grade,font=font,fill=(255,255,255,255))
+    return crop
 
 def _write_original_bgm(path: str, seconds: int) -> None:
     sr = 44100
@@ -1232,84 +1297,77 @@ def _carousel_end_page(start_date: date, judged_at: datetime, *, logo_path: str 
 
 
 def _carousel_forecast_page(target: date, rows: list[dict[str, Any]], page: int, judged_at: datetime, *, logo_path: str | None = None) -> "Image.Image":
-    """Forecast page design master. Reuses the existing approved nationwide map renderer unchanged."""
+    """Approved portrait forecast-page composition for carousel pages 2-8.
+
+    The map is generated from the real nationwide rows.  Only display markers in
+    the Northern/Southern Alps are mildly thinned; judgment/cache data is untouched.
+    """
     W, H = CAROUSEL_WIDTH, CAROUSEL_HEIGHT
-    navy=(7,48,83,255)
-    pale=(238,248,253,255)
-    frame = Image.new("RGB", (W, H), (245, 250, 253))
+    navy=(4,43,80,255)
+    frame = Image.new("RGB", (W, H), (246, 251, 254))
     d = ImageDraw.Draw(frame, "RGBA")
 
-    # Soft sky-like background bands, kept subtle so the judgment map remains the visual focus.
+    # Gentle poster background; important content stays inside Instagram safe area.
     for y in range(H):
         t=y/max(1,H-1)
-        c=(int(250-17*t), int(253-10*t), int(255-4*t))
+        c=(int(252-16*t), int(254-11*t), int(255-2*t))
         d.line((0,y,W,y), fill=(*c,255))
 
-    # Header safe area: all critical information is kept well inside Instagram UI edges.
-    d.rounded_rectangle((62,70,1018,590), radius=42, fill=(255,255,255,244))
-
-    # Exact supplied logo artwork; never redraw the mark or Japanese wordmark.
+    # Official logo.
     logo_file = _carousel_official_logo_path(logo_path)
     if logo_file:
         try:
             logo = Image.open(logo_file).convert("RGB")
-            ratio = min(345 / logo.width, 1.0)
-            logo = logo.resize((int(logo.width * ratio), int(logo.height * ratio)), Image.LANCZOS)
-            frame.paste(logo, (105, 108))
+            ratio = min(350 / logo.width, 1.0)
+            logo = logo.resize((int(logo.width*ratio), int(logo.height*ratio)), Image.Resampling.LANCZOS)
+            frame.paste(logo, (78, 54))
         except Exception:
             pass
 
-    # Judgment timestamp, deliberately prominent but secondary to the date.
     jst = judged_at.astimezone(timezone(timedelta(hours=9)))
-    d.text((610,122), "判定日時", font=_load_font(31), fill=navy)
-    d.text((610,164), jst.strftime('%Y.%m.%d %H:%M'), font=_load_font(39), fill=navy)
-
-    # Page marker sits inside the safe zone and is visually quiet.
-    d.rounded_rectangle((860,246,968,306), radius=24, fill=(7,48,83,215))
-    page_text=f"{page}/9"
-    pf=_load_font(28)
-    bb=d.textbbox((0,0),page_text,font=pf)
-    d.text((914-(bb[2]-bb[0])/2,258), page_text, font=pf, fill=(255,255,255,255))
+    d.text((604,92), "判定日時", font=_load_font(34), fill=navy)
+    d.text((604,140), jst.strftime('%Y.%m.%d %H:%M'), font=_load_font(41), fill=navy)
 
     wd = "月火水木金土日"[target.weekday()]
     date_text = f"{target.month}/{target.day}（{wd}）"
-    d.text((102,320), date_text, font=_load_font(88), fill=navy)
-
+    d.text((70,285), date_text, font=_load_font(102), fill=navy)
     if page == 2:
-        badge, fill = "明日", (255,181,0,255)
+        badge, fill, bw = "明日", (255,181,0,255), 300
     elif page == 3:
-        badge, fill = "明後日", (24,137,218,255)
+        badge, fill, bw = "明後日", (24,137,218,255), 330
     else:
-        badge, fill = "", (0,0,0,0)
+        badge, fill, bw = "", (0,0,0,0), 0
     if badge:
-        bw=220 if page==2 else 270
-        x1=970-bw
-        d.rounded_rectangle((x1,332,970,435), radius=28, fill=fill)
-        bf=_load_font(52)
+        x1=985-bw
+        d.rounded_rectangle((x1,300,985,430), radius=30, fill=fill)
+        bf=_load_font(58)
         bb=d.textbbox((0,0),badge,font=bf)
-        d.text((x1+bw/2-(bb[2]-bb[0])/2,350), badge, font=bf, fill=(255,255,255,255))
+        d.text((x1+bw/2-(bb[2]-bb[0])/2,328), badge, font=bf, fill=(255,255,255,255))
 
-    d.line((102,458,978,458), fill=(38,105,150,170), width=3)
-    d.text((102,490), "日本百名山の判定", font=_load_font(49), fill=navy)
+    d.line((70,462,1010,462), fill=(10,54,91,210), width=3)
+    d.text((70,500), "日本百名山の判定", font=_load_font(61), fill=navy)
 
-    # Reuse the current judgment map renderer exactly as-is. Only the surrounding composition changes.
-    map_img = _render_japan_map(_reel_scene1_display_rows(rows), 1030, 1200)
-    frame.paste(map_img, (25, 610))
+    # Real existing national basemap and real judgment rows.
+    display_rows = _carousel_display_rows(rows)
+    map_img = _carousel_render_japan_map(display_rows, 1030, 1240)
+    frame.paste(map_img, (25, 620))
 
-    # Floating legend card follows the approved mock: compact, readable, and clear of Instagram edges.
-    d.rounded_rectangle((92,690,405,1095), radius=30, fill=(255,255,255,238), outline=(218,230,239,255), width=2)
+    # Floating legend, sized like the approved mock.
+    d.rounded_rectangle((66,660,420,1125), radius=34, fill=(255,255,255,242), outline=(220,232,240,255), width=2)
     labels=[("A","快適"),("B","やや良好"),("C","普通"),("D","注意"),("E","厳しい")]
     for i,(g,label) in enumerate(labels):
-        yy=735+i*70
-        _draw_reel_grade_marker(d, 140, yy+18, g, 20)
-        d.text((180,yy), f"{g}：{label}", font=_load_font(32), fill=navy)
+        yy=715+i*78
+        _draw_reel_grade_marker(d, 125, yy+17, g, 24)
+        d.text((175,yy-2), f"{g}：{label}", font=_load_font(36), fill=navy)
 
-    # Minimal footer: no extra information competing with the map.
-    d.rounded_rectangle((185,1818,895,1888), radius=34, fill=(255,255,255,224))
-    footer="今日よりもっと、山を楽しむために。"
-    ff=_load_font(30)
-    bb=d.textbbox((0,0),footer,font=ff)
-    d.text((540-(bb[2]-bb[0])/2,1836), footer, font=ff, fill=navy)
+    # Page index is useful but intentionally quiet and away from the outer edge.
+    page_text=f"{page}/9"
+    pf=_load_font(26)
+    bb=d.textbbox((0,0),page_text,font=pf)
+    d.rounded_rectangle((902,545,997,598), radius=22, fill=(4,49,86,205))
+    d.text((950-(bb[2]-bb[0])/2,555), page_text, font=pf, fill=(255,255,255,255))
+
+    # No bottom slogan/message by design.
     return frame
 
 def render_national_carousel_images(start_date_text: str, results_by_date: dict[str, list[dict[str, Any]]], *, logo_path: str | None = None, judged_at: datetime | None = None) -> list[str]:
