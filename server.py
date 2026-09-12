@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.49"
+APP_VERSION = "1.6.51"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
@@ -2762,7 +2762,7 @@ video{display:block;width:min(100%,540px);height:auto;max-height:76vh;border-rad
 </style>
 </head><body><main class="wrap">
 <h1>トラテン Instagram 管理</h1>
-<div class="sub">V1.6.49 / 接続確認・9枚カルーセル/リールプレビュー・手動投稿</div>
+<div class="sub">V1.6.51 / 接続確認・9枚カルーセル/リールプレビュー・手動投稿</div>
 
 <section class="card">
 <label>管理トークン（任意・Basic認証利用時は空欄でOK）</label>
@@ -2888,6 +2888,82 @@ def _instagram_load_week_100_results(start_date_text: str) -> dict[str, list[dic
     return {(start + timedelta(days=i)).isoformat(): _instagram_load_fresh_100_results((start + timedelta(days=i)).isoformat()) for i in range(7)}
 
 
+def _instagram_fill_fresh_100_results_for_preview(date_text: str) -> list[dict[str, Any]]:
+    """Foreground-fill one missing Instagram preview date without relaxing freshness rules.
+
+    The rolling worker intentionally warms tomorrow onward. A carousel preview can start today,
+    so that first date may legitimately be absent even while the rolling cache is healthy. Only
+    preview generation calls this helper; posting/static signed endpoints keep their existing
+    fresh-cache requirements and never silently fall back to stale rows.
+    """
+    rows = _instagram_load_fresh_100_results(date_text)
+    if len(rows) >= instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
+        return rows
+    points = _national_load_100_points()
+    if len(points) != 100 or not _national_supabase_enabled():
+        return rows
+    try:
+        target = datetime.strptime(date_text, "%Y-%m-%d").date()
+    except ValueError:
+        return rows
+    today = (datetime.now(timezone.utc) + timedelta(hours=9)).date()
+    if target < today or target > today + timedelta(days=15):
+        return rows
+
+    fp = _national_points_fingerprint(points)
+    if not _national_try_lock(date_text, fp):
+        # A normal UI/scheduled refresh is already filling this date. Give its verified Supabase
+        # write a short propagation window, then return the authoritative fresh rows visible now.
+        for _ in range(6):
+            time.sleep(0.5)
+            rows = _instagram_load_fresh_100_results(date_text)
+            if len(rows) >= instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
+                return rows
+        return rows
+    try:
+        # Re-read inside the preview lock to avoid refetching rows completed by another worker.
+        rows = _instagram_load_fresh_100_results(date_text)
+        if len(rows) >= instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
+            return rows
+        try:
+            fresh, _, _ = _national_supabase_read(date_text, points)
+        except RuntimeError:
+            return rows
+        due = [p for p in points if p["name"] not in fresh]
+        if not due:
+            return _instagram_load_fresh_100_results(date_text)
+        initial = _national_cached_snapshot(date_text, fp, points)
+        _, report = _national_fetch_and_persist(
+            date_text, points, due, initial, allow_scheduled_remaining=False
+        )
+        if not report.get("ok"):
+            app.logger.warning(
+                "instagram_carousel_preview_cache_fill_incomplete date=%s fresh=%s remaining=%s errors=%s",
+                date_text,
+                report.get("freshAfter"),
+                report.get("remainingDueAfter"),
+                report.get("errors"),
+            )
+        return _instagram_load_fresh_100_results(date_text)
+    except Exception as exc:
+        app.logger.exception(
+            "instagram_carousel_preview_cache_fill_failed date=%s error=%s",
+            date_text,
+            type(exc).__name__,
+        )
+        return _instagram_load_fresh_100_results(date_text)
+    finally:
+        _national_unlock(date_text, fp)
+
+
+def _instagram_prepare_week_100_results_for_preview(start_date_text: str) -> dict[str, list[dict[str, Any]]]:
+    week = _instagram_load_week_100_results(start_date_text)
+    for date_text, rows in list(week.items()):
+        if len(rows) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
+            week[date_text] = _instagram_fill_fresh_100_results_for_preview(date_text)
+    return week
+
+
 @app.get("/api/instagram/carousel-preview-url")
 def instagram_carousel_preview_url():
     if not _instagram_admin_authorized():
@@ -2897,10 +2973,10 @@ def instagram_carousel_preview_url():
         datetime.strptime(date_text, "%Y-%m-%d")
     except ValueError:
         return jsonify(error="invalid date"), 400
-    week = _instagram_load_week_100_results(date_text)
+    week = _instagram_prepare_week_100_results_for_preview(date_text)
     incomplete = {d: len(rows) for d, rows in week.items() if len(rows) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS}
     if incomplete:
-        return jsonify(error="fresh 7-day Hyakumeizan cache is incomplete", incomplete=incomplete, minimum=instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS), 409
+        return jsonify(error="fresh 7-day Hyakumeizan cache is incomplete after preview refill", incomplete=incomplete, minimum=instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS), 409
     try:
         instagram_bot.render_national_carousel_images(date_text, week, logo_path=os.path.join(BASE, "instagram-carousel-logo.jpg"))
     except Exception as exc:
