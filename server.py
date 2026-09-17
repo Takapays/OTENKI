@@ -36,9 +36,16 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.54"
+APP_VERSION = "1.6.55"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
+WEATHERAPI_KEY = os.environ.get("WEATHERAPI_KEY", "").strip()
+WEATHERAPI_SHADOW_DAYS = max(1, min(3, int(os.environ.get("WEATHERAPI_SHADOW_DAYS", "3"))))
+WEATHERAPI_SHADOW_TIMEOUT = max(5, min(60, int(os.environ.get("WEATHERAPI_SHADOW_TIMEOUT", "25"))))
+WEATHERAPI_SHADOW_WORKERS = max(1, min(4, int(os.environ.get("WEATHERAPI_SHADOW_WORKERS", "2"))))
+WEATHERAPI_SHADOW_MIN_INTERVAL = max(0.0, float(os.environ.get("WEATHERAPI_SHADOW_MIN_INTERVAL", "0.20")))
+_weatherapi_shadow_lock = threading.Lock()
+_weatherapi_shadow_last_request = 0.0
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "70"))
 CACHE_TTL = int(os.environ.get("CACHE_TTL", "900"))
@@ -1780,6 +1787,184 @@ def _instagram_load_fresh_100_results(date_text: str) -> list[dict[str, Any]]:
         return []
     return ordered
 
+def _weatherapi_shadow_request_point(p: dict[str, Any]) -> dict[str, Any]:
+    """Fetch one mountain from WeatherAPI.com for shadow comparison only.
+
+    This path is intentionally independent from the production national A-E decision.
+    One API call returns up to three forecast days for the point.
+    """
+    global _weatherapi_shadow_last_request
+    if not WEATHERAPI_KEY:
+        raise RuntimeError("WEATHERAPI_KEY is not configured")
+    params = {
+        "key": WEATHERAPI_KEY,
+        "q": f'{float(p["lat"]):.5f},{float(p["lon"]):.5f}',
+        "days": str(WEATHERAPI_SHADOW_DAYS),
+        "aqi": "no",
+        "alerts": "no",
+    }
+    url = "https://api.weatherapi.com/v1/forecast.json?" + urllib.parse.urlencode(params)
+    with _weatherapi_shadow_lock:
+        wait = WEATHERAPI_SHADOW_MIN_INTERVAL - (time.monotonic() - _weatherapi_shadow_last_request)
+        if wait > 0:
+            time.sleep(wait)
+        _weatherapi_shadow_last_request = time.monotonic()
+    req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=WEATHERAPI_SHADOW_TIMEOUT) as resp:
+            if int(resp.status) != 200:
+                raise RuntimeError(f"WeatherAPI HTTP {resp.status}")
+            return json.loads(resp.read().decode("utf-8"))
+    finally:
+        with _weatherapi_shadow_lock:
+            _weatherapi_shadow_last_request = time.monotonic()
+
+
+def _weatherapi_shadow_day_result(p: dict[str, Any], day: dict[str, Any]) -> dict[str, Any] | None:
+    date_text = str(day.get("date") or "")
+    rows = []
+    for hour in day.get("hour") or []:
+        try:
+            local_hour = int(str(hour.get("time") or "")[11:13])
+        except (TypeError, ValueError):
+            continue
+        if not 6 <= local_hour <= 15:
+            continue
+        def fv(key, default=None):
+            try:
+                value = float(hour.get(key))
+                return value if math.isfinite(value) else default
+            except (TypeError, ValueError):
+                return default
+        temp = fv("temp_c")
+        wind_kph = fv("wind_kph")
+        gust_kph = fv("gust_kph")
+        rain = fv("precip_mm")
+        humidity = fv("humidity")
+        cloud = fv("cloud")
+        vis_km = fv("vis_km")
+        if temp is None or wind_kph is None or rain is None:
+            continue
+        rows.append({
+            "hour": local_hour,
+            "temp": temp,
+            "wind": wind_kph / 3.6,
+            "gust": gust_kph / 3.6 if gust_kph is not None else None,
+            "rain": rain,
+            "humidity": humidity,
+            "cloud": cloud,
+            "visibility": vis_km * 1000.0 if vis_km is not None else None,
+        })
+    if not rows:
+        return None
+    winds = [x["wind"] for x in rows]
+    gusts = [x["gust"] for x in rows if _finite(x.get("gust"))]
+    rains = [x["rain"] for x in rows]
+    temps = [x["temp"] for x in rows]
+    humidities = [x["humidity"] for x in rows if _finite(x.get("humidity"))]
+    clouds = [x["cloud"] for x in rows if _finite(x.get("cloud"))]
+    visibility = [x["visibility"] for x in rows if _finite(x.get("visibility"))]
+    caution_hours = severe_hours = extreme_hours = 0
+    for x in rows:
+        w = float(x["wind"])
+        g = float(x["gust"]) if _finite(x.get("gust")) else float("-inf")
+        r = float(x["rain"])
+        if w >= 15 or g >= 25 or r >= 6:
+            extreme_hours += 1
+        if w >= 9 or g >= 18 or r >= 1.5:
+            severe_hours += 1
+        if w >= 5 or g >= 12 or r >= 0.1:
+            caution_hours += 1
+    max_w = max(winds)
+    max_g = max(gusts) if gusts else None
+    max_r = max(rains)
+    min_t = min(temps)
+    min_v = min(visibility) if visibility else None
+    bc_caution_hours = _national_bc_caution_hours(rows)
+    grade, _ = _national_grade(
+        max_w, max_g if max_g is not None else 0, max_r, 0, min_t, min_v,
+        caution_hours=caution_hours, severe_hours=severe_hours,
+        extreme_hours=extreme_hours, bc_caution_hours=bc_caution_hours,
+    )
+    return {
+        "name": p["name"], "date": date_text,
+        "lat": p.get("lat"), "lon": p.get("lon"), "elevation": p.get("elevation"),
+        "maxWind": round(max_w, 1),
+        "maxGust": round(max_g, 1) if max_g is not None else None,
+        "maxRain": round(max_r, 1),
+        "minTemp": round(min_t, 1),
+        "minVisibility": round(min_v) if min_v is not None else None,
+        "avgHumidity": round(sum(humidities) / len(humidities), 1) if humidities else None,
+        "avgCloud": round(sum(clouds) / len(clouds), 1) if clouds else None,
+        "cautionHours": caution_hours, "severeHours": severe_hours, "extremeHours": extreme_hours,
+        "shadowGrade": grade, "source": "weatherapi-shadow",
+    }
+
+
+def _weatherapi_shadow_collect() -> dict[str, Any]:
+    points = _national_load_prefetch_points()
+    if len(points) != 100:
+        raise RuntimeError(f"WeatherAPI shadow seed count mismatch: {len(points)}/100")
+    today_jst = (datetime.now(timezone.utc) + timedelta(hours=9)).date()
+    date_texts = [(today_jst + timedelta(days=i)).isoformat() for i in range(WEATHERAPI_SHADOW_DAYS)]
+    existing = {}
+    for dtext in date_texts:
+        rows = _instagram_load_fresh_100_results(dtext)
+        existing[dtext] = {str(r.get("name")): r for r in rows if isinstance(r, dict)}
+    out_rows = []
+    errors = []
+    api_calls = 0
+
+    def one(p):
+        try:
+            payload = _weatherapi_shadow_request_point(p)
+            results = []
+            for day in ((payload.get("forecast") or {}).get("forecastday") or []):
+                row = _weatherapi_shadow_day_result(p, day)
+                if row:
+                    results.append(row)
+            return p, results, None
+        except Exception as exc:
+            return p, [], f"{type(exc).__name__}: {str(exc)[:180]}"
+
+    with ThreadPoolExecutor(max_workers=WEATHERAPI_SHADOW_WORKERS, thread_name_prefix="traten-weatherapi-shadow") as ex:
+        futures = [ex.submit(one, p) for p in points]
+        for fut in as_completed(futures):
+            p, rows, error = fut.result()
+            api_calls += 1
+            if error:
+                errors.append({"name": p["name"], "error": error})
+                continue
+            for row in rows:
+                current = existing.get(row["date"], {}).get(row["name"])
+                existing_grade = str((current or {}).get("grade") or "") or None
+                shadow_grade = row.get("shadowGrade")
+                row["existingGrade"] = existing_grade
+                row["existingSource"] = (current or {}).get("source") if current else None
+                row["gradeDelta"] = (
+                    _national_grade_rank(shadow_grade) - _national_grade_rank(existing_grade)
+                    if shadow_grade and existing_grade else None
+                )
+                out_rows.append(row)
+    out_rows.sort(key=lambda x: (x.get("date") or "", x.get("name") or ""))
+    expected_rows = len(points) * WEATHERAPI_SHADOW_DAYS
+    return {
+        "ok": len(out_rows) == expected_rows and not errors,
+        "mode": "shadow-only",
+        "provider": "WeatherAPI.com",
+        "usedByProductionGrade": False,
+        "generatedAt": datetime.now(timezone.utc).isoformat(),
+        "forecastDates": date_texts,
+        "mountainsRequested": len(points),
+        "apiCalls": api_calls,
+        "expectedRows": expected_rows,
+        "rowsReturned": len(out_rows),
+        "existingGradesFound": sum(1 for r in out_rows if r.get("existingGrade")),
+        "errors": errors,
+        "rows": out_rows,
+    }
+
+
 def _national_supabase_refresh_candidates(force: bool = False) -> dict[str, list[dict[str, Any]]]:
     """Load persistent cache rows that should be refreshed, grouped by forecast date.
 
@@ -2672,6 +2857,30 @@ def _ensure_national_refresh_worker():
             thread.start()
         except Exception:
             _national_refresh_thread_started = False;_national_close_lock(key);raise
+
+
+@app.post("/api/weatherapi-shadow/refresh")
+def weatherapi_shadow_refresh():
+    """Build a WeatherAPI.com 100-mountain x 3-day comparison JSON.
+
+    This endpoint does not write to the production national cache and does not
+    participate in the production A-E decision. It is protected by the existing
+    national-cache refresh token for scheduled GitHub Actions use.
+    """
+    if not NATIONAL_CACHE_REFRESH_TOKEN:
+        return jsonify(error="NATIONAL_CACHE_REFRESH_TOKEN is not configured"), 503
+    supplied = request.headers.get("X-Traten-Cache-Token", "")
+    if not supplied or not hmac.compare_digest(supplied, NATIONAL_CACHE_REFRESH_TOKEN):
+        return jsonify(error="unauthorized"), 401
+    if not WEATHERAPI_KEY:
+        return jsonify(error="WEATHERAPI_KEY is not configured"), 503
+    try:
+        report = _weatherapi_shadow_collect()
+    except Exception as exc:
+        app.logger.exception("weatherapi_shadow_refresh_failed")
+        return jsonify(ok=False, mode="shadow-only", error=f"{type(exc).__name__}: {str(exc)[:300]}"), 502
+    status = 200 if report.get("ok") else 206 if report.get("rowsReturned") else 502
+    return jsonify(report), status
 
 
 @app.post("/api/national-outlook/refresh-cache")

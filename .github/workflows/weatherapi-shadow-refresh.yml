@@ -1,0 +1,51 @@
+name: Refresh WeatherAPI shadow comparison
+
+on:
+  schedule:
+    # Once daily at 06:35 JST (21:35 UTC on the previous day).
+    - cron: '35 21 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: traten-weatherapi-shadow-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Build WeatherAPI shadow JSON
+        env:
+          CACHE_TOKEN: ${{ secrets.TRATEN_CACHE_REFRESH_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$CACHE_TOKEN"
+          HTTP_CODE=$(curl --show-error --silent \
+            --retry 2 --retry-all-errors --retry-delay 10 --max-time 900 \
+            -o weatherapi-shadow.json -w '%{http_code}' \
+            -X POST \
+            -H "X-Traten-Cache-Token: $CACHE_TOKEN" \
+            https://traten-1075463785472.asia-northeast1.run.app/api/weatherapi-shadow/refresh)
+          echo "HTTP ${HTTP_CODE}"
+          python3 - <<'PY'
+          import json
+          with open('weatherapi-shadow.json', encoding='utf-8') as f:
+              data = json.load(f)
+          print('ok=', data.get('ok'))
+          print('apiCalls=', data.get('apiCalls'))
+          print('rowsReturned=', data.get('rowsReturned'), '/', data.get('expectedRows'))
+          print('existingGradesFound=', data.get('existingGradesFound'))
+          print('errors=', len(data.get('errors') or []))
+          if not data.get('rowsReturned'):
+              raise SystemExit('WeatherAPI shadow refresh returned no comparison rows')
+          PY
+
+      - name: Upload daily comparison JSON
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: weatherapi-shadow-${{ github.run_id }}
+          path: weatherapi-shadow.json
+          if-no-files-found: error
+          retention-days: 30
