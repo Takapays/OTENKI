@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.53';
+const APP_VERSION = '1.6.54';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -167,6 +167,27 @@ function syncVisibleAppVersion(){
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',syncVisibleAppVersion,{once:true});
 else syncVisibleAppVersion();
+
+// V1.6.54: show the migration notice only on the legacy Render-hosted public site.
+function showRenderMigrationNotice(){
+  if(window.location.hostname!=='otenki.onrender.com')return;
+  if(!document.getElementById('mountainArea'))return;
+  if(document.getElementById('renderMigrationNotice'))return;
+  const notice=document.createElement('div');
+  notice.id='renderMigrationNotice';
+  notice.setAttribute('role','status');
+  notice.style.cssText='box-sizing:border-box;width:100%;padding:10px 14px;text-align:center;background:#fff4d6;border-bottom:1px solid #e5c46b;color:#17324a;font-weight:700;font-size:14px;line-height:1.55;';
+  const text=document.createElement('span');
+  text.textContent='トラテンは新しいアドレスへ移行しました　';
+  const link=document.createElement('a');
+  link.href='https://traten-1075463785472.asia-northeast1.run.app';
+  link.textContent='新アドレスはこちら';
+  link.style.cssText='color:#075ea8;text-decoration:underline;font-weight:800;';
+  notice.append(text,link);
+  document.body.insertBefore(notice,document.body.firstChild);
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',showRenderMigrationNotice,{once:true});
+else showRenderMigrationNotice();
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
