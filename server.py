@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.51"
+APP_VERSION = "1.6.52"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
@@ -2762,7 +2762,7 @@ video{display:block;width:min(100%,540px);height:auto;max-height:76vh;border-rad
 </style>
 </head><body><main class="wrap">
 <h1>トラテン Instagram 管理</h1>
-<div class="sub">V1.6.51 / 接続確認・9枚カルーセル/リールプレビュー・手動投稿</div>
+<div class="sub">V1.6.52 / 接続確認・10枚カルーセル/リールプレビュー・手動投稿</div>
 
 <section class="card">
 <label>管理トークン（任意・Basic認証利用時は空欄でOK）</label>
@@ -2783,7 +2783,7 @@ video{display:block;width:min(100%,540px);height:auto;max-height:76vh;border-rad
 <section class="card">
 <h2>2. 投稿画像プレビュー</h2>
 <div class="row"><div><label>予報日</label><input id="date" type="date"></div></div>
-<button onclick="preview()">9枚カルーセルをプレビュー</button>
+<button onclick="preview()">10枚カルーセルをプレビュー</button>
 <button onclick="previewReelVideo()">リールをプレビュー</button>
 <div id="previewMsg" class="small"></div>
 <div id="previewStaticWrap" hidden style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:10px"></div>
@@ -2834,9 +2834,9 @@ async function preview(){
     $('previewReelVideo').pause();$('previewReelVideo').hidden=true;$('reelControls').hidden=true;$('reelPlayBtn').disabled=true;$('reelOpenLink').style.display='none';
     const wrap=$('previewStaticWrap');wrap.innerHTML='';wrap.hidden=false;
     const urls=Array.isArray(r.previewImageUrls)?r.previewImageUrls:[];
-    if(urls.length!==9) throw new Error('9枚のカルーセルURLを取得できませんでした');
-    urls.forEach((u,i)=>{const img=document.createElement('img');img.alt=`Instagramカルーセル ${i+1}/9`;img.src=u+'&t='+Date.now();img.style.width='100%';img.style.marginTop='0';wrap.appendChild(img);});
-    $('previewMsg').textContent=`カルーセル: ${r.date} から7日分 / 9枚 / 百名山`; 
+    if(urls.length!==10) throw new Error('10枚のカルーセルURLを取得できませんでした');
+    urls.forEach((u,i)=>{const img=document.createElement('img');img.alt=`Instagramカルーセル ${i+1}/10`;img.src=u+'&t='+Date.now();img.style.width='100%';img.style.marginTop='0';wrap.appendChild(img);});
+    $('previewMsg').textContent=`カルーセル: ${r.date} から7日分 / 10枚 / 百名山`; 
   }catch(e){$('previewMsg').textContent=e.message}
 }
 async function previewReelVideo(){

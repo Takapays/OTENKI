@@ -43,8 +43,8 @@ if INSTAGRAM_AUTO_MEDIA not in {"carousel", "reel", "image"}:
 INSTAGRAM_REEL_FPS = max(8, min(20, int(os.environ.get("INSTAGRAM_REEL_FPS", "12"))))
 INSTAGRAM_REEL_SECONDS = max(6, min(12, int(os.environ.get("INSTAGRAM_REEL_SECONDS", "12"))))
 REEL_RENDER_REV = "master-20260909-scenes-v16-yarigatake-phone-frame-daily-rain-v1640"
-CAROUSEL_RENDER_REV = "carousel-v1650-approved-ocean-islands-bg"
-CAROUSEL_PAGE_COUNT = 9
+CAROUSEL_RENDER_REV = "carousel-v1652-approved-ocean-islands-bg-plus-promo-page"
+CAROUSEL_PAGE_COUNT = 10
 CAROUSEL_WIDTH = 1080
 CAROUSEL_HEIGHT = 1920
 
@@ -1213,6 +1213,18 @@ def _carousel_master_path(kind: str) -> str:
     return path
 
 
+def _carousel_promo_page_path() -> str:
+    name = "instagram_carousel_promo_page9.png"
+    path = os.path.join(os.path.dirname(__file__), name)
+    if not os.path.exists(path):
+        raise RuntimeError(f"carousel promo asset is missing: {name}")
+    return path
+
+
+def _carousel_page_label(page: int) -> str:
+    return f"{int(page)}/{CAROUSEL_PAGE_COUNT}"
+
+
 def _carousel_official_logo_path(logo_path: str | None = None) -> str | None:
     candidates = [
         os.path.join(os.path.dirname(__file__), "instagram-carousel-logo.jpg"),
@@ -1298,54 +1310,21 @@ def _carousel_overlay_logo_transparent(frame: "Image.Image", *, logo_path: str |
 
 def _carousel_background_marker_rect(W: int, H: int) -> tuple[int, int, int, int]:
     return (
-        int(round(W * 0.132)),
-        int(round(H * 0.304)),
-        int(round(W * 0.964)),
-        int(round(H * 0.935)),
+        int(round(W * 0.036)),
+        int(round(H * 0.292)),
+        int(round(W * 0.965)),
+        int(round(H * 0.938)),
     )
 
 
-def _carousel_project_background_marker(lat: float, lon: float, W: int, H: int) -> tuple[int, int]:
+def _carousel_draw_background_markers(draw, rows: list[dict[str, Any]], W: int, H: int) -> None:
     north, south, west, east = 46.2, 29.0, 127.0, 146.8
     left, top, right, bottom = _carousel_background_marker_rect(W, H)
+    colors = {"A": (35, 134, 75, 255), "B": (79, 143, 58, 255), "C": (188, 145, 20, 255), "D": (226, 105, 22, 255), "E": (190, 43, 48, 255)}
+    r = max(14, min(20, int(min(W, H) * 0.017)))
+    font = _load_font(max(20, int(r * 1.05)))
     width = max(1, right - left)
     height = max(1, bottom - top)
-    px = left + (lon - west) / (east - west) * width
-    py = top + (north - lat) / (north - south) * height
-
-    # Mild shear/region tuning so real mountain coordinates sit more naturally on the supplied art.
-    mid_lon = (west + east) / 2.0
-    mid_lat = (north + south) / 2.0
-    px += 1.5 * (lat - mid_lat)
-
-    # Global rightward shift requested in preview review.
-    px += 14.0
-
-    # Keep the easternmost marker fixed while stretching the rest slightly leftward.
-    right_anchor_lon = 145.122246  # 羅臼岳: easternmost point in national-100-points.json
-    anchor_px = left + (right_anchor_lon - west) / (east - west) * width
-    anchor_px += 1.5 * (44.075917 - mid_lat)
-    anchor_px += 14.0
-    if px < anchor_px:
-        px = anchor_px + (px - anchor_px) * 1.10
-
-    py += -0.8 * (lon - mid_lon)
-
-    # Global upward lift requested in preview review.
-    py -= 54.0
-
-    if lat < 33.0:
-        px += 5.0
-        py -= 10.0
-    elif lat > 42.0:
-        py -= 2.0
-    return int(round(px)), int(round(py))
-
-
-def _carousel_draw_background_markers(draw, rows: list[dict[str, Any]], W: int, H: int) -> None:
-    colors = {"A": (35, 134, 75, 255), "B": (79, 143, 58, 255), "C": (188, 145, 20, 255), "D": (226, 105, 22, 255), "E": (190, 43, 48, 255)}
-    r = max(13, min(18, int(min(W, H) * 0.0155)))
-    font = _load_font(max(18, int(r * 1.02)))
     for row in rows:
         try:
             lat = float(row.get("lat"))
@@ -1355,10 +1334,11 @@ def _carousel_draw_background_markers(draw, rows: list[dict[str, Any]], W: int, 
             continue
         if grade not in colors:
             continue
-        px, py = _carousel_project_background_marker(lat, lon, W, H)
+        px = int(round(left + (lon - west) / (east - west) * width))
+        py = int(round(top + (north - lat) / (north - south) * height))
         if not (-r <= px <= W + r and -r <= py <= H + r):
             continue
-        draw.ellipse((px - r - 2, py - r - 2, px + r + 2, py + r + 2), fill=(255, 255, 255, 248))
+        draw.ellipse((px - r - 2, py - r - 2, px + r + 2, py + r + 2), fill=(255, 255, 255, 242))
         draw.ellipse((px - r, py - r, px + r, py + r), fill=colors[grade])
         bb = draw.textbbox((0, 0), grade, font=font)
         draw.text((px - (bb[2] - bb[0]) / 2, py - (bb[3] - bb[1]) / 2 - 1), grade, font=font, fill=(255, 255, 255, 255))
@@ -1407,7 +1387,7 @@ def _carousel_cover_page(start_date: date, judged_at: datetime, *, logo_path: st
     _carousel_timestamp(d, judged_at, y=395)
     # Page marker stays inside safe area, away from Instagram edge chrome.
     d.rounded_rectangle((835, 235, 965, 300), radius=28, fill=(4,49,86,210))
-    d.text((871, 246), "1/9", font=_load_font(31), fill=(255,255,255,255))
+    d.text((862, 246), _carousel_page_label(1), font=_load_font(31), fill=(255,255,255,255))
     return frame
 
 
@@ -1420,7 +1400,7 @@ def _carousel_end_page(start_date: date, judged_at: datetime, *, logo_path: str 
     d = ImageDraw.Draw(frame, "RGBA")
     _carousel_timestamp(d, judged_at, y=305)
     d.rounded_rectangle((835, 235, 965, 300), radius=28, fill=(4,49,86,210))
-    d.text((871, 246), "9/9", font=_load_font(31), fill=(255,255,255,255))
+    d.text((853, 246), _carousel_page_label(CAROUSEL_PAGE_COUNT), font=_load_font(31), fill=(255,255,255,255))
     return frame
 
 
@@ -1435,15 +1415,15 @@ def _carousel_forecast_page(target: date, rows: list[dict[str, Any]], page: int,
     frame = _carousel_forecast_background((W, H))
     d = ImageDraw.Draw(frame, "RGBA")
 
-    _carousel_overlay_logo_transparent(frame, logo_path=logo_path, x=46, y=48, max_w=360)
+    _carousel_overlay_logo_transparent(frame, logo_path=logo_path, x=62, y=46, max_w=430)
 
     jst = judged_at.astimezone(timezone(timedelta(hours=9)))
-    d.text((630, 90), "判定日時", font=_load_font(34), fill=navy)
-    d.text((630, 138), jst.strftime('%Y.%m.%d %H:%M'), font=_load_font(41), fill=navy)
+    d.text((625, 93), "判定日時", font=_load_font(34), fill=navy)
+    d.text((625, 140), jst.strftime('%Y.%m.%d %H:%M'), font=_load_font(41), fill=navy)
 
     wd = "月火水木金土日"[target.weekday()]
     date_text = f"{target.month}/{target.day}（{wd}）"
-    d.text((72, 270), date_text, font=_load_font(98), fill=navy)
+    d.text((72, 282), date_text, font=_load_font(102), fill=navy)
     if page == 2:
         badge, fill, bw = "明日", (255, 188, 0, 255), 300
     elif page == 3:
@@ -1452,29 +1432,29 @@ def _carousel_forecast_page(target: date, rows: list[dict[str, Any]], page: int,
         badge, fill, bw = "", (0, 0, 0, 0), 0
     if badge:
         x1 = 985 - bw
-        d.rounded_rectangle((x1, 292, 985, 422), radius=30, fill=fill)
+        d.rounded_rectangle((x1, 300, 985, 430), radius=30, fill=fill)
         bf = _load_font(58)
         bb = d.textbbox((0, 0), badge, font=bf)
-        d.text((x1 + bw / 2 - (bb[2] - bb[0]) / 2, 320), badge, font=bf, fill=(255, 255, 255, 255))
+        d.text((x1 + bw / 2 - (bb[2] - bb[0]) / 2, 328), badge, font=bf, fill=(255, 255, 255, 255))
 
-    d.line((70, 455, 1010, 455), fill=(10, 54, 91, 210), width=3)
-    d.text((70, 492), "日本百名山の判定", font=_load_font(61), fill=navy)
+    d.line((70, 462, 1010, 462), fill=(10, 54, 91, 210), width=3)
+    d.text((70, 500), "日本百名山の判定", font=_load_font(61), fill=navy)
 
     display_rows = _carousel_display_rows(rows)
     _carousel_draw_background_markers(d, display_rows, W, H)
 
-    d.rounded_rectangle((58, 648, 438, 1115), radius=34, fill=(255, 255, 255, 242), outline=(220, 232, 240, 255), width=2)
+    d.rounded_rectangle((66, 660, 440, 1125), radius=34, fill=(255, 255, 255, 242), outline=(220, 232, 240, 255), width=2)
     labels = [("A", "快適"), ("B", "やや良好"), ("C", "普通"), ("D", "注意"), ("E", "厳しい")]
     for i, (g, label) in enumerate(labels):
-        yy = 702 + i * 78
+        yy = 715 + i * 78
         _draw_reel_grade_marker(d, 125, yy + 17, g, 24)
         d.text((175, yy - 2), f"{g}：{label}", font=_load_font(36), fill=navy)
 
-    page_text = f"{page}/9"
+    page_text = _carousel_page_label(page)
     pf = _load_font(26)
     bb = d.textbbox((0, 0), page_text, font=pf)
-    d.rounded_rectangle((935, 610, 1034, 664), radius=26, fill=(4, 49, 86, 205))
-    d.text((985 - (bb[2] - bb[0]) / 2, 621), page_text, font=pf, fill=(255, 255, 255, 255))
+    d.rounded_rectangle((902, 545, 997, 598), radius=22, fill=(4, 49, 86, 205))
+    d.text((950 - (bb[2] - bb[0]) / 2, 555), page_text, font=pf, fill=(255, 255, 255, 255))
     return frame
 
 def render_national_carousel_images(start_date_text: str, results_by_date: dict[str, list[dict[str, Any]]], *, logo_path: str | None = None, judged_at: datetime | None = None) -> list[str]:
@@ -1495,18 +1475,24 @@ def render_national_carousel_images(start_date_text: str, results_by_date: dict[
         if all(os.path.exists(x) and os.path.getsize(x)>100000 for x in out_paths):
             return out_paths
         builders=[]
-        builders.append(_carousel_cover_page(start, judged_at, logo_path=logo_path))
+        builders.append(("image", _carousel_cover_page(start, judged_at, logo_path=logo_path)))
         for i,dtext in enumerate(expected):
-            builders.append(_carousel_forecast_page(date.fromisoformat(dtext), results_by_date[dtext], i+2, judged_at, logo_path=logo_path))
-        builders.append(_carousel_end_page(start, judged_at, logo_path=logo_path))
+            builders.append(("image", _carousel_forecast_page(date.fromisoformat(dtext), results_by_date[dtext], i+2, judged_at, logo_path=logo_path)))
+        builders.append(("copy", _carousel_promo_page_path()))
+        builders.append(("image", _carousel_end_page(start, judged_at, logo_path=logo_path)))
         try:
-            for idx,img in enumerate(builders,1):
+            for idx,(kind,payload) in enumerate(builders,1):
                 tmp=out_paths[idx-1]+f".{os.getpid()}.tmp.png"
-                img.save(tmp, optimize=True)
+                if kind == "copy":
+                    shutil.copyfile(payload, tmp)
+                else:
+                    payload.save(tmp, optimize=True)
                 os.replace(tmp,out_paths[idx-1])
         finally:
-            for img in builders:
-                try: img.close()
+            for kind,payload in builders:
+                if kind != "image":
+                    continue
+                try: payload.close()
                 except Exception: pass
             gc.collect()
         return out_paths
@@ -1783,7 +1769,7 @@ def post_national(date_text: str, results: list[dict[str, Any]], *, force: bool 
             "lastPostedAt": datetime.utcnow().isoformat() + "Z", "lastMediaType": "carousel",
         }
         _save_local_state(state)
-        return {"ok": True, "posted": True, "forecastDate": date_text, "mediaId": media_id, "creationId": creation_id, "mediaType": "carousel", "pages": 9}
+        return {"ok": True, "posted": True, "forecastDate": date_text, "mediaId": media_id, "creationId": creation_id, "mediaType": "carousel", "pages": CAROUSEL_PAGE_COUNT}
 
     if media_type == "reel":
         render_national_reel(date_text, results, logo_path=os.path.join(os.path.dirname(__file__), "traten-logo.png"), yarigatake_detail=(load_reel_detail(date_text) if load_reel_detail else None))
