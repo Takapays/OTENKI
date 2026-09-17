@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.55"
+APP_VERSION = "1.6.56"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 WEATHERAPI_KEY = os.environ.get("WEATHERAPI_KEY", "").strip()
@@ -1918,10 +1918,34 @@ def _weatherapi_shadow_collect() -> dict[str, Any]:
     def one(p):
         try:
             payload = _weatherapi_shadow_request_point(p)
+            location = payload.get("location") or {}
+            try:
+                weatherapi_lat = float(location.get("lat"))
+                weatherapi_lon = float(location.get("lon"))
+                mountain_lat = float(p["lat"])
+                mountain_lon = float(p["lon"])
+                phi1 = math.radians(mountain_lat)
+                phi2 = math.radians(weatherapi_lat)
+                dphi = math.radians(weatherapi_lat - mountain_lat)
+                dlambda = math.radians(weatherapi_lon - mountain_lon)
+                hav = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+                location_distance_km = 6371.0088 * 2 * math.atan2(math.sqrt(hav), math.sqrt(max(0.0, 1.0 - hav)))
+            except (TypeError, ValueError, KeyError):
+                weatherapi_lat = None
+                weatherapi_lon = None
+                location_distance_km = None
+            location_meta = {
+                "weatherapiName": str(location.get("name") or "") or None,
+                "weatherapiRegion": str(location.get("region") or "") or None,
+                "weatherapiLat": round(weatherapi_lat, 5) if weatherapi_lat is not None else None,
+                "weatherapiLon": round(weatherapi_lon, 5) if weatherapi_lon is not None else None,
+                "weatherapiLocationDistanceKm": round(location_distance_km, 2) if location_distance_km is not None else None,
+            }
             results = []
             for day in ((payload.get("forecast") or {}).get("forecastday") or []):
                 row = _weatherapi_shadow_day_result(p, day)
                 if row:
+                    row.update(location_meta)
                     results.append(row)
             return p, results, None
         except Exception as exc:
@@ -1948,6 +1972,17 @@ def _weatherapi_shadow_collect() -> dict[str, Any]:
                 out_rows.append(row)
     out_rows.sort(key=lambda x: (x.get("date") or "", x.get("name") or ""))
     expected_rows = len(points) * WEATHERAPI_SHADOW_DAYS
+    mountain_locations = {}
+    for row in out_rows:
+        if row.get("name") not in mountain_locations:
+            mountain_locations[row.get("name")] = row
+    located = [r for r in mountain_locations.values() if r.get("weatherapiLat") is not None and r.get("weatherapiLon") is not None]
+    location_groups = {}
+    for row in located:
+        key = f'{float(row["weatherapiLat"]):.5f},{float(row["weatherapiLon"]):.5f}'
+        location_groups.setdefault(key, []).append(row.get("name"))
+    distances = [float(r["weatherapiLocationDistanceKm"]) for r in located if _finite(r.get("weatherapiLocationDistanceKm"))]
+    duplicate_groups = {k: sorted(set(v)) for k, v in location_groups.items() if len(set(v)) > 1}
     return {
         "ok": len(out_rows) == expected_rows and not errors,
         "mode": "shadow-only",
@@ -1960,6 +1995,12 @@ def _weatherapi_shadow_collect() -> dict[str, Any]:
         "expectedRows": expected_rows,
         "rowsReturned": len(out_rows),
         "existingGradesFound": sum(1 for r in out_rows if r.get("existingGrade")),
+        "weatherapiLocationsFound": len(located),
+        "uniqueWeatherapiLocations": len(location_groups),
+        "sharedWeatherapiLocationGroups": len(duplicate_groups),
+        "avgWeatherapiLocationDistanceKm": round(sum(distances) / len(distances), 2) if distances else None,
+        "maxWeatherapiLocationDistanceKm": round(max(distances), 2) if distances else None,
+        "sharedWeatherapiLocations": duplicate_groups,
         "errors": errors,
         "rows": out_rows,
     }
