@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.56"
+APP_VERSION = "1.6.57"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 WEATHERAPI_KEY = os.environ.get("WEATHERAPI_KEY", "").strip()
@@ -44,6 +44,9 @@ WEATHERAPI_SHADOW_DAYS = max(1, min(3, int(os.environ.get("WEATHERAPI_SHADOW_DAY
 WEATHERAPI_SHADOW_TIMEOUT = max(5, min(60, int(os.environ.get("WEATHERAPI_SHADOW_TIMEOUT", "25"))))
 WEATHERAPI_SHADOW_WORKERS = max(1, min(4, int(os.environ.get("WEATHERAPI_SHADOW_WORKERS", "2"))))
 WEATHERAPI_SHADOW_MIN_INTERVAL = max(0.0, float(os.environ.get("WEATHERAPI_SHADOW_MIN_INTERVAL", "0.20")))
+WEATHERAPI_GUARD_MAX_DISTANCE_KM = max(1.0, float(os.environ.get("WEATHERAPI_GUARD_MAX_DISTANCE_KM", "10.0")))
+WEATHERAPI_GUARD_MAX_AGE_SECONDS = max(3600, int(os.environ.get("WEATHERAPI_GUARD_MAX_AGE_SECONDS", str(36 * 3600))))
+WEATHERAPI_GUARD_VERSION = "v1657-safe-side-v1"
 _weatherapi_shadow_lock = threading.Lock()
 _weatherapi_shadow_last_request = 0.0
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
@@ -1312,6 +1315,9 @@ def _national_fetch_and_persist(date_text, points, due, initial=None, *, deadlin
         try:
             received,complete,limited,warning = _national_fetch_shared(date_text,batch)
             valid = _national_valid_results(batch,received,fetched_at=at)
+            # V1.6.57: preserve a still-current daily WeatherAPI safety overlay across base-model refreshes.
+            for name, fresh_row in list(valid.items()):
+                valid[name] = _weatherapi_guard_carry_forward(fresh_row, rows.get(name), date_text)
             rows.update(valid); fetched_names.update(valid)
             cr.update(fetched=len(valid),completeFetch=bool(complete and len(valid)==len(batch)),rateLimited=bool(limited))
             if valid:
@@ -1901,6 +1907,154 @@ def _weatherapi_shadow_day_result(p: dict[str, Any], day: dict[str, Any]) -> dic
     }
 
 
+
+def _weatherapi_guard_base_result(row: dict[str, Any]) -> dict[str, Any]:
+    """Return the underlying production result before a prior WeatherAPI safety overlay."""
+    out = dict(row or {})
+    if out.get("weatherapiBaseGrade") in {"A", "B", "C", "D", "E"}:
+        out["grade"] = out.get("weatherapiBaseGrade")
+    if out.get("weatherapiBaseSummary") is not None:
+        out["summary"] = out.get("weatherapiBaseSummary")
+    for key in list(out):
+        if key.startswith("weatherapi"):
+            out.pop(key, None)
+    return out
+
+
+def _weatherapi_guard_overlay(base_row: dict[str, Any], shadow_row: dict[str, Any], *, fetched_at: str, today_jst) -> dict[str, Any]:
+    """Apply WeatherAPI only as a bounded safety-side overlay.
+
+    WeatherAPI never improves the production grade. A one-step downgrade is allowed only
+    for today/tomorrow, a >=2-grade worse shadow, material rain/severe hours, and a returned
+    WeatherAPI location within the configured distance. Other qualifying disagreements are
+    retained as warnings only.
+    """
+    base = _weatherapi_guard_base_result(base_row)
+    grade = str(base.get("grade") or "")
+    shadow_grade = str(shadow_row.get("shadowGrade") or "")
+    if grade not in {"A", "B", "C", "D", "E"} or shadow_grade not in {"A", "B", "C", "D", "E"}:
+        return dict(base_row)
+    try:
+        target = datetime.strptime(str(shadow_row.get("date") or ""), "%Y-%m-%d").date()
+        day_offset = (target - today_jst).days
+    except ValueError:
+        day_offset = None
+    delta = _national_grade_rank(shadow_grade) - _national_grade_rank(grade)
+    max_rain = float(shadow_row.get("maxRain") or 0)
+    severe_hours = int(shadow_row.get("severeHours") or 0)
+    distance = shadow_row.get("weatherapiLocationDistanceKm")
+    distance_ok = _finite(distance) and float(distance) <= WEATHERAPI_GUARD_MAX_DISTANCE_KM
+    adverse = delta >= 2 and (max_rain >= 1.5 or severe_hours >= 2)
+    can_adjust = bool(adverse and day_offset in {0, 1} and distance_ok)
+    warning = None
+    applied = False
+    out = dict(base)
+    if adverse:
+        if can_adjust:
+            ranks = ["A", "B", "C", "D", "E"]
+            out["grade"] = ranks[min(4, _national_grade_rank(grade) + 1)]
+            applied = out["grade"] != grade
+            warning = "WeatherAPI.comでも悪天候予報あり。安全側へ1段階補正しています。"
+            base_summary = str(base.get("summary") or "")
+            suffix = "WeatherAPI.comの悪天候予報を安全側補助として反映。"
+            out["summary"] = f"{base_summary} {suffix}".strip()
+        elif day_offset == 2:
+            warning = "WeatherAPI.comの2日先予報では、既存判定より悪い予報があります（警告のみ）。"
+        elif not distance_ok:
+            warning = "WeatherAPI.comの周辺地点予報では、既存判定より悪い予報があります（距離差のため警告のみ）。"
+        else:
+            warning = "WeatherAPI.comでは、既存判定より悪い予報があります（警告のみ）。"
+    out.update({
+        "weatherapiGuardVersion": WEATHERAPI_GUARD_VERSION,
+        "weatherapiFetchedAt": fetched_at,
+        "weatherapiForecastDate": shadow_row.get("date"),
+        "weatherapiDayOffset": day_offset,
+        "weatherapiBaseGrade": grade,
+        "weatherapiBaseSummary": base.get("summary"),
+        "weatherapiShadowGrade": shadow_grade,
+        "weatherapiGradeDelta": delta,
+        "weatherapiMaxRain": shadow_row.get("maxRain"),
+        "weatherapiSevereHours": shadow_row.get("severeHours"),
+        "weatherapiLocationDistanceKm": distance,
+        "weatherapiApplied": applied,
+        "weatherapiWarning": warning,
+        "weatherapiProvider": "WeatherAPI.com",
+    })
+    if "_cache_meta" in base_row:
+        out["_cache_meta"] = dict(base_row["_cache_meta"])
+    return out
+
+
+def _weatherapi_guard_carry_forward(new_row: dict[str, Any], previous_row: dict[str, Any] | None, date_text: str) -> dict[str, Any]:
+    """Carry a still-current daily WeatherAPI overlay across MET/GFS cache refreshes."""
+    if not isinstance(previous_row, dict) or not previous_row.get("weatherapiFetchedAt"):
+        return new_row
+    if str(previous_row.get("weatherapiForecastDate") or "") != str(date_text):
+        return new_row
+    try:
+        fetched = datetime.fromisoformat(str(previous_row["weatherapiFetchedAt"]).replace("Z", "+00:00"))
+        age = (datetime.now(timezone.utc) - fetched.astimezone(timezone.utc)).total_seconds()
+    except Exception:
+        return new_row
+    if age < 0 or age > WEATHERAPI_GUARD_MAX_AGE_SECONDS:
+        return new_row
+    shadow = {
+        "date": date_text,
+        "shadowGrade": previous_row.get("weatherapiShadowGrade"),
+        "maxRain": previous_row.get("weatherapiMaxRain"),
+        "severeHours": previous_row.get("weatherapiSevereHours"),
+        "weatherapiLocationDistanceKm": previous_row.get("weatherapiLocationDistanceKm"),
+    }
+    today_jst = (datetime.now(timezone.utc) + timedelta(hours=9)).date()
+    return _weatherapi_guard_overlay(new_row, shadow, fetched_at=previous_row["weatherapiFetchedAt"], today_jst=today_jst)
+
+
+def _weatherapi_daily_summary(rows: list[dict[str, Any]], *, production_applied: int, production_warnings: int) -> dict[str, Any]:
+    comparable = [r for r in rows if r.get("existingGrade") in {"A","B","C","D","E"} and r.get("shadowGrade") in {"A","B","C","D","E"}]
+
+    def summarize(items):
+        exact = one = two_plus = optimistic = pessimistic = 0
+        bins = {"0-5km":{"count":0,"twoPlus":0},"5-10km":{"count":0,"twoPlus":0},">10km":{"count":0,"twoPlus":0},"unknown":{"count":0,"twoPlus":0}}
+        for r in items:
+            delta = _national_grade_rank(r["shadowGrade"]) - _national_grade_rank(r["existingGrade"])
+            ad = abs(delta)
+            if ad == 0: exact += 1
+            elif ad == 1: one += 1
+            else: two_plus += 1
+            if delta < 0: optimistic += 1
+            elif delta > 0: pessimistic += 1
+            dist = r.get("weatherapiLocationDistanceKm")
+            if not _finite(dist): key = "unknown"
+            elif float(dist) <= 5: key = "0-5km"
+            elif float(dist) <= 10: key = "5-10km"
+            else: key = ">10km"
+            bins[key]["count"] += 1
+            if ad >= 2: bins[key]["twoPlus"] += 1
+        total = len(items)
+        for v in bins.values():
+            v["twoPlusRatePct"] = round(v["twoPlus"] / v["count"] * 100, 1) if v["count"] else None
+        return {
+            "comparableRows": total,
+            "exactMatches": exact,
+            "exactMatchRatePct": round(exact / total * 100, 1) if total else None,
+            "oneGradeDiff": one,
+            "twoOrMoreGradeDiff": two_plus,
+            "twoOrMoreGradeDiffRatePct": round(two_plus / total * 100, 1) if total else None,
+            "weatherapiMoreOptimistic": optimistic,
+            "weatherapiMorePessimistic": pessimistic,
+            "distanceBins": bins,
+        }
+
+    overall = summarize(comparable)
+    dates = {}
+    for r in comparable:
+        dates.setdefault(str(r.get("date") or ""), []).append(r)
+    overall["byDate"] = {d: summarize(items) for d, items in sorted(dates.items())}
+    overall["productionAdjustmentsApplied"] = production_applied
+    overall["productionWarnings"] = production_warnings
+    return overall
+
+
 def _weatherapi_shadow_collect() -> dict[str, Any]:
     points = _national_load_prefetch_points()
     if len(points) != 100:
@@ -1909,8 +2063,11 @@ def _weatherapi_shadow_collect() -> dict[str, Any]:
     date_texts = [(today_jst + timedelta(days=i)).isoformat() for i in range(WEATHERAPI_SHADOW_DAYS)]
     existing = {}
     for dtext in date_texts:
-        rows = _instagram_load_fresh_100_results(dtext)
-        existing[dtext] = {str(r.get("name")): r for r in rows if isinstance(r, dict)}
+        try:
+            fresh, _, _ = _national_supabase_read(dtext, points)
+        except RuntimeError:
+            fresh = {}
+        existing[dtext] = {str(name): row for name, row in fresh.items() if isinstance(row, dict)}
     out_rows = []
     errors = []
     api_calls = 0
@@ -1961,10 +2118,11 @@ def _weatherapi_shadow_collect() -> dict[str, Any]:
                 continue
             for row in rows:
                 current = existing.get(row["date"], {}).get(row["name"])
-                existing_grade = str((current or {}).get("grade") or "") or None
+                current_base = _weatherapi_guard_base_result(current or {})
+                existing_grade = str(current_base.get("grade") or "") or None
                 shadow_grade = row.get("shadowGrade")
                 row["existingGrade"] = existing_grade
-                row["existingSource"] = (current or {}).get("source") if current else None
+                row["existingSource"] = current_base.get("source") if current_base else None
                 row["gradeDelta"] = (
                     _national_grade_rank(shadow_grade) - _national_grade_rank(existing_grade)
                     if shadow_grade and existing_grade else None
@@ -1983,11 +2141,52 @@ def _weatherapi_shadow_collect() -> dict[str, Any]:
         location_groups.setdefault(key, []).append(row.get("name"))
     distances = [float(r["weatherapiLocationDistanceKm"]) for r in located if _finite(r.get("weatherapiLocationDistanceKm"))]
     duplicate_groups = {k: sorted(set(v)) for k, v in location_groups.items() if len(set(v)) > 1}
+
+    # V1.6.57: persist WeatherAPI only as a bounded safety-side overlay on the existing
+    # production cache. The underlying MET/GFS grade remains recorded as weatherapiBaseGrade.
+    guard_fetched_at = datetime.now(timezone.utc).isoformat()
+    production_applied = 0
+    production_warnings = 0
+    production_write_errors = []
+    rows_by_date = {}
+    for row in out_rows:
+        rows_by_date.setdefault(row.get("date"), {})[row.get("name")] = row
+    point_by_name = {p["name"]: p for p in points}
+    for dtext in date_texts:
+        shadow_by_name = rows_by_date.get(dtext) or {}
+        updates = []
+        update_points = []
+        date_applied = 0
+        date_warnings = 0
+        for name, shadow in shadow_by_name.items():
+            current = existing.get(dtext, {}).get(name)
+            point = point_by_name.get(name)
+            if not isinstance(current, dict) or not point:
+                continue
+            updated = _weatherapi_guard_overlay(current, shadow, fetched_at=guard_fetched_at, today_jst=today_jst)
+            if updated.get("weatherapiApplied"):
+                date_applied += 1
+            if updated.get("weatherapiWarning"):
+                date_warnings += 1
+            updates.append(updated)
+            update_points.append(point)
+        if updates:
+            if _national_supabase_write(dtext, update_points, updates):
+                production_applied += date_applied
+                production_warnings += date_warnings
+            else:
+                production_write_errors.append({"date": dtext, "error": "WeatherAPI production overlay write failed"})
+    errors.extend(production_write_errors)
+    daily_summary = _weatherapi_daily_summary(out_rows, production_applied=production_applied, production_warnings=production_warnings)
     return {
         "ok": len(out_rows) == expected_rows and not errors,
-        "mode": "shadow-only",
+        "mode": "shadow-plus-safe-side-production-guard",
         "provider": "WeatherAPI.com",
-        "usedByProductionGrade": False,
+        "usedByProductionGrade": True,
+        "productionPolicy": "worse-only; max one grade; today/tomorrow and <=10km; day2/>10km warning-only",
+        "productionAdjustmentsApplied": production_applied,
+        "productionWarnings": production_warnings,
+        "dailySummary": daily_summary,
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "forecastDates": date_texts,
         "mountainsRequested": len(points),

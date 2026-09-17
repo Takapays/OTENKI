@@ -36,6 +36,22 @@ jobs:
           print('apiCalls=', data.get('apiCalls'))
           print('rowsReturned=', data.get('rowsReturned'), '/', data.get('expectedRows'))
           print('existingGradesFound=', data.get('existingGradesFound'))
+          print('productionAdjustmentsApplied=', data.get('productionAdjustmentsApplied'))
+          print('productionWarnings=', data.get('productionWarnings'))
+          print('dailySummary=', json.dumps(data.get('dailySummary') or {}, ensure_ascii=False))
+          with open('weatherapi-shadow-summary.json','w',encoding='utf-8') as out:
+              json.dump({
+                  'generatedAt': data.get('generatedAt'),
+                  'forecastDates': data.get('forecastDates'),
+                  'provider': data.get('provider'),
+                  'productionPolicy': data.get('productionPolicy'),
+                  'dailySummary': data.get('dailySummary'),
+                  'avgWeatherapiLocationDistanceKm': data.get('avgWeatherapiLocationDistanceKm'),
+                  'maxWeatherapiLocationDistanceKm': data.get('maxWeatherapiLocationDistanceKm'),
+                  'uniqueWeatherapiLocations': data.get('uniqueWeatherapiLocations'),
+                  'sharedWeatherapiLocationGroups': data.get('sharedWeatherapiLocationGroups'),
+                  'errors': data.get('errors') or [],
+              },out,ensure_ascii=False,indent=2)
           print('errors=', len(data.get('errors') or []))
           if not data.get('rowsReturned'):
               raise SystemExit('WeatherAPI shadow refresh returned no comparison rows')
@@ -46,6 +62,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: weatherapi-shadow-${{ github.run_id }}
-          path: weatherapi-shadow.json
+          path: |
+            weatherapi-shadow.json
+            weatherapi-shadow-summary.json
           if-no-files-found: error
           retention-days: 30

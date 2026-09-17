@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.56';
+const APP_VERSION = '1.6.57';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -168,10 +168,11 @@ function syncVisibleAppVersion(){
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',syncVisibleAppVersion,{once:true});
 else syncVisibleAppVersion();
 
-// V1.6.54: show the migration notice only on the legacy Render-hosted public site.
+// V1.6.57: show the migration notice only on the legacy Render-hosted public top page.
 function showRenderMigrationNotice(){
   if(window.location.hostname!=='otenki.onrender.com')return;
-  if(!document.getElementById('mountainArea'))return;
+  const path=window.location.pathname||'/';
+  if(path!=='/'&&path!=='/index.html')return;
   if(document.getElementById('renderMigrationNotice'))return;
   const notice=document.createElement('div');
   notice.id='renderMigrationNotice';
@@ -7527,7 +7528,8 @@ function showNationalOutlookDetail(p,result){
   const summary=result?esc(result.summary||''):(p.eligible?'まだ判定していません。日付を選んで「全国を判定」を押してください。':'全国簡易判定は対象外です。');
   const mbFetched=!!result?.modelValues?.meteoblue;
   const mbUsed=!!result?.meteoblueUsed;
-  const sourceNote=result?`<span class="national-backup-source">簡易判定：${String(result.source||'').includes('element-policy')?`要素別統合（MET Norway / NOAA GFS${mbFetched?' / meteoblue':''}${mbUsed?'・仲裁あり':''}）`:result.source==='metno'?'MET Norway':result.source==='gfs'?'NOAA GFS':'MET Norway / NOAA GFS'}</span>`:'';
+  const sourceNote=result?`<span class="national-backup-source">簡易判定：${String(result.source||'').includes('element-policy')?`要素別統合（MET Norway / NOAA GFS${mbFetched?' / meteoblue':''}${mbUsed?'・仲裁あり':''}）`:result.source==='metno'?'MET Norway':result.source==='gfs'?'NOAA GFS':'MET Norway / NOAA GFS'}${result.weatherapiProvider?' / 補助データ: WeatherAPI.com':''}</span>`:'';
+  const weatherapiNotice=result?.weatherapiWarning?`<div style="margin-top:8px;padding:9px 11px;border-radius:9px;background:#fff4d6;border:1px solid #e5c46b;color:#6d4d00;font-size:13px;font-weight:700;line-height:1.55">${esc(result.weatherapiWarning)}${Number.isFinite(Number(result.weatherapiLocationDistanceKm))?` <small>WeatherAPI返却地点との距離 約${Number(result.weatherapiLocationDistanceKm).toFixed(1)}km</small>`:''}</div>`:'';
   box.innerHTML=`
     <div class="national-rich-hero${photo?' has-photo':''}"${heroStyle}>
       <button type="button" class="national-detail-close" aria-label="山の情報を閉じる"><span aria-hidden="true">×</span><b>閉じる</b></button>
@@ -7540,7 +7542,7 @@ function showNationalOutlookDetail(p,result){
       ${result?`<div class="national-model-top national-model-slot-desktop" data-national-model-detail="desktop"><div class="national-model-loading">時間帯別解析中・・<span class="national-loading-dots" aria-hidden="true"></span></div></div>`:''}
       ${result?`<div class="national-model-top national-model-slot-mobile" data-national-model-detail="mobile"><div class="national-model-loading">時間帯別解析中・・<span class="national-loading-dots" aria-hidden="true"></span></div></div>`:''}
       <div class="national-rich-content">
-      <div class="national-rich-summary"><strong>${grade==='?'?'全国一括簡易判定':'6〜15時の簡易判定'}</strong><p>${summary}</p>${sourceNote}</div>
+      <div class="national-rich-summary"><strong>${grade==='?'?'全国一括簡易判定':'6〜15時の簡易判定'}</strong><p>${summary}</p>${sourceNote}${weatherapiNotice}</div>
       ${result?`<div class="national-rich-metrics">${metrics}</div>`:''}
       ${guideHtml}
       ${courseHtml}
