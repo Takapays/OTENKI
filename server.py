@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.57"
+APP_VERSION = "1.6.58"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 WEATHERAPI_KEY = os.environ.get("WEATHERAPI_KEY", "").strip()
@@ -4592,9 +4592,7 @@ def usage_dashboard_data():
 
 @app.get("/")
 def index():
-    response = send_from_directory(BASE, "index.html")
-    response.headers["Cache-Control"] = "no-cache, max-age=0, must-revalidate"
-    return response
+    return _serve_public_html("index.html")
 
 
 @app.get("/robots.txt")
