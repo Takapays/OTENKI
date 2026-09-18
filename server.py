@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.59"
+APP_VERSION = "1.6.60"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 WEATHERAPI_KEY = os.environ.get("WEATHERAPI_KEY", "").strip()
@@ -1298,7 +1298,7 @@ def _national_fetch_and_persist(date_text, points, due, initial=None, *, deadlin
     fp = _national_points_fingerprint(points)
     rows = _national_valid_results(points,(initial or {}).get("results") or [])
     fetched_names = set(); persisted_names = set(); verification_pending = set(); errors = []; warnings = []; chunks = []; limited = False
-    persistent = _national_supabase_enabled(); attempted = 0; deferred_by_budget = 0
+    persistent = _national_supabase_enabled() and not _national_supabase_fallback_active(); attempted = 0; deferred_by_budget = 0
     for start in range(0,len(due),NATIONAL_OUTLOOK_CHUNK_SIZE):
         if _national_refresh_stop.is_set():
             errors.append("refresh interrupted"); break
@@ -1347,7 +1347,13 @@ def _national_fetch_and_persist(date_text, points, due, initial=None, *, deadlin
                                 cr["warning"] = "database write acknowledged; read-back verification pending"
                                 warnings.append("database read-back incomplete; next refresh will verify/retry")
                     else:
-                        cr["error"] = "database write failed"
+                        if _national_supabase_fallback_active():
+                            persistent = False
+                            cr["localSaved"] = len(valid)
+                            cr["warning"] = "Supabase temporarily unavailable; local-only fallback active"
+                            warnings.append("Supabase temporarily unavailable; nationwide cache continuing in local-only mode")
+                        else:
+                            cr["error"] = "database write failed"
                 else:
                     cr["localSaved"] = len(valid)
             if not cr["completeFetch"] and not cr["error"]:
@@ -1367,15 +1373,20 @@ def _national_fetch_and_persist(date_text, points, due, initial=None, *, deadlin
         try:
             fresh_names, stale_names, _ = _national_supabase_read_meta(date_text,points)
         except RuntimeError as exc:
-            fresh_names, stale_names = set(), set()
-            errors.append(str(exc))
-        persisted_names.update(fresh_names & fetched_names)
-        unconfirmed = fetched_names - fresh_names
-        if unconfirmed and not errors:
-            verification_pending.update(unconfirmed)
-            warnings.append(f"database final read-back pending for {len(unconfirmed)} rows; next refresh will verify/retry")
-        fresh_count = len(fresh_names); stored = len(fresh_names|stale_names)
-    else:
+            if _national_supabase_fallback_active():
+                persistent = False
+                warnings.append("Supabase temporarily unavailable; final cache verification using local-only fallback")
+            else:
+                fresh_names, stale_names = set(), set()
+                errors.append(str(exc))
+        if persistent:
+            persisted_names.update(fresh_names & fetched_names)
+            unconfirmed = fetched_names - fresh_names
+            if unconfirmed and not errors:
+                verification_pending.update(unconfirmed)
+                warnings.append(f"database final read-back pending for {len(unconfirmed)} rows; next refresh will verify/retry")
+            fresh_count = len(fresh_names); stored = len(fresh_names|stale_names)
+    if not persistent:
         fresh_count = sum(r["_cache_meta"]["fresh_until"] > time.time() for r in snap["results"])
         stored = len(snap["results"])
     remaining = max(0,len(points)-fresh_count)
@@ -1421,25 +1432,47 @@ def _national_rolling_100_date_texts():
     today = (datetime.now(timezone.utc)+timedelta(hours=9)).date()
     return [(today+timedelta(days=i)).isoformat() for i in range(1,NATIONAL_100_ROLLING_DAYS+1)]
 
+def _national_100_date_local_cache_status(date_text, points, *, force=False, reason=None):
+    fp = _national_points_fingerprint(points)
+    snap, _ = _national_read_disk_cache(date_text, fp)
+    rows = _national_valid_results(points, (snap or {}).get("results") or [])
+    now = time.time()
+    fresh = {name for name,row in rows.items() if row["_cache_meta"]["fresh_until"] > now}
+    stale = set(rows) - fresh
+    due = points if force else [p for p in points if p["name"] not in fresh]
+    return {"date":date_text,"seedCount":len(points),"freshBefore":len(fresh),"staleBefore":len(stale),
+        "missingBefore":max(0,len(points)-len(fresh|stale)),"pointsDue":len(due),
+        "pointsUpdated":0,"ok":not due,"processed":False,"backend":"local-only",
+        "fallbackReason":reason or _national_supabase_fallback_reason()}, due
+
 def _national_100_date_cache_status(date_text, points, *, force=False):
-    fresh,stale,_ = _national_supabase_read(date_text,points)
+    try:
+        fresh,stale,_ = _national_supabase_read(date_text,points)
+    except RuntimeError as exc:
+        if _national_supabase_fallback_active():
+            return _national_100_date_local_cache_status(date_text,points,force=force,reason=str(exc))
+        raise
     due = points if force else [p for p in points if p["name"] not in fresh]
     return {"date":date_text,"seedCount":len(points),"freshBefore":len(fresh),"staleBefore":len(stale),
         "missingBefore":max(0,len(points)-len(set(fresh)|set(stale))),"pointsDue":len(due),
-        "pointsUpdated":0,"ok":not due,"processed":False}, due
+        "pointsUpdated":0,"ok":not due,"processed":False,"backend":"supabase+local"}, due
 
 def _refresh_rolling_100_cache(*, force=False, max_dates=None, deadline=None):
     # Legacy function name is retained for compatibility, scope is explicit in the report.
     points = _national_load_prefetch_points(); dates = _national_rolling_100_date_texts()
     report = {"ok":True,"rollingDays":len(dates),"seedCount":len(points),"targetRows":len(points)*len(dates),
         "windowStart":dates[0],"windowEnd":dates[-1],"datesInspected":0,"datesDue":0,"datesProcessed":0,
-        "pointsDue":0,"pointsUpdated":0,"dateReports":[],"errors":[],"windowComplete":False}
+        "pointsDue":0,"pointsUpdated":0,"dateReports":[],"errors":[],"warnings":[],"fallbackActive":False,"windowComplete":False}
     if len(points)!=NATIONAL_PREFETCH_COUNT or not _national_supabase_enabled():
         report.update(ok=False,error=f"Seed count/configuration mismatch: {len(points)}/{NATIONAL_PREFETCH_COUNT}")
         return report
     due_dates = []
     for d in dates:
         status,due = _national_100_date_cache_status(d,points,force=force)
+        if status.get("backend") == "local-only":
+            report["fallbackActive"] = True
+            if not report["warnings"]:
+                report["warnings"].append("Supabase temporarily unavailable; rolling 100 cache is using local-only fallback")
         report["dateReports"].append(status); report["datesInspected"]+=1; report["pointsDue"]+=len(due)
         if due:
             due_dates.append((d,due,status))
@@ -1649,9 +1682,55 @@ NATIONAL_SUPABASE_VERIFY_DELAY = max(0.1, min(3.0, float(os.environ.get("NATIONA
 # The foreground/user path is intentionally unbounded so a user-triggered national analysis can still finish all due rows.
 NATIONAL_SCHEDULED_REFRESH_BUDGET = max(90, min(240, int(os.environ.get("NATIONAL_SCHEDULED_REFRESH_BUDGET", "210"))))
 NATIONAL_SCHEDULED_REFRESH_BATCH_GUARD = max(15, min(90, int(os.environ.get("NATIONAL_SCHEDULED_REFRESH_BATCH_GUARD", "60"))))
+# V1.6.60: keep nationwide forecast generation alive during temporary Supabase fair-use/HTTP outages.
+# This is a bounded circuit breaker; after the interval expires the next cache access retries Supabase
+# automatically, so normal supabase+local operation resumes without a redeploy.
+NATIONAL_SUPABASE_FALLBACK_SECONDS = max(60, min(3600, int(os.environ.get("NATIONAL_SUPABASE_FALLBACK_SECONDS", "600"))))
+_national_supabase_degraded_lock = threading.Lock()
+_national_supabase_degraded_until = 0.0
+_national_supabase_degraded_reason = None
 
 def _national_supabase_enabled() -> bool:
     return bool(SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY and NATIONAL_SUPABASE_CACHE_TABLE)
+
+def _national_supabase_recoverable_failure(exc: Exception) -> bool:
+    if isinstance(exc, urllib.error.HTTPError):
+        try:
+            code = int(exc.code)
+        except (TypeError, ValueError):
+            return False
+        return code in {402, 429} or 500 <= code <= 599
+    return isinstance(exc, (urllib.error.URLError, TimeoutError))
+
+def _national_mark_supabase_degraded(exc: Exception) -> bool:
+    global _national_supabase_degraded_until, _national_supabase_degraded_reason
+    if not _national_supabase_recoverable_failure(exc):
+        return False
+    if isinstance(exc, urllib.error.HTTPError):
+        reason = f"http_{int(exc.code)}"
+    elif isinstance(exc, urllib.error.URLError):
+        reason = "url_error"
+    else:
+        reason = "timeout"
+    with _national_supabase_degraded_lock:
+        _national_supabase_degraded_until = max(_national_supabase_degraded_until, time.time() + NATIONAL_SUPABASE_FALLBACK_SECONDS)
+        _national_supabase_degraded_reason = reason
+    app.logger.warning("national_supabase_local_fallback reason=%s seconds=%s", reason, NATIONAL_SUPABASE_FALLBACK_SECONDS)
+    return True
+
+def _national_clear_supabase_degraded() -> None:
+    global _national_supabase_degraded_until, _national_supabase_degraded_reason
+    with _national_supabase_degraded_lock:
+        _national_supabase_degraded_until = 0.0
+        _national_supabase_degraded_reason = None
+
+def _national_supabase_fallback_active() -> bool:
+    with _national_supabase_degraded_lock:
+        return bool(_national_supabase_degraded_until > time.time())
+
+def _national_supabase_fallback_reason() -> str | None:
+    with _national_supabase_degraded_lock:
+        return _national_supabase_degraded_reason if _national_supabase_degraded_until > time.time() else None
 
 def _national_supabase_key(date_text: str, p: dict[str, Any]) -> str:
     raw=f'{NATIONAL_OUTLOOK_ENGINE}|{date_text}|{p["name"]}|{p["lat"]:.5f}|{p["lon"]:.5f}|{"" if p.get("elevation") is None else round(float(p["elevation"]))}'
@@ -1661,6 +1740,8 @@ def _national_supabase_read(date_text, points):
     """Return fresh, stale and original per-row timestamps; never reset freshness on reads."""
     if not _national_supabase_enabled():
         return {}, {}, {}
+    if _national_supabase_fallback_active():
+        raise RuntimeError("persistent cache temporarily unavailable; local-only fallback active")
     params = {"select":"cache_key,mountain_name,result,generated_ts,fresh_until,stale_until",
               "forecast_date":f"eq.{date_text}", "engine":f"eq.{NATIONAL_OUTLOOK_ENGINE}",
               "stale_until":f"gt.{time.time()}", "limit":"1000"}
@@ -1669,9 +1750,12 @@ def _national_supabase_read(date_text, points):
     try:
         with urllib.request.urlopen(req, timeout=NATIONAL_SUPABASE_TIMEOUT) as resp:
             data = json.loads(resp.read().decode("utf-8"))
+        _national_clear_supabase_degraded()
     except Exception as exc:
+        degraded = _national_mark_supabase_degraded(exc)
         app.logger.warning("national_cache_read_failed %s", type(exc).__name__)
-        raise RuntimeError("persistent cache read failed") from exc
+        message = "persistent cache temporarily unavailable; local-only fallback active" if degraded else "persistent cache read failed"
+        raise RuntimeError(message) from exc
     wanted = {_national_supabase_key(date_text,p):p["name"] for p in points}
     fresh, stale, meta_by_name = {}, {}, {}
     for dbrow in data if isinstance(data,list) else []:
@@ -1695,6 +1779,8 @@ def _national_supabase_read_meta(date_text, points):
     """
     if not _national_supabase_enabled():
         return set(), set(), {}
+    if _national_supabase_fallback_active():
+        raise RuntimeError("persistent cache temporarily unavailable; local-only fallback active")
     params = {"select":"cache_key,generated_ts,fresh_until,stale_until",
               "forecast_date":f"eq.{date_text}", "engine":f"eq.{NATIONAL_OUTLOOK_ENGINE}",
               "stale_until":f"gt.{time.time()}", "limit":"1000"}
@@ -1703,9 +1789,12 @@ def _national_supabase_read_meta(date_text, points):
     try:
         with urllib.request.urlopen(req, timeout=NATIONAL_SUPABASE_TIMEOUT) as resp:
             data = json.loads(resp.read().decode("utf-8"))
+        _national_clear_supabase_degraded()
     except Exception as exc:
+        degraded = _national_mark_supabase_degraded(exc)
         app.logger.warning("national_cache_meta_read_failed %s", type(exc).__name__)
-        raise RuntimeError("persistent cache metadata read failed") from exc
+        message = "persistent cache temporarily unavailable; local-only fallback active" if degraded else "persistent cache metadata read failed"
+        raise RuntimeError(message) from exc
     wanted = {_national_supabase_key(date_text,p):p["name"] for p in points}
     fresh_names, stale_names, meta_by_name = set(), set(), {}
     now = time.time()
@@ -1725,7 +1814,7 @@ def _national_supabase_read_meta(date_text, points):
 
 def _national_supabase_write(date_text, points, results):
     """Acknowledge writes; cached rows retain their source-generation timestamp."""
-    if not _national_supabase_enabled():
+    if not _national_supabase_enabled() or _national_supabase_fallback_active():
         return False
     by_name = {p["name"]:p for p in points}
     valid = _national_valid_results(points,results)
@@ -1746,8 +1835,12 @@ def _national_supabase_write(date_text, points, results):
         headers={**_supabase_headers(),"Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=minimal"})
     try:
         with urllib.request.urlopen(req,timeout=NATIONAL_SUPABASE_TIMEOUT) as resp:
-            return 200 <= resp.status < 300
+            ok = 200 <= resp.status < 300
+        if ok:
+            _national_clear_supabase_degraded()
+        return ok
     except Exception as exc:
+        _national_mark_supabase_degraded(exc)
         app.logger.warning("national_cache_write_failed %s", type(exc).__name__)
         return False
 
@@ -2248,7 +2341,7 @@ def _national_supabase_refresh_candidates(force: bool = False) -> dict[str, list
     This makes the refresh worker independent from Render's ephemeral /tmp files.
     Rows survive deploys/restarts in Supabase, so a scheduled wake-up can refresh them.
     """
-    if not _national_supabase_enabled():
+    if not _national_supabase_enabled() or _national_supabase_fallback_active():
         return {}
     now = time.time()
     today_jst = (datetime.now(timezone.utc) + timedelta(hours=9)).date()
@@ -2263,9 +2356,12 @@ def _national_supabase_refresh_candidates(force: bool = False) -> dict[str, list
     try:
         with urllib.request.urlopen(req, timeout=NATIONAL_SUPABASE_TIMEOUT) as resp:
             rows = json.loads(resp.read().decode("utf-8"))
+        _national_clear_supabase_degraded()
     except Exception as exc:
+        degraded = _national_mark_supabase_degraded(exc)
         app.logger.warning("national_refresh_seed_failed %s", type(exc).__name__)
-        raise RuntimeError("persistent cache candidate read failed") from exc
+        message = "persistent cache temporarily unavailable; local-only fallback active" if degraded else "persistent cache candidate read failed"
+        raise RuntimeError(message) from exc
     groups: dict[str, list[dict[str, Any]]] = {}
     seen: set[tuple[str, str]] = set()
     for row in rows if isinstance(rows, list) else []:
@@ -2307,6 +2403,7 @@ def _refresh_national_persistent_cache(*, force=False):
             "datesChecked":rolling.get("datesInspected",0),"datesDue":rolling.get("datesDue",0),
             "datesProcessed":rolling.get("datesProcessed",0),"pointsDue":rolling.get("pointsDue",0),
             "pointsUpdated":rolling.get("pointsUpdated",0),"errors":list(rolling.get("errors",[])),
+            "warnings":list(rolling.get("warnings",[])),"fallbackActive":bool(rolling.get("fallbackActive")),
             "backgroundScope":f"{NATIONAL_PREFETCH_COUNT}-mountains-next-{NATIONAL_100_ROLLING_DAYS}-days",
             "onDemandReports":[]}
         if rolling.get("error"):
@@ -2314,7 +2411,15 @@ def _refresh_national_persistent_cache(*, force=False):
         # Preserve current stale maintenance for previously requested non-prefetch dates/points.
         seeds = {p["name"] for p in _national_load_prefetch_points()} if NATIONAL_100_ROLLING_AUTO_CACHE else set()
         dates = set(_national_rolling_100_date_texts())
-        groups = _national_supabase_refresh_candidates(force=force)
+        try:
+            groups = _national_supabase_refresh_candidates(force=force)
+        except RuntimeError as exc:
+            if _national_supabase_fallback_active():
+                groups = {}
+                report["fallbackActive"] = True
+                report["warnings"].append("Supabase temporarily unavailable; on-demand persistent maintenance deferred while local-only fallback is active")
+            else:
+                raise
         for d,ps in sorted(groups.items()):
             if time.monotonic() + NATIONAL_SCHEDULED_REFRESH_BATCH_GUARD >= deadline:
                 report["maintenanceDeferred"] = True
@@ -4037,6 +4142,8 @@ def health():
     return jsonify(ok=True,version=APP_VERSION,service="mountain-weather-decision",overpass_endpoints=len(OVERPASS_ENDPOINTS),
         national_persistent_cache_configured=_national_supabase_enabled(),
         national_persistent_cache_table=NATIONAL_SUPABASE_CACHE_TABLE if _national_supabase_enabled() else None,
+        national_supabase_local_fallback_active=_national_supabase_fallback_active(),
+        national_supabase_local_fallback_reason=_national_supabase_fallback_reason(),
         national_cache_engine=NATIONAL_OUTLOOK_ENGINE,national_cache_ttl_seconds=NATIONAL_OUTLOOK_CACHE_TTL,
         national_browser_cache_ttl_seconds=NATIONAL_OUTLOOK_CACHE_TTL,national_auto_refresh_enabled=NATIONAL_OUTLOOK_AUTO_REFRESH,
         national_refresh_interval_seconds=NATIONAL_OUTLOOK_REFRESH_INTERVAL,national_refresh_token_configured=bool(NATIONAL_CACHE_REFRESH_TOKEN),

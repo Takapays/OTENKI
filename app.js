@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.59';
+const APP_VERSION = '1.6.60';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -189,6 +189,30 @@ function showRenderMigrationNotice(){
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',showRenderMigrationNotice,{once:true});
 else showRenderMigrationNotice();
+
+// V1.6.60: temporary public notice for the Supabase fair-use maintenance window.
+// Uses Japan time explicitly so the notice disappears automatically on 2026-09-24 JST.
+function showTemporaryMaintenanceNotice(){
+  const host=window.location.hostname;
+  if(host!=='otenki.onrender.com'&&host!=='traten-1075463785472.asia-northeast1.run.app')return;
+  const path=window.location.pathname||'/';
+  if(path!=='/'&&path!=='/index.html')return;
+  const jst=new Date(Date.now()+9*60*60*1000).toISOString().slice(0,10);
+  if(jst<'2026-09-20'||jst>'2026-09-23')return;
+  if(document.getElementById('temporaryMaintenanceNotice'))return;
+  const notice=document.createElement('div');
+  notice.id='temporaryMaintenanceNotice';
+  notice.setAttribute('role','status');
+  notice.style.cssText='box-sizing:border-box;width:100%;padding:10px 14px;text-align:center;background:#fff0f0;border-bottom:1px solid #dca3a3;color:#17324a;font-weight:700;font-size:14px;line-height:1.55;';
+  const title=document.createElement('strong');
+  title.textContent='一部機能メンテナンス中';
+  const detail=document.createElement('span');
+  detail.textContent='　9/23頃まで、全国予報の更新に遅延が生じる場合があります。通常の山天気はご利用いただけます。';
+  notice.append(title,detail);
+  document.body.insertBefore(notice,document.body.firstChild);
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',showTemporaryMaintenanceNotice,{once:true});
+else showTemporaryMaintenanceNotice();
 
 // V1.4.211: access modal can resolve fixed coordinates across all mountain catalogs
 // without duplicating the large coordinate database in access-data.js.
