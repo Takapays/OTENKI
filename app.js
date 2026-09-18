@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.60';
+const APP_VERSION = '1.6.62';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -3503,11 +3503,14 @@ function formatLastRouteSavedAt(ms){
 function refreshLastAnalysisPanel(){
   const panel=$('lastAnalysisPanel'); if(!panel)return;
   const data=loadLastRouteSnapshot();
-  panel.classList.toggle('hidden',!data);
-  if(!data)return;
+  // V1.6.61: 保存ルート一覧は前回ルートの有無に関係なく常時アクセス可能にする。
+  panel.classList.remove('hidden');
+  const lastBtn=$('lastRouteBtn');
+  if(lastBtn){lastBtn.disabled=!data;lastBtn.classList.toggle('hidden',!data);}
+  const meta=$('lastAnalysisMeta');
+  if(!data){if(meta)meta.textContent='保存ルート一覧';return;}
   const mountain=data.route?.mountain||'前回ルート';
   const count=data.route?.points?.length||0;
-  const meta=$('lastAnalysisMeta');
   if(meta)meta.textContent=`${mountain} / ${count}地点 / ${formatLastRouteSavedAt(data.savedAt)}`;
 }
 function loadSavedRoutes(){
@@ -7503,7 +7506,7 @@ function nationalModelChartSvg(rows,key,label,unit,maxY,chartType='line'){
   }
   return `<div class="national-model-chart"><div class="national-model-chart-title"><strong>${esc(label)}</strong><span>${esc(unit)} ｜ 0〜${limit}${vals.some(v=>v>limit)?'（↑は上限超過）':''}</span></div><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}のモデル比較グラフ">${grid}${ticks}${plot}</svg><div class="national-model-legend">${legend}</div></div>`;
 }
-function nationalModelDetailHtml(data){
+function nationalModelDetailHtml(data,dateText=''){
   const models=data?.models||{}; const rows=[];
   if(models.metno?.series)rows.push({model:'metno',series:models.metno.series});
   if(models.gfs?.series)rows.push({model:'gfs',series:models.gfs.series});
@@ -7511,7 +7514,8 @@ function nationalModelDetailHtml(data){
   const centerSeries=data?.merged?.series||[]; if(centerSeries.length)rows.push({model:'center',series:centerSeries});
   const mbStatus=data?.meteoblueStatus||null;
   const mbNote=mbStatus&&mbStatus.candidate&&!mbStatus.fetched?`<div class="national-model-chart-empty">meteoblue：${mbStatus.configured?'仲裁対象・今回取得できず（MET Norway / NOAA GFSで表示）':'API未設定'}</div>`:'';
-  return `<section class="national-rich-section national-model-section national-model-section-simple"><div class="national-model-simple-head"><h4>時間別予測</h4><span>要素別統合</span></div>${mbNote}${nationalHourlyGradeHtml(rows,centerSeries)}${nationalModelChartSvg(rows,'wind','風速','m/s',7)}${nationalModelChartSvg(rows,'gust','突風','m/s',15)}${nationalModelChartSvg(rows,'rain','降水','mm/h',7,'bars')}<details class="national-grade-criteria"><summary>ABCDE 判定基準を見る</summary><div><p><b>A 良好</b>：主要な注意条件なし</p><p><b>B 軽い注意</b>：弱い雨のみ、または注意条件が1時間</p><p><b>C 注意</b>：風・突風・0.5mm/h以上の雨の注意条件が合計2時間以上、または強い条件が1時間</p><p><b>D 悪い</b>：強い条件が2時間以上</p><p><b>E 非常に悪い</b>：極端な条件が1時間でもある</p><small>日判定：弱い雨＝0.1以上0.5mm/h未満（続いても雨だけではCにしない）／Cへの累積対象＝風5m/s・突風12m/s・雨0.5mm/h以上／強い＝風9m/s・突風18m/s・雨1.5mm/h以上／極端＝風15m/s・突風25m/s・雨6mm/h以上。対象は6〜15時です。</small><small>時間別マーク：A＝注意未満、B＝風5・突風12・雨0.1以上、C＝風7・突風15・雨0.5以上、D＝風9・突風18・雨1.5以上、E＝風15・突風25・雨6以上。気温はMET主軸、突風はMET実値→meteoblue、風・雨はMET/GFSを基本にモデル差が大きい時だけmeteoblueで仲裁します。</small></div></details></section>`;
+  const forecastDate=String(dateText||'').match(/^\d{4}-\d{2}-\d{2}$/)?String(dateText).replaceAll('-','/'):'';
+  return `<section class="national-rich-section national-model-section national-model-section-simple"><div class="national-model-simple-head"><h4>時間別予測${forecastDate?` ｜ ${esc(forecastDate)}`:''}</h4><span>要素別統合</span></div>${mbNote}${nationalHourlyGradeHtml(rows,centerSeries)}${nationalModelChartSvg(rows,'wind','風速','m/s',7)}${nationalModelChartSvg(rows,'gust','突風','m/s',15)}${nationalModelChartSvg(rows,'rain','降水','mm/h',7,'bars')}<details class="national-grade-criteria"><summary>ABCDE 判定基準を見る</summary><div><p><b>A 良好</b>：主要な注意条件なし</p><p><b>B 軽い注意</b>：弱い雨のみ、または注意条件が1時間</p><p><b>C 注意</b>：風・突風・0.5mm/h以上の雨の注意条件が合計2時間以上、または強い条件が1時間</p><p><b>D 悪い</b>：強い条件が2時間以上</p><p><b>E 非常に悪い</b>：極端な条件が1時間でもある</p><small>日判定：弱い雨＝0.1以上0.5mm/h未満（続いても雨だけではCにしない）／Cへの累積対象＝風5m/s・突風12m/s・雨0.5mm/h以上／強い＝風9m/s・突風18m/s・雨1.5mm/h以上／極端＝風15m/s・突風25m/s・雨6mm/h以上。対象は6〜15時です。</small><small>時間別マーク：A＝注意未満、B＝風5・突風12・雨0.1以上、C＝風7・突風15・雨0.5以上、D＝風9・突風18・雨1.5以上、E＝風15・突風25・雨6以上。気温はMET主軸、突風はMET実値→meteoblue、風・雨はMET/GFSを基本にモデル差が大きい時だけmeteoblueで仲裁します。</small></div></details></section>`;
 }
 async function hydrateNationalModelDetail(box,p){
   const slots=Array.from(box?.querySelectorAll('[data-national-model-detail]')||[]); if(!slots.length)return;
@@ -7521,7 +7525,7 @@ async function hydrateNationalModelDetail(box,p){
     const r=await fetch('/api/national-outlook/detail',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date,point:{name:p.name,lat:p.lat,lon:p.lon,elevation:p.elevation}})});
     const j=await r.json(); if(!r.ok)throw new Error(j?.error||`HTTP ${r.status}`);
     if(box.querySelector('.national-rich-hero h3')?.textContent?.trim()!==p.name)return;
-    const html=nationalModelDetailHtml(j); slots.forEach(slot=>slot.innerHTML=html);
+    const html=nationalModelDetailHtml(j,date); slots.forEach(slot=>slot.innerHTML=html);
   }catch(e){slots.forEach(slot=>slot.innerHTML='<div class="national-model-chart-empty">時間別モデル比較を取得できませんでした。全国判定と既存情報はそのまま利用できます。</div>');}
 }
 

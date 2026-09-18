@@ -1,0 +1,47 @@
+name: Refresh Open-Meteo JMA shadow comparison
+
+on:
+  schedule:
+    # 06:20 JST daily. One run returns 100 mountains x 4 days using four 25-point JMA MSM batches.
+    - cron: '20 21 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: traten-openmeteo-jma-shadow-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Fetch JMA MSM shadow comparison
+        env:
+          CACHE_TOKEN: ${{ secrets.TRATEN_CACHE_REFRESH_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$CACHE_TOKEN"
+          HTTP_CODE=$(curl --show-error --silent \
+            --retry 2 --retry-all-errors --retry-delay 10 --max-time 600 \
+            -o openmeteo-jma-shadow.json -w '%{http_code}' \
+            -X POST \
+            -H "X-Traten-Cache-Token: $CACHE_TOKEN" \
+            https://traten-1075463785472.asia-northeast1.run.app/api/openmeteo-jma-shadow/refresh)
+          echo "HTTP=$HTTP_CODE"
+          python3 - <<'PY'
+          import json
+          with open('openmeteo-jma-shadow.json', encoding='utf-8') as f:
+              d=json.load(f)
+          print('ok=',d.get('ok'),'rows=',d.get('rowsReturned'),'apiCalls=',d.get('apiCalls'))
+          print('summary=',json.dumps(d.get('summary') or {}, ensure_ascii=False))
+          if not d.get('rowsReturned'):
+              raise SystemExit('no shadow rows returned')
+          PY
+          test "$HTTP_CODE" = "200" -o "$HTTP_CODE" = "206"
+
+      - name: Upload daily comparison artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openmeteo-jma-shadow-${{ github.run_id }}
+          path: openmeteo-jma-shadow.json
+          retention-days: 30

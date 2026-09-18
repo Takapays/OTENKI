@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.60"
+APP_VERSION = "1.6.62"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 WEATHERAPI_KEY = os.environ.get("WEATHERAPI_KEY", "").strip()
@@ -47,6 +47,11 @@ WEATHERAPI_SHADOW_MIN_INTERVAL = max(0.0, float(os.environ.get("WEATHERAPI_SHADO
 WEATHERAPI_GUARD_MAX_DISTANCE_KM = max(1.0, float(os.environ.get("WEATHERAPI_GUARD_MAX_DISTANCE_KM", "10.0")))
 WEATHERAPI_GUARD_MAX_AGE_SECONDS = max(3600, int(os.environ.get("WEATHERAPI_GUARD_MAX_AGE_SECONDS", str(36 * 3600))))
 WEATHERAPI_GUARD_VERSION = "v1657-safe-side-v1"
+
+OPENMETEO_JMA_SHADOW_DAYS = max(1, min(4, int(os.environ.get("OPENMETEO_JMA_SHADOW_DAYS", "4"))))
+OPENMETEO_JMA_SHADOW_BATCH_SIZE = max(1, min(25, int(os.environ.get("OPENMETEO_JMA_SHADOW_BATCH_SIZE", "25"))))
+OPENMETEO_JMA_SHADOW_TIMEOUT = max(10, min(90, int(os.environ.get("OPENMETEO_JMA_SHADOW_TIMEOUT", "45"))))
+OPENMETEO_JMA_SHADOW_MAX_RETRIES = max(1, min(4, int(os.environ.get("OPENMETEO_JMA_SHADOW_MAX_RETRIES", "3"))))
 _weatherapi_shadow_lock = threading.Lock()
 _weatherapi_shadow_last_request = 0.0
 UPSTREAM_TIMEOUT = int(os.environ.get("UPSTREAM_TIMEOUT", "45"))
@@ -1923,6 +1928,194 @@ def _instagram_load_fresh_100_results(date_text: str) -> list[dict[str, Any]]:
         return []
     return ordered
 
+def _openmeteo_jma_shadow_request_batch(points: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Fetch up to 25 mountain peaks from Open-Meteo JMA MSM in one request.
+
+    Shadow-only path: it never writes to or changes the production A-E decision.
+    Registered peak elevation is explicitly supplied for statistical downscaling.
+    cell_selection=nearest avoids deliberately shifting to a different land grid cell.
+    """
+    if not points:
+        return []
+    latitudes = ",".join(f'{float(p["lat"]):.5f}' for p in points)
+    longitudes = ",".join(f'{float(p["lon"]):.5f}' for p in points)
+    elevations = ",".join(
+        "nan" if p.get("elevation") is None else str(round(float(p["elevation"])))
+        for p in points
+    )
+    params = {
+        "latitude": latitudes,
+        "longitude": longitudes,
+        "elevation": elevations,
+        "hourly": "temperature_2m,relative_humidity_2m,precipitation,cloud_cover,wind_speed_10m,wind_direction_10m",
+        "models": "jma_msm",
+        "timezone": "Asia/Tokyo",
+        "forecast_days": str(OPENMETEO_JMA_SHADOW_DAYS),
+        "wind_speed_unit": "ms",
+        "cell_selection": "nearest",
+    }
+    url = "https://api.open-meteo.com/v1/jma?" + urllib.parse.urlencode(params, safe=",")
+    last_exc = None
+    for attempt in range(OPENMETEO_JMA_SHADOW_MAX_RETRIES):
+        started = time.monotonic()
+        try:
+            status, _, body = _request_openmeteo_national_once(url, timeout=OPENMETEO_JMA_SHADOW_TIMEOUT)
+            _audit_openmeteo_request(url, source="jma-shadow", status=int(status), elapsed_ms=round((time.monotonic()-started)*1000))
+            if int(status) != 200:
+                raise RuntimeError(f"Open-Meteo JMA HTTP {status}")
+            payload = json.loads(body.decode("utf-8"))
+            if isinstance(payload, dict):
+                payload = [payload]
+            if not isinstance(payload, list) or len(payload) != len(points):
+                raise RuntimeError(f"Open-Meteo JMA batch size mismatch: {len(payload) if isinstance(payload,list) else 'invalid'}/{len(points)}")
+            return payload
+        except urllib.error.HTTPError as exc:
+            last_exc = exc
+            _audit_openmeteo_request(url, source="jma-shadow", status=int(exc.code), elapsed_ms=round((time.monotonic()-started)*1000), error_type="HTTPError")
+            if int(exc.code) != 429 or attempt >= OPENMETEO_JMA_SHADOW_MAX_RETRIES - 1:
+                raise
+            retry_after = 0.0
+            try:
+                retry_after = float(exc.headers.get("Retry-After") or 0) if exc.headers else 0.0
+            except (TypeError, ValueError):
+                retry_after = 0.0
+            time.sleep(max(2.0, retry_after, 2.0 ** attempt))
+        except Exception as exc:
+            last_exc = exc
+            _audit_openmeteo_request(url, source="jma-shadow", status=None, elapsed_ms=round((time.monotonic()-started)*1000), error_type=type(exc).__name__)
+            if attempt >= OPENMETEO_JMA_SHADOW_MAX_RETRIES - 1:
+                raise
+            time.sleep(2.0 ** attempt)
+    if last_exc:
+        raise last_exc
+    return []
+
+
+def _openmeteo_jma_shadow_day_result(p: dict[str, Any], payload: dict[str, Any], date_text: str) -> dict[str, Any] | None:
+    hourly = payload.get("hourly") or {}
+    times = hourly.get("time") or []
+    rows = []
+    for i, t in enumerate(times):
+        if not isinstance(t, str) or len(t) < 13 or t[:10] != date_text:
+            continue
+        try:
+            hour = int(t[11:13])
+        except ValueError:
+            continue
+        if not 6 <= hour <= 15:
+            continue
+        def at(key, default=None):
+            arr = hourly.get(key) or []
+            try:
+                v = float(arr[i])
+                return v if math.isfinite(v) else default
+            except (TypeError, ValueError, IndexError):
+                return default
+        temp = at("temperature_2m")
+        wind = at("wind_speed_10m")
+        rain = at("precipitation")
+        humidity = at("relative_humidity_2m")
+        cloud = at("cloud_cover")
+        if temp is None or wind is None or rain is None:
+            continue
+        rows.append({"hour":hour,"temp":temp,"wind":wind,"rain":rain,"humidity":humidity,"cloud":cloud})
+    if not rows:
+        return None
+    winds=[r["wind"] for r in rows]; rains=[r["rain"] for r in rows]; temps=[r["temp"] for r in rows]
+    humidities=[r["humidity"] for r in rows if _finite(r.get("humidity"))]
+    clouds=[r["cloud"] for r in rows if _finite(r.get("cloud"))]
+    caution=severe=extreme=0
+    for r in rows:
+        w=float(r["wind"]); pr=float(r["rain"])
+        if w>=18 or pr>=8: extreme += 1
+        if w>=13 or pr>=3: severe += 1
+        if w>=8 or pr>=0.8: caution += 1
+    max_w=max(winds); max_r=max(rains); min_t=min(temps)
+    # JMA MSM has no native gust/CAPE/visibility fields in this API path.
+    # Keep them absent/zero rather than fabricating values; this makes a worse JMA grade especially meaningful.
+    grade, _ = _national_grade(max_w, 0, max_r, 0, min_t, None,
+        caution_hours=caution, severe_hours=severe, extreme_hours=extreme)
+    return {
+        "name":p["name"],"date":date_text,"lat":p.get("lat"),"lon":p.get("lon"),"elevation":p.get("elevation"),
+        "modelLat":payload.get("latitude"),"modelLon":payload.get("longitude"),"modelElevation":payload.get("elevation"),
+        "maxWind":round(max_w,1),"maxGust":None,"maxRain":round(max_r,1),"minTemp":round(min_t,1),
+        "avgHumidity":round(sum(humidities)/len(humidities),1) if humidities else None,
+        "avgCloud":round(sum(clouds)/len(clouds),1) if clouds else None,
+        "cautionHours":caution,"severeHours":severe,"extremeHours":extreme,
+        "shadowGrade":grade,"source":"openmeteo-jma-msm-shadow",
+        "limitations":["no_gust","no_cape","no_visibility"],
+    }
+
+
+def _openmeteo_jma_shadow_collect() -> dict[str, Any]:
+    points = _national_load_100_points()
+    if len(points) != 100:
+        raise RuntimeError(f"Open-Meteo JMA shadow seed count mismatch: {len(points)}/100")
+    today_jst = (datetime.now(timezone.utc) + timedelta(hours=9)).date()
+    date_texts = [(today_jst + timedelta(days=i)).isoformat() for i in range(OPENMETEO_JMA_SHADOW_DAYS)]
+    existing: dict[str, dict[str, Any]] = {}
+    for d in date_texts:
+        try:
+            fresh, stale, _ = _national_supabase_read(d, points)
+            for name, row in {**stale, **fresh}.items():
+                existing[f"{d}|{name}"] = row
+        except RuntimeError:
+            # Shadow acquisition remains useful even while Supabase is in local-only fallback.
+            fp = _national_points_fingerprint(points)
+            disk, _ = _national_read_disk_cache(d, fp)
+            for row in (disk or {}).get("results") or []:
+                if isinstance(row, dict) and row.get("name"):
+                    existing[f"{d}|{row['name']}"] = row
+    rows=[]; errors=[]; api_calls=0
+    for start in range(0, len(points), OPENMETEO_JMA_SHADOW_BATCH_SIZE):
+        batch = points[start:start+OPENMETEO_JMA_SHADOW_BATCH_SIZE]
+        try:
+            payloads = _openmeteo_jma_shadow_request_batch(batch); api_calls += 1
+            for p, payload in zip(batch, payloads):
+                for d in date_texts:
+                    r = _openmeteo_jma_shadow_day_result(p, payload, d)
+                    if not r:
+                        errors.append({"name":p["name"],"date":d,"error":"no 06-15 JST rows"}); continue
+                    ex = existing.get(f"{d}|{p['name']}") or {}
+                    eg = ex.get("grade") if isinstance(ex, dict) else None
+                    r["existingGrade"] = eg
+                    r["existingSource"] = ex.get("source") if isinstance(ex, dict) else None
+                    if eg in {"A","B","C","D","E"} and r.get("shadowGrade") in {"A","B","C","D","E"}:
+                        r["gradeDelta"] = _national_grade_rank(r["shadowGrade"]) - _national_grade_rank(eg)
+                    else:
+                        r["gradeDelta"] = None
+                    rows.append(r)
+        except Exception as exc:
+            errors.append({"batchStart":start,"batchSize":len(batch),"error":f"{type(exc).__name__}: {str(exc)[:240]}"})
+    comparable=[r for r in rows if isinstance(r.get("gradeDelta"), int)]
+    def count(pred): return sum(1 for r in comparable if pred(int(r["gradeDelta"])))
+    by_date={}
+    for d in date_texts:
+        rr=[r for r in comparable if r.get("date")==d]
+        n=len(rr)
+        by_date[d]={
+            "comparable":n,
+            "exact":sum(1 for r in rr if r["gradeDelta"]==0),
+            "oneStep":sum(1 for r in rr if abs(r["gradeDelta"])==1),
+            "twoPlus":sum(1 for r in rr if abs(r["gradeDelta"])>=2),
+            "jmaWorse":sum(1 for r in rr if r["gradeDelta"]>0),
+            "jmaBetter":sum(1 for r in rr if r["gradeDelta"]<0),
+        }
+    expected=len(points)*len(date_texts)
+    return {
+        "ok":len(rows)==expected and not errors,
+        "mode":"shadow-only","provider":"Open-Meteo","model":"JMA MSM","productionGradeUsed":False,
+        "generatedAt":datetime.now(timezone.utc).isoformat(),"forecastDates":date_texts,
+        "mountainsRequested":len(points),"apiCalls":api_calls,"batchSize":OPENMETEO_JMA_SHADOW_BATCH_SIZE,
+        "expectedRows":expected,"rowsReturned":len(rows),"existingGradesFound":len(comparable),
+        "summary":{"comparable":len(comparable),"exact":count(lambda x:x==0),"oneStep":count(lambda x:abs(x)==1),
+                   "twoPlus":count(lambda x:abs(x)>=2),"jmaWorse":count(lambda x:x>0),"jmaBetter":count(lambda x:x<0),
+                   "byDate":by_date},
+        "limitations":["JMA MSM shadow grade has no gust, CAPE, or visibility input"],
+        "errors":errors,"rows":rows,
+    }
+
+
 def _weatherapi_shadow_request_point(p: dict[str, Any]) -> dict[str, Any]:
     """Fetch one mountain from WeatherAPI.com for shadow comparison only.
 
@@ -3239,6 +3432,23 @@ def _ensure_national_refresh_worker():
             thread.start()
         except Exception:
             _national_refresh_thread_started = False;_national_close_lock(key);raise
+
+
+@app.post("/api/openmeteo-jma-shadow/refresh")
+def openmeteo_jma_shadow_refresh():
+    """Build one daily Open-Meteo JMA MSM 100-mountain x 4-day shadow comparison JSON."""
+    if not NATIONAL_CACHE_REFRESH_TOKEN:
+        return jsonify(error="NATIONAL_CACHE_REFRESH_TOKEN is not configured"), 503
+    supplied = request.headers.get("X-Traten-Cache-Token", "")
+    if not supplied or not hmac.compare_digest(supplied, NATIONAL_CACHE_REFRESH_TOKEN):
+        return jsonify(error="unauthorized"), 401
+    try:
+        report = _openmeteo_jma_shadow_collect()
+    except Exception as exc:
+        app.logger.exception("openmeteo_jma_shadow_refresh_failed")
+        return jsonify(ok=False, mode="shadow-only", provider="Open-Meteo", model="JMA MSM", error=f"{type(exc).__name__}: {str(exc)[:300]}"), 502
+    status = 200 if report.get("ok") else 206 if report.get("rowsReturned") else 502
+    return jsonify(report), status
 
 
 @app.post("/api/weatherapi-shadow/refresh")
