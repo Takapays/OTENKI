@@ -43,7 +43,7 @@ if INSTAGRAM_AUTO_MEDIA not in {"carousel", "reel", "image"}:
 INSTAGRAM_REEL_FPS = max(8, min(20, int(os.environ.get("INSTAGRAM_REEL_FPS", "12"))))
 INSTAGRAM_REEL_SECONDS = max(6, min(12, int(os.environ.get("INSTAGRAM_REEL_SECONDS", "12"))))
 REEL_RENDER_REV = "master-20260909-scenes-v16-yarigatake-phone-frame-daily-rain-v1640"
-CAROUSEL_RENDER_REV = "carousel-v1652-approved-ocean-islands-bg-plus-promo-page"
+CAROUSEL_RENDER_REV = "carousel-v1665-restore-approved-marker-projection"
 CAROUSEL_PAGE_COUNT = 10
 CAROUSEL_WIDTH = 1080
 CAROUSEL_HEIGHT = 1920
@@ -1310,21 +1310,54 @@ def _carousel_overlay_logo_transparent(frame: "Image.Image", *, logo_path: str |
 
 def _carousel_background_marker_rect(W: int, H: int) -> tuple[int, int, int, int]:
     return (
-        int(round(W * 0.036)),
-        int(round(H * 0.292)),
-        int(round(W * 0.965)),
-        int(round(H * 0.938)),
+        int(round(W * 0.132)),
+        int(round(H * 0.304)),
+        int(round(W * 0.964)),
+        int(round(H * 0.935)),
     )
 
 
-def _carousel_draw_background_markers(draw, rows: list[dict[str, Any]], W: int, H: int) -> None:
+def _carousel_project_background_marker(lat: float, lon: float, W: int, H: int) -> tuple[int, int]:
     north, south, west, east = 46.2, 29.0, 127.0, 146.8
     left, top, right, bottom = _carousel_background_marker_rect(W, H)
-    colors = {"A": (35, 134, 75, 255), "B": (79, 143, 58, 255), "C": (188, 145, 20, 255), "D": (226, 105, 22, 255), "E": (190, 43, 48, 255)}
-    r = max(14, min(20, int(min(W, H) * 0.017)))
-    font = _load_font(max(20, int(r * 1.05)))
     width = max(1, right - left)
     height = max(1, bottom - top)
+    px = left + (lon - west) / (east - west) * width
+    py = top + (north - lat) / (north - south) * height
+
+    # Mild shear/region tuning so real mountain coordinates sit more naturally on the supplied art.
+    mid_lon = (west + east) / 2.0
+    mid_lat = (north + south) / 2.0
+    px += 1.5 * (lat - mid_lat)
+
+    # Global rightward shift requested in preview review.
+    px += 14.0
+
+    # Keep the easternmost marker fixed while stretching the rest slightly leftward.
+    right_anchor_lon = 145.122246  # 羅臼岳: easternmost point in national-100-points.json
+    anchor_px = left + (right_anchor_lon - west) / (east - west) * width
+    anchor_px += 1.5 * (44.075917 - mid_lat)
+    anchor_px += 14.0
+    if px < anchor_px:
+        px = anchor_px + (px - anchor_px) * 1.10
+
+    py += -0.8 * (lon - mid_lon)
+
+    # Global upward lift requested in preview review.
+    py -= 54.0
+
+    if lat < 33.0:
+        px += 5.0
+        py -= 10.0
+    elif lat > 42.0:
+        py -= 2.0
+    return int(round(px)), int(round(py))
+
+
+def _carousel_draw_background_markers(draw, rows: list[dict[str, Any]], W: int, H: int) -> None:
+    colors = {"A": (35, 134, 75, 255), "B": (79, 143, 58, 255), "C": (188, 145, 20, 255), "D": (226, 105, 22, 255), "E": (190, 43, 48, 255)}
+    r = max(13, min(18, int(min(W, H) * 0.0155)))
+    font = _load_font(max(18, int(r * 1.02)))
     for row in rows:
         try:
             lat = float(row.get("lat"))
@@ -1334,11 +1367,10 @@ def _carousel_draw_background_markers(draw, rows: list[dict[str, Any]], W: int, 
             continue
         if grade not in colors:
             continue
-        px = int(round(left + (lon - west) / (east - west) * width))
-        py = int(round(top + (north - lat) / (north - south) * height))
+        px, py = _carousel_project_background_marker(lat, lon, W, H)
         if not (-r <= px <= W + r and -r <= py <= H + r):
             continue
-        draw.ellipse((px - r - 2, py - r - 2, px + r + 2, py + r + 2), fill=(255, 255, 255, 242))
+        draw.ellipse((px - r - 2, py - r - 2, px + r + 2, py + r + 2), fill=(255, 255, 255, 248))
         draw.ellipse((px - r, py - r, px + r, py + r), fill=colors[grade])
         bb = draw.textbbox((0, 0), grade, font=font)
         draw.text((px - (bb[2] - bb[0]) / 2, py - (bb[3] - bb[1]) / 2 - 1), grade, font=font, fill=(255, 255, 255, 255))
