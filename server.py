@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.63"
+APP_VERSION = "1.6.64"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 WEATHERAPI_KEY = os.environ.get("WEATHERAPI_KEY", "").strip()
@@ -198,7 +198,7 @@ NATIONAL_OUTLOOK_AUTO_REFRESH = os.environ.get("NATIONAL_OUTLOOK_AUTO_REFRESH", 
 NATIONAL_CACHE_REFRESH_TOKEN = os.environ.get("NATIONAL_CACHE_REFRESH_TOKEN", "")
 NATIONAL_100_POINTS_FILE = os.path.join(BASE, "national-100-points.json")
 NATIONAL_OUTLOOK_CHUNK_SIZE = max(1, min(50, int(os.environ.get("NATIONAL_OUTLOOK_CHUNK_SIZE", "25"))))
-NATIONAL_OUTLOOK_ENGINE = "metno-gfs-mb-v11-selective-arbiter"
+NATIONAL_OUTLOOK_ENGINE = "metno-gfs-jma-worstof-v12"
 NATIONAL_GFS_MIN_INTERVAL = float(os.environ.get("NATIONAL_GFS_MIN_INTERVAL", "0.35"))
 _national_gfs_lock = threading.Lock()
 _national_gfs_last_request = 0.0
@@ -2061,6 +2061,31 @@ def _openmeteo_jma_shadow_day_result(p: dict[str, Any], payload: dict[str, Any],
     }
 
 
+def _openmeteo_jma_production_results(date_text: str, points: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Return JMA MSM A-E results for production worst-of safety comparison.
+
+    Failure or unavailable forecast hours never downgrade or replace the existing
+    MET Norway + GFS decision; affected mountains simply have no JMA result.
+    """
+    out: dict[str, dict[str, Any]] = {}
+    if not points:
+        return out
+    for start in range(0, len(points), OPENMETEO_JMA_SHADOW_BATCH_SIZE):
+        batch = points[start:start+OPENMETEO_JMA_SHADOW_BATCH_SIZE]
+        try:
+            payloads = _openmeteo_jma_shadow_request_batch(batch)
+            for p, payload in zip(batch, payloads):
+                r = _openmeteo_jma_shadow_day_result(p, payload, date_text)
+                if r and r.get("shadowGrade") in {"A","B","C","D","E"}:
+                    out[p["name"]] = r
+        except Exception as exc:
+            app.logger.warning(
+                "national_jma_worstof_failed date=%s batch_start=%s error=%s",
+                date_text, start, type(exc).__name__
+            )
+    return out
+
+
 def _openmeteo_jma_shadow_collect() -> dict[str, Any]:
     points = _national_load_100_points()
     if len(points) != 100:
@@ -2091,8 +2116,10 @@ def _openmeteo_jma_shadow_collect() -> dict[str, Any]:
                     if not r:
                         errors.append({"name":p["name"],"date":d,"error":"no 06-15 JST rows"}); continue
                     ex = existing.get(f"{d}|{p['name']}") or {}
-                    eg = ex.get("grade") if isinstance(ex, dict) else None
+                    final_grade = ex.get("grade") if isinstance(ex, dict) else None
+                    eg = (ex.get("preJmaGrade") or final_grade) if isinstance(ex, dict) else None
                     r["existingGrade"] = eg
+                    r["existingFinalGrade"] = final_grade
                     r["existingSource"] = ex.get("source") if isinstance(ex, dict) else None
                     r["existingIntegration"] = ex.get("integration") if isinstance(ex, dict) else None
                     r["existingModelGrades"] = ex.get("modelGrades") if isinstance(ex, dict) else None
@@ -3329,9 +3356,10 @@ def _national_meteoblue_results(date_text: str, points: list[dict[str, Any]]) ->
 
 
 def _national_fetch_shared(date_text, points):
-    # Nationwide primary transport is direct MET Norway + NOAA GFS. meteoblue is
-    # fetched selectively as the third-model arbiter; Open-Meteo is never used here.
-    rows = {}; missing = []; warnings = []; metno = {}; gfs = {}; mb = {}; stats = {}
+    # Nationwide base decision remains the existing MET Norway + NOAA GFS element
+    # policy. JMA MSM is added only as a safety-side worst-of grade after that
+    # decision is complete. Missing/unavailable JMA never changes the base grade.
+    rows = {}; missing = []; warnings = []; metno = {}; gfs = {}; mb = {}; jma = {}; stats = {}
     for p in points:
         cached = _national_point_cache_get(date_text,p)
         source=str((cached or {}).get("source") or "")
@@ -3351,6 +3379,11 @@ def _national_fetch_shared(date_text, points):
         except Exception as exc:
             warnings.append("NOAA GFS unavailable")
             app.logger.warning("national_gfs_failed %s",type(exc).__name__)
+        try:
+            jma = _openmeteo_jma_production_results(date_text,missing)
+        except Exception as exc:
+            warnings.append("JMA MSM unavailable")
+            app.logger.warning("national_jma_failed %s",type(exc).__name__)
         mb_points=[p for p in missing if _national_meteoblue_candidate(metno.get(p["name"]),gfs.get(p["name"]))]
         if mb_points:
             try:
@@ -3362,6 +3395,34 @@ def _national_fetch_shared(date_text, points):
         for p in missing:
             result = _national_merge_two_models(p,metno.get(p["name"]),gfs.get(p["name"]),mb.get(p["name"]))
             if result:
+                result = dict(result)
+                base_grade = result.get("grade")
+                jr = jma.get(p["name"]) or {}
+                jma_grade = jr.get("shadowGrade")
+                applied = (
+                    base_grade in {"A","B","C","D","E"}
+                    and jma_grade in {"A","B","C","D","E"}
+                    and _national_grade_rank(jma_grade) > _national_grade_rank(base_grade)
+                )
+                result["preJmaGrade"] = base_grade
+                result["jmaGrade"] = jma_grade if jma_grade in {"A","B","C","D","E"} else None
+                result["jmaWorstOfApplied"] = bool(applied)
+                result["decisionPolicy"] = "existing-jma-worst-of"
+                result["jmaValues"] = ({
+                    "maxWind":jr.get("maxWind"),
+                    "maxRain":jr.get("maxRain"),
+                    "minTemp":jr.get("minTemp"),
+                    "cautionHours":jr.get("cautionHours"),
+                    "bcCautionHours":jr.get("bcCautionHours"),
+                    "severeHours":jr.get("severeHours"),
+                    "extremeHours":jr.get("extremeHours"),
+                } if jr else None)
+                if applied:
+                    result["grade"] = jma_grade
+                    result["summary"] = (
+                        str(result.get("summary") or "")
+                        + " JMA MSMがより厳しいため、安全側の判定を採用しています。"
+                    ).strip()
                 row = dict(result,_cache_meta=_national_meta(result,fetched_at=fetched_at))
                 rows[p["name"]] = row
                 _national_point_cache_put(date_text,p,row)
