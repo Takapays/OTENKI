@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.58"
+APP_VERSION = "1.6.59"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 WEATHERAPI_KEY = os.environ.get("WEATHERAPI_KEY", "").strip()
@@ -1365,17 +1365,16 @@ def _national_fetch_and_persist(date_text, points, due, initial=None, *, deadlin
     snap = _national_snapshot(date_text,fp,points,list(rows.values()))
     if persistent:
         try:
-            fresh,stale,_ = _national_supabase_read(date_text,points)
+            fresh_names, stale_names, _ = _national_supabase_read_meta(date_text,points)
         except RuntimeError as exc:
-            fresh,stale = {},{}
+            fresh_names, stale_names = set(), set()
             errors.append(str(exc))
-        fresh_names = set(fresh)
         persisted_names.update(fresh_names & fetched_names)
         unconfirmed = fetched_names - fresh_names
         if unconfirmed and not errors:
             verification_pending.update(unconfirmed)
             warnings.append(f"database final read-back pending for {len(unconfirmed)} rows; next refresh will verify/retry")
-        fresh_count = len(fresh); stored = len(set(fresh)|set(stale))
+        fresh_count = len(fresh_names); stored = len(fresh_names|stale_names)
     else:
         fresh_count = sum(r["_cache_meta"]["fresh_until"] > time.time() for r in snap["results"])
         stored = len(snap["results"])
@@ -1689,6 +1688,41 @@ def _national_supabase_read(date_text, points):
         (fresh if meta["fresh_until"] > time.time() else stale)[name] = dict(row, name=name, _cache_meta=meta)
     return fresh, stale, meta_by_name
 
+def _national_supabase_read_meta(date_text, points):
+    """Return fresh/stale names plus cache timestamps without transferring result JSON bodies.
+
+    Used only for persistence verification/counting where forecast payload contents are not needed.
+    """
+    if not _national_supabase_enabled():
+        return set(), set(), {}
+    params = {"select":"cache_key,generated_ts,fresh_until,stale_until",
+              "forecast_date":f"eq.{date_text}", "engine":f"eq.{NATIONAL_OUTLOOK_ENGINE}",
+              "stale_until":f"gt.{time.time()}", "limit":"1000"}
+    url = f"{SUPABASE_URL}/rest/v1/{NATIONAL_SUPABASE_CACHE_TABLE}?" + urllib.parse.urlencode(params, safe=",.:+-")
+    req = urllib.request.Request(url, headers=_supabase_headers(accept_json=True))
+    try:
+        with urllib.request.urlopen(req, timeout=NATIONAL_SUPABASE_TIMEOUT) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except Exception as exc:
+        app.logger.warning("national_cache_meta_read_failed %s", type(exc).__name__)
+        raise RuntimeError("persistent cache metadata read failed") from exc
+    wanted = {_national_supabase_key(date_text,p):p["name"] for p in points}
+    fresh_names, stale_names, meta_by_name = set(), set(), {}
+    now = time.time()
+    for dbrow in data if isinstance(data,list) else []:
+        if not isinstance(dbrow,dict):
+            continue
+        name = wanted.get(str(dbrow.get("cache_key") or ""))
+        if not name:
+            continue
+        meta = _national_meta({"_cache_meta":{k:dbrow.get(k) for k in ("generated_ts","fresh_until","stale_until")}})
+        if meta is None or meta["stale_until"] <= now:
+            continue
+        meta_by_name[name] = meta
+        (fresh_names if meta["fresh_until"] > now else stale_names).add(name)
+    return fresh_names, stale_names, meta_by_name
+
+
 def _national_supabase_write(date_text, points, results):
     """Acknowledge writes; cached rows retain their source-generation timestamp."""
     if not _national_supabase_enabled():
@@ -1719,20 +1753,23 @@ def _national_supabase_write(date_text, points, results):
 
 
 def _national_confirm_supabase_write(date_text, points, expected):
-    """Strictly verify an acknowledged Supabase write with bounded read-back retries."""
+    """Verify acknowledged writes from lightweight cache metadata only.
+
+    The upsert itself already returned 2xx. Verification therefore checks that each expected
+    cache key is fresh and has a generated timestamp at least as new as the row just written,
+    avoiding repeated transfer of the full result JSON body.
+    """
     expected = _national_valid_results(points, list((expected or {}).values()))
     if not expected:
         return set(), 0, None
     confirmed = set(); last_error = None
     attempts = NATIONAL_SUPABASE_VERIFY_RETRIES + 1
     for attempt in range(attempts):
-        # Give PostgREST/Supabase a small propagation window before every verification read.
         time.sleep(min(3.0, NATIONAL_SUPABASE_VERIFY_DELAY * (attempt + 1)))
         try:
-            checked, _, _ = _national_supabase_read(date_text, points)
-            confirmed = {name for name, row in expected.items() if name in checked
-                and checked[name].get("_cache_meta",{}).get("generated_ts",0) >= row["_cache_meta"]["generated_ts"]
-                and _national_public_result(checked[name]) == _national_public_result(row)}
+            fresh_names, _, meta_by_name = _national_supabase_read_meta(date_text, points)
+            confirmed = {name for name, row in expected.items() if name in fresh_names
+                and meta_by_name.get(name,{}).get("generated_ts",0) >= row["_cache_meta"]["generated_ts"]}
             if len(confirmed) == len(expected):
                 return confirmed, attempt + 1, None
             last_error = f"database read-back incomplete: {len(confirmed)}/{len(expected)}"
