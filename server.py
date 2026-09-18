@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.62"
+APP_VERSION = "1.6.63"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 WEATHERAPI_KEY = os.environ.get("WEATHERAPI_KEY", "").strip()
@@ -2027,21 +2027,35 @@ def _openmeteo_jma_shadow_day_result(p: dict[str, Any], payload: dict[str, Any],
     caution=severe=extreme=0
     for r in rows:
         w=float(r["wind"]); pr=float(r["rain"])
-        if w>=18 or pr>=8: extreme += 1
-        if w>=13 or pr>=3: severe += 1
-        if w>=8 or pr>=0.8: caution += 1
+        if w>=15 or pr>=6: extreme += 1
+        if w>=9 or pr>=1.5: severe += 1
+        if w>=5 or pr>=0.1: caution += 1
+    bc_caution=_national_bc_caution_hours([{"wind":r["wind"],"gust":None,"rain":r["rain"]} for r in rows])
     max_w=max(winds); max_r=max(rains); min_t=min(temps)
     # JMA MSM has no native gust/CAPE/visibility fields in this API path.
-    # Keep them absent/zero rather than fabricating values; this makes a worse JMA grade especially meaningful.
+    # Keep them absent/zero rather than fabricating values.
     grade, _ = _national_grade(max_w, 0, max_r, 0, min_t, None,
-        caution_hours=caution, severe_hours=severe, extreme_hours=extreme)
+        caution_hours=caution, severe_hours=severe, extreme_hours=extreme, bc_caution_hours=bc_caution)
     return {
         "name":p["name"],"date":date_text,"lat":p.get("lat"),"lon":p.get("lon"),"elevation":p.get("elevation"),
         "modelLat":payload.get("latitude"),"modelLon":payload.get("longitude"),"modelElevation":payload.get("elevation"),
         "maxWind":round(max_w,1),"maxGust":None,"maxRain":round(max_r,1),"minTemp":round(min_t,1),
         "avgHumidity":round(sum(humidities)/len(humidities),1) if humidities else None,
         "avgCloud":round(sum(clouds)/len(clouds),1) if clouds else None,
-        "cautionHours":caution,"severeHours":severe,"extremeHours":extreme,
+        "cautionHours":caution,"bcCautionHours":bc_caution,
+        "lightRainOnlyHours":max(0,caution-bc_caution),
+        "severeHours":severe,"extremeHours":extreme,
+        "series":[
+            {
+                "hour":r["hour"],
+                "wind":round(float(r["wind"]),1),
+                "rain":round(float(r["rain"]),1),
+                "temp":round(float(r["temp"]),1),
+                "humidity":round(float(r["humidity"]),1) if _finite(r.get("humidity")) else None,
+                "cloud":round(float(r["cloud"]),1) if _finite(r.get("cloud")) else None,
+            }
+            for r in rows
+        ],
         "shadowGrade":grade,"source":"openmeteo-jma-msm-shadow",
         "limitations":["no_gust","no_cape","no_visibility"],
     }
@@ -2080,6 +2094,10 @@ def _openmeteo_jma_shadow_collect() -> dict[str, Any]:
                     eg = ex.get("grade") if isinstance(ex, dict) else None
                     r["existingGrade"] = eg
                     r["existingSource"] = ex.get("source") if isinstance(ex, dict) else None
+                    r["existingIntegration"] = ex.get("integration") if isinstance(ex, dict) else None
+                    r["existingModelGrades"] = ex.get("modelGrades") if isinstance(ex, dict) else None
+                    r["existingModelValues"] = ex.get("modelValues") if isinstance(ex, dict) else None
+                    r["existingModelAgreement"] = ex.get("modelAgreement") if isinstance(ex, dict) else None
                     if eg in {"A","B","C","D","E"} and r.get("shadowGrade") in {"A","B","C","D","E"}:
                         r["gradeDelta"] = _national_grade_rank(r["shadowGrade"]) - _national_grade_rank(eg)
                     else:
