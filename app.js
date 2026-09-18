@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.66';
+const APP_VERSION = '1.6.67';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -7309,6 +7309,36 @@ function wikipediaArticleUrl(name){
   return `https://ja.wikipedia.org/wiki/${encodeURIComponent(wikipediaArticleTitle(name)).replace(/%2F/g,'/')}`;
 }
 
+// V1.6.67: YAMAP mountain-info search links for the nationwide Hyakumeizan detail panel.
+// Use YAMAP's own mountain search so the destination stays valid even if individual
+// mountain IDs change. A few Traten display names are normalized to YAMAP's naming.
+const YAMAP_MOUNTAIN_SEARCH_ALIASES=Object.freeze({
+  '大雪山（旭岳）':'旭岳 大雪山',
+  '後方羊蹄山':'羊蹄山',
+  '奥白根山':'日光白根山',
+  '茶臼岳（那須岳）':'那須岳 茶臼岳',
+  '赤城山（黒檜山）':'赤城山 黒檜山',
+  '水晶岳（黒岳）':'水晶岳 黒岳',
+  '笠ヶ岳（岐阜）':'笠ヶ岳 岐阜',
+  '観音岳(鳳凰)':'鳳凰山 観音岳',
+  '御嶽':'御嶽山',
+  '霧ヶ峰（車山）':'霧ヶ峰 車山',
+  '八ヶ岳（赤岳）':'八ヶ岳 赤岳',
+  '天城山（万三郎岳）':'天城山 万三郎岳',
+  '日出ヶ岳':'大台ヶ原山 日出ヶ岳',
+  '八経ヶ岳':'八経ヶ岳 大峰山',
+  '大山（鳥取）':'大山 鳥取',
+  '久住山':'くじゅう山 久住山',
+  '阿蘇山（高岳）':'阿蘇山 高岳',
+  '霧島山（韓国岳）':'霧島山 韓国岳',
+  '宮ノ浦岳':'宮之浦岳',
+});
+function yamapMountainInfoUrl(name){
+  const raw=String(name||'').trim();
+  const keyword=YAMAP_MOUNTAIN_SEARCH_ALIASES[raw]||raw;
+  return `https://yamap.com/search/mountains?keyword=${encodeURIComponent(keyword)}`;
+}
+
 function nationalAreaLabel(name){
   const key=mountainUiArea(name);
   return MOUNTAIN_UI_AREAS.find(([k])=>k===key)?.[1]||'日本';
@@ -7578,7 +7608,7 @@ function showNationalOutlookDetail(p,result){
       ${guideHtml}
       ${courseHtml}
       ${nationalExternalWeatherLinksHtml(p.name)}
-      <div class="national-rich-actions"><button type="button" class="primary national-detail-open national-rich-cta">この山を山行設定に入力</button><button type="button" class="national-extra-action mountain-water-action hidden" data-mountain-water="1">💧 水場情報</button><button type="button" class="national-extra-action mountain-camera-action hidden" data-mountain-camera="1">📹 ライブカメラ</button><a class="national-wikipedia-link" href="${wikipediaArticleUrl(p.name)}" target="_blank" rel="noopener noreferrer">Wikipedia ↗</a></div>
+      <div class="national-rich-actions"><button type="button" class="primary national-detail-open national-rich-cta">この山を山行設定に入力</button><button type="button" class="national-extra-action mountain-water-action hidden" data-mountain-water="1">💧 水場情報</button><button type="button" class="national-extra-action mountain-camera-action hidden" data-mountain-camera="1">📹 ライブカメラ</button><a class="national-wikipedia-link" href="${yamapMountainInfoUrl(p.name)}" target="_blank" rel="noopener noreferrer">YAMAP 山の情報 ↗</a><a class="national-wikipedia-link" href="${wikipediaArticleUrl(p.name)}" target="_blank" rel="noopener noreferrer">Wikipedia ↗</a></div>
       ${nearbyHtml}
       <p class="national-rich-footnote">主要山のみ実写真を表示しています。写真は Wikimedia Commons の公開画像を利用しています。全国一括簡易判定は候補地選び用です。山行設定では通過時刻・地点・複数モデルを使って詳しく確認できます。</p>
       </div>
