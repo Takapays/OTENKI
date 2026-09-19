@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.78"
+APP_VERSION = "1.6.79"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 WEATHERAPI_KEY = os.environ.get("WEATHERAPI_KEY", "").strip()
@@ -198,7 +198,7 @@ NATIONAL_OUTLOOK_AUTO_REFRESH = os.environ.get("NATIONAL_OUTLOOK_AUTO_REFRESH", 
 NATIONAL_CACHE_REFRESH_TOKEN = os.environ.get("NATIONAL_CACHE_REFRESH_TOKEN", "")
 NATIONAL_100_POINTS_FILE = os.path.join(BASE, "national-100-points.json")
 NATIONAL_OUTLOOK_CHUNK_SIZE = max(1, min(50, int(os.environ.get("NATIONAL_OUTLOOK_CHUNK_SIZE", "25"))))
-NATIONAL_OUTLOOK_ENGINE = "metno-gfs-jma-ridge-gust-worstof-v15"
+NATIONAL_OUTLOOK_ENGINE = "metno-gfs-jma-ridge-gust-worstof-v16-consistent-grade"
 NATIONAL_GFS_MIN_INTERVAL = float(os.environ.get("NATIONAL_GFS_MIN_INTERVAL", "0.35"))
 _national_gfs_lock = threading.Lock()
 _national_gfs_last_request = 0.0

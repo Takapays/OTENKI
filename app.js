@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.78';
+const APP_VERSION = '1.6.79';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -7562,6 +7562,49 @@ function nationalDailyRuleReason(grade,counts){
   if(grade==='A')return '主要な注意条件なし';
   return '判定根拠データなし';
 }
+function nationalDailyGradeFromCounts(counts={}){
+  if(Number(counts.extreme||0)>=1)return 'E';
+  if(Number(counts.severe||0)>=2)return 'D';
+  if(Number(counts.severe||0)>=1||Number(counts.bc||0)>=2)return 'C';
+  if(Number(counts.caution||0)>=1)return 'B';
+  return 'A';
+}
+function reconcileNationalDetailResult(result,data){
+  const base=(data?.merged&&typeof data.merged==='object')?data.merged:{};
+  const jmaSeries=Array.isArray(data?.models?.jma?.series)?data.models.jma.series:[];
+  const jmaCounts=nationalDailyRuleCounts(jmaSeries,true);
+  const jmaGrade=jmaSeries.length?nationalDailyGradeFromCounts(jmaCounts):null;
+  const baseGrade=['A','B','C','D','E'].includes(base.grade)?base.grade:(result?.preJmaGrade||result?.grade||'?');
+  const finalGrade=jmaGrade&&nationalGradeRank(jmaGrade)>nationalGradeRank(baseGrade)?jmaGrade:baseGrade;
+  const ridgeVals=jmaSeries.map(x=>Number(x?.ridgeWind)).filter(Number.isFinite);
+  const surfaceVals=jmaSeries.map(x=>Number(x?.wind)).filter(Number.isFinite);
+  const gustVals=jmaSeries.map(x=>Number.isFinite(Number(x?.estimatedRidgeGust))?Number(x.estimatedRidgeGust):(Number.isFinite(Number(x?.ridgeWind))?Number(x.ridgeWind)*1.5:NaN)).filter(Number.isFinite);
+  return {
+    ...(result||{}),
+    grade:finalGrade,
+    preJmaGrade:baseGrade,
+    jmaGrade,
+    jmaWorstOfApplied:Boolean(jmaGrade&&nationalGradeRank(jmaGrade)>nationalGradeRank(baseGrade)),
+    detailReconciledVersion:'v1679',
+    jmaValues:jmaSeries.length?{...(result?.jmaValues||{}),series:jmaSeries,maxRidgeWind:ridgeVals.length?Math.max(...ridgeVals):null,maxSurfaceWind:surfaceVals.length?Math.max(...surfaceVals):null,maxEstimatedRidgeGust:gustVals.length?Math.max(...gustVals):null,cautionHours:jmaCounts.caution,bcCautionHours:jmaCounts.bc,severeHours:jmaCounts.severe,extremeHours:jmaCounts.extreme}:result?.jmaValues
+  };
+}
+function patchNationalOutlookBrowserCacheResult(date,row){
+  try{
+    const obj=JSON.parse(localStorage.getItem(NATIONAL_OUTLOOK_BROWSER_CACHE_KEY)||'null');
+    if(!obj||obj.date!==date||obj.engine!==NATIONAL_OUTLOOK_CACHE_ENGINE||!Array.isArray(obj.results)||!row?.name)return;
+    const i=obj.results.findIndex(x=>x?.name===row.name);
+    if(i>=0)obj.results[i]=row;else obj.results.push(row);
+    localStorage.setItem(NATIONAL_OUTLOOK_BROWSER_CACHE_KEY,JSON.stringify(obj));
+  }catch(_){}
+}
+function updateNationalDetailGradeBadge(box,grade){
+  if(!box||!['A','B','C','D','E'].includes(grade))return;
+  const badge=box.querySelector('.national-rich-grade');
+  if(!badge)return;
+  badge.className=`national-rich-grade grade-${grade.toLowerCase()}`;
+  badge.innerHTML=`<b>${grade}</b><span>${nationalGradeLabel(grade)}</span>`;
+}
 function nationalDecisionTraceHtml(result,rows,centerSeries=[]){
   const hourly=nationalHourlyDecisionRows(rows,centerSeries);
   const jma=(rows||[]).find(r=>r.model==='jma');
@@ -7667,7 +7710,15 @@ async function hydrateNationalModelDetail(box,p,result=null){
     const r=await fetch('/api/national-outlook/detail',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date,point:{name:p.name,lat:p.lat,lon:p.lon,elevation:p.elevation}})});
     const j=await r.json(); if(!r.ok)throw new Error(j?.error||`HTTP ${r.status}`);
     if(box.querySelector('.national-rich-hero h3')?.textContent?.trim()!==p.name)return;
-    const html=nationalModelDetailHtml(j,date,result); slots.forEach(slot=>slot.innerHTML=html);
+    // V1.6.79: detail data is the freshest same-mountain snapshot. Reconcile the
+    // large daily badge with the same hourly/JMA evidence shown below, then update
+    // the map/browser snapshot so a stale B cannot remain above all-D hourly rows.
+    const reconciled=reconcileNationalDetailResult(result,j);
+    nationalOutlookResults.set(p.name,reconciled);
+    patchNationalOutlookBrowserCacheResult(date,reconciled);
+    updateNationalDetailGradeBadge(box,reconciled.grade);
+    renderNationalOutlookMarkers();
+    const html=nationalModelDetailHtml(j,date,reconciled); slots.forEach(slot=>slot.innerHTML=html);
   }catch(e){slots.forEach(slot=>slot.innerHTML='<div class="national-model-chart-empty">時間別モデル比較を取得できませんでした。全国判定と既存情報はそのまま利用できます。</div>');}
 }
 
@@ -7771,10 +7822,10 @@ async function openMountainFromNationalMap(name){
   }
   $('mountainPreset')?.scrollIntoView({behavior:'smooth',block:'center'});
 }
-const NATIONAL_OUTLOOK_BROWSER_CACHE_KEY='traten:national-outlook:v10-daily-light-rain';
+const NATIONAL_OUTLOOK_BROWSER_CACHE_KEY='traten:national-outlook:v1679-consistent-grade';
 const NATIONAL_OUTLOOK_BROWSER_CACHE_TTL=4*60*60*1000;
 const NATIONAL_OUTLOOK_BROWSER_STALE_BRIDGE_TTL=5*60*1000;
-const NATIONAL_OUTLOOK_CACHE_ENGINE='metno-gfs-mb-v10-daily-light-rain';
+const NATIONAL_OUTLOOK_CACHE_ENGINE='metno-gfs-jma-ridge-gust-worstof-v16-consistent-grade';
 function readNationalOutlookBrowserCache(date){
   try{
     const obj=JSON.parse(localStorage.getItem(NATIONAL_OUTLOOK_BROWSER_CACHE_KEY)||'null');
