@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.72';
+const APP_VERSION = '1.6.73';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -7497,7 +7497,14 @@ function nationalHourlyGradeRows(rows,centerSeries=[]){
   const centerMap=new Map((centerSeries||[]).map(x=>[Number(x.hour),x]));
   return hours.map(hour=>{
     const center=centerMap.get(hour);
-    if(center)return {hour,grade:nationalHourlyGradeForValues(center.wind,center.gust,center.rain)};
+    const baseGrade=center?nationalHourlyGradeForValues(center.wind,center.gust,center.rain):'?';
+    const jma=maps.jma?.get(hour);
+    const ridge=Number(jma?.ridgeWind);
+    const estimatedGust=Number.isFinite(Number(jma?.estimatedRidgeGust))?Number(jma.estimatedRidgeGust):(Number.isFinite(ridge)?ridge*1.5:NaN);
+    const jmaGrade=jma?nationalHourlyGradeForValues(Number.isFinite(ridge)?ridge:jma.wind,estimatedGust,jma.rain):'?';
+    const rank=g=>['?','A','B','C','D','E'].indexOf(g);
+    if(rank(jmaGrade)>rank(baseGrade))return {hour,grade:jmaGrade};
+    if(baseGrade!=='?')return {hour,grade:baseGrade};
     const modelRows=['metno','gfs','meteoblue'].map(m=>maps[m]?.get(hour)).filter(Boolean);
     const mean=key=>{const vals=modelRows.map(x=>x?.[key]).filter(v=>typeof v==='number'&&Number.isFinite(v));return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;};
     return {hour,grade:nationalHourlyGradeForValues(mean('wind'),mean('gust'),mean('rain'))};
@@ -7539,6 +7546,34 @@ function nationalModelChartSvg(rows,key,label,unit,maxY,chartType='line'){
   }
   return `<div class="national-model-chart"><div class="national-model-chart-title"><strong>${esc(label)}</strong><span>${esc(unit)} ｜ 0〜${limit}${vals.some(v=>v>limit)?'（↑は上限超過）':''}</span></div><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}のモデル比較グラフ">${grid}${ticks}${plot}</svg><div class="national-model-legend">${legend}</div></div>`;
 }
+function nationalRidgeWindChartSvg(rows){
+  const jma=(rows||[]).find(r=>r.model==='jma');
+  if(!jma?.series?.length)return '<div class="national-model-chart-empty">推定稜線風を表示できません。</div>';
+  const hours=jma.series.map(x=>Number(x.hour)).filter(Number.isFinite).sort((a,b)=>a-b);
+  const vals=hours.map(h=>jma.series.find(x=>Number(x.hour)===h)?.ridgeWind).map(Number);
+  if(!vals.some(Number.isFinite))return '<div class="national-model-chart-empty">推定稜線風を表示できません。</div>';
+  const W=620,H=240,pl=56,pr=18,pt=22,pb=48,iw=W-pl-pr,ih=H-pt-pb;
+  const maxVal=Math.max(...vals.filter(Number.isFinite)); const limit=Math.max(15,Math.ceil(maxVal/5)*5);
+  const x=(h)=>pl+(hours.indexOf(h)/(hours.length-1))*iw, y=v=>pt+ih-(Math.max(0,Math.min(limit,v))/limit)*ih;
+  const path=vals.map((v,i)=>Number.isFinite(v)?`${i?'L':'M'}${x(hours[i]).toFixed(1)},${y(v).toFixed(1)}`:'').filter(Boolean).join(' ');
+  const ticks=[0,limit*.25,limit*.5,limit*.75,limit].map(v=>{const yy=y(v);return `<line x1="${pl}" y1="${yy}" x2="${W-pr}" y2="${yy}" class="nm-grid"/><text x="${pl-7}" y="${yy+4}" text-anchor="end" class="nm-axis nm-axis-y">${Math.round(v)}</text>`}).join('');
+  const xt=hours.map(h=>`<text x="${x(h)}" y="${H-10}" text-anchor="middle" class="nm-axis nm-axis-x">${h}時</text>`).join('');
+  return `<div class="national-model-chart"><div class="national-model-chart-title"><strong>推定稜線風</strong><span>m/s ｜ 0〜${limit}</span></div><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="JMA MSM上空風から推定した稜線風"><path d="${path}" class="nm-line nm-avg"/>${ticks}${xt}</svg><div class="national-model-legend"><span class="avg">JMA MSM 推定稜線風</span></div></div>`;
+}
+function nationalEstimatedGustChartSvg(rows,centerSeries=[]){
+  const jma=(rows||[]).find(r=>r.model==='jma');
+  const jm=new Map((jma?.series||[]).map(x=>[Number(x.hour),x]));
+  const cm=new Map((centerSeries||[]).map(x=>[Number(x.hour),x]));
+  const hours=Array.from({length:10},(_,i)=>i+6);
+  const vals=hours.map(h=>{const j=jm.get(h),c=cm.get(h);const ridge=Number(j?.ridgeWind);const derived=Number.isFinite(Number(j?.estimatedRidgeGust))?Number(j.estimatedRidgeGust):(Number.isFinite(ridge)?ridge*1.5:NaN);const native=Number(c?.gust);return [derived,native].filter(Number.isFinite).reduce((a,b)=>Math.max(a,b),NaN);});
+  if(!vals.some(Number.isFinite))return '<div class="national-model-chart-empty">推定最大瞬間風速を表示できません。</div>';
+  const W=620,H=240,pl=56,pr=18,pt=22,pb=48,iw=W-pl-pr,ih=H-pt-pb; const maxVal=Math.max(...vals.filter(Number.isFinite)); const limit=Math.max(15,Math.ceil(maxVal/5)*5);
+  const x=(h)=>pl+(hours.indexOf(h)/(hours.length-1))*iw, y=v=>pt+ih-(Math.max(0,Math.min(limit,v))/limit)*ih;
+  const path=vals.map((v,i)=>Number.isFinite(v)?`${i?'L':'M'}${x(hours[i]).toFixed(1)},${y(v).toFixed(1)}`:'').filter(Boolean).join(' ');
+  const ticks=[0,limit*.25,limit*.5,limit*.75,limit].map(v=>{const yy=y(v);return `<line x1="${pl}" y1="${yy}" x2="${W-pr}" y2="${yy}" class="nm-grid"/><text x="${pl-7}" y="${yy+4}" text-anchor="end" class="nm-axis nm-axis-y">${Math.round(v)}</text>`}).join('');
+  const xt=hours.map(h=>`<text x="${x(h)}" y="${H-10}" text-anchor="middle" class="nm-axis nm-axis-x">${h}時</text>`).join('');
+  return `<div class="national-model-chart"><div class="national-model-chart-title"><strong>推定稜線最大瞬間風速</strong><span>m/s ｜ 0〜${limit}</span></div><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="推定稜線最大瞬間風速"><path d="${path}" class="nm-line nm-avg"/>${ticks}${xt}</svg><div class="national-model-legend"><span class="avg">max（取得突風, 推定稜線風×1.5）</span></div></div>`;
+}
 function nationalModelDetailHtml(data,dateText=''){
   const models=data?.models||{}; const rows=[];
   if(models.metno?.series)rows.push({model:'metno',series:models.metno.series});
@@ -7548,7 +7583,7 @@ function nationalModelDetailHtml(data,dateText=''){
   const jmaStatus=data?.jmaStatus||null;
   const jmaNote=jmaStatus&&!jmaStatus.available?'<div class="national-model-chart-empty">JMA MSM：保存済み時間別データなし（追加リクエストなし）</div>':'';
   const forecastDate=String(dateText||'').match(/^\d{4}-\d{2}-\d{2}$/)?String(dateText).replaceAll('-','/'):'';
-  return `<section class="national-rich-section national-model-section national-model-section-simple"><div class="national-model-simple-head"><h4>時間別予測${forecastDate?` ｜ ${esc(forecastDate)}`:''}</h4><span>MET Norway / NOAA GFS + JMA MSM</span></div>${jmaNote}${nationalHourlyGradeHtml(rows,centerSeries)}${nationalModelChartSvg(rows,'wind','風速','m/s',7)}${nationalModelChartSvg(rows,'gust','突風','m/s',15)}${nationalModelChartSvg(rows,'rain','降水','mm/h',7,'bars')}<details class="national-grade-criteria"><summary>ABCDE 判定基準を見る</summary><div><p><b>A 良好</b>：主要な注意条件なし</p><p><b>B 軽い注意</b>：弱い雨のみ、または注意条件が1時間</p><p><b>C 注意</b>：風・突風・0.5mm/h以上の雨の注意条件が合計2時間以上、または強い条件が1時間</p><p><b>D 悪い</b>：強い条件が2時間以上</p><p><b>E 非常に悪い</b>：極端な条件が1時間でもある</p><small>日判定：弱い雨＝0.1以上0.5mm/h未満（続いても雨だけではCにしない）／Cへの累積対象＝風5m/s・突風12m/s・雨0.5mm/h以上／強い＝風9m/s・突風18m/s・雨1.5mm/h以上／極端＝風15m/s・突風25m/s・雨6mm/h以上。対象は6〜15時です。</small><small>時間別マーク：A＝注意未満、B＝風5・突風12・雨0.1以上、C＝風7・突風15・雨0.5以上、D＝風9・突風18・雨1.5以上、E＝風15・突風25・雨6以上。気温はMET主軸、突風はMET Norway / NOAA GFSを使用します。JMA MSMは風速・降水の比較に使用し、この取得経路には突風データがないため突風グラフには表示しません。</small></div></details></section>`;
+  return `<section class="national-rich-section national-model-section national-model-section-simple"><div class="national-model-simple-head"><h4>時間別予測${forecastDate?` ｜ ${esc(forecastDate)}`:''}</h4><span>MET Norway / NOAA GFS + JMA MSM</span></div>${jmaNote}${nationalHourlyGradeHtml(rows,centerSeries)}${nationalModelChartSvg(rows,'wind','10m風（モデル比較）','m/s',7)}${nationalRidgeWindChartSvg(rows)}${nationalEstimatedGustChartSvg(rows,centerSeries)}${nationalModelChartSvg(rows,'rain','降水','mm/h',7,'bars')}<details class="national-grade-criteria"><summary>ABCDE 判定基準を見る</summary><div><p><b>A 良好</b>：主要な注意条件なし</p><p><b>B 軽い注意</b>：弱い雨のみ、または注意条件が1時間</p><p><b>C 注意</b>：風・突風・0.5mm/h以上の雨の注意条件が合計2時間以上、または強い条件が1時間</p><p><b>D 悪い</b>：強い条件が2時間以上</p><p><b>E 非常に悪い</b>：極端な条件が1時間でもある</p><small>日判定：弱い雨＝0.1以上0.5mm/h未満（続いても雨だけではCにしない）／Cへの累積対象＝風5m/s・突風12m/s・雨0.5mm/h以上／強い＝風9m/s・突風18m/s・雨1.5mm/h以上／極端＝風15m/s・突風25m/s・雨6mm/h以上。対象は6〜15時です。</small><small>時間別マーク：A＝注意未満、B＝風5・突風12・雨0.1以上、C＝風7・突風15・雨0.5以上、D＝風9・突風18・雨1.5以上、E＝風15・突風25・雨6以上。気温はMET主軸。全国安全側判定と時間別マークにはJMA MSMの推定稜線風を反映します。推定稜線最大瞬間風速は max（取得できた突風, 推定稜線風×1.5）です。JMA MSM自体にはこの取得経路で突風データがありません。</small></div></details></section>`;
 }
 async function hydrateNationalModelDetail(box,p){
   const slots=Array.from(box?.querySelectorAll('[data-national-model-detail]')||[]); if(!slots.length)return;
@@ -7579,7 +7614,7 @@ function showNationalOutlookDetail(p,result){
   const courseHtml=course?`<section class="national-rich-section"><div class="national-rich-section-head"><div><span>REPRESENTATIVE ROUTE</span><h4>${esc(course.label)}</h4></div><span class="national-route-count">${course.points.length}地点</span></div><div class="national-route-flow">${course.points.map((pt,i)=>`<span class="national-route-node"><b>${i+1}</b>${esc(pt.name)}</span>`).join('<i>→</i>')}</div></section>`:'';
   const nearbyHtml=`<section class="national-rich-section"><div class="national-rich-section-head"><div><span>NEARBY MOUNTAINS</span><h4>近くの山</h4></div></div><div class="national-nearby-list">${nearby.map(x=>{const g=x.result?.grade||'?';const gc=g==='?'?'u':g.toLowerCase();return `<button type="button" class="national-nearby-item" data-national-nearby="${esc(x.name)}"><span><strong>${esc(x.name)}</strong><small>約${Math.round(x.distance)} km</small></span><b class="national-nearby-grade grade-${gc}">${g}</b></button>`}).join('')}</div></section>`;
   const metrics=result?[
-    nationalMetricHtml('最大風速',`${num(result.maxWind)} m/s`,'6〜15時'),
+    nationalMetricHtml('最大推定稜線風',`${num(Number.isFinite(Number(result?.jmaValues?.maxRidgeWind))?Number(result.jmaValues.maxRidgeWind):result.maxWind)} m/s`,Number.isFinite(Number(result?.jmaValues?.maxSurfaceWind))?`JMA 10m風最大 ${num(Number(result.jmaValues.maxSurfaceWind))} m/s`:'6〜15時'),
     nationalMetricHtml('最大降水',`${num(result.maxRain)} mm/h`,'6〜15時'),
     nationalMetricHtml('雷リスク',esc(result.thunder||'–'),'参考情報'),
     nationalMetricHtml('最低気温',`${num(result.minTemp)} ℃`,'6〜15時'),

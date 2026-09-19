@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.72"
+APP_VERSION = "1.6.73"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 WEATHERAPI_KEY = os.environ.get("WEATHERAPI_KEY", "").strip()
@@ -198,7 +198,7 @@ NATIONAL_OUTLOOK_AUTO_REFRESH = os.environ.get("NATIONAL_OUTLOOK_AUTO_REFRESH", 
 NATIONAL_CACHE_REFRESH_TOKEN = os.environ.get("NATIONAL_CACHE_REFRESH_TOKEN", "")
 NATIONAL_100_POINTS_FILE = os.path.join(BASE, "national-100-points.json")
 NATIONAL_OUTLOOK_CHUNK_SIZE = max(1, min(50, int(os.environ.get("NATIONAL_OUTLOOK_CHUNK_SIZE", "25"))))
-NATIONAL_OUTLOOK_ENGINE = "metno-gfs-jma-ridge-worstof-v13"
+NATIONAL_OUTLOOK_ENGINE = "metno-gfs-jma-ridge-gust-worstof-v14"
 NATIONAL_GFS_MIN_INTERVAL = float(os.environ.get("NATIONAL_GFS_MIN_INTERVAL", "0.35"))
 _national_gfs_lock = threading.Lock()
 _national_gfs_last_request = 0.0
@@ -2064,22 +2064,26 @@ def _openmeteo_jma_shadow_day_result(p: dict[str, Any], payload: dict[str, Any],
     winds=[r["wind"] for r in rows]; effective_winds=[r["ridgeWind"] if _finite(r.get("ridgeWind")) else r["wind"] for r in rows]; rains=[r["rain"] for r in rows]; temps=[r["temp"] for r in rows]
     humidities=[r["humidity"] for r in rows if _finite(r.get("humidity"))]
     clouds=[r["cloud"] for r in rows if _finite(r.get("cloud"))]
+    # V1.6.73: use one mountain-wind definition for the JMA safety grade and the detail UI.
+    # JMA MSM has no native gust in this API path, so the ridge gust is explicitly an estimate:
+    # max available/native gust (none here), ridge 10-min mean * 1.5.
+    for r in rows:
+        rw = r["ridgeWind"] if _finite(r.get("ridgeWind")) else r["wind"]
+        r["estimatedRidgeGust"] = float(rw) * 1.5 if _finite(rw) else None
     caution=severe=extreme=0
     for r in rows:
-        w=float(r["ridgeWind"] if _finite(r.get("ridgeWind")) else r["wind"]); pr=float(r["rain"])
-        if w>=15 or pr>=6: extreme += 1
-        if w>=9 or pr>=1.5: severe += 1
-        if w>=5 or pr>=0.1: caution += 1
-    bc_caution=_national_bc_caution_hours([{"wind":(r["ridgeWind"] if _finite(r.get("ridgeWind")) else r["wind"]),"gust":None,"rain":r["rain"]} for r in rows])
-    max_surface_w=max(winds); max_w=max(effective_winds); max_r=max(rains); min_t=min(temps)
-    # JMA MSM has no native gust/CAPE/visibility fields in this API path.
-    # Keep them absent/zero rather than fabricating values.
-    grade, _ = _national_grade(max_w, 0, max_r, 0, min_t, None,
+        w=float(r["ridgeWind"] if _finite(r.get("ridgeWind")) else r["wind"]); pr=float(r["rain"]); gu=r.get("estimatedRidgeGust")
+        if w>=15 or (_finite(gu) and gu>=25) or pr>=6: extreme += 1
+        if w>=9 or (_finite(gu) and gu>=18) or pr>=1.5: severe += 1
+        if w>=5 or (_finite(gu) and gu>=12) or pr>=0.1: caution += 1
+    bc_caution=_national_bc_caution_hours([{"wind":(r["ridgeWind"] if _finite(r.get("ridgeWind")) else r["wind"]),"gust":r.get("estimatedRidgeGust"),"rain":r["rain"]} for r in rows])
+    max_surface_w=max(winds); max_w=max(effective_winds); max_g=max([r["estimatedRidgeGust"] for r in rows if _finite(r.get("estimatedRidgeGust"))], default=0); max_r=max(rains); min_t=min(temps)
+    grade, _ = _national_grade(max_w, max_g, max_r, 0, min_t, None,
         caution_hours=caution, severe_hours=severe, extreme_hours=extreme, bc_caution_hours=bc_caution)
     return {
         "name":p["name"],"date":date_text,"lat":p.get("lat"),"lon":p.get("lon"),"elevation":p.get("elevation"),
         "modelLat":payload.get("latitude"),"modelLon":payload.get("longitude"),"modelElevation":payload.get("elevation"),
-        "maxWind":round(max_w,1),"maxSurfaceWind":round(max_surface_w,1),"maxRidgeWind":round(max_w,1),"maxGust":None,"maxRain":round(max_r,1),"minTemp":round(min_t,1),
+        "maxWind":round(max_w,1),"maxSurfaceWind":round(max_surface_w,1),"maxRidgeWind":round(max_w,1),"maxGust":round(max_g,1),"maxEstimatedRidgeGust":round(max_g,1),"maxRain":round(max_r,1),"minTemp":round(min_t,1),
         "avgHumidity":round(sum(humidities)/len(humidities),1) if humidities else None,
         "avgCloud":round(sum(clouds)/len(clouds),1) if clouds else None,
         "cautionHours":caution,"bcCautionHours":bc_caution,
@@ -2093,6 +2097,7 @@ def _openmeteo_jma_shadow_day_result(p: dict[str, Any], payload: dict[str, Any],
                 "wind850":round(float(r["wind850"]),1) if _finite(r.get("wind850")) else None,
                 "wind700":round(float(r["wind700"]),1) if _finite(r.get("wind700")) else None,
                 "wind600":round(float(r["wind600"]),1) if _finite(r.get("wind600")) else None,
+                "estimatedRidgeGust":round(float(r["estimatedRidgeGust"]),1) if _finite(r.get("estimatedRidgeGust")) else None,
                 "rain":round(float(r["rain"]),1),
                 "temp":round(float(r["temp"]),1),
                 "humidity":round(float(r["humidity"]),1) if _finite(r.get("humidity")) else None,
@@ -3457,6 +3462,7 @@ def _national_fetch_shared(date_text, points):
                     "maxWind":jr.get("maxWind"),
                     "maxSurfaceWind":jr.get("maxSurfaceWind"),
                     "maxRidgeWind":jr.get("maxRidgeWind"),
+                    "maxEstimatedRidgeGust":jr.get("maxEstimatedRidgeGust"),
                     "ridgeWindApplied":jr.get("ridgeWindApplied"),
                     "maxRain":jr.get("maxRain"),
                     "minTemp":jr.get("minTemp"),
@@ -3465,7 +3471,7 @@ def _national_fetch_shared(date_text, points):
                     "severeHours":jr.get("severeHours"),
                     "extremeHours":jr.get("extremeHours"),
                     "series":[
-                        {"hour":x.get("hour"),"wind":x.get("wind"),"ridgeWind":x.get("ridgeWind"),"wind850":x.get("wind850"),"wind700":x.get("wind700"),"wind600":x.get("wind600"),"rain":x.get("rain")}
+                        {"hour":x.get("hour"),"wind":x.get("wind"),"ridgeWind":x.get("ridgeWind"),"estimatedRidgeGust":x.get("estimatedRidgeGust"),"wind850":x.get("wind850"),"wind700":x.get("wind700"),"wind600":x.get("wind600"),"rain":x.get("rain")}
                         for x in (jr.get("series") or []) if isinstance(x,dict)
                     ],
                 } if jr else None)
@@ -4257,7 +4263,7 @@ def national_outlook_detail():
         jv=cached.get("jmaValues") if isinstance(cached,dict) else None
         if isinstance(jv,dict) and isinstance(jv.get("series"),list) and jv.get("series"):
             jma={"name":name,"source":"openmeteo-jma-msm-cache","series":jv.get("series"),
-                 "maxWind":jv.get("maxWind"),"maxGust":None,"maxRain":jv.get("maxRain")}
+                 "maxWind":jv.get("maxWind"),"maxGust":jv.get("maxEstimatedRidgeGust"),"maxRain":jv.get("maxRain")}
         else:
             warnings.append("JMA MSM hourly cache unavailable")
     except Exception as exc:
