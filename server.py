@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.76"
+APP_VERSION = "1.6.77"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 WEATHERAPI_KEY = os.environ.get("WEATHERAPI_KEY", "").strip()
@@ -3338,14 +3338,30 @@ def _national_merge_two_models(p: dict[str, Any], met: dict[str, Any] | None, gf
         integration="hourly-element-policy"
 
     # Safety floor only from usable wind/rain evidence; do not let GFS temp/gust drive it.
+    # V1.6.77: retain the exact same-generation evidence that raised the grade so the UI
+    # can explain a D/E that is not visible in the integrated center series.
     rank=_national_grade_rank(base_grade)
-    for series in model_rows.values():
+    safety_floor_evidence=[]
+    model_labels={"metno":"MET Norway","gfs":"NOAA GFS","meteoblue":"meteoblue"}
+    for model_id,series in model_rows.items():
         rows=list(series.values())
-        ext=sum(1 for r in rows if (mv:= (float(r.get("wind")) if _finite(r.get("wind")) else -1e9))>=15 or (_finite(r.get("rain")) and float(r.get("rain"))>=6))
-        sev=sum(1 for r in rows if (_finite(r.get("wind")) and float(r.get("wind"))>=9) or (_finite(r.get("rain")) and float(r.get("rain"))>=1.5))
-        if ext>=1: rank=max(rank,5)
-        elif sev>=2: rank=max(rank,4)
+        extreme_rows=[]; severe_rows=[]
+        for r in rows:
+            hour=r.get("hour")
+            wind=float(r.get("wind")) if _finite(r.get("wind")) else None
+            rain=float(r.get("rain")) if _finite(r.get("rain")) else None
+            if (wind is not None and wind>=15) or (rain is not None and rain>=6):
+                extreme_rows.append({"hour":hour,"wind":wind,"rain":rain})
+            if (wind is not None and wind>=9) or (rain is not None and rain>=1.5):
+                severe_rows.append({"hour":hour,"wind":wind,"rain":rain})
+        if extreme_rows:
+            rank=max(rank,5)
+            safety_floor_evidence.append({"model":model_id,"modelLabel":model_labels.get(model_id,model_id),"grade":"E","hours":extreme_rows})
+        elif len(severe_rows)>=2:
+            rank=max(rank,4)
+            safety_floor_evidence.append({"model":model_id,"modelLabel":model_labels.get(model_id,model_id),"grade":"D","hours":severe_rows})
     grade={1:"A",2:"B",3:"C",4:"D",5:"E"}.get(rank,base_grade)
+    safety_floor_applied=_national_grade_rank(grade)>_national_grade_rank(base_grade)
     grades={k:v.get("grade") for k,v in (("metno",met),("gfs",gfs),("meteoblue",mb)) if v}
     vals=list(grades.values()); ranks=[_national_grade_rank(x) for x in vals if _national_grade_rank(x)]
     diff=(max(ranks)-min(ranks)) if ranks else 0
@@ -3357,6 +3373,9 @@ def _national_merge_two_models(p: dict[str, Any], met: dict[str, Any] | None, gf
         "maxCape":0,"minTemp":round(avg_t,1) if avg_t is not None else None,"minVisibility":None,"thunder":"–",
         "cautionHours":caution,"bcCautionHours":bc_caution_hours,"lightRainOnlyHours":max(0,caution-bc_caution_hours),"severeHours":severe,"source":source,"integration":integration,"_series":public_series,"series":public_series,
         "modelGrades":grades,"modelAgreement":"high" if diff==0 else "medium" if diff==1 else "low","meteoblueUsed":bool(mb_used),
+        "safetyFloorVersion":"v1677-evidence-v1","safetyFloorApplied":bool(safety_floor_applied),
+        "safetyFloorBaseGrade":base_grade,"safetyFloorGrade":grade if safety_floor_applied else None,
+        "safetyFloorEvidence":safety_floor_evidence if safety_floor_applied else [],
         "modelValues":{k:{"maxWind":v.get("maxWind"),"maxGust":v.get("maxGust"),"maxRain":v.get("maxRain"),"minTemp":v.get("minTemp")} for k,v in (("metno",met),("gfs",gfs),("meteoblue",mb)) if v}}
 
 def _national_meteoblue_candidate(met: dict[str, Any] | None, gfs: dict[str, Any] | None) -> bool:
@@ -3413,7 +3432,8 @@ def _national_fetch_shared(date_text, points):
     for p in points:
         cached = _national_point_cache_get(date_text,p)
         source=str((cached or {}).get("source") or "")
-        if cached and (source in {"metno+gfs","metno","gfs"} or source.endswith("-element-policy")):
+        cache_policy_ok = not source.endswith("-element-policy") or cached.get("safetyFloorVersion") == "v1677-evidence-v1"
+        if cached and cache_policy_ok and (source in {"metno+gfs","metno","gfs"} or source.endswith("-element-policy")):
             rows[p["name"]] = dict(cached,name=p["name"])
         else:
             missing.append(p)

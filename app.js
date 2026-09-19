@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.76';
+const APP_VERSION = '1.6.77';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -7577,13 +7577,16 @@ function nationalDecisionTraceHtml(result,rows,centerSeries=[]){
     extreme:Number(result.jmaValues.extremeHours)||0
   }:nationalDailyRuleCounts(jma?.series||[],true);
   const chosenCounts=applied?jmaCounts:baseCounts;
-  const chosenSource=applied?'JMA安全側':'従来統合';
+  const floorApplied=!applied&&Boolean(result?.safetyFloorApplied);
+  const chosenSource=applied?'JMA安全側':floorApplied?'単一モデル安全側floor':'従来統合';
+  const floorEvidence=Array.isArray(result?.safetyFloorEvidence)?result.safetyFloorEvidence:[];
+  const floorHtml=floorApplied?`<div style="padding:10px 12px;border-radius:10px;background:#fff8e8;margin:0 0 10px;line-height:1.55;font-size:13px"><b>安全側floorの根拠</b><br>${floorEvidence.length?floorEvidence.map(e=>{const hs=Array.isArray(e?.hours)?e.hours:[];return `${esc(e?.modelLabel||e?.model||'モデル')}：${hs.map(h=>`${esc(h?.hour)}時${Number.isFinite(Number(h?.wind))?` 風${num(Number(h.wind))}m/s`:''}${Number.isFinite(Number(h?.rain))?` 雨${num(Number(h.rain))}mm/h`:''}`).join(' / ')}`;}).join('<br>'):'現在の詳細データに根拠なし'}</div>`:'';
   const rowsHtml=hourly.map(x=>{
     const rs=x.reasons||[];
     const reason=rs.length?rs.map(r=>`${r.source}・${r.element} ${num(r.value)}${r.unit}`).join(' / '):'主要な注意条件なし';
     return `<div style="display:grid;grid-template-columns:48px 36px 1fr;gap:8px;align-items:start;padding:7px 0;border-top:1px solid #e2ece7"><b>${x.hour}時</b><span class="national-hourly-grade-dot grade-${x.grade==='?'?'u':x.grade.toLowerCase()}" style="width:28px;height:28px;font-size:13px">${x.grade}</span><span style="font-size:13px;line-height:1.45;color:#375b50">${esc(reason)}</span></div>`;
   }).join('');
-  return `<details class="national-grade-criteria" style="margin-top:14px"><summary><b>この判定の決定要因を見る</b></summary><div style="padding-top:10px"><div style="padding:10px 12px;border-radius:10px;background:#eef8f3;margin-bottom:10px;line-height:1.6"><b>最終 ${esc(finalGrade)}</b> ｜ 従来統合 ${esc(baseGrade)} ｜ JMA安全側 ${esc(jmaGrade)}<br><span style="font-size:13px">採用：${esc(chosenSource)} ／ ${esc(nationalDailyRuleReason(finalGrade,chosenCounts))}</span></div><div style="font-size:12px;color:#60786f;margin-bottom:6px">時間別マークを実際に押し上げた要素を表示しています。同じ等級の要素が複数ある場合は併記します。</div>${rowsHtml}</div></details>`;
+  return `<details class="national-grade-criteria" style="margin-top:14px"><summary><b>この判定の決定要因を見る</b></summary><div style="padding-top:10px"><div style="padding:10px 12px;border-radius:10px;background:#eef8f3;margin-bottom:10px;line-height:1.6"><b>最終 ${esc(finalGrade)}</b> ｜ 従来統合 ${esc(baseGrade)} ｜ JMA安全側 ${esc(jmaGrade)}<br><span style="font-size:13px">採用：${esc(chosenSource)} ／ ${floorApplied?`安全側floor ${esc(result?.safetyFloorBaseGrade||baseGrade)}→${esc(result?.safetyFloorGrade||finalGrade)}`:esc(nationalDailyRuleReason(finalGrade,chosenCounts))}</span></div>${floorHtml}<div style="font-size:12px;color:#60786f;margin-bottom:6px">時間別マークを実際に押し上げた要素を表示しています。同じ等級の要素が複数ある場合は併記します。</div>${rowsHtml}</div></details>`;
 }
 
 function nationalModelChartSvg(rows,key,label,unit,maxY,chartType='line'){
@@ -13517,7 +13520,7 @@ function pointForecastRow(r,i,total){
           <b>${windDirectionLabel(windDeg)}</b>
           ${Number.isFinite(effectiveMountainGust(r))?`<small>${Number.isFinite(r.ridgeWind)?'推定最大瞬間':'最大瞬間'} ${num(effectiveMountainGust(r),0)}m/s</small>`:''}
         </div>
-        ${Number.isFinite(r.ridgeWind)?`<div class="rf-feels-like"><span>10m風</span><b>${num(r.wind,0)}m/s</b><small>850hPa ${Number.isFinite(r.wind850)?num(r.wind850,0)+'m/s':'–'} / 700hPa ${Number.isFinite(r.wind700)?num(r.wind700,0)+'m/s':'–'} / 600hPa ${Number.isFinite(r.wind600)?num(r.wind600,0)+'m/s':'–'}</small></div>`:''}${metricGauge('wind',displayWind)}
+        ${Number.isFinite(r.ridgeWind)?`<div class="rf-feels-like"><span>10m風</span><b>${num(r.wind,0)}m/s</b></div>`:''}${metricGauge('wind',displayWind)}
       </div>
       <div class="rf-metric rain${hazardMetricClass(hz.rain)}" data-label="雨">
         <div class="rf-metric-title"><span class="rf-metric-symbol rain">${pointMetricIcon('rain')}</span><b>雨</b></div>
