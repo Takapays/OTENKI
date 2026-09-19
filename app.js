@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.83';
+const APP_VERSION = '1.6.84';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -7101,6 +7101,9 @@ const NATIONAL_MOUNTAIN_COORD_OVERRIDES = Object.freeze({
   '三ッ峠山':{lat:35.549167,lon:138.809167,elevation:1785}
 });
 const NATIONAL_MOUNTAIN_PRESET_ALIASES = Object.freeze({'御嶽':'御嶽山','大山（鳥取）':'大山'});
+// V1.6.84: these two national points historically reached the API with null elevation.
+// Keep the national forecast identity resolved without mutating the route catalog.
+const NATIONAL_MOUNTAIN_ELEVATION_OVERRIDES = Object.freeze({'御嶽':3067,'大山（鳥取）':1709});
 
 function commonsMountainPhotoUrl(fileName,width=1600){
   return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(fileName)}?width=${width}`;
@@ -7206,7 +7209,7 @@ function nationalMountainPoint(name){
   const lat=Number(peak?.lat??peak?.latitude??override?.lat??preset?.latitude??preset?.lat);
   const lon=Number(peak?.lon??peak?.longitude??override?.lon??preset?.longitude??preset?.lon);
   if(!Number.isFinite(lat)||!Number.isFinite(lon))return null;
-  const elevation=Number(peak?.elevation??override?.elevation);
+  const elevation=Number(peak?.elevation??override?.elevation??NATIONAL_MOUNTAIN_ELEVATION_OVERRIDES[name]);
   // V1.5.71: 全国分析の対象可否を代表コース有無から切り離す。
   // 全国簡易判定に必要なのは山頂座標だけ。火山規制等で代表コースを非表示にしている山も気象判定対象とする。
   return {name,lat,lon,elevation:Number.isFinite(elevation)?elevation:null,eligible:true,hasRepresentativeCourse:representativeCourseOptions(name).length>0};
@@ -7575,7 +7578,11 @@ function reconcileNationalDetailResult(result,data){
   const jmaCounts=nationalDailyRuleCounts(jmaSeries,true);
   const jmaGrade=jmaSeries.length?nationalDailyGradeFromCounts(jmaCounts):null;
   const baseGrade=['A','B','C','D','E'].includes(base.grade)?base.grade:(result?.preJmaGrade||result?.grade||'?');
-  const finalGrade=jmaGrade&&nationalGradeRank(jmaGrade)>nationalGradeRank(baseGrade)?jmaGrade:baseGrade;
+  const visibleGrade=['A','B','C','D','E'].includes(result?.grade)?result.grade:'?';
+  // Fallback reconciliation must never make the already-authoritative daily badge safer.
+  // A successful server response normally supplies `reconciled`; this only protects the rare
+  // fallback path from turning a server D/E into a fresher chart-only C/D.
+  const finalGrade=[visibleGrade,baseGrade,jmaGrade].filter(g=>['A','B','C','D','E'].includes(g)).sort((a,b)=>nationalGradeRank(b)-nationalGradeRank(a))[0]||baseGrade;
   const ridgeVals=jmaSeries.map(x=>Number(x?.ridgeWind)).filter(Number.isFinite);
   const surfaceVals=jmaSeries.map(x=>Number(x?.wind)).filter(Number.isFinite);
   const gustVals=jmaSeries.map(x=>Number.isFinite(Number(x?.estimatedRidgeGust))?Number(x.estimatedRidgeGust):(Number.isFinite(Number(x?.ridgeWind))?Number(x.ridgeWind)*1.5:NaN)).filter(Number.isFinite);
@@ -7585,7 +7592,7 @@ function reconcileNationalDetailResult(result,data){
     preJmaGrade:baseGrade,
     jmaGrade,
     jmaWorstOfApplied:Boolean(jmaGrade&&nationalGradeRank(jmaGrade)>nationalGradeRank(baseGrade)),
-    detailReconciledVersion:'v1683-client-fallback',
+    detailReconciledVersion:'v1684-client-fallback',
     jmaValues:jmaSeries.length?{...(result?.jmaValues||{}),series:jmaSeries,maxRidgeWind:ridgeVals.length?Math.max(...ridgeVals):null,maxSurfaceWind:surfaceVals.length?Math.max(...surfaceVals):null,maxEstimatedRidgeGust:gustVals.length?Math.max(...gustVals):null,cautionHours:jmaCounts.caution,bcCautionHours:jmaCounts.bc,severeHours:jmaCounts.severe,extremeHours:jmaCounts.extreme}:result?.jmaValues
   };
 }
@@ -7822,7 +7829,7 @@ async function openMountainFromNationalMap(name){
   }
   $('mountainPreset')?.scrollIntoView({behavior:'smooth',block:'center'});
 }
-const NATIONAL_OUTLOOK_BROWSER_CACHE_KEY='traten:national-outlook:v1683-jma-repair';
+const NATIONAL_OUTLOOK_BROWSER_CACHE_KEY='traten:national-outlook:v1684-server-authority';
 const NATIONAL_OUTLOOK_BROWSER_CACHE_TTL=4*60*60*1000;
 const NATIONAL_OUTLOOK_BROWSER_STALE_BRIDGE_TTL=5*60*1000;
 const NATIONAL_OUTLOOK_CACHE_ENGINE='metno-gfs-jma-ridge-gust-worstof-v16-consistent-grade';
@@ -7859,15 +7866,9 @@ async function loadNationalOutlookSharedCacheOnly({silentMiss=false}={}){
     if(status)status.textContent='表示する山の区分を1つ以上選択してください。';
     return false;
   }
+  // V1.6.84: the server shared snapshot is the authoritative first paint. A browser
+  // snapshot can be one generation behind, so retain it only as a network-failure fallback.
   const browserCached=readNationalOutlookBrowserCache(date);
-  if(browserCached?.length){
-    const wanted=new Set(eligible.map(x=>x.name));
-    const picked=browserCached.filter(x=>wanted.has(x.name));
-    if(picked.length){
-      nationalOutlookResults=new Map(picked.map(x=>[x.name,x]));
-      renderNationalOutlookMarkers();
-    }
-  }
   try{
     const res=await fetch('/api/national-outlook',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date,points:eligible,cacheOnly:true})});
     const data=await res.json().catch(()=>({}));
@@ -7891,6 +7892,16 @@ async function loadNationalOutlookSharedCacheOnly({silentMiss=false}={}){
     if(status)status.innerHTML=`${freshness}から${esc(nationalOutlookSelectedLabel())}を初期表示：<b>A ${counts.A}座</b> / <b>B ${counts.B}座</b> / <b>C ${counts.C}座</b> / <b>D ${counts.D}座</b> / <b>E ${counts.E}座</b><br><span class="national-cache-stats">${coverage}${missing?` / 残り <b>${missing}座</b> はキャッシュ更新待ち`: ' / 充足済み'}</span>`;
     return true;
   }catch(_){
+    if(browserCached?.length){
+      const wanted=new Set(eligible.map(x=>x.name));
+      const picked=browserCached.filter(x=>wanted.has(x.name));
+      if(picked.length){
+        nationalOutlookResults=new Map(picked.map(x=>[x.name,x]));
+        renderNationalOutlookMarkers();
+        if(status&&!silentMiss)status.textContent='共有キャッシュを確認できないため、端末に保存された前回結果を表示しています。';
+        return true;
+      }
+    }
     if(status&&!silentMiss)status.textContent='共有キャッシュを確認できませんでした。「全国を判定」は利用できます。';
     return false;
   }
@@ -7904,20 +7915,10 @@ async function runNationalOutlook(){
   if(!eligible.length){if(status)status.textContent='表示する山の区分を1つ以上選択してください。';return;}
   if(btn)btn.disabled=true;
   const browserCached=readNationalOutlookBrowserCache(date);
-  if(browserCached?.length){
-    const wanted=new Set(eligible.map(x=>x.name));
-    const selectedCached=browserCached.filter(x=>wanted.has(x.name));
-    nationalOutlookResults=new Map(selectedCached.map(x=>[x.name,x]));
-    renderNationalOutlookMarkers();
-    const counts={A:0,B:0,C:0,D:0,E:0};for(const r of nationalOutlookResults.values())if(counts[r.grade]!=null)counts[r.grade]++;
-    const missing=Math.max(0,eligible.length-nationalOutlookResults.size);
-    if(status)status.innerHTML=`保存済み ${nationalOutlookResults.size}座を先に表示：<b>A ${counts.A}座</b> / <b>B ${counts.B}座</b> / <b>C ${counts.C}座</b> / <b>D ${counts.D}座</b> / <b>E ${counts.E}座</b>${missing?`<br><small>未取得 ${missing}座だけ追加確認中…</small>`:'<br><small>共有キャッシュの更新有無を確認中…</small>'}`;
-    // Do not return: server-side partial cache is checked and only missing mountains are fetched.
-  }else{
-    nationalOutlookResults=new Map();
-    renderNationalOutlookMarkers();
-    if(status)status.textContent='全国共有キャッシュを確認中… 気温はMET主軸、風・雨はMET/GFSの要素別統合で判定します。';
-  }
+  // V1.6.84: do not optimistically paint localStorage grades before the authoritative server result.
+  nationalOutlookResults=new Map();
+  renderNationalOutlookMarkers();
+  if(status)status.textContent='全国共有キャッシュを確認中… 気温はMET主軸、風・雨はMET/GFSの要素別統合で判定します。';
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),110000);
   try{
@@ -7967,6 +7968,16 @@ async function runNationalOutlook(){
       if(status)status.innerHTML=`${lead}：<b>A ${counts.A}座</b> / <b>B ${counts.B}座</b> / <b>C ${counts.C}座</b> / <b>D ${counts.D}座</b> / <b>E ${counts.E}座</b>${missing?` / 未取得 ${missing}座`:''}${note}`;
     }
   }catch(e){
+    if(browserCached?.length){
+      const wanted=new Set(eligible.map(x=>x.name));
+      const picked=browserCached.filter(x=>wanted.has(x.name));
+      if(picked.length){
+        nationalOutlookResults=new Map(picked.map(x=>[x.name,x]));
+        renderNationalOutlookMarkers();
+        if(status)status.textContent='サーバー判定を取得できないため、端末に保存された前回結果を表示しています。';
+        return;
+      }
+    }
     const msg=e?.name==='AbortError'?'全国共有キャッシュの生成がタイムアウトしました。少し時間をおいて再度お試しください。':(e.message||e);
     if(status)status.innerHTML=`<strong>全国判定を実行できませんでした</strong><br><span>${e?.name==='AbortError'?'処理に時間がかかっています。少し時間をおいて、もう一度お試しください。':'予報データを取得できませんでした。少し時間をおいて、もう一度お試しください。'}</span>`;
   }finally{

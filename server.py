@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.83"
+APP_VERSION = "1.6.84"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 WEATHERAPI_KEY = os.environ.get("WEATHERAPI_KEY", "").strip()
@@ -1324,7 +1324,7 @@ def _national_reconcile_cached_row(row: dict[str, Any]) -> dict[str, Any]:
     # Reconciliation is safety-side only. Normal provider refresh may improve a grade later.
     if _national_grade_rank(jg)>_national_grade_rank(out.get("grade")):
         out["grade"]=jg
-    out["detailReconciledVersion"]="v1683-server-read"
+    out["detailReconciledVersion"]="v1684-server-read"
     return out
 
 def _national_attach_jma_result(row: dict[str, Any], jr: dict[str, Any]) -> dict[str, Any]:
@@ -1442,6 +1442,17 @@ def _national_close_lock(key):
         if item:
             item[1].close()
 
+def _national_legacy_null_elevation_points(points: list[dict[str, Any]]) -> list[dict[str, Any]] | None:
+    """Return the pre-V1.6.83 point identity for the two historically null elevations."""
+    changed=False; out=[]
+    for p in points:
+        q=dict(p)
+        if q.get("name") in NATIONAL_MOUNTAIN_ELEVATION_OVERRIDES and q.get("elevation") is not None:
+            q["elevation"]=None; changed=True
+        out.append(q)
+    return out if changed else None
+
+
 def _national_cached_snapshot(date_text, fingerprint, points):
     read_error = None
     try:
@@ -1450,6 +1461,13 @@ def _national_cached_snapshot(date_text, fingerprint, points):
         fresh, stale, meta = {}, {}, {}
         read_error = str(exc)
     disk,_ = _national_read_disk_cache(date_text,fingerprint)
+    if not disk:
+        legacy_points=_national_legacy_null_elevation_points(points)
+        if legacy_points:
+            legacy_fp=_national_points_fingerprint(legacy_points)
+            legacy_disk,_=_national_read_disk_cache(date_text,legacy_fp)
+            if legacy_disk:
+                disk=legacy_disk
     rows = _national_valid_results(points,(disk or {}).get("results") or [])
     for p in points:
         name = p["name"]
@@ -1915,7 +1933,13 @@ def _national_supabase_key(date_text: str, p: dict[str, Any]) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 def _national_supabase_read(date_text, points):
-    """Return fresh, stale and original per-row timestamps; never reset freshness on reads."""
+    """Return fresh, stale and original per-row timestamps; never reset freshness on reads.
+
+    V1.6.84: for the two mountains whose summit elevation was historically null in the
+    national client, accept both the current resolved-elevation cache key and the legacy
+    null-elevation key. This keeps older forecast-date rows usable while new writes migrate
+    naturally to the resolved key.
+    """
     if not _national_supabase_enabled():
         return {}, {}, {}
     if _national_supabase_fallback_active():
@@ -1934,26 +1958,41 @@ def _national_supabase_read(date_text, points):
         app.logger.warning("national_cache_read_failed %s", type(exc).__name__)
         message = "persistent cache temporarily unavailable; local-only fallback active" if degraded else "persistent cache read failed"
         raise RuntimeError(message) from exc
-    wanted = {_national_supabase_key(date_text,p):p["name"] for p in points}
-    fresh, stale, meta_by_name = {}, {}, {}
+    wanted = {}
+    for p in points:
+        wanted[_national_supabase_key(date_text,p)] = (p["name"],0)
+        if p.get("name") in NATIONAL_MOUNTAIN_ELEVATION_OVERRIDES:
+            legacy=dict(p); legacy["elevation"]=None
+            wanted[_national_supabase_key(date_text,legacy)] = (p["name"],1)
+    fresh, stale, meta_by_name, priority_by_name = {}, {}, {}, {}
     for dbrow in data if isinstance(data,list) else []:
         if not isinstance(dbrow,dict):
             continue
-        name = wanted.get(str(dbrow.get("cache_key") or ""))
+        match = wanted.get(str(dbrow.get("cache_key") or ""))
         row = dbrow.get("result")
-        if not name or not isinstance(row,dict) or row.get("grade") not in {"A","B","C","D","E"}:
+        if not match or not isinstance(row,dict) or row.get("grade") not in {"A","B","C","D","E"}:
             continue
+        name, key_priority = match
         meta = _national_meta({"_cache_meta":{k:dbrow.get(k) for k in ("generated_ts","fresh_until","stale_until")}})
         if meta is None or meta["stale_until"] <= time.time():
             continue
-        meta_by_name[name] = meta
-        (fresh if meta["fresh_until"] > time.time() else stale)[name] = dict(row, name=name, _cache_meta=meta)
+        prev = meta_by_name.get(name)
+        prev_priority = priority_by_name.get(name,99)
+        if prev and (prev["generated_ts"] > meta["generated_ts"] or (prev["generated_ts"] == meta["generated_ts"] and prev_priority <= key_priority)):
+            continue
+        fresh.pop(name,None); stale.pop(name,None)
+        meta_by_name[name] = meta; priority_by_name[name] = key_priority
+        enriched=dict(row, name=name, _cache_meta=meta)
+        if key_priority:
+            enriched["_legacy_cache_identity"]="null-elevation"
+        (fresh if meta["fresh_until"] > time.time() else stale)[name] = enriched
     return fresh, stale, meta_by_name
 
 def _national_supabase_read_meta(date_text, points):
     """Return fresh/stale names plus cache timestamps without transferring result JSON bodies.
 
-    Used only for persistence verification/counting where forecast payload contents are not needed.
+    V1.6.84 recognizes legacy null-elevation keys for 御嶽 and 大山（鳥取） so persistence
+    verification does not misclassify already-saved rows as missing during cache migration.
     """
     if not _national_supabase_enabled():
         return set(), set(), {}
@@ -1973,22 +2012,31 @@ def _national_supabase_read_meta(date_text, points):
         app.logger.warning("national_cache_meta_read_failed %s", type(exc).__name__)
         message = "persistent cache temporarily unavailable; local-only fallback active" if degraded else "persistent cache metadata read failed"
         raise RuntimeError(message) from exc
-    wanted = {_national_supabase_key(date_text,p):p["name"] for p in points}
-    fresh_names, stale_names, meta_by_name = set(), set(), {}
+    wanted = {}
+    for p in points:
+        wanted[_national_supabase_key(date_text,p)] = (p["name"],0)
+        if p.get("name") in NATIONAL_MOUNTAIN_ELEVATION_OVERRIDES:
+            legacy=dict(p); legacy["elevation"]=None
+            wanted[_national_supabase_key(date_text,legacy)] = (p["name"],1)
+    fresh_names, stale_names, meta_by_name, priority_by_name = set(), set(), {}, {}
     now = time.time()
     for dbrow in data if isinstance(data,list) else []:
         if not isinstance(dbrow,dict):
             continue
-        name = wanted.get(str(dbrow.get("cache_key") or ""))
-        if not name:
+        match = wanted.get(str(dbrow.get("cache_key") or ""))
+        if not match:
             continue
+        name,key_priority = match
         meta = _national_meta({"_cache_meta":{k:dbrow.get(k) for k in ("generated_ts","fresh_until","stale_until")}})
         if meta is None or meta["stale_until"] <= now:
             continue
-        meta_by_name[name] = meta
+        prev=meta_by_name.get(name); prev_priority=priority_by_name.get(name,99)
+        if prev and (prev["generated_ts"] > meta["generated_ts"] or (prev["generated_ts"] == meta["generated_ts"] and prev_priority <= key_priority)):
+            continue
+        fresh_names.discard(name); stale_names.discard(name)
+        meta_by_name[name]=meta; priority_by_name[name]=key_priority
         (fresh_names if meta["fresh_until"] > now else stale_names).add(name)
     return fresh_names, stale_names, meta_by_name
-
 
 def _national_supabase_write(date_text, points, results):
     """Acknowledge writes; cached rows retain their source-generation timestamp."""
@@ -4426,40 +4474,56 @@ def national_outlook():
         _national_unlock(date_text,fp)
 
 def _national_detail_cached_result(date_text: str, p: dict[str, Any]) -> dict[str, Any] | None:
-    """Read one already-generated nationwide result without requesting forecast providers."""
+    """Read one already-generated nationwide result without requesting forecast providers.
+
+    V1.6.84 keeps detail lookup compatible with the historical null-elevation cache keys
+    for 御嶽 and 大山（鳥取）. Current-key data is preferred; legacy is queried only when
+    the current key has no usable row.
+    """
     cached = _national_point_cache_get(date_text,p)
     if isinstance(cached,dict) and cached.get("grade") in {"A","B","C","D","E"}:
         return cached
     if not _national_supabase_enabled() or _national_supabase_fallback_active():
         return None
-    cache_key=_national_supabase_key(date_text,p)
-    params={
-        "select":"result,generated_ts,fresh_until,stale_until",
-        "forecast_date":f"eq.{date_text}",
-        "engine":f"eq.{NATIONAL_OUTLOOK_ENGINE}",
-        "cache_key":f"eq.{cache_key}",
-        "stale_until":f"gt.{time.time()}",
-        "limit":"1",
-    }
-    url=f"{SUPABASE_URL}/rest/v1/{NATIONAL_SUPABASE_CACHE_TABLE}?"+urllib.parse.urlencode(params,safe=",.:+-")
-    req=urllib.request.Request(url,headers=_supabase_headers(accept_json=True))
-    try:
-        with urllib.request.urlopen(req,timeout=NATIONAL_SUPABASE_TIMEOUT) as resp:
-            data=json.loads(resp.read().decode("utf-8"))
-        _national_clear_supabase_degraded()
-    except Exception as exc:
-        _national_mark_supabase_degraded(exc)
-        app.logger.warning("national_detail_cache_read_failed %s",type(exc).__name__)
-        return None
-    if not isinstance(data,list) or not data or not isinstance(data[0],dict):
-        return None
-    dbrow=data[0]; row=dbrow.get("result")
-    if not isinstance(row,dict) or row.get("grade") not in {"A","B","C","D","E"}:
-        return None
-    meta=_national_meta({"_cache_meta":{k:dbrow.get(k) for k in ("generated_ts","fresh_until","stale_until")}})
-    if meta is None or meta["stale_until"]<=time.time():
-        return None
-    return dict(row,name=p["name"],_cache_meta=meta)
+    candidates=[(_national_supabase_key(date_text,p),False)]
+    if p.get("name") in NATIONAL_MOUNTAIN_ELEVATION_OVERRIDES:
+        legacy=dict(p); legacy["elevation"]=None
+        legacy_key=_national_supabase_key(date_text,legacy)
+        if legacy_key != candidates[0][0]:
+            candidates.append((legacy_key,True))
+    for cache_key,is_legacy in candidates:
+        params={
+            "select":"result,generated_ts,fresh_until,stale_until",
+            "forecast_date":f"eq.{date_text}",
+            "engine":f"eq.{NATIONAL_OUTLOOK_ENGINE}",
+            "cache_key":f"eq.{cache_key}",
+            "stale_until":f"gt.{time.time()}",
+            "limit":"1",
+        }
+        url=f"{SUPABASE_URL}/rest/v1/{NATIONAL_SUPABASE_CACHE_TABLE}?"+urllib.parse.urlencode(params,safe=",.:+-")
+        req=urllib.request.Request(url,headers=_supabase_headers(accept_json=True))
+        try:
+            with urllib.request.urlopen(req,timeout=NATIONAL_SUPABASE_TIMEOUT) as resp:
+                data=json.loads(resp.read().decode("utf-8"))
+            _national_clear_supabase_degraded()
+        except Exception as exc:
+            _national_mark_supabase_degraded(exc)
+            app.logger.warning("national_detail_cache_read_failed %s",type(exc).__name__)
+            return None
+        if not isinstance(data,list) or not data or not isinstance(data[0],dict):
+            continue
+        dbrow=data[0]; row=dbrow.get("result")
+        if not isinstance(row,dict) or row.get("grade") not in {"A","B","C","D","E"}:
+            continue
+        meta=_national_meta({"_cache_meta":{k:dbrow.get(k) for k in ("generated_ts","fresh_until","stale_until")}})
+        if meta is None or meta["stale_until"]<=time.time():
+            continue
+        out=dict(row,name=p["name"],_cache_meta=meta)
+        if is_legacy:
+            out["_legacy_cache_identity"]="null-elevation"
+        _national_point_cache_put(date_text,p,out)
+        return out
+    return None
 
 
 @app.post("/api/national-outlook/detail")
@@ -4528,7 +4592,7 @@ def national_outlook_detail():
                 "ridgeWindApplied":bool(ridge_vals),"maxRain":max(rain_vals) if rain_vals else None
             })
             reconciled=_national_attach_jma_result(reconciled,jr_full)
-            reconciled["detailReconciledVersion"]="v1683"
+            reconciled["detailReconciledVersion"]="v1684"
             meta=(cached.get("_cache_meta") if isinstance(cached,dict) else None) or _national_meta(reconciled,fetched_at=time.time())
             row=dict(reconciled,_cache_meta=meta)
             _national_point_cache_put(date_text,p,row)
