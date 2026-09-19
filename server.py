@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.80"
+APP_VERSION = "1.6.81"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 WEATHERAPI_KEY = os.environ.get("WEATHERAPI_KEY", "").strip()
@@ -198,7 +198,7 @@ NATIONAL_OUTLOOK_AUTO_REFRESH = os.environ.get("NATIONAL_OUTLOOK_AUTO_REFRESH", 
 NATIONAL_CACHE_REFRESH_TOKEN = os.environ.get("NATIONAL_CACHE_REFRESH_TOKEN", "")
 NATIONAL_100_POINTS_FILE = os.path.join(BASE, "national-100-points.json")
 NATIONAL_OUTLOOK_CHUNK_SIZE = max(1, min(50, int(os.environ.get("NATIONAL_OUTLOOK_CHUNK_SIZE", "25"))))
-NATIONAL_OUTLOOK_ENGINE = "metno-gfs-jma-ridge-gust-worstof-v17-persistent-reconcile"
+NATIONAL_OUTLOOK_ENGINE = "metno-gfs-jma-ridge-gust-worstof-v18-server-reconcile"
 NATIONAL_GFS_MIN_INTERVAL = float(os.environ.get("NATIONAL_GFS_MIN_INTERVAL", "0.35"))
 _national_gfs_lock = threading.Lock()
 _national_gfs_last_request = 0.0
@@ -1270,6 +1270,89 @@ def _national_close_lock(key):
         if item:
             item[1].close()
 
+def _national_ridge_series_usable(series: Any, *, min_hours: int = 6) -> bool:
+    """Accept normal V1.6.78 JMA ridge series, reject only clearly missing/all-zero data.
+
+    V1.6.80 compared ridge wind against surface wind hour-by-hour. That was too strict
+    for the existing blended mountain estimator and caused valid ridge series to disappear.
+    V1.6.81 deliberately keeps validation minimal: enough finite hourly ridge values and
+    at least one materially non-zero ridge value.
+    """
+    if not isinstance(series, list):
+        return False
+    vals=[]
+    for row in series:
+        if not isinstance(row, dict):
+            continue
+        try:
+            hour=int(row.get("hour")); ridge=float(row.get("ridgeWind"))
+        except (TypeError, ValueError):
+            continue
+        if 6 <= hour <= 15 and math.isfinite(ridge) and ridge >= 0:
+            vals.append(ridge)
+    return len(vals) >= min_hours and max(vals, default=0.0) > 0.5
+
+
+def _national_jma_daily_from_series(date_text: str, series: Any) -> dict[str, Any] | None:
+    """Rebuild the daily JMA safety grade from the same hourly ridge evidence shown in detail."""
+    if not _national_ridge_series_usable(series):
+        return None
+    rows=[]
+    for x in series:
+        if not isinstance(x,dict):
+            continue
+        try:
+            hour=int(x.get("hour")); wind=float(x.get("wind")); ridge=float(x.get("ridgeWind")); rain=float(x.get("rain"))
+        except (TypeError,ValueError):
+            continue
+        if not (6 <= hour <= 15 and all(math.isfinite(v) for v in (wind,ridge,rain))):
+            continue
+        try:
+            gust=float(x.get("estimatedRidgeGust"))
+            if not math.isfinite(gust): raise ValueError
+        except (TypeError,ValueError):
+            gust=ridge*1.5
+        rows.append({"hour":hour,"wind":wind,"ridgeWind":ridge,"estimatedRidgeGust":gust,"rain":rain})
+    if len(rows) < 6:
+        return None
+    caution=severe=extreme=0
+    for r in rows:
+        w=r["ridgeWind"]; gu=r["estimatedRidgeGust"]; pr=r["rain"]
+        if w>=15 or gu>=25 or pr>=6: extreme += 1
+        if w>=9 or gu>=18 or pr>=1.5: severe += 1
+        if w>=5 or gu>=12 or pr>=0.1: caution += 1
+    bc=_national_bc_caution_hours([{"wind":r["ridgeWind"],"gust":r["estimatedRidgeGust"],"rain":r["rain"]} for r in rows])
+    max_ridge=max(r["ridgeWind"] for r in rows); max_g=max(r["estimatedRidgeGust"] for r in rows); max_r=max(r["rain"] for r in rows)
+    grade,_=_national_grade(max_ridge,max_g,max_r,0,0,None,caution_hours=caution,severe_hours=severe,extreme_hours=extreme,bc_caution_hours=bc)
+    return {"shadowGrade":grade,"maxRidgeWind":round(max_ridge,1),"maxEstimatedRidgeGust":round(max_g,1),"maxRain":round(max_r,1),
+            "cautionHours":caution,"bcCautionHours":bc,"severeHours":severe,"extremeHours":extreme,"series":rows}
+
+
+def _national_reconcile_cached_row(row: dict[str, Any]) -> dict[str, Any]:
+    """Make the shared daily badge use its already-saved JMA ridge evidence before response."""
+    out=dict(row)
+    base=out.get("preJmaGrade") if out.get("preJmaGrade") in {"A","B","C","D","E"} else out.get("grade")
+    jv=out.get("jmaValues") if isinstance(out.get("jmaValues"),dict) else None
+    jr=_national_jma_daily_from_series(str(out.get("date") or ""), (jv or {}).get("series"))
+    if not jr or base not in {"A","B","C","D","E"}:
+        return out
+    jg=jr.get("shadowGrade")
+    if jg not in {"A","B","C","D","E"}:
+        return out
+    out["preJmaGrade"]=base
+    out["jmaGrade"]=jg
+    out["jmaWorstOfApplied"]=_national_grade_rank(jg)>_national_grade_rank(base)
+    out["decisionPolicy"]="existing-jma-worst-of"
+    # Preserve all existing JMA fields, but refresh the daily counters/maxima from its series.
+    out["jmaValues"]={**(jv or {}),**{k:v for k,v in jr.items() if k!="shadowGrade"}}
+    if out["jmaWorstOfApplied"]:
+        out["grade"]=jg
+    else:
+        out["grade"]=base
+    out["detailReconciledVersion"]="v1681-server-read"
+    return out
+
+
 def _national_cached_snapshot(date_text, fingerprint, points):
     read_error = None
     try:
@@ -1287,6 +1370,9 @@ def _national_cached_snapshot(date_text, fingerprint, points):
             local = rows.get(name)
             if not local or local["_cache_meta"]["generated_ts"] < meta[name]["generated_ts"]:
                 rows[name] = dict(stale[name],_cache_meta=meta[name])
+    # V1.6.81: shared cache is the display source of truth. Reconcile every saved row
+    # from its own JMA ridge series before returning it, so B cannot become D only after opening detail.
+    rows = {name:_national_reconcile_cached_row(row) for name,row in rows.items()}
     snap = _national_snapshot(date_text,fingerprint,points,list(rows.values()))
     snap["supabase_fresh_count"] = len(fresh); snap["supabase_stale_count"] = len(stale)
     if read_error:
@@ -3437,117 +3523,6 @@ def _national_meteoblue_results(date_text: str, points: list[dict[str, Any]]) ->
     return out
 
 
-def _national_ridge_series_valid(series: Any, *, min_hours: int = 6) -> bool:
-    """Validate saved JMA ridge wind evidence before it can drive a national grade.
-
-    The ridge estimator is defined as max(surface wind, altitude-adjusted upper wind),
-    so a saved ridge series that is zero/below surface wind is internally impossible
-    and must be treated as missing rather than as calm mountain wind.
-    """
-    if not isinstance(series, list):
-        return False
-    valid = 0
-    for row in series:
-        if not isinstance(row, dict):
-            continue
-        try:
-            surface = float(row.get("wind"))
-            ridge = float(row.get("ridgeWind"))
-        except (TypeError, ValueError):
-            continue
-        if not (math.isfinite(surface) and math.isfinite(ridge)):
-            continue
-        if ridge < 0 or ridge + 0.15 < surface:
-            return False
-        valid += 1
-    return valid >= min_hours
-
-
-def _national_jma_daily_from_series(p: dict[str, Any], date_text: str, series: Any) -> dict[str, Any] | None:
-    """Rebuild the JMA daily safety grade from already-saved hourly evidence.
-
-    This intentionally needs only wind/ridge/gust/rain, so an older compact cache
-    that omitted temperature/humidity can still be reconciled without another API call.
-    """
-    if not _national_ridge_series_valid(series):
-        return None
-    rows=[]
-    for x in series:
-        if not isinstance(x,dict):
-            continue
-        try:
-            hour=int(x.get("hour")); wind=float(x.get("wind")); ridge=float(x.get("ridgeWind")); rain=float(x.get("rain"))
-        except (TypeError,ValueError):
-            continue
-        if not (6 <= hour <= 15 and all(math.isfinite(v) for v in (wind,ridge,rain))):
-            continue
-        gust=x.get("estimatedRidgeGust")
-        try:
-            gust=float(gust)
-            if not math.isfinite(gust): raise ValueError
-        except (TypeError,ValueError):
-            gust=ridge*1.5
-        rows.append({"hour":hour,"wind":wind,"ridgeWind":ridge,"estimatedRidgeGust":gust,"rain":rain})
-    if len(rows) < 6:
-        return None
-    caution=severe=extreme=0
-    for r in rows:
-        w=r["ridgeWind"]; gu=r["estimatedRidgeGust"]; pr=r["rain"]
-        if w>=15 or gu>=25 or pr>=6: extreme += 1
-        if w>=9 or gu>=18 or pr>=1.5: severe += 1
-        if w>=5 or gu>=12 or pr>=0.1: caution += 1
-    bc_caution=_national_bc_caution_hours([{"wind":r["ridgeWind"],"gust":r["estimatedRidgeGust"],"rain":r["rain"]} for r in rows])
-    max_surface=max(r["wind"] for r in rows); max_ridge=max(r["ridgeWind"] for r in rows); max_g=max(r["estimatedRidgeGust"] for r in rows); max_r=max(r["rain"] for r in rows)
-    grade,_=_national_grade(max_ridge,max_g,max_r,0,0,None,caution_hours=caution,severe_hours=severe,extreme_hours=extreme,bc_caution_hours=bc_caution)
-    return {
-        "name":p["name"],"date":date_text,"shadowGrade":grade,"source":"openmeteo-jma-msm-ridge-reconciled",
-        "maxWind":round(max_ridge,1),"maxSurfaceWind":round(max_surface,1),"maxRidgeWind":round(max_ridge,1),
-        "maxGust":round(max_g,1),"maxEstimatedRidgeGust":round(max_g,1),"maxRain":round(max_r,1),
-        "cautionHours":caution,"bcCautionHours":bc_caution,"severeHours":severe,"extremeHours":extreme,
-        "ridgeWindApplied":True,"series":[dict(r) for r in rows],
-    }
-
-
-def _national_result_with_jma_worstof(base: dict[str, Any], jr: dict[str, Any] | None) -> dict[str, Any]:
-    """Apply the production JMA safety-side grade and evidence to one base result."""
-    result = dict(base)
-    base_grade = result.get("grade")
-    jma_grade = (jr or {}).get("shadowGrade")
-    applied = (
-        base_grade in {"A","B","C","D","E"}
-        and jma_grade in {"A","B","C","D","E"}
-        and _national_grade_rank(jma_grade) > _national_grade_rank(base_grade)
-    )
-    result["preJmaGrade"] = base_grade
-    result["jmaGrade"] = jma_grade if jma_grade in {"A","B","C","D","E"} else None
-    result["jmaWorstOfApplied"] = bool(applied)
-    result["decisionPolicy"] = "existing-jma-worst-of"
-    if jr:
-        result["jmaValues"] = {
-            "maxWind":jr.get("maxWind"),
-            "maxSurfaceWind":jr.get("maxSurfaceWind"),
-            "maxRidgeWind":jr.get("maxRidgeWind"),
-            "maxEstimatedRidgeGust":jr.get("maxEstimatedRidgeGust"),
-            "ridgeWindApplied":jr.get("ridgeWindApplied"),
-            "maxRain":jr.get("maxRain"),
-            "minTemp":jr.get("minTemp"),
-            "cautionHours":jr.get("cautionHours"),
-            "bcCautionHours":jr.get("bcCautionHours"),
-            "severeHours":jr.get("severeHours"),
-            "extremeHours":jr.get("extremeHours"),
-            "series":[
-                {"hour":x.get("hour"),"wind":x.get("wind"),"ridgeWind":x.get("ridgeWind"),"estimatedRidgeGust":x.get("estimatedRidgeGust"),"wind850":x.get("wind850"),"wind700":x.get("wind700"),"wind600":x.get("wind600"),"rain":x.get("rain")}
-                for x in (jr.get("series") or []) if isinstance(x,dict)
-            ],
-        }
-    else:
-        result["jmaValues"] = None
-    if applied:
-        result["grade"] = jma_grade
-        result["summary"] = (str(result.get("summary") or "") + " JMA MSMがより厳しいため、安全側の判定を採用しています。").strip()
-    return result
-
-
 def _national_fetch_shared(date_text, points):
     # Nationwide base decision remains the existing MET Norway + NOAA GFS element
     # policy. JMA MSM is added only as a safety-side worst-of grade after that
@@ -3563,7 +3538,7 @@ def _national_fetch_shared(date_text, points):
             needs_ridge=float(p.get("elevation")) >= 500.0
         except (TypeError,ValueError):
             needs_ridge=False
-        has_ridge=_national_ridge_series_valid(jma_series)
+        has_ridge=_national_ridge_series_usable(jma_series)
         # V1.6.78: cached national rows for mountain points must carry same-generation
         # JMA ridge-wind evidence. Otherwise refresh rather than silently falling back
         # to 10 m wind and producing incomparable grades between nearby mountains.
@@ -3603,8 +3578,42 @@ def _national_fetch_shared(date_text, points):
         for p in missing:
             result = _national_merge_two_models(p,metno.get(p["name"]),gfs.get(p["name"]),mb.get(p["name"]))
             if result:
+                result = dict(result)
+                base_grade = result.get("grade")
                 jr = jma.get(p["name"]) or {}
-                result = _national_result_with_jma_worstof(result, jr if _national_ridge_series_valid(jr.get("series")) else None)
+                jma_grade = jr.get("shadowGrade")
+                applied = (
+                    base_grade in {"A","B","C","D","E"}
+                    and jma_grade in {"A","B","C","D","E"}
+                    and _national_grade_rank(jma_grade) > _national_grade_rank(base_grade)
+                )
+                result["preJmaGrade"] = base_grade
+                result["jmaGrade"] = jma_grade if jma_grade in {"A","B","C","D","E"} else None
+                result["jmaWorstOfApplied"] = bool(applied)
+                result["decisionPolicy"] = "existing-jma-worst-of"
+                result["jmaValues"] = ({
+                    "maxWind":jr.get("maxWind"),
+                    "maxSurfaceWind":jr.get("maxSurfaceWind"),
+                    "maxRidgeWind":jr.get("maxRidgeWind"),
+                    "maxEstimatedRidgeGust":jr.get("maxEstimatedRidgeGust"),
+                    "ridgeWindApplied":jr.get("ridgeWindApplied"),
+                    "maxRain":jr.get("maxRain"),
+                    "minTemp":jr.get("minTemp"),
+                    "cautionHours":jr.get("cautionHours"),
+                    "bcCautionHours":jr.get("bcCautionHours"),
+                    "severeHours":jr.get("severeHours"),
+                    "extremeHours":jr.get("extremeHours"),
+                    "series":[
+                        {"hour":x.get("hour"),"wind":x.get("wind"),"ridgeWind":x.get("ridgeWind"),"estimatedRidgeGust":x.get("estimatedRidgeGust"),"wind850":x.get("wind850"),"wind700":x.get("wind700"),"wind600":x.get("wind600"),"rain":x.get("rain")}
+                        for x in (jr.get("series") or []) if isinstance(x,dict)
+                    ],
+                } if jr else None)
+                if applied:
+                    result["grade"] = jma_grade
+                    result["summary"] = (
+                        str(result.get("summary") or "")
+                        + " JMA MSMがより厳しいため、安全側の判定を採用しています。"
+                    ).strip()
                 row = dict(result,_cache_meta=_national_meta(result,fetched_at=fetched_at))
                 rows[p["name"]] = row
                 _national_point_cache_put(date_text,p,row)
@@ -4386,7 +4395,7 @@ def national_outlook_detail():
     try:
         cached=_national_detail_cached_result(date_text,p) or {}
         jv=cached.get("jmaValues") if isinstance(cached,dict) else None
-        if isinstance(jv,dict) and _national_ridge_series_valid(jv.get("series")):
+        if isinstance(jv,dict) and _national_ridge_series_usable(jv.get("series")):
             jma={"name":name,"source":"openmeteo-jma-msm-cache","series":jv.get("series"),
                  "maxWind":jv.get("maxWind"),"maxGust":jv.get("maxEstimatedRidgeGust"),"maxRain":jv.get("maxRain")}
         else:
@@ -4394,7 +4403,7 @@ def national_outlook_detail():
             # mountain, make one direct JMA request for the opened mountain instead of
             # leaving the ridge-wind chart blank. This is a fallback only.
             direct=_openmeteo_jma_production_results(date_text,[p]).get(name)
-            if direct and _national_ridge_series_valid(direct.get("series")):
+            if direct and _national_ridge_series_usable(direct.get("series")):
                 jma={"name":name,"source":"openmeteo-jma-msm-direct-fallback","series":direct.get("series"),
                      "maxWind":direct.get("maxWind"),"maxGust":direct.get("maxEstimatedRidgeGust"),"maxRain":direct.get("maxRain")}
                 jma_new_request=True
@@ -4402,32 +4411,38 @@ def national_outlook_detail():
                 warnings.append("JMA MSM hourly data unavailable")
     except Exception as exc:
         warnings.append("JMA MSM hourly data unavailable"); app.logger.warning("national_detail_jma_failed %s",type(exc).__name__)
-    # V1.6.80: the opened-mountain detail is also a repair path for the shared
-    # nationwide row. Persist the exact same daily grade/evidence shown in detail so
-    # navigating away and back cannot resurrect an older B/A from shared cache.
+    # Detail integration remains MET Norway + NOAA GFS. JMA is an independent chart comparison.
     merged=_national_merge_two_models(p,met,gfs,None)
     if not merged:
         return jsonify(error="forecast unavailable",warning="; ".join(warnings) or None),503
-    jr_for_grade = _national_jma_daily_from_series(p,date_text,jma.get("series") if jma else None)
-    reconciled = _national_result_with_jma_worstof(merged, jr_for_grade)
-    reconciled["name"] = name
-    reconciled["detailReconciledVersion"] = "v1680"
-    if elev is not None and elev >= 500 and jr_for_grade is None:
-        reconciled["jmaRidgeMissing"] = True
-        reconciled["summary"] = (str(reconciled.get("summary") or "") + " JMA稜線風を取得できていないため、判定信頼度を下げています。").strip()
-    fetched_at=time.time()
-    reconciled_row=dict(reconciled,_cache_meta=_national_meta(reconciled,fetched_at=fetched_at))
-    _national_point_cache_put(date_text,p,reconciled_row)
-    persisted=False
-    try:
-        persisted=_national_supabase_write(date_text,[p],[reconciled_row])
-    except Exception as exc:
-        app.logger.warning("national_detail_reconcile_write_failed %s",type(exc).__name__)
+    # V1.6.81: persist the same JMA worst-of grade that detail shows, without the
+    # over-strict V1.6.80 ridge validator. This repairs a stale B/A at its source.
+    reconciled=dict(merged)
+    reconciled["name"]=name
+    jr=_national_jma_daily_from_series(date_text, jma.get("series") if jma else None)
+    if jr:
+        base=reconciled.get("grade")
+        jg=jr.get("shadowGrade")
+        reconciled["preJmaGrade"]=base
+        reconciled["jmaGrade"]=jg
+        reconciled["jmaWorstOfApplied"]=bool(base in {"A","B","C","D","E"} and jg in {"A","B","C","D","E"} and _national_grade_rank(jg)>_national_grade_rank(base))
+        reconciled["decisionPolicy"]="existing-jma-worst-of"
+        oldjv=(cached.get("jmaValues") if isinstance(cached,dict) and isinstance(cached.get("jmaValues"),dict) else {})
+        reconciled["jmaValues"]={**oldjv,**{k:v for k,v in jr.items() if k!="shadowGrade"}}
+        if reconciled["jmaWorstOfApplied"]:
+            reconciled["grade"]=jg
+        reconciled["detailReconciledVersion"]="v1681"
+        row=dict(reconciled,_cache_meta=_national_meta(reconciled,fetched_at=time.time()))
+        _national_point_cache_put(date_text,p,row)
+        try:
+            _national_supabase_write(date_text,[p],[row])
+        except Exception as exc:
+            app.logger.warning("national_detail_reconcile_write_failed %s",type(exc).__name__)
     def detail_model(row):
         if not row: return None
         return {k:v for k,v in row.items() if k != "_series"}
     return jsonify(ok=True,date=date_text,name=name,merged=merged,reconciled=_national_public_result(reconciled),models={"metno":detail_model(met),"gfs":detail_model(gfs),"jma":detail_model(jma)},
-        jmaStatus={"source":("direct-fallback" if jma_new_request else "national-cache"),"available":bool(jr_for_grade),"newJmaRequest":bool(jma_new_request),"gustAvailable":False,"sharedCacheUpdated":bool(persisted),"ridgeValid":bool(jr_for_grade)},
+        jmaStatus={"source":("direct-fallback" if jma_new_request else "national-cache"),"available":bool(jma),"newJmaRequest":bool(jma_new_request),"gustAvailable":False,"ridgeUsable":bool(jr)},
         warning="; ".join(warnings) or None,version=APP_VERSION)
 
 
