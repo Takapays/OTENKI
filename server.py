@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.81"
+APP_VERSION = "1.6.82"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 WEATHERAPI_KEY = os.environ.get("WEATHERAPI_KEY", "").strip()
@@ -198,7 +198,7 @@ NATIONAL_OUTLOOK_AUTO_REFRESH = os.environ.get("NATIONAL_OUTLOOK_AUTO_REFRESH", 
 NATIONAL_CACHE_REFRESH_TOKEN = os.environ.get("NATIONAL_CACHE_REFRESH_TOKEN", "")
 NATIONAL_100_POINTS_FILE = os.path.join(BASE, "national-100-points.json")
 NATIONAL_OUTLOOK_CHUNK_SIZE = max(1, min(50, int(os.environ.get("NATIONAL_OUTLOOK_CHUNK_SIZE", "25"))))
-NATIONAL_OUTLOOK_ENGINE = "metno-gfs-jma-ridge-gust-worstof-v18-server-reconcile"
+NATIONAL_OUTLOOK_ENGINE = "metno-gfs-jma-ridge-gust-worstof-v19-authoritative-ridge"
 NATIONAL_GFS_MIN_INTERVAL = float(os.environ.get("NATIONAL_GFS_MIN_INTERVAL", "0.35"))
 _national_gfs_lock = threading.Lock()
 _national_gfs_last_request = 0.0
@@ -1226,9 +1226,39 @@ def _national_valid_results(points, results, *, fetched_at=None):
         rows[row["name"]] = dict(row, _cache_meta=meta)
     return rows
 
+def _national_jma_ridge_expected(date_text: str, p: dict[str, Any]) -> bool:
+    """Whether this mountain/date should have JMA upper-air ridge evidence.
+
+    JMA MSM is only requested for the configured short-range window. Outside that
+    window the MET/GFS national grade remains valid without JMA ridge evidence.
+    """
+    try:
+        elev=float(p.get("elevation"))
+        target=datetime.strptime(str(date_text),"%Y-%m-%d").date()
+    except (TypeError,ValueError):
+        return False
+    if not math.isfinite(elev) or elev < 500.0:
+        return False
+    today=(datetime.now(timezone.utc)+timedelta(hours=9)).date()
+    return today <= target <= today + timedelta(days=max(0,OPENMETEO_JMA_SHADOW_DAYS-1))
+
+
+def _national_row_has_required_jma_ridge(date_text: str, p: dict[str, Any], row: dict[str, Any] | None) -> bool:
+    if not _national_jma_ridge_expected(date_text,p):
+        return True
+    if not isinstance(row,dict):
+        return False
+    jv=row.get("jmaValues") if isinstance(row.get("jmaValues"),dict) else None
+    return bool(jv and _national_ridge_series_usable(jv.get("series")))
+
+
 def _national_snapshot(date_text, fingerprint, points, results):
     rows = _national_valid_results(points,results)
-    ordered = [rows[p["name"]] for p in points if p["name"] in rows]
+    # V1.6.82: a short-range mountain row is not a complete national result until
+    # the same shared row contains usable JMA ridge-wind evidence.  Previously a
+    # fresh MET/GFS-only B/A could be returned as complete, then turn D only after
+    # opening detail.  Incomplete rows are omitted (shown as ?) and remain due.
+    ordered = [rows[p["name"]] for p in points if p["name"] in rows and _national_row_has_required_jma_ridge(date_text,p,rows[p["name"]])]
     now = time.time(); metas = [r["_cache_meta"] for r in ordered]
     gt = min((m["generated_ts"] for m in metas),default=now)
     fu = min((m["fresh_until"] for m in metas),default=now)
@@ -1476,7 +1506,13 @@ def _national_fetch_and_persist(date_text, points, due, initial=None, *, deadlin
             if unconfirmed and not errors:
                 verification_pending.update(unconfirmed)
                 warnings.append(f"database final read-back pending for {len(unconfirmed)} rows; next refresh will verify/retry")
-            fresh_count = len(fresh_names); stored = len(fresh_names|stale_names)
+            # Count only rows that are both persisted and complete for the current
+            # short-range JMA ridge policy.  A fresh MET/GFS-only row must not make
+            # the refresh look complete.
+            complete_fresh_names={r["name"] for r in snap["results"] if r["_cache_meta"]["fresh_until"] > time.time()}
+            complete_stored_names={r["name"] for r in snap["results"]}
+            fresh_count = len(complete_fresh_names & fresh_names)
+            stored = len(complete_stored_names & (fresh_names|stale_names))
     if not persistent:
         fresh_count = sum(r["_cache_meta"]["fresh_until"] > time.time() for r in snap["results"])
         stored = len(snap["results"])
@@ -1528,8 +1564,9 @@ def _national_100_date_local_cache_status(date_text, points, *, force=False, rea
     snap, _ = _national_read_disk_cache(date_text, fp)
     rows = _national_valid_results(points, (snap or {}).get("results") or [])
     now = time.time()
-    fresh = {name for name,row in rows.items() if row["_cache_meta"]["fresh_until"] > now}
-    stale = set(rows) - fresh
+    complete = {p["name"] for p in points if p["name"] in rows and _national_row_has_required_jma_ridge(date_text,p,rows[p["name"]])}
+    fresh = {name for name,row in rows.items() if name in complete and row["_cache_meta"]["fresh_until"] > now}
+    stale = complete - fresh
     due = points if force else [p for p in points if p["name"] not in fresh]
     return {"date":date_text,"seedCount":len(points),"freshBefore":len(fresh),"staleBefore":len(stale),
         "missingBefore":max(0,len(points)-len(fresh|stale)),"pointsDue":len(due),
@@ -1543,9 +1580,11 @@ def _national_100_date_cache_status(date_text, points, *, force=False):
         if _national_supabase_fallback_active():
             return _national_100_date_local_cache_status(date_text,points,force=force,reason=str(exc))
         raise
-    due = points if force else [p for p in points if p["name"] not in fresh]
-    return {"date":date_text,"seedCount":len(points),"freshBefore":len(fresh),"staleBefore":len(stale),
-        "missingBefore":max(0,len(points)-len(set(fresh)|set(stale))),"pointsDue":len(due),
+    complete_fresh={p["name"] for p in points if p["name"] in fresh and _national_row_has_required_jma_ridge(date_text,p,fresh[p["name"]])}
+    complete_stale={p["name"] for p in points if p["name"] in stale and _national_row_has_required_jma_ridge(date_text,p,stale[p["name"]])}
+    due = points if force else [p for p in points if p["name"] not in complete_fresh]
+    return {"date":date_text,"seedCount":len(points),"freshBefore":len(complete_fresh),"staleBefore":len(complete_stale),
+        "missingBefore":max(0,len(points)-len(complete_fresh|complete_stale)),"pointsDue":len(due),
         "pointsUpdated":0,"ok":not due,"processed":False,"backend":"supabase+local"}, due
 
 def _refresh_rolling_100_cache(*, force=False, max_dates=None, deadline=None):
@@ -2077,7 +2116,7 @@ def _openmeteo_jma_shadow_request_batch(points: list[dict[str, Any]]) -> list[di
     return []
 
 
-def _national_ridge_wind_estimate(p: dict[str, Any], surface_wind: float | None, wind850: float | None, wind700: float | None) -> float | None:
+def _national_ridge_wind_estimate(p: dict[str, Any], surface_wind: float | None, wind850: float | None, wind700: float | None, wind600: float | None = None) -> float | None:
     """Mirror the route-analysis ridge-wind estimate for nationwide safety grading.
 
     Peaks above 3000 m use 700 hPa; 1500-3000 m linearly interpolate
@@ -2102,9 +2141,22 @@ def _national_ridge_wind_estimate(p: dict[str, Any], surface_wind: float | None,
             return x if math.isfinite(x) else None
         except (TypeError, ValueError):
             return None
-    surface=finite_or_none(surface_wind); w850=finite_or_none(wind850); w700=finite_or_none(wind700)
+    surface=finite_or_none(surface_wind); w850=finite_or_none(wind850); w700=finite_or_none(wind700); w600=finite_or_none(wind600)
     upper=None
-    if elev < 1500.0:
+    if elev >= 3000.0:
+        # V1.6.82: preserve the established 700 hPa rule when available.  Some
+        # very high model grid cells mask 700 hPa below terrain; only then use
+        # the already-fetched 600 hPa wind as a fallback instead of returning no
+        # ridge wind (the case observed around Ontake).
+        if w700 is not None:
+            upper=w700
+        elif w600 is not None:
+            upper=w600
+        elif w850 is not None:
+            upper=w850
+        elif surface is not None:
+            upper=surface
+    elif elev < 1500.0:
         if surface is not None and w850 is not None:
             # 500 m = surface-dominant, 1500 m = 850 hPa-dominant.
             t=max(0.0,min(1.0,(elev-500.0)/1000.0))
@@ -2156,7 +2208,7 @@ def _openmeteo_jma_shadow_day_result(p: dict[str, Any], payload: dict[str, Any],
         wind600 = at("wind_speed_600hPa")
         if temp is None or wind is None or rain is None:
             continue
-        ridge_wind = _national_ridge_wind_estimate(p, wind, wind850, wind700)
+        ridge_wind = _national_ridge_wind_estimate(p, wind, wind850, wind700, wind600)
         rows.append({"hour":hour,"temp":temp,"wind":wind,"ridgeWind":ridge_wind,"wind850":wind850,"wind700":wind700,"wind600":wind600,"rain":rain,"humidity":humidity,"cloud":cloud})
     if not rows:
         return None
@@ -3533,11 +3585,7 @@ def _national_fetch_shared(date_text, points):
         source=str((cached or {}).get("source") or "")
         jma_values=(cached or {}).get("jmaValues") if isinstance(cached,dict) else None
         jma_series=(jma_values or {}).get("series") if isinstance(jma_values,dict) else None
-        needs_ridge=False
-        try:
-            needs_ridge=float(p.get("elevation")) >= 500.0
-        except (TypeError,ValueError):
-            needs_ridge=False
+        needs_ridge=_national_jma_ridge_expected(date_text,p)
         has_ridge=_national_ridge_series_usable(jma_series)
         # V1.6.78: cached national rows for mountain points must carry same-generation
         # JMA ridge-wind evidence. Otherwise refresh rather than silently falling back
@@ -4392,6 +4440,7 @@ def national_outlook_detail():
     except Exception as exc:
         warnings.append("NOAA GFS unavailable"); app.logger.warning("national_detail_gfs_failed %s",type(exc).__name__)
     jma_new_request=False
+    cached={}
     try:
         cached=_national_detail_cached_result(date_text,p) or {}
         jv=cached.get("jmaValues") if isinstance(cached,dict) else None
@@ -4415,29 +4464,44 @@ def national_outlook_detail():
     merged=_national_merge_two_models(p,met,gfs,None)
     if not merged:
         return jsonify(error="forecast unavailable",warning="; ".join(warnings) or None),503
-    # V1.6.81: persist the same JMA worst-of grade that detail shows, without the
-    # over-strict V1.6.80 ridge validator. This repairs a stale B/A at its source.
-    reconciled=dict(merged)
+    # V1.6.82: the shared daily row is authoritative.  Opening detail may add
+    # missing JMA ridge evidence and worsen a stale base grade, but it must never
+    # downgrade a cached grade merely because this detail request has partial JMA
+    # or a newer base-model snapshot.  Full national refresh is what may improve
+    # a daily grade.
+    cached_grade=cached.get("grade") if isinstance(cached,dict) else None
+    cached_valid=cached_grade in {"A","B","C","D","E"}
+    reconciled=dict(cached if cached_valid else merged)
     reconciled["name"]=name
     jr=_national_jma_daily_from_series(date_text, jma.get("series") if jma else None)
     if jr:
-        base=reconciled.get("grade")
+        candidate_base=(cached.get("preJmaGrade") if isinstance(cached,dict) else None)
+        if candidate_base not in {"A","B","C","D","E"}:
+            candidate_base=(cached_grade if cached_valid else merged.get("grade"))
         jg=jr.get("shadowGrade")
-        reconciled["preJmaGrade"]=base
-        reconciled["jmaGrade"]=jg
-        reconciled["jmaWorstOfApplied"]=bool(base in {"A","B","C","D","E"} and jg in {"A","B","C","D","E"} and _national_grade_rank(jg)>_national_grade_rank(base))
+        candidate_final=candidate_base
+        if jg in {"A","B","C","D","E"} and candidate_base in {"A","B","C","D","E"} and _national_grade_rank(jg)>_national_grade_rank(candidate_base):
+            candidate_final=jg
+        # Detail can repair B->D, but never D->A/C.
+        final_grade=candidate_final
+        if cached_valid and _national_grade_rank(cached_grade)>_national_grade_rank(final_grade):
+            final_grade=cached_grade
+        reconciled["preJmaGrade"]=candidate_base
+        reconciled["jmaGrade"]=jg if jg in {"A","B","C","D","E"} else None
+        reconciled["jmaWorstOfApplied"]=bool(reconciled.get("jmaGrade") and _national_grade_rank(reconciled["jmaGrade"])>_national_grade_rank(candidate_base))
         reconciled["decisionPolicy"]="existing-jma-worst-of"
         oldjv=(cached.get("jmaValues") if isinstance(cached,dict) and isinstance(cached.get("jmaValues"),dict) else {})
         reconciled["jmaValues"]={**oldjv,**{k:v for k,v in jr.items() if k!="shadowGrade"}}
-        if reconciled["jmaWorstOfApplied"]:
-            reconciled["grade"]=jg
-        reconciled["detailReconciledVersion"]="v1681"
+        reconciled["grade"]=final_grade
+        reconciled["detailReconciledVersion"]="v1682"
         row=dict(reconciled,_cache_meta=_national_meta(reconciled,fetched_at=time.time()))
         _national_point_cache_put(date_text,p,row)
         try:
             _national_supabase_write(date_text,[p],[row])
         except Exception as exc:
             app.logger.warning("national_detail_reconcile_write_failed %s",type(exc).__name__)
+    elif cached_valid:
+        reconciled["detailReconciledVersion"]="v1682-preserve-cached-no-jma"
     def detail_model(row):
         if not row: return None
         return {k:v for k,v in row.items() if k != "_series"}
