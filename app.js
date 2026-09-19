@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.70';
+const APP_VERSION = '1.6.71';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -3729,9 +3729,9 @@ async function loadClassicRoute(id){
 }
 
 const providers = [
-  {id:'jma',name:'JMA MSM',kind:'openmeteo',endpoint:'https://api.open-meteo.com/v1/jma',model:'jma_msm',forecastDays:4,vars:['temperature_2m','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_direction_10m','wind_speed_850hPa','wind_speed_700hPa']},
-  {id:'ecmwf',name:'ECMWF IFS',kind:'openmeteo',endpoint:'https://api.open-meteo.com/v1/ecmwf',forecastDays:15,vars:['temperature_2m','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_gusts_10m','wind_direction_10m','cape','visibility','freezing_level_height','wind_speed_850hPa','wind_speed_700hPa']},
-  {id:'gfs',name:'GFS',kind:'openmeteo',endpoint:'https://api.open-meteo.com/v1/gfs',forecastDays:16,vars:['temperature_2m','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_gusts_10m','wind_direction_10m','cape','visibility','freezing_level_height','wind_speed_850hPa','wind_speed_700hPa']},
+  {id:'jma',name:'JMA MSM',kind:'openmeteo',endpoint:'https://api.open-meteo.com/v1/jma',model:'jma_msm',forecastDays:4,vars:['temperature_2m','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_direction_10m','wind_speed_850hPa','wind_speed_700hPa','wind_speed_600hPa']},
+  {id:'ecmwf',name:'ECMWF IFS',kind:'openmeteo',endpoint:'https://api.open-meteo.com/v1/ecmwf',forecastDays:15,vars:['temperature_2m','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_gusts_10m','wind_direction_10m','cape','visibility','freezing_level_height','wind_speed_850hPa','wind_speed_700hPa','wind_speed_600hPa']},
+  {id:'gfs',name:'GFS',kind:'openmeteo',endpoint:'https://api.open-meteo.com/v1/gfs',forecastDays:16,vars:['temperature_2m','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_gusts_10m','wind_direction_10m','cape','visibility','freezing_level_height','wind_speed_850hPa','wind_speed_700hPa','wind_speed_600hPa']},
   {id:'icon',name:'ICON',kind:'openmeteo',endpoint:'https://api.open-meteo.com/v1/dwd-icon',forecastDays:8,vars:['temperature_2m','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_gusts_10m','wind_direction_10m','cape','visibility','freezing_level_height']}
 ];
 const TYPE_LABEL={trailhead:'登山口・下山口',peak:'山頂',hut:'山小屋',pass:'峠・分岐',camp:'山小屋'};
@@ -10880,14 +10880,15 @@ function extractProviderRow(hourly,point){
     const wind=numberOrNaN(hourly.wind_speed_10m?.[i]);
     const wind850=numberOrNaN(hourly.wind_speed_850hPa?.[i]);
     const wind700=numberOrNaN(hourly.wind_speed_700hPa?.[i]);
+    const wind600=numberOrNaN(hourly.wind_speed_600hPa?.[i]);
     const ridgeWind=ridgeWindEstimate(point,wind,wind850,wind700);
     const rawGust=numberOrNaN(hourly.wind_gusts_10m?.[i]);
     const gust=Number.isFinite(ridgeWind)?Math.max(Number.isFinite(rawGust)?rawGust:0,ridgeWind):rawGust;
-    return {time,rain:numberOrNaN(hourly.precipitation?.[i]),wind,gust,rawGust,wind850,wind700,ridgeWind,cape:numberOrNaN(hourly.cape?.[i])};
+    return {time,rain:numberOrNaN(hourly.precipitation?.[i]),wind,gust,rawGust,wind850,wind700,wind600,ridgeWind,cape:numberOrNaN(hourly.cape?.[i])};
   }).filter(x=>Math.abs(new Date(x.time).getTime()-targetMs)<=6*3600000);
-  const wind=get('wind_speed_10m'),wind850=get('wind_speed_850hPa'),wind700=get('wind_speed_700hPa');
+  const wind=get('wind_speed_10m'),wind850=get('wind_speed_850hPa'),wind700=get('wind_speed_700hPa'),wind600=get('wind_speed_600hPa');
   const ridgeWind=ridgeWindEstimate(point,wind,wind850,wind700);
-  return {time:hourly.time[idx],temp:get('temperature_2m'),rh:get('relative_humidity_2m'),rain:get('precipitation'),cloud:get('cloud_cover'),wind,gust:get('wind_gusts_10m'),windDir:get('wind_direction_10m'),cape:get('cape'),visibility:get('visibility'),freezing:get('freezing_level_height'),wind850,wind700,ridgeWind,timeline};
+  return {time:hourly.time[idx],temp:get('temperature_2m'),rh:get('relative_humidity_2m'),rain:get('precipitation'),cloud:get('cloud_cover'),wind,gust:get('wind_gusts_10m'),windDir:get('wind_direction_10m'),cape:get('cape'),visibility:get('visibility'),freezing:get('freezing_level_height'),wind850,wind700,wind600,ridgeWind,timeline};
 }
 function timelineEpochMs(value){
   const raw=String(value||'').trim();
@@ -10924,12 +10925,12 @@ function blendTimelineSingleGroup(providerRows,useMedian=false){
       const ridgeWind=median(entries.map(x=>x.row?.ridgeWind).filter(Number.isFinite));
       const gust=Number.isFinite(ridgeWind)?Math.max(Number.isFinite(rawGust)?rawGust:0,ridgeWind):rawGust;
       const capes=entries.map(x=>x.row?.cape).filter(Number.isFinite);
-      return {time:slot.time,rain,wind,gust,rawGust,ridgeWind,wind850:median(entries.map(x=>x.row?.wind850).filter(Number.isFinite)),wind700:median(entries.map(x=>x.row?.wind700).filter(Number.isFinite)),cape:max(capes),capeMedian:median(capes),capeModels:capes.length,capeSupport500:capes.filter(v=>v>=500).length,capeSupport800:capes.filter(v=>v>=800).length,capeSupport1000:capes.filter(v=>v>=1000).length,capeSupport1200:capes.filter(v=>v>=1200).length};
+      return {time:slot.time,rain,wind,gust,rawGust,ridgeWind,wind850:median(entries.map(x=>x.row?.wind850).filter(Number.isFinite)),wind700:median(entries.map(x=>x.row?.wind700).filter(Number.isFinite)),wind600:median(entries.map(x=>x.row?.wind600).filter(Number.isFinite)),cape:max(capes),capeMedian:median(capes),capeModels:capes.length,capeSupport500:capes.filter(v=>v>=500).length,capeSupport800:capes.filter(v=>v>=800).length,capeSupport1000:capes.filter(v=>v>=1000).length,capeSupport1200:capes.filter(v=>v>=1200).length};
     }
     const vals=k=>entries.map(x=>x.row?.[k]).filter(Number.isFinite),capes=vals('cape');
     const ridgeWind=mean(vals('ridgeWind')),rawGust=mean(vals('rawGust').length?vals('rawGust'):vals('gust'));
     const gust=Number.isFinite(ridgeWind)?Math.max(Number.isFinite(rawGust)?rawGust:0,ridgeWind):rawGust;
-    return {time:slot.time,rain:mean(vals('rain')),wind:mean(vals('wind')),gust,rawGust,ridgeWind,wind850:mean(vals('wind850')),wind700:mean(vals('wind700')),cape:max(capes),capeMedian:median(capes),capeModels:capes.length,capeSupport500:capes.filter(v=>v>=500).length,capeSupport800:capes.filter(v=>v>=800).length,capeSupport1000:capes.filter(v=>v>=1000).length,capeSupport1200:capes.filter(v=>v>=1200).length};
+    return {time:slot.time,rain:mean(vals('rain')),wind:mean(vals('wind')),gust,rawGust,ridgeWind,wind850:mean(vals('wind850')),wind700:mean(vals('wind700')),wind600:mean(vals('wind600')),cape:max(capes),capeMedian:median(capes),capeModels:capes.length,capeSupport500:capes.filter(v=>v>=500).length,capeSupport800:capes.filter(v=>v>=800).length,capeSupport1000:capes.filter(v=>v>=1000).length,capeSupport1200:capes.filter(v=>v>=1200).length};
   });
 }
 function blendTimelineRows(providerRows){
@@ -10954,6 +10955,7 @@ function blendTimelineRows(providerRows){
       ridgeWind:max([p.ridgeWind,bk.ridgeWind]),
       wind850:max([p.wind850,bk.wind850]),
       wind700:max([p.wind700,bk.wind700]),
+      wind600:max([p.wind600,bk.wind600]),
       rawGust:max([p.rawGust,bk.rawGust]),
       // Gust is never allowed below the estimated ridge mean wind.
       gust:max([p.gust,bk.gust,p.ridgeWind,bk.ridgeWind]),
@@ -12507,9 +12509,10 @@ function blendProviderRowsSingleGroup(providerRows){
   out.gfsAdverse=!!gfs&&((Number.isFinite(gfs.wind)&&Number.isFinite(out.wind)&&gfs.wind>=8&&gfs.wind>=out.wind+3)||(Number.isFinite(gfs.gust)&&Number.isFinite(out.gust)&&gfs.gust>=15&&gfs.gust>=out.gust+4)||(Number.isFinite(gfs.rain)&&Number.isFinite(out.rain)&&gfs.rain>=0.5&&gfs.rain>=out.rain+0.4)||(Number.isFinite(gfs.visibility)&&Number.isFinite(out.visibility)&&gfs.visibility<3000&&out.visibility>=5000));
   const ridgeValues=finiteRows.map(r=>r?.ridgeWind).filter(Number.isFinite);
   out.ridgeWind=ridgeValues.length?median(ridgeValues):NaN;
-  const wind850Values=finiteRows.map(r=>r?.wind850).filter(Number.isFinite),wind700Values=finiteRows.map(r=>r?.wind700).filter(Number.isFinite);
+  const wind850Values=finiteRows.map(r=>r?.wind850).filter(Number.isFinite),wind700Values=finiteRows.map(r=>r?.wind700).filter(Number.isFinite),wind600Values=finiteRows.map(r=>r?.wind600).filter(Number.isFinite);
   out.wind850=wind850Values.length?median(wind850Values):NaN;
   out.wind700=wind700Values.length?median(wind700Values):NaN;
+  out.wind600=wind600Values.length?median(wind600Values):NaN;
   out.rawGust=out.gust;
   out.gust=effectiveMountainGust(out);
   out.feelsLike=apparentTemperatureMountain(out.temp,out.rh,effectiveMountainWind(out));
@@ -12558,6 +12561,7 @@ function blendProviderRows(providerRows){
   out.ridgeWind=ridgeCandidates.length?Math.max(...ridgeCandidates):NaN;
   out.wind850=max([primary.wind850,backup.wind850]);
   out.wind700=max([primary.wind700,backup.wind700]);
+  out.wind600=max([primary.wind600,backup.wind600]);
   out.rawGust=max([primary.rawGust,backup.rawGust,primary.gust,backup.gust]);
   out.gust=effectiveMountainGust(out);
   out.feelsLike=apparentTemperatureMountain(out.temp,out.rh,effectiveMountainWind(out));
@@ -13348,7 +13352,7 @@ function pointForecastRow(r,i,total){
           <b>${windDirectionLabel(windDeg)}</b>
           ${Number.isFinite(effectiveMountainGust(r))?`<small>${Number.isFinite(r.ridgeWind)?'推定最大瞬間':'最大瞬間'} ${num(effectiveMountainGust(r),0)}m/s</small>`:''}
         </div>
-        ${Number.isFinite(r.ridgeWind)?`<div class="rf-feels-like"><span>10m風</span><b>${num(r.wind,0)}m/s</b><small>850hPa ${Number.isFinite(r.wind850)?num(r.wind850,0)+'m/s':'–'} / 700hPa ${Number.isFinite(r.wind700)?num(r.wind700,0)+'m/s':'–'}</small></div>`:''}${metricGauge('wind',displayWind)}
+        ${Number.isFinite(r.ridgeWind)?`<div class="rf-feels-like"><span>10m風</span><b>${num(r.wind,0)}m/s</b><small>850hPa ${Number.isFinite(r.wind850)?num(r.wind850,0)+'m/s':'–'} / 700hPa ${Number.isFinite(r.wind700)?num(r.wind700,0)+'m/s':'–'} / 600hPa ${Number.isFinite(r.wind600)?num(r.wind600,0)+'m/s':'–'}</small></div>`:''}${metricGauge('wind',displayWind)}
       </div>
       <div class="rf-metric rain${hazardMetricClass(hz.rain)}" data-label="雨">
         <div class="rf-metric-title"><span class="rf-metric-symbol rain">${pointMetricIcon('rain')}</span><b>雨</b></div>
