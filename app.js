@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.79';
+const APP_VERSION = '1.6.80';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -7585,7 +7585,7 @@ function reconcileNationalDetailResult(result,data){
     preJmaGrade:baseGrade,
     jmaGrade,
     jmaWorstOfApplied:Boolean(jmaGrade&&nationalGradeRank(jmaGrade)>nationalGradeRank(baseGrade)),
-    detailReconciledVersion:'v1679',
+    detailReconciledVersion:'v1680',
     jmaValues:jmaSeries.length?{...(result?.jmaValues||{}),series:jmaSeries,maxRidgeWind:ridgeVals.length?Math.max(...ridgeVals):null,maxSurfaceWind:surfaceVals.length?Math.max(...surfaceVals):null,maxEstimatedRidgeGust:gustVals.length?Math.max(...gustVals):null,cautionHours:jmaCounts.caution,bcCautionHours:jmaCounts.bc,severeHours:jmaCounts.severe,extremeHours:jmaCounts.extreme}:result?.jmaValues
   };
 }
@@ -7713,7 +7713,7 @@ async function hydrateNationalModelDetail(box,p,result=null){
     // V1.6.79: detail data is the freshest same-mountain snapshot. Reconcile the
     // large daily badge with the same hourly/JMA evidence shown below, then update
     // the map/browser snapshot so a stale B cannot remain above all-D hourly rows.
-    const reconciled=reconcileNationalDetailResult(result,j);
+    const reconciled=(j?.reconciled&&typeof j.reconciled==='object')?j.reconciled:reconcileNationalDetailResult(result,j);
     nationalOutlookResults.set(p.name,reconciled);
     patchNationalOutlookBrowserCacheResult(date,reconciled);
     updateNationalDetailGradeBadge(box,reconciled.grade);
@@ -7822,10 +7822,10 @@ async function openMountainFromNationalMap(name){
   }
   $('mountainPreset')?.scrollIntoView({behavior:'smooth',block:'center'});
 }
-const NATIONAL_OUTLOOK_BROWSER_CACHE_KEY='traten:national-outlook:v1679-consistent-grade';
+const NATIONAL_OUTLOOK_BROWSER_CACHE_KEY='traten:national-outlook:v1680-persistent-reconcile';
 const NATIONAL_OUTLOOK_BROWSER_CACHE_TTL=4*60*60*1000;
 const NATIONAL_OUTLOOK_BROWSER_STALE_BRIDGE_TTL=5*60*1000;
-const NATIONAL_OUTLOOK_CACHE_ENGINE='metno-gfs-jma-ridge-gust-worstof-v16-consistent-grade';
+const NATIONAL_OUTLOOK_CACHE_ENGINE='metno-gfs-jma-ridge-gust-worstof-v17-persistent-reconcile';
 function readNationalOutlookBrowserCache(date){
   try{
     const obj=JSON.parse(localStorage.getItem(NATIONAL_OUTLOOK_BROWSER_CACHE_KEY)||'null');
