@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.74';
+const APP_VERSION = '1.6.75';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -7583,7 +7583,7 @@ function nationalDecisionTraceHtml(result,rows,centerSeries=[]){
     const reason=rs.length?rs.map(r=>`${r.source}・${r.element} ${num(r.value)}${r.unit}`).join(' / '):'主要な注意条件なし';
     return `<div style="display:grid;grid-template-columns:48px 36px 1fr;gap:8px;align-items:start;padding:7px 0;border-top:1px solid #e2ece7"><b>${x.hour}時</b><span class="national-hourly-grade-dot grade-${x.grade==='?'?'u':x.grade.toLowerCase()}" style="width:28px;height:28px;font-size:13px">${x.grade}</span><span style="font-size:13px;line-height:1.45;color:#375b50">${esc(reason)}</span></div>`;
   }).join('');
-  return `<details class="national-grade-criteria" open style="margin-top:14px"><summary><b>この判定の決定要因を見る</b></summary><div style="padding-top:10px"><div style="padding:10px 12px;border-radius:10px;background:#eef8f3;margin-bottom:10px;line-height:1.6"><b>最終 ${esc(finalGrade)}</b> ｜ 従来統合 ${esc(baseGrade)} ｜ JMA安全側 ${esc(jmaGrade)}<br><span style="font-size:13px">採用：${esc(chosenSource)} ／ ${esc(nationalDailyRuleReason(finalGrade,chosenCounts))}</span></div><div style="font-size:12px;color:#60786f;margin-bottom:6px">時間別マークを実際に押し上げた要素を表示しています。同じ等級の要素が複数ある場合は併記します。</div>${rowsHtml}</div></details>`;
+  return `<details class="national-grade-criteria" style="margin-top:14px"><summary><b>この判定の決定要因を見る</b></summary><div style="padding-top:10px"><div style="padding:10px 12px;border-radius:10px;background:#eef8f3;margin-bottom:10px;line-height:1.6"><b>最終 ${esc(finalGrade)}</b> ｜ 従来統合 ${esc(baseGrade)} ｜ JMA安全側 ${esc(jmaGrade)}<br><span style="font-size:13px">採用：${esc(chosenSource)} ／ ${esc(nationalDailyRuleReason(finalGrade,chosenCounts))}</span></div><div style="font-size:12px;color:#60786f;margin-bottom:6px">時間別マークを実際に押し上げた要素を表示しています。同じ等級の要素が複数ある場合は併記します。</div>${rowsHtml}</div></details>`;
 }
 
 function nationalModelChartSvg(rows,key,label,unit,maxY,chartType='line'){
@@ -12611,7 +12611,7 @@ function blendProviderRowsSingleGroup(providerRows){
   }));
   out.adverseModelCount=adverseFlags.filter(x=>x.mild).length;out.strongAdverseModelCount=adverseFlags.filter(x=>x.strong).length;
   out.modelMaxWind=max(finiteRows.map(r=>r.wind));out.modelMaxGust=max(finiteRows.map(r=>r.gust));out.modelMaxRain=max(finiteRows.map(r=>r.rain));
-  const visValues=finiteRows.map(r=>r.visibility).filter(Number.isFinite);out.modelMinVisibility=visValues.length?Math.min(...visValues):NaN;
+  const visValues=finiteRows.map(r=>r.visibility).filter(Number.isFinite);out.modelMinVisibility=visValues.length?Math.min(...visValues):NaN;out.visibilityModelCount=visValues.length;
   out.gfsAdverse=!!gfs&&((Number.isFinite(gfs.wind)&&Number.isFinite(out.wind)&&gfs.wind>=8&&gfs.wind>=out.wind+3)||(Number.isFinite(gfs.gust)&&Number.isFinite(out.gust)&&gfs.gust>=15&&gfs.gust>=out.gust+4)||(Number.isFinite(gfs.rain)&&Number.isFinite(out.rain)&&gfs.rain>=0.5&&gfs.rain>=out.rain+0.4)||(Number.isFinite(gfs.visibility)&&Number.isFinite(out.visibility)&&gfs.visibility<3000&&out.visibility>=5000));
   const ridgeValues=finiteRows.map(r=>r?.ridgeWind).filter(Number.isFinite);
   out.ridgeWind=ridgeValues.length?median(ridgeValues):NaN;
@@ -12622,7 +12622,7 @@ function blendProviderRowsSingleGroup(providerRows){
   out.rawGust=out.gust;
   out.gust=effectiveMountainGust(out);
   out.feelsLike=apparentTemperatureMountain(out.temp,out.rh,effectiveMountainWind(out));
-  out.modelBasis={wind:Number.isFinite(ecmwf?.wind)?'ecmwf':'multi',rain:Number.isFinite(jma?.rain)?'jma':'multi',visibility:Number.isFinite(icon?.visibility)?'icon':'multi',gfsGuard:!!out.gfsAdverse,capeModels:out.capeModelCount,capeSupport500:out.capeSupport500,capeSupport1000:out.capeSupport1000,adverseModels:out.adverseModelCount,strongAdverseModels:out.strongAdverseModelCount,fallbackEnsemble:fallbackOnly?rows.length:0};
+  out.modelBasis={wind:Number.isFinite(ecmwf?.wind)?'ecmwf':'multi',rain:Number.isFinite(jma?.rain)?'jma':'multi',visibility:Number.isFinite(icon?.visibility)?'icon':'multi',visibilityModels:out.visibilityModelCount||0,gfsGuard:!!out.gfsAdverse,capeModels:out.capeModelCount,capeSupport500:out.capeSupport500,capeSupport1000:out.capeSupport1000,adverseModels:out.adverseModelCount,strongAdverseModels:out.strongAdverseModelCount,fallbackEnsemble:fallbackOnly?rows.length:0};
   return out;
 }
 function dualEnsembleAgreement(primary,backup){
@@ -12672,7 +12672,7 @@ function blendProviderRows(providerRows){
   out.gust=effectiveMountainGust(out);
   out.feelsLike=apparentTemperatureMountain(out.temp,out.rh,effectiveMountainWind(out));
   out.dualEnsemble={agreement:agreement.level,primaryCount:primaryRows.length,backupCount:backupRows.length,primary,backup,diffs:agreement.diffs,visibilityConflict:agreement.visibilityConflict};
-  out.modelBasis={...(primary.modelBasis||{}),dualEnsemble:true,groupAgreement:agreement.level,primaryModels:primaryRows.length,backupModels:backupRows.length,adverseModels:out.adverseModelCount,strongAdverseModels:out.strongAdverseModelCount};
+  out.modelBasis={...(primary.modelBasis||{}),dualEnsemble:true,groupAgreement:agreement.level,primaryModels:primaryRows.length,backupModels:backupRows.length,visibilityModels:out.visibilityModelCount||0,adverseModels:out.adverseModelCount,strongAdverseModels:out.strongAdverseModelCount};
   return out;
 }
 function ensembleConfidence(providerRows,blended){
@@ -12725,16 +12725,26 @@ function assessGrade(x){
 
   // V1.6.68: E is reserved for genuinely extreme / stop-level conditions.
   // Ordinary accumulation of moderate factors may reach D, but never E by score alone.
+  const visModels=Math.max(0,Number(x.visibilityModelCount||x.modelBasis?.visibilityModels)||0);
+  const visibilityStronglySupported=visModels>=2;
+  // V1.6.75: visibility is useful but often available from fewer models than wind/rain.
+  // A single-model visibility value must not independently create a stop recommendation.
+  // E from visibility requires multi-model support plus another genuinely severe hazard.
+  const visibilityStopCombo = Number.isFinite(vis) && vis<500 && visibilityStronglySupported &&
+    (wind>=13 || gust>=20 || rain>=4 || thunder.level==='HIGH' || hypo==='WARNING');
   const hardStop =
     wind>=18 || gust>=25 || rain>=8 ||
-    (Number.isFinite(vis) && vis<500) ||
+    visibilityStopCombo ||
     thunder.level==='EXTREME' || hypo==='DANGER' ||
     (Number.isFinite(feels) && (feels<=-15 || feels>=38));
 
   if(wind>=18||gust>=25)s+=4;else if(wind>=13||gust>=20)s+=3;else if(wind>=9||gust>=15)s+=2;else if(wind>=5||gust>=12)s+=1;
   if(rain>=8)s+=4;else if(rain>=4)s+=3;else if(rain>=1.5)s+=2;else if(rain>=.1)s+=1;
   s+=thunder.gradePoints;
-  if(Number.isFinite(vis)){if(vis<500)s+=4;else if(vis<1000)s+=3;else if(vis<3000)s+=2;else if(vis<5000)s+=1;}
+  if(Number.isFinite(vis)){
+    if(visibilityStronglySupported){if(vis<500)s+=3;else if(vis<1000)s+=2;else if(vis<3000)s+=1;else if(vis<5000)s+=1;}
+    else if(vis<5000)s+=1;
+  }
   if(Number.isFinite(feels)){if(feels<=-10)s+=3;else if(feels<=-5)s+=2;else if(feels<=0)s+=1;}
   if(hypo==='WARNING')s+=1;
 
@@ -12755,6 +12765,8 @@ function assessGrade(x){
   // Model disagreement may lift only to C; it must never manufacture D/E.
   if(strongAdverse>=1&&(wind>=5||gust>=12||rain>=.1||(Number.isFinite(vis)&&vis<5000)))floor('C');
   if(adverse>=2&&(wind>=5||rain>=.1||(Number.isFinite(vis)&&vis<5000)))floor('C');
+  // Multi-model, extremely poor visibility is serious enough for D, but never E by itself.
+  if(visibilityStronglySupported&&Number.isFinite(vis)&&vis<500)floor('D');
   return grade;
 }
 function thunderLevel(x){return thunderEvidence(x).level;}
@@ -12778,13 +12790,14 @@ function assessHazards(x){
     else if(feels>=30){tempLv='CAUTION';tempDetail='体感上の暑熱';}
   }
   const hypoLv=hypothermiaRisk(x);
-  const visLv=!Number.isFinite(x.visibility)?'NONE':x.visibility<500?'DANGER':x.visibility<1000?'WARNING':x.visibility<3000?'CAUTION':'NONE';
+  const visModels=Math.max(0,Number(x.visibilityModelCount||x.modelBasis?.visibilityModels)||0);
+  const visLv=!Number.isFinite(x.visibility)?'NONE':visModels<2?(x.visibility<5000?'CAUTION':'NONE'):x.visibility<500?'WARNING':x.visibility<1000?'WARNING':x.visibility<3000?'CAUTION':'NONE';
   const items=[
     hazardItem('thunder','⚡','雷',thunderLv,thunder,thunderLv==='NONE'?'顕著な雷リスクなし':`雷リスク ${thunder}`),
     hazardItem('wind','💨','風',windLv,`${num(wind)}m/s`,Number.isFinite(x.ridgeWind)?`稜線推定 ${num(wind)}m/s・10m風 ${num(x.wind)}m/s${Number.isFinite(gust)?`・推定最大瞬間 ${num(gust)}m/s`:''}`:Number.isFinite(gust)?`平均 ${num(x.wind)}m/s・最大瞬間 ${num(gust)}m/s`:`平均 ${num(x.wind)}m/s`),
     hazardItem('rain','🌧️','雨',rainLv,`${num(x.rain)}mm/h`,`時間降水量 ${num(x.rain)}mm/h`),
     hazardItem('temp',tempLv==='NONE'?'🌡️':feels<=0?'🥶':'🥵','体感温度',tempLv,`${num(feels)}℃`,`気温 ${num(x.temp)}℃・体感 ${num(feels)}℃${tempDetail?`（${tempDetail}）`:''}`),
-    hazardItem('visibility','🌫️','視界',visLv,Number.isFinite(x.visibility)?`${Math.round(x.visibility)}m`:'–',Number.isFinite(x.visibility)?`予報視程 ${Math.round(x.visibility)}m`:'視程データなし')
+    hazardItem('visibility','🌫️','視界',visLv,Number.isFinite(x.visibility)?`${Math.round(x.visibility)}m`:'–',Number.isFinite(x.visibility)?`予報視程 ${Math.round(x.visibility)}m${visModels<2?'（1モデルのみ・参考）':`（${visModels}モデル）`}`:'視程データなし')
   ];
   if(hypoLv!=='NONE')items.push(hazardItem('hypothermia','🥶','低体温',hypoLv,`${num(feels)}℃`,`雨・風・低い体感温度が重なっています（体感 ${num(feels)}℃、風 ${num(wind)}m/s、雨 ${num(x.rain)}mm/h）`));
   if(x.gfsAdverse||Number(x.adverseModelCount)>=1)items.push(hazardItem('model','⚠️','モデル差','CAUTION',x.gfsAdverse?'GFS悪化':`${Number(x.adverseModelCount)||1}モデル悪化`,'代表値より悪天側を示すモデルがあるため、楽観側へ寄せず判定しています'));
