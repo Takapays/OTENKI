@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.75';
+const APP_VERSION = '1.6.76';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -12804,6 +12804,50 @@ function assessHazards(x){
   return items;
 }
 function maxHazard(hazards){return (hazards||[]).reduce((a,b)=>(b.rank||0)>(a.rank||0)?b:a,hazardItem('none','✓','顕著な注意要素なし','NONE','', ''));}
+function routePointImportance(point){
+  const type=String(point?.type||'other');
+  const elev=Number(point?.elevation);
+  if(type==='peak'||type==='pass')return {level:'critical',label:type==='peak'?'山頂':'峠・稜線',weight:1};
+  if(type==='hut'||type==='camp'){
+    if(Number.isFinite(elev)&&elev>=2200)return {level:'high',label:type==='camp'?'高所キャンプ地':'高所山小屋',weight:.95};
+    return {level:'medium-high',label:type==='camp'?'キャンプ地':'山小屋',weight:.85};
+  }
+  if(type==='trailhead')return {level:'low',label:'登山口・下山口',weight:.6};
+  return {level:'normal',label:'経由地点',weight:.8};
+}
+function routePointOverallGrade(result){
+  const raw=String(result?.grade||'A');
+  const rank={A:1,B:2,C:3,D:4,E:5}, byRank={1:'A',2:'B',3:'C',4:'D',5:'E'};
+  const info=routePointImportance(result?.point);
+  const hazards=(result?.hazards||[]).filter(h=>h&&h.level&&h.level!=='NONE'&&h.type!=='model');
+  const warningCount=hazards.filter(h=>(h.rank||0)>=2).length;
+  const dangerCount=hazards.filter(h=>(h.rank||0)>=3).length;
+  const severeTypes=new Set(hazards.filter(h=>(h.rank||0)>=2).map(h=>h.type));
+  let adjusted=raw;
+  let reason='地点判定をそのまま総合評価へ反映';
+  if(info.level==='low'){
+    // Trailheads / exits are operationally important, but a single local hazard should not
+    // dominate the whole mountain itinerary. Compound severe hazards can still keep E/D.
+    if(raw==='E' && !(dangerCount>=2 || severeTypes.size>=2)){
+      adjusted='D'; reason='登山口・下山口の単独要因Eは総合評価ではD上限';
+    }else if(raw==='D' && warningCount<=1){
+      adjusted='C'; reason='登山口・下山口の単独強条件Dは総合評価ではC上限';
+    }
+  }else if(info.level==='medium-high'){
+    // Lower huts/camps retain strong weight, but one isolated stop-level factor should not
+    // outweigh a benign high-ridge/summit section by itself.
+    if(raw==='E' && !(dangerCount>=2 || severeTypes.size>=2)){
+      adjusted='D'; reason='低〜中標高の山小屋・キャンプの単独要因Eは総合評価ではD上限';
+    }
+  }
+  return {raw,grade:adjusted,importance:info,reason,changed:adjusted!==raw,rank:rank[adjusted]||1};
+}
+function routeOverallDecision(points){
+  const rows=(points||[]).map((r,index)=>({result:r,index,...routePointOverallGrade(r)}));
+  if(!rows.length)return {grade:'A',worst:null,rows:[]};
+  const worst=rows.reduce((a,b)=>b.rank>a.rank?b:a,rows[0]);
+  return {grade:worst.grade,worst,rows};
+}
 function hazardBadge(h){if(!h||h.level==='NONE')return '';return `<span class="hazard-badge ${String(h.level).toLowerCase()}">${h.icon} ${h.label} ${HAZARD_LABEL[h.level]}</span>`;}
 function hazardMetricClass(h){return h&&h.level!=='NONE'?` hazard-${String(h.level).toLowerCase()}`:'';}
 function renderRouteAlerts(points){
@@ -12821,7 +12865,8 @@ function routeCommentaryData(points){
   const active=[];
   points.forEach((r,i)=>(r.hazards||[]).filter(h=>h.level!=='NONE').forEach(h=>active.push({...h,point:r.point,index:i,grade:r.grade})));
   active.sort((a,b)=>b.rank-a.rank||gradeRank(b.grade)-gradeRank(a.grade)||a.index-b.index);
-  const worst=points.reduce((a,b)=>gradeRank(b.grade)>gradeRank(a.grade)?b:a,points[0]);
+  const overall=routeOverallDecision(points);
+  const worst=overall.worst?{...overall.worst.result,grade:overall.grade,routeGradeMeta:overall.worst}:points[0];
   const confidence=overallConfidence(points.map(x=>x.confidence));
   const half=Math.max(1,Math.ceil(points.length/2));
   const first=active.filter(h=>h.index<half);
@@ -12842,6 +12887,7 @@ function buildDecisionCommentary(points){
     E:'ルート上に非常に強い気象リスクがあり、現計画は大きな見直しが必要な条件です。'
   }[grade]||'ルート全体の気象条件を確認してください。';
   const parts=[intro];
+  if(worst.routeGradeMeta?.changed)parts.push(`${worst.point.name} は地点単体では ${worst.routeGradeMeta.raw} 判定ですが、${worst.routeGradeMeta.reason}としてルート全体では ${worst.grade} 相当として扱っています。`);
   const feelPoints=points.filter(p=>Number.isFinite(p.feelsLike));
   if(feelPoints.length){
     const coldest=feelPoints.reduce((a,b)=>b.feelsLike<a.feelsLike?b:a,feelPoints[0]);
@@ -13501,13 +13547,15 @@ function renderPointForecastTimeline(points){
 function renderSummaryCore(points){
   $('results').classList.remove('hidden'); $('resultScreenshotToolbarDesktop')?.classList.remove('hidden');
   renderDecisionCommentary(points);
-  const worst=points.reduce((a,b)=>gradeRank(b.grade)>gradeRank(a.grade)?b:a,points[0]);
+  const overall=routeOverallDecision(points);
+  const worst=overall.worst?{...overall.worst.result,grade:overall.grade,routeGradeMeta:overall.worst}:points[0];
   const maxWindValue=max(points.map(x=>effectiveMountainWind(x))); const maxRainValue=max(points.flatMap(x=>x.providerRows.map(y=>y.row.rain))); const thunderLevel=maxThunder(points.map(x=>x.thunder)); const forecastConfidence=routeForecastConfidence(points); const confidenceLevel=forecastConfidence.level;
   $('grade').textContent=worst.grade; $('verdict').textContent=verdict(worst.grade);
   const gradeLabels={A:'EXCELLENT',B:'GOOD',C:'CAUTION',D:'HARD',E:'STOP'}; const verdictNotes={A:'全体としてかなり安定した予報です。',B:'一部に注意点はありますが、全体としては比較的安定しています。',C:'注意要素があります。通過時刻と場所を確認してください。',D:'強い気象リスクを含む計画です。見直しを推奨します。',E:'非常に強い気象リスクがあります。中止を含めて再検討してください。'};
   $('gradeLabel').textContent=gradeLabels[worst.grade]||'–';
   const feels=points.map(p=>p.feelsLike).filter(Number.isFinite); const minFeels=feels.length?Math.min(...feels):NaN;
-  const baseVerdictNote=verdictNotes[worst.grade]||'ルート全体の気象条件を確認してください。';
+  let baseVerdictNote=verdictNotes[worst.grade]||'ルート全体の気象条件を確認してください。';
+  if(overall.worst?.changed){baseVerdictNote+=` ${overall.worst.result.point.name} は地点判定 ${overall.worst.raw} ですが、${overall.worst.reason}として総合評価へ反映しています。`; }
   $('verdictNote').textContent=Number.isFinite(minFeels)?`${baseVerdictNote} 最低体感 ${num(minFeels)}℃。`:baseVerdictNote;
   $('maxWind').textContent=`${num(maxWindValue)} m/s`; $('maxWindLabel').textContent=maxWindValue<5?'弱い':maxWindValue<10?'やや強い':maxWindValue<15?'強い':'非常に強い';
   $('maxRain').textContent=`${num(maxRainValue)} mm/h`; $('maxRainLabel').textContent=maxRainValue<0.2?'ほとんどなし':maxRainValue<1?'弱い':maxRainValue<5?'雨に注意':'強い雨';
