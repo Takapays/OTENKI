@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.77';
+const APP_VERSION = '1.6.78';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -10956,10 +10956,18 @@ function daysAhead(date){
 function providerEligible(provider,point){const d=daysAhead(point.date);return d>=0&&d<=provider.forecastDays;}
 function ridgeWindEstimate(point,surfaceWind,wind850,wind700){
   const elev=Number(point?.elevation);
-  if(!Number.isFinite(elev)||elev<1200)return NaN;
+  // V1.6.78: include lower mountain summits such as Kongosan. Below 1500 m,
+  // blend 10 m wind toward 850 hPa with elevation rather than using a hard cutoff.
+  if(!Number.isFinite(elev)||elev<500)return NaN;
   const w850=Number(wind850),w700=Number(wind700),surface=Number(surfaceWind);
   let upper=NaN;
-  if(Number.isFinite(w850)&&Number.isFinite(w700)){
+  if(elev<1500){
+    if(Number.isFinite(surface)&&Number.isFinite(w850)){
+      const t=clamp((elev-500)/1000,0,1);
+      upper=surface+(w850-surface)*t;
+    }else if(Number.isFinite(w850)) upper=w850;
+    else if(Number.isFinite(surface)) upper=surface;
+  }else if(Number.isFinite(w850)&&Number.isFinite(w700)){
     const t=clamp((elev-1500)/1500,0,1);
     upper=w850+(w700-w850)*t;
   }else if(Number.isFinite(w700)) upper=w700;

@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.77"
+APP_VERSION = "1.6.78"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 WEATHERAPI_KEY = os.environ.get("WEATHERAPI_KEY", "").strip()
@@ -198,7 +198,7 @@ NATIONAL_OUTLOOK_AUTO_REFRESH = os.environ.get("NATIONAL_OUTLOOK_AUTO_REFRESH", 
 NATIONAL_CACHE_REFRESH_TOKEN = os.environ.get("NATIONAL_CACHE_REFRESH_TOKEN", "")
 NATIONAL_100_POINTS_FILE = os.path.join(BASE, "national-100-points.json")
 NATIONAL_OUTLOOK_CHUNK_SIZE = max(1, min(50, int(os.environ.get("NATIONAL_OUTLOOK_CHUNK_SIZE", "25"))))
-NATIONAL_OUTLOOK_ENGINE = "metno-gfs-jma-ridge-gust-worstof-v14"
+NATIONAL_OUTLOOK_ENGINE = "metno-gfs-jma-ridge-gust-worstof-v15"
 NATIONAL_GFS_MIN_INTERVAL = float(os.environ.get("NATIONAL_GFS_MIN_INTERVAL", "0.35"))
 _national_gfs_lock = threading.Lock()
 _national_gfs_last_request = 0.0
@@ -2004,7 +2004,11 @@ def _national_ridge_wind_estimate(p: dict[str, Any], surface_wind: float | None,
         elev = float(p.get("elevation"))
     except (TypeError, ValueError):
         return None
-    if not math.isfinite(elev) or elev < 1200:
+    # V1.6.78: nationwide mountain lists include important summits below 1200 m
+    # (e.g. Kongosan). Do not drop ridge-wind estimation solely because of that
+    # old cutoff. Below 1500 m, blend the local 10 m wind toward 850 hPa wind
+    # with elevation instead of applying the full 850 hPa value at low summits.
+    if not math.isfinite(elev) or elev < 500:
         return None
     def finite_or_none(v):
         try:
@@ -2014,7 +2018,16 @@ def _national_ridge_wind_estimate(p: dict[str, Any], surface_wind: float | None,
             return None
     surface=finite_or_none(surface_wind); w850=finite_or_none(wind850); w700=finite_or_none(wind700)
     upper=None
-    if w850 is not None and w700 is not None:
+    if elev < 1500.0:
+        if surface is not None and w850 is not None:
+            # 500 m = surface-dominant, 1500 m = 850 hPa-dominant.
+            t=max(0.0,min(1.0,(elev-500.0)/1000.0))
+            upper=surface+(w850-surface)*t
+        elif w850 is not None:
+            upper=w850
+        elif surface is not None:
+            upper=surface
+    elif w850 is not None and w700 is not None:
         t=max(0.0,min(1.0,(elev-1500.0)/1500.0))
         upper=w850+(w700-w850)*t
     elif w700 is not None:
@@ -3432,7 +3445,21 @@ def _national_fetch_shared(date_text, points):
     for p in points:
         cached = _national_point_cache_get(date_text,p)
         source=str((cached or {}).get("source") or "")
-        cache_policy_ok = not source.endswith("-element-policy") or cached.get("safetyFloorVersion") == "v1677-evidence-v1"
+        jma_values=(cached or {}).get("jmaValues") if isinstance(cached,dict) else None
+        jma_series=(jma_values or {}).get("series") if isinstance(jma_values,dict) else None
+        needs_ridge=False
+        try:
+            needs_ridge=float(p.get("elevation")) >= 500.0
+        except (TypeError,ValueError):
+            needs_ridge=False
+        has_ridge=bool(isinstance(jma_series,list) and any(_finite(x.get("ridgeWind")) for x in jma_series if isinstance(x,dict)))
+        # V1.6.78: cached national rows for mountain points must carry same-generation
+        # JMA ridge-wind evidence. Otherwise refresh rather than silently falling back
+        # to 10 m wind and producing incomparable grades between nearby mountains.
+        cache_policy_ok = (
+            (not source.endswith("-element-policy") or cached.get("safetyFloorVersion") == "v1677-evidence-v1")
+            and (not needs_ridge or has_ridge)
+        )
         if cached and cache_policy_ok and (source in {"metno+gfs","metno","gfs"} or source.endswith("-element-policy")):
             rows[p["name"]] = dict(cached,name=p["name"])
         else:
@@ -4278,6 +4305,7 @@ def national_outlook_detail():
         gfs=_national_gfs_results(date_text,[p],include_series=True).get(name)
     except Exception as exc:
         warnings.append("NOAA GFS unavailable"); app.logger.warning("national_detail_gfs_failed %s",type(exc).__name__)
+    jma_new_request=False
     try:
         cached=_national_detail_cached_result(date_text,p) or {}
         jv=cached.get("jmaValues") if isinstance(cached,dict) else None
@@ -4285,9 +4313,18 @@ def national_outlook_detail():
             jma={"name":name,"source":"openmeteo-jma-msm-cache","series":jv.get("series"),
                  "maxWind":jv.get("maxWind"),"maxGust":jv.get("maxEstimatedRidgeGust"),"maxRain":jv.get("maxRain")}
         else:
-            warnings.append("JMA MSM hourly cache unavailable")
+            # V1.6.78: if the shared row predates ridge evidence or a batch missed this
+            # mountain, make one direct JMA request for the opened mountain instead of
+            # leaving the ridge-wind chart blank. This is a fallback only.
+            direct=_openmeteo_jma_production_results(date_text,[p]).get(name)
+            if direct and isinstance(direct.get("series"),list) and direct.get("series"):
+                jma={"name":name,"source":"openmeteo-jma-msm-direct-fallback","series":direct.get("series"),
+                     "maxWind":direct.get("maxWind"),"maxGust":direct.get("maxEstimatedRidgeGust"),"maxRain":direct.get("maxRain")}
+                jma_new_request=True
+            else:
+                warnings.append("JMA MSM hourly data unavailable")
     except Exception as exc:
-        warnings.append("JMA MSM hourly cache unavailable"); app.logger.warning("national_detail_jma_cache_failed %s",type(exc).__name__)
+        warnings.append("JMA MSM hourly data unavailable"); app.logger.warning("national_detail_jma_failed %s",type(exc).__name__)
     # Detail integration remains MET Norway + NOAA GFS. JMA is an independent chart comparison.
     merged=_national_merge_two_models(p,met,gfs,None)
     if not merged:
@@ -4296,7 +4333,7 @@ def national_outlook_detail():
         if not row: return None
         return {k:v for k,v in row.items() if k != "_series"}
     return jsonify(ok=True,date=date_text,name=name,merged=merged,models={"metno":detail_model(met),"gfs":detail_model(gfs),"jma":detail_model(jma)},
-        jmaStatus={"source":"national-cache","available":bool(jma),"newJmaRequest":False,"gustAvailable":False},
+        jmaStatus={"source":("direct-fallback" if jma_new_request else "national-cache"),"available":bool(jma),"newJmaRequest":bool(jma_new_request),"gustAvailable":False},
         warning="; ".join(warnings) or None,version=APP_VERSION)
 
 
