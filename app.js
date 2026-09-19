@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.67';
+const APP_VERSION = '1.6.69';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -3729,9 +3729,9 @@ async function loadClassicRoute(id){
 }
 
 const providers = [
-  {id:'jma',name:'JMA MSM',kind:'openmeteo',endpoint:'https://api.open-meteo.com/v1/jma',model:'jma_msm',forecastDays:4,vars:['temperature_2m','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_direction_10m']},
-  {id:'ecmwf',name:'ECMWF IFS',kind:'openmeteo',endpoint:'https://api.open-meteo.com/v1/ecmwf',forecastDays:15,vars:['temperature_2m','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_gusts_10m','wind_direction_10m','cape','visibility','freezing_level_height']},
-  {id:'gfs',name:'GFS',kind:'openmeteo',endpoint:'https://api.open-meteo.com/v1/gfs',forecastDays:16,vars:['temperature_2m','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_gusts_10m','wind_direction_10m','cape','visibility','freezing_level_height']},
+  {id:'jma',name:'JMA MSM',kind:'openmeteo',endpoint:'https://api.open-meteo.com/v1/jma',model:'jma_msm',forecastDays:4,vars:['temperature_2m','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_direction_10m','wind_speed_850hPa','wind_speed_700hPa']},
+  {id:'ecmwf',name:'ECMWF IFS',kind:'openmeteo',endpoint:'https://api.open-meteo.com/v1/ecmwf',forecastDays:15,vars:['temperature_2m','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_gusts_10m','wind_direction_10m','cape','visibility','freezing_level_height','wind_speed_850hPa','wind_speed_700hPa']},
+  {id:'gfs',name:'GFS',kind:'openmeteo',endpoint:'https://api.open-meteo.com/v1/gfs',forecastDays:16,vars:['temperature_2m','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_gusts_10m','wind_direction_10m','cape','visibility','freezing_level_height','wind_speed_850hPa','wind_speed_700hPa']},
   {id:'icon',name:'ICON',kind:'openmeteo',endpoint:'https://api.open-meteo.com/v1/dwd-icon',forecastDays:8,vars:['temperature_2m','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m','wind_gusts_10m','wind_direction_10m','cape','visibility','freezing_level_height']}
 ];
 const TYPE_LABEL={trailhead:'登山口・下山口',peak:'山頂',hut:'山小屋',pass:'峠・分岐',camp:'山小屋'};
@@ -10845,6 +10845,26 @@ function daysAhead(date){
   return Math.round((target-base)/86400000);
 }
 function providerEligible(provider,point){const d=daysAhead(point.date);return d>=0&&d<=provider.forecastDays;}
+function ridgeWindEstimate(point,surfaceWind,wind850,wind700){
+  const elev=Number(point?.elevation);
+  if(!Number.isFinite(elev)||elev<1200)return NaN;
+  const w850=Number(wind850),w700=Number(wind700),surface=Number(surfaceWind);
+  let upper=NaN;
+  if(Number.isFinite(w850)&&Number.isFinite(w700)){
+    const t=clamp((elev-1500)/1500,0,1);
+    upper=w850+(w700-w850)*t;
+  }else if(Number.isFinite(w700)) upper=w700;
+  else if(Number.isFinite(w850)) upper=w850;
+  if(!Number.isFinite(upper))return NaN;
+  const type=String(point?.type||'');
+  const exposure=(type==='peak'||type==='pass')?0.95:(type==='hut'||type==='camp')?0.85:0.75;
+  const ridge=upper*exposure;
+  return Number.isFinite(surface)?Math.max(surface,ridge):ridge;
+}
+function effectiveMountainWind(x){
+  const base=Number(x?.wind),ridge=Number(x?.ridgeWind);
+  return Number.isFinite(ridge)?Math.max(Number.isFinite(base)?base:0,ridge):base;
+}
 function extractProviderRow(hourly,point){
   if(!hourly?.time)return null;
   const idx=nearestTimeIndex(hourly.time,`${point.date}T${point.time}`);
@@ -10852,7 +10872,9 @@ function extractProviderRow(hourly,point){
   const get=k=>numberOrNaN(hourly[k]?.[idx]);
   const targetMs=new Date(`${point.date}T${point.time}:00+09:00`).getTime();
   const timeline=(hourly.time||[]).map((time,i)=>({time,rain:numberOrNaN(hourly.precipitation?.[i]),wind:numberOrNaN(hourly.wind_speed_10m?.[i]),gust:numberOrNaN(hourly.wind_gusts_10m?.[i]),cape:numberOrNaN(hourly.cape?.[i])})).filter(x=>Math.abs(new Date(x.time).getTime()-targetMs)<=6*3600000);
-  return {time:hourly.time[idx],temp:get('temperature_2m'),rh:get('relative_humidity_2m'),rain:get('precipitation'),cloud:get('cloud_cover'),wind:get('wind_speed_10m'),gust:get('wind_gusts_10m'),windDir:get('wind_direction_10m'),cape:get('cape'),visibility:get('visibility'),freezing:get('freezing_level_height'),timeline};
+  const wind=get('wind_speed_10m'),wind850=get('wind_speed_850hPa'),wind700=get('wind_speed_700hPa');
+  const ridgeWind=ridgeWindEstimate(point,wind,wind850,wind700);
+  return {time:hourly.time[idx],temp:get('temperature_2m'),rh:get('relative_humidity_2m'),rain:get('precipitation'),cloud:get('cloud_cover'),wind,gust:get('wind_gusts_10m'),windDir:get('wind_direction_10m'),cape:get('cape'),visibility:get('visibility'),freezing:get('freezing_level_height'),wind850,wind700,ridgeWind,timeline};
 }
 function timelineEpochMs(value){
   const raw=String(value||'').trim();
@@ -12462,7 +12484,9 @@ function blendProviderRowsSingleGroup(providerRows){
   out.modelMaxWind=max(finiteRows.map(r=>r.wind));out.modelMaxGust=max(finiteRows.map(r=>r.gust));out.modelMaxRain=max(finiteRows.map(r=>r.rain));
   const visValues=finiteRows.map(r=>r.visibility).filter(Number.isFinite);out.modelMinVisibility=visValues.length?Math.min(...visValues):NaN;
   out.gfsAdverse=!!gfs&&((Number.isFinite(gfs.wind)&&Number.isFinite(out.wind)&&gfs.wind>=8&&gfs.wind>=out.wind+3)||(Number.isFinite(gfs.gust)&&Number.isFinite(out.gust)&&gfs.gust>=15&&gfs.gust>=out.gust+4)||(Number.isFinite(gfs.rain)&&Number.isFinite(out.rain)&&gfs.rain>=0.5&&gfs.rain>=out.rain+0.4)||(Number.isFinite(gfs.visibility)&&Number.isFinite(out.visibility)&&gfs.visibility<3000&&out.visibility>=5000));
-  out.feelsLike=apparentTemperatureMountain(out.temp,out.rh,out.wind);
+  const ridgeValues=finiteRows.map(r=>r?.ridgeWind).filter(Number.isFinite);
+  out.ridgeWind=ridgeValues.length?median(ridgeValues):NaN;
+  out.feelsLike=apparentTemperatureMountain(out.temp,out.rh,effectiveMountainWind(out));
   out.modelBasis={wind:Number.isFinite(ecmwf?.wind)?'ecmwf':'multi',rain:Number.isFinite(jma?.rain)?'jma':'multi',visibility:Number.isFinite(icon?.visibility)?'icon':'multi',gfsGuard:!!out.gfsAdverse,capeModels:out.capeModelCount,capeSupport500:out.capeSupport500,capeSupport1000:out.capeSupport1000,adverseModels:out.adverseModelCount,strongAdverseModels:out.strongAdverseModelCount,fallbackEnsemble:fallbackOnly?rows.length:0};
   return out;
 }
@@ -12504,7 +12528,9 @@ function blendProviderRows(providerRows){
   out.modelMaxWind=max([primary.modelMaxWind,backup.modelMaxWind]);out.modelMaxGust=max([primary.modelMaxGust,backup.modelMaxGust]);out.modelMaxRain=max([primary.modelMaxRain,backup.modelMaxRain]);
   const mins=[primary.modelMinVisibility,backup.modelMinVisibility].filter(Number.isFinite);out.modelMinVisibility=mins.length?Math.min(...mins):NaN;
   out.gfsAdverse=!!primary.gfsAdverse||!!backup.gfsAdverse;
-  out.feelsLike=apparentTemperatureMountain(out.temp,out.rh,out.wind);
+  const ridgeCandidates=[primary.ridgeWind,backup.ridgeWind].filter(Number.isFinite);
+  out.ridgeWind=ridgeCandidates.length?Math.max(...ridgeCandidates):NaN;
+  out.feelsLike=apparentTemperatureMountain(out.temp,out.rh,effectiveMountainWind(out));
   out.dualEnsemble={agreement:agreement.level,primaryCount:primaryRows.length,backupCount:backupRows.length,primary,backup,diffs:agreement.diffs,visibilityConflict:agreement.visibilityConflict};
   out.modelBasis={...(primary.modelBasis||{}),dualEnsemble:true,groupAgreement:agreement.level,primaryModels:primaryRows.length,backupModels:backupRows.length,adverseModels:out.adverseModelCount,strongAdverseModels:out.strongAdverseModelCount};
   return out;
@@ -12543,7 +12569,7 @@ function thunderEvidence(x){
   return {level,gradePoints,cape,rain,models,support500,support1000};
 }
 function hypothermiaRisk(x){
-  const f=Number(x.feelsLike),w=Number(x.wind),r=Number(x.rain);
+  const f=Number(x.feelsLike),w=Number(effectiveMountainWind(x)),r=Number(x.rain);
   if(!Number.isFinite(f))return 'NONE';
   if(f<=-10&&((Number.isFinite(w)&&w>=10)||(Number.isFinite(r)&&r>=1.5)))return 'DANGER';
   if(f<=-5&&((Number.isFinite(w)&&w>=7)||(Number.isFinite(r)&&r>=.3)))return 'WARNING';
@@ -12552,35 +12578,41 @@ function hypothermiaRisk(x){
 }
 function assessGrade(x){
   let s=0;
-  const wind=Number(x.wind),gust=Number(x.gust),rain=Number(x.rain),vis=Number(x.visibility),cloud=Number(x.cloud);
+  const wind=Number(effectiveMountainWind(x)),gust=Number(x.gust),rain=Number(x.rain),vis=Number(x.visibility);
+  const thunder=thunderEvidence(x);
+  const feels=Number.isFinite(x.feelsLike)?x.feelsLike:x.temp;
+  const hypo=hypothermiaRisk(x);
+
+  // V1.6.68: E is reserved for genuinely extreme / stop-level conditions.
+  // Ordinary accumulation of moderate factors may reach D, but never E by score alone.
+  const hardStop =
+    wind>=18 || gust>=25 || rain>=8 ||
+    (Number.isFinite(vis) && vis<500) ||
+    thunder.level==='EXTREME' || hypo==='DANGER' ||
+    (Number.isFinite(feels) && (feels<=-15 || feels>=38));
+
   if(wind>=18||gust>=25)s+=4;else if(wind>=13||gust>=20)s+=3;else if(wind>=9||gust>=15)s+=2;else if(wind>=5||gust>=12)s+=1;
   if(rain>=8)s+=4;else if(rain>=4)s+=3;else if(rain>=1.5)s+=2;else if(rain>=.1)s+=1;
-  s+=thunderEvidence(x).gradePoints;
-  if(cloud>=95)s+=1;
+  s+=thunder.gradePoints;
   if(Number.isFinite(vis)){if(vis<500)s+=4;else if(vis<1000)s+=3;else if(vis<3000)s+=2;else if(vis<5000)s+=1;}
-  const feels=Number.isFinite(x.feelsLike)?x.feelsLike:x.temp;
-  if(feels<=-10)s+=3;else if(feels<=-5)s+=2;else if(feels<=0)s+=1;
-  const hypo=hypothermiaRisk(x);if(hypo==='DANGER'||hypo==='WARNING')s+=1;
+  if(Number.isFinite(feels)){if(feels<=-10)s+=3;else if(feels<=-5)s+=2;else if(feels<=0)s+=1;}
+  if(hypo==='WARNING')s+=1;
 
-  // Mild factors that overlap in the mountains are more meaningful together
-  // than they are in isolation (e.g. breeze + drizzle + cold/poor visibility).
-  const combo=[wind>=5||gust>=12,rain>=.1,Number.isFinite(vis)&&vis<5000,Number.isFinite(feels)&&feels<=5,cloud>=90].filter(Boolean).length;
+  // Mild factors matter when several overlap, but cloud amount alone is not a
+  // route-grade penalty. Visibility is the operational signal for poor outlook.
+  const combo=[wind>=5||gust>=12,rain>=.1,Number.isFinite(vis)&&vis<5000,Number.isFinite(feels)&&feels<=5].filter(Boolean).length;
   if(combo>=3)s+=1;
 
-  // Multi-model adverse-side guard. The representative value still follows
-  // JMA/ECMWF/ICON roles, but credible deterioration scenarios cap optimism.
+  // Model disagreement is uncertainty, not a stop-level hazard. It can keep an
+  // optimistic result from staying A/B, but does not add score toward D/E.
   const adverse=Number(x.adverseModelCount)||0,strongAdverse=Number(x.strongAdverseModelCount)||0;
-  if(x.gfsAdverse)s+=1;
-  if(adverse>=2)s+=1;
-  if(strongAdverse>=2)s+=1;
 
-  let grade=s>=8?'E':s>=6?'D':s>=4?'C':s>=2?'B':'A';
+  let grade=hardStop?'E':s>=6?'D':s>=4?'C':s>=2?'B':'A';
   const rank={A:1,B:2,C:3,D:4,E:5}, floor=g=>{if(rank[grade]<rank[g])grade=g;};
 
   // A is reserved for genuinely benign mountain conditions.
-  if(wind>=5||gust>=12||rain>=.1||(Number.isFinite(vis)&&vis<5000)||thunderEvidence(x).level!=='LOW'||x.gfsAdverse||adverse>=1)floor('B');
-  // One strong adverse model or broad mild disagreement is enough to prevent
-  // an apparently benign representative value from staying below caution.
+  if(wind>=5||gust>=12||rain>=.1||(Number.isFinite(vis)&&vis<5000)||thunder.level!=='LOW'||x.gfsAdverse||adverse>=1)floor('B');
+  // Model disagreement may lift only to C; it must never manufacture D/E.
   if(strongAdverse>=1&&(wind>=5||gust>=12||rain>=.1||(Number.isFinite(vis)&&vis<5000)))floor('C');
   if(adverse>=2&&(wind>=5||rain>=.1||(Number.isFinite(vis)&&vis<5000)))floor('C');
   return grade;
@@ -12591,8 +12623,9 @@ const HAZARD_LABEL={NONE:'平常',CAUTION:'注意',WARNING:'警戒',DANGER:'危�
 function hazardItem(type,icon,label,level,value,detail){return {type,icon,label,level,value,detail,rank:HAZARD_RANK[level]||0};}
 function assessHazards(x){
   const thunder=thunderLevel(x);
+  const wind=effectiveMountainWind(x);
   const thunderLv=thunder==='EXTREME'?'DANGER':thunder==='HIGH'?'WARNING':thunder==='MEDIUM'?'CAUTION':'NONE';
-  const windLv=(x.wind>=18||x.gust>=25)?'DANGER':(x.wind>=13||x.gust>=20)?'WARNING':(x.wind>=9||x.gust>=15)?'CAUTION':(x.wind>=5||x.gust>=12)?'CAUTION':'NONE';
+  const windLv=(wind>=18||x.gust>=25)?'DANGER':(wind>=13||x.gust>=20)?'WARNING':(wind>=9||x.gust>=15)?'CAUTION':(wind>=5||x.gust>=12)?'CAUTION':'NONE';
   const rainLv=x.rain>=8?'DANGER':x.rain>=4?'WARNING':x.rain>=1.5?'CAUTION':x.rain>=.1?'CAUTION':'NONE';
   let tempLv='NONE',tempDetail='';
   const feels=Number.isFinite(x.feelsLike)?x.feelsLike:x.temp;
@@ -12608,12 +12641,12 @@ function assessHazards(x){
   const visLv=!Number.isFinite(x.visibility)?'NONE':x.visibility<500?'DANGER':x.visibility<1000?'WARNING':x.visibility<3000?'CAUTION':'NONE';
   const items=[
     hazardItem('thunder','⚡','雷',thunderLv,thunder,thunderLv==='NONE'?'顕著な雷リスクなし':`雷リスク ${thunder}`),
-    hazardItem('wind','💨','風',windLv,`${num(x.wind)}m/s`,Number.isFinite(x.gust)?`平均 ${num(x.wind)}m/s・瞬間最大 ${num(x.gust)}m/s`:`平均 ${num(x.wind)}m/s`),
+    hazardItem('wind','💨','風',windLv,`${num(wind)}m/s`,Number.isFinite(x.ridgeWind)?`稜線推定 ${num(wind)}m/s・10m風 ${num(x.wind)}m/s${Number.isFinite(x.gust)?`・瞬間最大 ${num(x.gust)}m/s`:''}`:Number.isFinite(x.gust)?`平均 ${num(x.wind)}m/s・瞬間最大 ${num(x.gust)}m/s`:`平均 ${num(x.wind)}m/s`),
     hazardItem('rain','🌧️','雨',rainLv,`${num(x.rain)}mm/h`,`時間降水量 ${num(x.rain)}mm/h`),
     hazardItem('temp',tempLv==='NONE'?'🌡️':feels<=0?'🥶':'🥵','体感温度',tempLv,`${num(feels)}℃`,`気温 ${num(x.temp)}℃・体感 ${num(feels)}℃${tempDetail?`（${tempDetail}）`:''}`),
     hazardItem('visibility','🌫️','視界',visLv,Number.isFinite(x.visibility)?`${Math.round(x.visibility)}m`:'–',Number.isFinite(x.visibility)?`予報視程 ${Math.round(x.visibility)}m`:'視程データなし')
   ];
-  if(hypoLv!=='NONE')items.push(hazardItem('hypothermia','🥶','低体温',hypoLv,`${num(feels)}℃`,`雨・風・低い体感温度が重なっています（体感 ${num(feels)}℃、風 ${num(x.wind)}m/s、雨 ${num(x.rain)}mm/h）`));
+  if(hypoLv!=='NONE')items.push(hazardItem('hypothermia','🥶','低体温',hypoLv,`${num(feels)}℃`,`雨・風・低い体感温度が重なっています（体感 ${num(feels)}℃、風 ${num(wind)}m/s、雨 ${num(x.rain)}mm/h）`));
   if(x.gfsAdverse||Number(x.adverseModelCount)>=1)items.push(hazardItem('model','⚠️','モデル差','CAUTION',x.gfsAdverse?'GFS悪化':`${Number(x.adverseModelCount)||1}モデル悪化`,'代表値より悪天側を示すモデルがあるため、楽観側へ寄せず判定しています'));
   return items;
 }
@@ -13255,6 +13288,7 @@ function pointForecastRow(r,i,total){
   const visUnit=Number.isFinite(r.visibility)?(r.visibility>=1000?'km':'m'):' ';
   const msg=pointForecastMessage(r);
   const windDeg=r.providerRows?.[0]?.row?.windDir ?? NaN;
+  const displayWind=effectiveMountainWind(r);
   const visEval=visibilityEvaluation(r.visibility);
   const conf=pointForecastConfidence(r);
   return `<article class="route-forecast-row point-dashboard-card">
@@ -13276,15 +13310,15 @@ function pointForecastRow(r,i,total){
         <div class="rf-feels-like"><span>体感</span><b>${num(r.feelsLike,0)}℃</b>${Number.isFinite(r.feelsLike)&&Number.isFinite(r.temp)?`<small>${r.feelsLike<r.temp?'↓':''}${Math.abs(r.feelsLike-r.temp)>=1?`${num(Math.abs(r.feelsLike-r.temp),0)}℃差`:''}</small>`:''}</div>
         ${metricGauge('temp',r.temp)}
       </div>
-      <div class="rf-metric wind${hazardMetricClass(hz.wind)}" data-label="平均風速">
-        <div class="rf-metric-title"><span class="rf-metric-symbol wind">${pointMetricIcon('wind')}</span><b>平均風速</b></div>
-        <div class="rf-value-wrap"><strong>${num(r.wind,0)}</strong><small>m/s</small></div>
+      <div class="rf-metric wind${hazardMetricClass(hz.wind)}" data-label="風速">
+        <div class="rf-metric-title"><span class="rf-metric-symbol wind">${pointMetricIcon('wind')}</span><b>${Number.isFinite(r.ridgeWind)?'推定稜線風':'平均風速'}</b></div>
+        <div class="rf-value-wrap"><strong>${num(displayWind,0)}</strong><small>m/s</small></div>
         <div class="rf-wind-direction-inline" aria-label="風向と最大瞬間風速">
           <span class="rf-wind-dir-arrow">${windDirectionArrow(windDeg)}</span>
           <b>${windDirectionLabel(windDeg)}</b>
           ${Number.isFinite(r.gust)?`<small>最大瞬間 ${num(r.gust,0)}m/s</small>`:''}
         </div>
-        ${metricGauge('wind',r.wind)}
+        ${Number.isFinite(r.ridgeWind)?`<div class="rf-feels-like"><span>10m風</span><b>${num(r.wind,0)}m/s</b><small>700/850hPaから稜線補正</small></div>`:''}${metricGauge('wind',displayWind)}
       </div>
       <div class="rf-metric rain${hazardMetricClass(hz.rain)}" data-label="雨">
         <div class="rf-metric-title"><span class="rf-metric-symbol rain">${pointMetricIcon('rain')}</span><b>雨</b></div>
@@ -13315,7 +13349,7 @@ function renderSummaryCore(points){
   $('results').classList.remove('hidden'); $('resultScreenshotToolbarDesktop')?.classList.remove('hidden');
   renderDecisionCommentary(points);
   const worst=points.reduce((a,b)=>gradeRank(b.grade)>gradeRank(a.grade)?b:a,points[0]);
-  const maxWindValue=max(points.flatMap(x=>x.providerRows.map(y=>y.row.wind))); const maxRainValue=max(points.flatMap(x=>x.providerRows.map(y=>y.row.rain))); const thunderLevel=maxThunder(points.map(x=>x.thunder)); const forecastConfidence=routeForecastConfidence(points); const confidenceLevel=forecastConfidence.level;
+  const maxWindValue=max(points.map(x=>effectiveMountainWind(x))); const maxRainValue=max(points.flatMap(x=>x.providerRows.map(y=>y.row.rain))); const thunderLevel=maxThunder(points.map(x=>x.thunder)); const forecastConfidence=routeForecastConfidence(points); const confidenceLevel=forecastConfidence.level;
   $('grade').textContent=worst.grade; $('verdict').textContent=verdict(worst.grade);
   const gradeLabels={A:'EXCELLENT',B:'GOOD',C:'CAUTION',D:'HARD',E:'STOP'}; const verdictNotes={A:'全体としてかなり安定した予報です。',B:'一部に注意点はありますが、全体としては比較的安定しています。',C:'注意要素があります。通過時刻と場所を確認してください。',D:'強い気象リスクを含む計画です。見直しを推奨します。',E:'非常に強い気象リスクがあります。中止を含めて再検討してください。'};
   $('gradeLabel').textContent=gradeLabels[worst.grade]||'–';
