@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.85';
+const APP_VERSION = '1.6.86';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -12265,11 +12265,11 @@ function renderMorningScene(o){
     </div>
     <div class="scene-infographic-facts">
       <div><small>日の出</small><b>${timeOnly(o.sunrise)}</b><em>${esc(m.azimuthLabel)} ${Math.round(m.azimuth)}°</em></div>
-      <div><small>地形考慮の日の出</small><b>${adjustedSunrise}</b><em>${esc(adjustedNote)}</em></div>
+      <div><small>地形考慮の日の出</small><b>${adjustedSunrise}</b></div>
       <div><small>東側・低層雲</small><b>${Number.isFinite(m.lowCloud)?Math.round(m.lowCloud)+'%':'--'}</b></div>
       <div><small>視界</small><b>${vis}</b></div>
       <div><small>気温 / 体感</small><b>${num(m.temp,1)}℃ / ${num(m.apparent,1)}℃</b></div>
-      <div><small>風 / 降水</small><b>${num(m.wind,1)}m/s / ${num(m.rain,1)}mm/h</b></div>
+      <div class="scene-fact-weather"><small>風 / 降水</small><b>${num(m.wind,1)}m/s</b><em>降水 ${num(m.rain,1)}mm/h</em></div>
     </div>
     <div class="scene-infographic-insight"><b>見どころ</b><span>${esc(m.advice)}</span></div>
     <details class="scene-infographic-method"><summary>算出方法</summary><p>${esc(note)}</p></details>
@@ -12370,11 +12370,11 @@ function renderEveningScene(o){
     </div>
     <div class="scene-infographic-facts">
       <div><small>日の入り</small><b>${timeOnly(o.sunset)}</b><em>${esc(e.azimuthLabel)} ${Math.round(e.azimuth)}°</em></div>
-      <div><small>地形考慮の日の入り</small><b>${adjustedSunset}</b><em>${esc(adjustedNote)}</em></div>
+      <div><small>地形考慮の日の入り</small><b>${adjustedSunset}</b></div>
       <div><small>西側・低層雲</small><b>${Number.isFinite(e.lowCloud)?Math.round(e.lowCloud)+'%':'--'}</b></div>
       <div><small>視界</small><b>${vis}</b></div>
       <div><small>気温 / 体感</small><b>${num(e.temp,1)}℃ / ${num(e.apparent,1)}℃</b></div>
-      <div><small>風 / 降水</small><b>${num(e.wind,1)}m/s / ${num(e.rain,1)}mm/h</b></div>
+      <div class="scene-fact-weather"><small>風 / 降水</small><b>${num(e.wind,1)}m/s</b><em>降水 ${num(e.rain,1)}mm/h</em></div>
     </div>
     ${twilight?`<div class="scene-infographic-subline"><small>日没後の薄明</small><b>${esc(twilight)}</b></div>`:''}
     <div class="scene-infographic-insight"><b>見どころ</b><span>${esc(e.advice)}</span></div>
