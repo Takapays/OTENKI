@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.86';
+const APP_VERSION = '1.6.87';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -12249,7 +12249,6 @@ function renderMorningScene(o){
   const terrainValue=terrainAvailable&&Number.isFinite(terrainAngle)?`${terrainAngle.toFixed(1)}°`:'--';
   const terrainCaption=terrainAvailable?`${opening.mark||''}${opening.label||'地形評価'}`:'判定不可';
   const adjustedSunrise=m.terrainSolar?.time?timeOnly(m.terrainSolar.time):'--';
-  const adjustedNote=m.terrainSolar?.adjusted?`天文時刻より約${Math.abs(Number(m.terrainSolar.deltaMin)||0)}分後`:'天文時刻とほぼ同じ';
   const note='朝景分析は気象条件に加え、周辺山岳地形による日の出方向の遮蔽を評価します。地形標高は国土地理院の標高タイルを優先し、取得できない地点のみ Copernicus DEM GLO-90 で補完します。建物・樹木・直近の岩壁や局地雲は反映されません。';
   return `<section class="scene-infographic scene-infographic-morning ${tone}">
     <div class="scene-infographic-head">
@@ -12352,7 +12351,6 @@ function renderEveningScene(o){
   const terrainValue=terrainAvailable&&Number.isFinite(terrainAngle)?`${terrainAngle.toFixed(1)}°`:'--';
   const terrainCaption=terrainAvailable?`${opening.mark||''}${opening.label||'地形評価'}`:'判定不可';
   const adjustedSunset=e.terrainSolar?.time?timeOnly(e.terrainSolar.time):'--';
-  const adjustedNote=e.terrainSolar?.adjusted?`天文時刻より約${Math.abs(Number(e.terrainSolar.deltaMin)||0)}分前`:'天文時刻とほぼ同じ';
   const upperValue=Number.isFinite(e.upperCloud)?Math.round(e.upperCloud):0;
   const twilight=[e.civil?`市民 ${timeOnly(e.civil)}`:null,e.nautical?`航海 ${timeOnly(e.nautical)}`:null,e.astro?`天文 ${timeOnly(e.astro)}`:null].filter(Boolean).join(' / ');
   const note='夕景分析は気象条件に加え、周辺山岳地形による日の入り方向の遮蔽を評価します。地形標高は国土地理院の標高タイルを優先し、取得できない地点のみ Copernicus DEM GLO-90 で補完します。建物・樹木・直近の岩壁や局地雲は反映されません。';
