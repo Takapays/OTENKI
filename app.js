@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.84';
+const APP_VERSION = '1.6.85';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -7707,7 +7707,7 @@ function nationalModelDetailHtml(data,dateText='',result=null){
   const jmaStatus=data?.jmaStatus||null;
   const jmaNote=jmaStatus&&!jmaStatus.available?'<div class="national-model-chart-empty">JMA MSM：保存済み時間別データなし（追加リクエストなし）</div>':'';
   const forecastDate=String(dateText||'').match(/^\d{4}-\d{2}-\d{2}$/)?String(dateText).replaceAll('-','/'):'';
-  return `<section class="national-rich-section national-model-section national-model-section-simple"><div class="national-model-simple-head"><h4>時間別予測${forecastDate?` ｜ ${esc(forecastDate)}`:''}</h4><span>MET Norway / NOAA GFS + JMA MSM</span></div>${jmaNote}${nationalHourlyGradeHtml(rows,centerSeries)}${nationalDecisionTraceHtml(result,rows,centerSeries)}${nationalModelChartSvg(rows,'wind','10m風（モデル比較）','m/s',7)}${nationalRidgeWindChartSvg(rows)}${nationalEstimatedGustChartSvg(rows,centerSeries)}${nationalModelChartSvg(rows,'rain','降水','mm/h',7,'bars')}<details class="national-grade-criteria"><summary>ABCDE 判定基準を見る</summary><div><p><b>A 良好</b>：主要な注意条件なし</p><p><b>B 軽い注意</b>：弱い雨のみ、または注意条件が1時間</p><p><b>C 注意</b>：風・突風・0.5mm/h以上の雨の注意条件が合計2時間以上、または強い条件が1時間</p><p><b>D 悪い</b>：強い条件が2時間以上</p><p><b>E 非常に悪い</b>：極端な条件が1時間でもある</p><small>日判定：弱い雨＝0.1以上0.5mm/h未満（続いても雨だけではCにしない）／Cへの累積対象＝風5m/s・突風12m/s・雨0.5mm/h以上／強い＝風9m/s・突風18m/s・雨1.5mm/h以上／極端＝風15m/s・突風25m/s・雨6mm/h以上。対象は6〜15時です。</small><small>時間別マーク：A＝注意未満、B＝風5・突風12・雨0.1以上、C＝風7・突風15・雨0.5以上、D＝風9・突風18・雨1.5以上、E＝風15・突風25・雨6以上。気温はMET主軸。全国安全側判定と時間別マークにはJMA MSMの推定稜線風を反映します。推定稜線最大瞬間風速は max（取得できた突風, 推定稜線風×1.5）です。JMA MSM自体にはこの取得経路で突風データがありません。</small></div></details></section>`;
+  return `<section class="national-rich-section national-model-section national-model-section-simple"><div class="national-model-simple-head"><h4>時間別予測${forecastDate?` ｜ ${esc(forecastDate)}`:''}</h4><span>MET Norway / NOAA GFS + JMA MSM</span></div>${jmaNote}${nationalHourlyGradeHtml(rows,centerSeries)}${nationalDecisionTraceHtml(result,rows,centerSeries)}${nationalModelChartSvg(rows,'wind','10m風（モデル比較）','m/s',7)}${nationalRidgeWindChartSvg(rows)}${nationalModelChartSvg(rows,'rain','降水','mm/h',7,'bars')}<details class="national-grade-criteria"><summary>ABCDE 判定基準を見る</summary><div><p><b>A 良好</b>：主要な注意条件なし</p><p><b>B 軽い注意</b>：弱い雨のみ、または注意条件が1時間</p><p><b>C 注意</b>：風・突風・0.5mm/h以上の雨の注意条件が合計2時間以上、または強い条件が1時間</p><p><b>D 悪い</b>：強い条件が2時間以上</p><p><b>E 非常に悪い</b>：極端な条件が1時間でもある</p><small>日判定：弱い雨＝0.1以上0.5mm/h未満（続いても雨だけではCにしない）／Cへの累積対象＝風5m/s・突風12m/s・雨0.5mm/h以上／強い＝風9m/s・突風18m/s・雨1.5mm/h以上／極端＝風15m/s・突風25m/s・雨6mm/h以上。対象は6〜15時です。</small><small>時間別マーク：A＝注意未満、B＝風5・突風12・雨0.1以上、C＝風7・突風15・雨0.5以上、D＝風9・突風18・雨1.5以上、E＝風15・突風25・雨6以上。気温はMET主軸。全国安全側判定と時間別マークにはJMA MSMの推定稜線風を反映します。推定稜線最大瞬間風速は max（取得できた突風, 推定稜線風×1.5）です。JMA MSM自体にはこの取得経路で突風データがありません。</small></div></details></section>`;
 }
 async function hydrateNationalModelDetail(box,p,result=null){
   const slots=Array.from(box?.querySelectorAll('[data-national-model-detail]')||[]); if(!slots.length)return;
@@ -12241,29 +12241,40 @@ function renderSceneTerrainStrip(terrain,solar,scene){
 
 function morningSceneIcon(){return '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 34h38"/><path d="M10 31l9-11 6 7 5-5 8 9"/><path d="M17 17a8 8 0 0 1 14 0"/><path d="M24 6v5M10 16h5M33 16h5"/></svg>';}
 function renderMorningScene(o){
-  const m=o.morningScene;if(!m)return '';const c=m.cloudSea||{},d=c.bestDetail||{};
+  const m=o.morningScene;if(!m)return '';const c=m.cloudSea||{};
   const vis=Number.isFinite(m.visibility)?(m.visibility>=10000?`${(m.visibility/1000).toFixed(0)}km`:`${(m.visibility/1000).toFixed(1)}km`):'--';
   const tone=m.score>=65?'good':m.score>=50?'fair':m.score>=35?'caution':'hard';
-  return `<section class="morning-scene-panel ${tone}">
-    <div class="morning-scene-head"><div class="morning-scene-title"><div class="morning-scene-symbol">${morningSceneIcon()}</div><div><small>朝景分析</small><b><em class="scene-score-label">朝景スコア</em> ${Math.round(m.score)} / 100　${esc(m.label)}</b></div></div><span>ベスト ${formatTimeRange(m.windowStart,m.windowEnd)}</span></div>
-    <div class="morning-scene-summary">
-      <div><small>日の出</small><b>${timeOnly(o.sunrise)}</b><span>${esc(m.azimuthLabel)} ${Math.round(m.azimuth)}°</span></div>
-      <div><small>日の出期待度</small><b>${Math.round(m.sunriseScore)} / 100</b><span>${m.sunriseScore>=65?'見えやすい':m.sunriseScore>=45?'可能性あり':'雲に注意'}</span></div>
-      <div><small>雲海期待度</small><b>${Math.round(c.score||0)} / 100</b><span>${esc(c.label||'--')}</span></div>
-      <div><small>朝焼け期待度</small><b>${Math.round(m.glowScore)} / 100</b><span>${m.glowScore>=65?'期待できる':m.glowScore>=45?'可能性あり':'弱め'}</span></div>
+  const terrainAvailable=Boolean(m.terrain?.available),opening=m.terrain?.opening||{},terrainAngle=Number(m.terrain?.horizonAngle);
+  const terrainScore=terrainAvailable&&Number.isFinite(Number(opening.score))?Math.round(Number(opening.score)):0;
+  const terrainValue=terrainAvailable&&Number.isFinite(terrainAngle)?`${terrainAngle.toFixed(1)}°`:'--';
+  const terrainCaption=terrainAvailable?`${opening.mark||''}${opening.label||'地形評価'}`:'判定不可';
+  const adjustedSunrise=m.terrainSolar?.time?timeOnly(m.terrainSolar.time):'--';
+  const adjustedNote=m.terrainSolar?.adjusted?`天文時刻より約${Math.abs(Number(m.terrainSolar.deltaMin)||0)}分後`:'天文時刻とほぼ同じ';
+  const note='朝景分析は気象条件に加え、周辺山岳地形による日の出方向の遮蔽を評価します。地形標高は国土地理院の標高タイルを優先し、取得できない地点のみ Copernicus DEM GLO-90 で補完します。建物・樹木・直近の岩壁や局地雲は反映されません。';
+  return `<section class="scene-infographic scene-infographic-morning ${tone}">
+    <div class="scene-infographic-head">
+      <div class="scene-infographic-title"><span class="scene-infographic-icon">${morningSceneIcon()}</span><b>朝景</b></div>
+      <div class="scene-infographic-score"><span class="scene-score-donut" style="--scene-score:${Math.round(m.score)}"><i>${Math.round(m.score)}<small>/100</small></i></span><span><small>朝景スコア</small><b>${esc(m.label)}</b></span></div>
+      <div class="scene-best-time"><small>ベスト</small><b>${formatTimeRange(m.windowStart,m.windowEnd)}</b></div>
     </div>
-    ${renderSceneTerrainStrip(m.terrain,m.terrainSolar,'morning')}
-    <div class="morning-scene-grid">
+    <div class="scene-infographic-meters">
+      <div class="scene-mini-meter" style="--meter-value:${Math.round(m.sunriseScore)}"><span><i>${Math.round(m.sunriseScore)}</i><small>/100</small></span><b>日の出</b><em>${m.sunriseScore>=65?'見えやすい':m.sunriseScore>=45?'可能性あり':'雲に注意'}</em></div>
+      <div class="scene-mini-meter" style="--meter-value:${Math.round(c.score||0)}"><span><i>${Math.round(c.score||0)}</i><small>/100</small></span><b>雲海</b><em>${esc(c.label||'--')}</em></div>
+      <div class="scene-mini-meter" style="--meter-value:${Math.round(m.glowScore)}"><span><i>${Math.round(m.glowScore)}</i><small>/100</small></span><b>朝焼け</b><em>${m.glowScore>=65?'期待できる':m.glowScore>=45?'可能性あり':'弱め'}</em></div>
+      <div class="scene-mini-meter scene-mini-meter-terrain" style="--meter-value:${terrainScore}"><span><i>${terrainValue}</i></span><b>地形遮蔽</b><em>${esc(terrainCaption)}</em></div>
+    </div>
+    <div class="scene-infographic-facts">
+      <div><small>日の出</small><b>${timeOnly(o.sunrise)}</b><em>${esc(m.azimuthLabel)} ${Math.round(m.azimuth)}°</em></div>
+      <div><small>地形考慮の日の出</small><b>${adjustedSunrise}</b><em>${esc(adjustedNote)}</em></div>
       <div><small>東側・低層雲</small><b>${Number.isFinite(m.lowCloud)?Math.round(m.lowCloud)+'%':'--'}</b></div>
       <div><small>視界</small><b>${vis}</b></div>
       <div><small>気温 / 体感</small><b>${num(m.temp,1)}℃ / ${num(m.apparent,1)}℃</b></div>
       <div><small>風 / 降水</small><b>${num(m.wind,1)}m/s / ${num(m.rain,1)}mm/h</b></div>
     </div>
-    <div class="morning-scene-advice"><strong>☀ 朝景の見どころ</strong><p>${esc(m.advice)}</p></div>
-    <p class="morning-scene-note">※ 朝景分析は気象条件に加え、周辺山岳地形による日の出方向の遮蔽を評価します。地形標高は国土地理院の標高タイル（DEM5A → DEM5B → DEM5C → DEM10B）を優先し、地理院データを取得できない地点のみ Copernicus DEM GLO-90（Open-Meteo）で補完します。建物・樹木・直近の岩壁や局地雲は反映されません。</p>
+    <div class="scene-infographic-insight"><b>見どころ</b><span>${esc(m.advice)}</span></div>
+    <details class="scene-infographic-method"><summary>算出方法</summary><p>${esc(note)}</p></details>
   </section>`;
 }
-
 
 function sunsetAzimuthApprox(date,lat){return 360-sunriseAzimuthApprox(date,lat);}
 function solarTwilightTimeApprox(date,lat,lon,zenithDeg){
@@ -12336,25 +12347,38 @@ function renderEveningScene(o){
   const e=o.eveningScene;if(!e)return '';
   const vis=Number.isFinite(e.visibility)?(e.visibility>=10000?`${(e.visibility/1000).toFixed(0)}km`:`${(e.visibility/1000).toFixed(1)}km`):'--';
   const tone=e.score>=65?'good':e.score>=50?'fair':e.score>=35?'caution':'hard';
-  const twilight=[e.civil?`市民薄明 ${timeOnly(e.civil)}`:null,e.nautical?`航海薄明 ${timeOnly(e.nautical)}`:null,e.astro?`天文薄明 ${timeOnly(e.astro)}`:null].filter(Boolean).join(' / ');
-  return `<section class="evening-scene-panel ${tone}">
-    <div class="evening-scene-head"><div class="evening-scene-title"><div class="evening-scene-symbol">${eveningSceneIcon()}</div><div><small>夕景分析</small><b><em class="scene-score-label">夕景スコア</em> ${Math.round(e.score)} / 100　${esc(e.label)}</b></div></div><span>ベスト ${formatTimeRange(e.windowStart,e.windowEnd)}</span></div>
-    <div class="evening-scene-summary">
-      <div><small>日の入り</small><b>${timeOnly(o.sunset)}</b><span>${esc(e.azimuthLabel)} ${Math.round(e.azimuth)}°</span></div>
-      <div><small>夕日期待度</small><b>${Math.round(e.sunsetScore)} / 100</b><span>${e.sunsetScore>=65?'見えやすい':e.sunsetScore>=45?'可能性あり':'雲に注意'}</span></div>
-      <div><small>夕焼け期待度</small><b>${Math.round(e.glowScore)} / 100</b><span>${e.glowScore>=70?'期待大':e.glowScore>=55?'期待できる':'弱め'}</span></div>
-      <div><small>中高層雲</small><b>${Number.isFinite(e.upperCloud)?Math.round(e.upperCloud)+'%':'--'}</b><span>${Number(e.upperCloud)>=25&&Number(e.upperCloud)<=70?'色づき好条件':Number(e.upperCloud)>70?'多め':'少なめ'}</span></div>
+  const terrainAvailable=Boolean(e.terrain?.available),opening=e.terrain?.opening||{},terrainAngle=Number(e.terrain?.horizonAngle);
+  const terrainScore=terrainAvailable&&Number.isFinite(Number(opening.score))?Math.round(Number(opening.score)):0;
+  const terrainValue=terrainAvailable&&Number.isFinite(terrainAngle)?`${terrainAngle.toFixed(1)}°`:'--';
+  const terrainCaption=terrainAvailable?`${opening.mark||''}${opening.label||'地形評価'}`:'判定不可';
+  const adjustedSunset=e.terrainSolar?.time?timeOnly(e.terrainSolar.time):'--';
+  const adjustedNote=e.terrainSolar?.adjusted?`天文時刻より約${Math.abs(Number(e.terrainSolar.deltaMin)||0)}分前`:'天文時刻とほぼ同じ';
+  const upperValue=Number.isFinite(e.upperCloud)?Math.round(e.upperCloud):0;
+  const twilight=[e.civil?`市民 ${timeOnly(e.civil)}`:null,e.nautical?`航海 ${timeOnly(e.nautical)}`:null,e.astro?`天文 ${timeOnly(e.astro)}`:null].filter(Boolean).join(' / ');
+  const note='夕景分析は気象条件に加え、周辺山岳地形による日の入り方向の遮蔽を評価します。地形標高は国土地理院の標高タイルを優先し、取得できない地点のみ Copernicus DEM GLO-90 で補完します。建物・樹木・直近の岩壁や局地雲は反映されません。';
+  return `<section class="scene-infographic scene-infographic-evening ${tone}">
+    <div class="scene-infographic-head">
+      <div class="scene-infographic-title"><span class="scene-infographic-icon">${eveningSceneIcon()}</span><b>夕景</b></div>
+      <div class="scene-infographic-score"><span class="scene-score-donut" style="--scene-score:${Math.round(e.score)}"><i>${Math.round(e.score)}<small>/100</small></i></span><span><small>夕景スコア</small><b>${esc(e.label)}</b></span></div>
+      <div class="scene-best-time"><small>ベスト</small><b>${formatTimeRange(e.windowStart,e.windowEnd)}</b></div>
     </div>
-    ${renderSceneTerrainStrip(e.terrain,e.terrainSolar,'evening')}
-    <div class="evening-scene-grid">
-      <div><small>西側地平線・雲目安</small><b>${Number.isFinite(e.lowCloud)?Math.round(e.lowCloud)+'%':'--'}</b></div>
+    <div class="scene-infographic-meters">
+      <div class="scene-mini-meter" style="--meter-value:${Math.round(e.sunsetScore)}"><span><i>${Math.round(e.sunsetScore)}</i><small>/100</small></span><b>夕日</b><em>${e.sunsetScore>=65?'見えやすい':e.sunsetScore>=45?'可能性あり':'雲に注意'}</em></div>
+      <div class="scene-mini-meter" style="--meter-value:${Math.round(e.glowScore)}"><span><i>${Math.round(e.glowScore)}</i><small>/100</small></span><b>夕焼け</b><em>${e.glowScore>=70?'期待大':e.glowScore>=55?'期待できる':'弱め'}</em></div>
+      <div class="scene-mini-meter" style="--meter-value:${upperValue}"><span><i>${Number.isFinite(e.upperCloud)?upperValue:'--'}</i>${Number.isFinite(e.upperCloud)?'<small>%</small>':''}</span><b>中高層雲</b><em>${Number(e.upperCloud)>=25&&Number(e.upperCloud)<=70?'色づき好条件':Number(e.upperCloud)>70?'多め':'少なめ'}</em></div>
+      <div class="scene-mini-meter scene-mini-meter-terrain" style="--meter-value:${terrainScore}"><span><i>${terrainValue}</i></span><b>地形遮蔽</b><em>${esc(terrainCaption)}</em></div>
+    </div>
+    <div class="scene-infographic-facts">
+      <div><small>日の入り</small><b>${timeOnly(o.sunset)}</b><em>${esc(e.azimuthLabel)} ${Math.round(e.azimuth)}°</em></div>
+      <div><small>地形考慮の日の入り</small><b>${adjustedSunset}</b><em>${esc(adjustedNote)}</em></div>
+      <div><small>西側・低層雲</small><b>${Number.isFinite(e.lowCloud)?Math.round(e.lowCloud)+'%':'--'}</b></div>
       <div><small>視界</small><b>${vis}</b></div>
       <div><small>気温 / 体感</small><b>${num(e.temp,1)}℃ / ${num(e.apparent,1)}℃</b></div>
       <div><small>風 / 降水</small><b>${num(e.wind,1)}m/s / ${num(e.rain,1)}mm/h</b></div>
     </div>
-    <div class="evening-scene-twilight"><small>日没後の薄明</small><b>${esc(twilight||'--')}</b></div>
-    <div class="evening-scene-advice"><strong>☀ 夕景の見どころ</strong><p>${esc(e.advice)}</p></div>
-    <p class="evening-scene-note">※ 夕景分析は気象条件に加え、周辺山岳地形による日の入り方向の遮蔽を評価します。地形標高は国土地理院の標高タイル（DEM5A → DEM5B → DEM5C → DEM10B）を優先し、地理院データを取得できない地点のみ Copernicus DEM GLO-90（Open-Meteo）で補完します。「西側地平線・雲目安」は低層雲量の代用値です。建物・樹木・直近の岩壁や局地雲は反映されません。</p>
+    ${twilight?`<div class="scene-infographic-subline"><small>日没後の薄明</small><b>${esc(twilight)}</b></div>`:''}
+    <div class="scene-infographic-insight"><b>見どころ</b><span>${esc(e.advice)}</span></div>
+    <details class="scene-infographic-method"><summary>算出方法</summary><p>${esc(note)}</p></details>
   </section>`;
 }
 
@@ -12484,22 +12508,35 @@ function milkyDetailIcon(kind){
 function milkySceneIcon(){return '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 33c3-8 11-13 20-13 4 0 7 1 10 3-3 0-6 2-7 5 0 2 1 4 3 5H8z"/><path d="M31 12l1.2 2.8L35 16l-2.8 1.2L31 20l-1.2-2.8L27 16l2.8-1.2L31 12z"/><path d="M15 11l.9 2 2 .9-2 .9-.9 2-.9-2-2-.9 2-.9.9-2z"/><path d="M22 7l.7 1.6 1.6.7-1.6.7-.7 1.6-.7-1.6-1.6-.7 1.6-.7L22 7z"/></svg>';}
 function renderMilkyDetail(o){
   const m=o.milky;if(!m)return '';
-  const moon=m.moon||{},air=m.air||{},light=m.light||{},g=m.galactic||{};
+  const moon=m.moon||{},air=m.air||{},light=m.light||{},g=m.galactic||{},detail=m.bestDetail||{};
+  const moonPct=Number.isFinite(Number(detail.moonPts))?Math.round(clamp(Number(detail.moonPts)/25*100,0,100)):0;
+  const skyPct=Number.isFinite(Number(detail.sky))?Math.round(clamp(Number(detail.sky)/30*100,0,100)):0;
+  const airPct=Number.isFinite(Number(air.score))?Math.round(clamp(Number(air.score)/10*100,0,100)):0;
+  const lightPct=Number.isFinite(Number(light.score))?Math.round(clamp(Number(light.score)/15*100,0,100)):0;
   const moonEvent=moon.allBelow?'夜間は月なし':moon.allAbove?'一晩中月あり':moon.set?`月没 ${timeOnly(moon.set)}`:moon.rise?`月出 ${timeOnly(moon.rise)}`:'月の出入りなし';
-  const airSub=air.available?`PM2.5 ${num(air.pm25,1)} μg/m³${Number.isFinite(air.aod)?` / AOD ${num(air.aod,2)}`:''}`:'空気質APIを取得できませんでした';
+  const airSub=air.available?`PM2.5 ${num(air.pm25,1)} μg/m³${Number.isFinite(air.aod)?` / AOD ${num(air.aod,2)}`:''}`:'空気質データなし';
   const near=light.nearest?`${light.nearest.name} 約${Math.round(light.nearest.km)}km`:'周辺市街地から推定';
-  return `<section class="milky-detail-panel">
-    <div class="milky-detail-head"><div class="milky-detail-title"><div class="milky-detail-symbol">${milkySceneIcon()}</div><div><small>星空・天の川分析</small><b><em class="scene-score-label">天の川スコア</em> ${Math.round(m.score)} / 100　${esc(o.milkyLabel)}</b></div></div><span><em>見頃時間</em>${formatTimeRange(m.windowStart,m.windowEnd)}</span></div>
-    <div class="milky-detail-summary compact">
-      <div><small>月明かり</small><b>${esc(moon.impact||'判定不可')}</b><span>${esc(o.moon.phase)} ${Math.round(o.moon.illum)}% / ${moonEvent}</span></div>
+  const note='天の川スコアは、雲・雨、銀河中心の高度、月明かり、空気質、光害目安を組み合わせた観察条件の総合評価です。光害は周辺市街地等からの簡易推定で、地形遮蔽や局地雲は反映しません。';
+  return `<section class="scene-infographic scene-infographic-milky">
+    <div class="scene-infographic-head">
+      <div class="scene-infographic-title"><span class="scene-infographic-icon">${milkySceneIcon()}</span><b>天の川</b></div>
+      <div class="scene-infographic-score"><span class="scene-score-donut" style="--scene-score:${Math.round(m.score)}"><i>${Math.round(m.score)}<small>/100</small></i></span><span><small>天の川スコア</small><b>${esc(o.milkyLabel)}</b></span></div>
+      <div class="scene-best-time"><small>見頃</small><b>${formatTimeRange(m.windowStart,m.windowEnd)}</b></div>
     </div>
-    <div class="milky-detail-grid">
-      <div class="milky-detail-card tone-purple"><div class="milky-detail-icon">${milkyDetailIcon('galaxy')}</div><div><small>天頂に近づく時刻</small><b>${timeOnly(g.peakTime)}</b><span>最大高度 ${Number.isFinite(g.maxAltitude)?Math.round(g.maxAltitude)+'°':'--'}</span></div></div>
-      <div class="milky-detail-card tone-air"><div class="milky-detail-icon">${milkyDetailIcon('air')}</div><div><small>空気質・透明度</small><b>${esc(air.label||'取得不可')}</b><span>${esc(airSub)}</span></div></div>
-      <div class="milky-detail-card tone-light"><div class="milky-detail-icon">${milkyDetailIcon('light')}</div><div><small>光害目安</small><b>${esc(light.label||'判定不可')}</b><span>${esc(near)} / 簡易推定</span></div></div>
+    <div class="scene-infographic-meters">
+      <div class="scene-mini-meter" style="--meter-value:${moonPct}"><span><i>${moonPct}</i><small>/100</small></span><b>月明かり</b><em>${esc(moon.impact||'判定不可')}</em></div>
+      <div class="scene-mini-meter" style="--meter-value:${skyPct}"><span><i>${skyPct}</i><small>/100</small></span><b>空模様</b><em>${skyPct>=75?'良好':skyPct>=50?'まずまず':'雲に注意'}</em></div>
+      <div class="scene-mini-meter" style="--meter-value:${airPct}"><span><i>${airPct}</i><small>/100</small></span><b>空気質</b><em>${esc(air.label||'取得不可')}</em></div>
+      <div class="scene-mini-meter" style="--meter-value:${lightPct}"><span><i>${lightPct}</i><small>/100</small></span><b>光害</b><em>${esc(light.label||'判定不可')}</em></div>
     </div>
-    <div class="milky-detail-advice"><span>✦</span><p><b>観察の目安</b>${esc(m.advice||'')}</p></div>
-    <p class="milky-detail-note">※ 天の川スコアは、雲・雨、銀河中心の高度、月明かり、空気質、光害目安を組み合わせた観察条件の総合評価です。光害は周辺市街地等からの簡易推定で、地形遮蔽や局地雲は反映しません。</p>
+    <div class="scene-infographic-facts scene-infographic-facts-milky">
+      <div><small>銀河ピーク</small><b>${timeOnly(g.peakTime)}</b><em>${Number.isFinite(g.maxAltitude)?`最大高度 ${Math.round(g.maxAltitude)}°`:'高度 --'}</em></div>
+      <div><small>月相</small><b>${esc(o.moon.phase)}</b><em>${Math.round(o.moon.illum)}% / ${esc(moonEvent)}</em></div>
+      <div><small>空気質</small><b>${esc(air.label||'取得不可')}</b><em>${esc(airSub)}</em></div>
+      <div><small>光害目安</small><b>${esc(light.label||'判定不可')}</b><em>${esc(near)}</em></div>
+    </div>
+    <div class="scene-infographic-insight"><b>見どころ</b><span>${esc(m.advice||'')}</span></div>
+    <details class="scene-infographic-method"><summary>算出方法</summary><p>${esc(note)}</p></details>
   </section>`;
 }
 

@@ -1,0 +1,36 @@
+# RELEASE AUDIT V1.6.85
+
+改修元: V1.6.84
+
+## 対象変更
+
+- app.js
+  - APP_VERSION 1.6.85
+  - 夕景・天の川・朝景の表示HTMLをコンパクトなインフォグラフィック構成へ変更
+  - 全国詳細から推定稜線最大瞬間風速グラフの出力呼び出しを削除
+- index.html
+  - app.js query version 1.6.85
+  - 宿泊3レポート専用のコンパクトUI CSSを追加
+  - 背景画像指定なし
+- server.py
+  - APP_VERSION 1.6.85
+
+## 変更していない主要ロジック
+
+- 夕景スコア算出
+- 天の川スコア算出
+- 朝景スコア算出
+- 地形遮蔽・地形考慮時刻の算出
+- 全国ABCDE判定閾値
+- JMA MSM推定稜線風の計算式
+- JMA worst-of / safety floor
+- ルート分析ロジック
+
+## 検証
+
+- `python -m py_compile server.py`
+- `node --check app.js`
+- V1.6.84との差分確認
+- UI文言にモック専用の場所名・キャッチコピーが混入していないことを確認
+- CSSにbackground-image/url参照を追加していないことを確認
+- 実環境表示: 未確認

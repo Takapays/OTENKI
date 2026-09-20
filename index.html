@@ -404,6 +404,82 @@
         .national-map-legend-mobile{display:flex!important;flex-wrap:nowrap!important;justify-content:center;align-items:center;width:max-content;max-width:100%;margin:3px auto 2px;padding:2px 3px;gap:1px 2px;border:0;border-radius:0;background:transparent;box-shadow:none;font-size:7px;line-height:1;color:#5d7068;white-space:nowrap}
         .national-map-legend-mobile span{width:14px;height:14px;font-size:7px;line-height:14px;flex:0 0 14px}
       }
+
+      /* V1.6.85: compact infographic treatment for evening / Milky Way / morning reports.
+         No scenic/background images, location labels, or decorative subtitles are used. */
+      .scene-infographic{
+        --scene-accent:#157a5b;
+        --scene-soft:#eef7f3;
+        margin:10px 0 0!important;
+        padding:10px!important;
+        border:1px solid #dbe7e2!important;
+        border-left:4px solid var(--scene-accent)!important;
+        border-radius:16px!important;
+        background:#fff!important;
+        background-image:none!important;
+        box-shadow:0 2px 8px rgba(20,55,45,.05)!important;
+        color:#173f34!important;
+      }
+      .scene-infographic-evening{--scene-accent:#e36d2f;--scene-soft:#fff3ec}
+      .scene-infographic-milky{--scene-accent:#247fc4;--scene-soft:#eef7ff}
+      .scene-infographic-morning{--scene-accent:#d69a16;--scene-soft:#fff8e6}
+      .scene-infographic-head{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;min-width:0}
+      .scene-infographic-title{display:flex;align-items:center;gap:6px;white-space:nowrap}
+      .scene-infographic-title>b{font-size:18px;line-height:1.1;color:#173f34}
+      .scene-infographic-icon{display:grid;place-items:center;width:30px;height:30px;color:var(--scene-accent)}
+      .scene-infographic-icon svg{width:27px;height:27px}
+      .scene-infographic-score{display:flex;align-items:center;gap:8px;min-width:0}
+      .scene-score-donut{--scene-score:0;position:relative;display:grid;place-items:center;width:64px;height:64px;flex:0 0 64px;border-radius:50%;background:conic-gradient(var(--scene-accent) calc(var(--scene-score) * 1%),#e7edef 0)}
+      .scene-score-donut::after{content:'';position:absolute;inset:7px;border-radius:50%;background:#fff}
+      .scene-score-donut>i{position:relative;z-index:1;font-style:normal;font-size:21px;line-height:1;font-weight:900;color:#173f34}
+      .scene-score-donut>i small{font-size:9px;margin-left:1px;color:#6d7f78}
+      .scene-infographic-score>span:last-child{display:flex;flex-direction:column;gap:2px;min-width:0}
+      .scene-infographic-score>span:last-child small{font-size:10px;line-height:1;color:#71827c;font-weight:700}
+      .scene-infographic-score>span:last-child b{font-size:13px;line-height:1.2;color:var(--scene-accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .scene-best-time{display:flex;align-items:baseline;gap:6px;padding:7px 9px;border-radius:10px;background:var(--scene-soft);white-space:nowrap}
+      .scene-best-time small{font-size:10px;font-weight:800;color:#6b7f77}
+      .scene-best-time b{font-size:15px;line-height:1;color:#173f34}
+      .scene-infographic-meters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin-top:9px}
+      .scene-mini-meter{--meter-value:0;display:grid;grid-template-columns:46px 1fr;grid-template-rows:auto auto;column-gap:7px;align-items:center;min-width:0;padding:6px;border:1px solid #e5ece8;border-radius:11px;background:#fff}
+      .scene-mini-meter>span{grid-row:1/3;position:relative;display:grid;place-items:center;width:46px;height:46px;border-radius:50%;background:conic-gradient(var(--scene-accent) calc(var(--meter-value) * 1%),#e8edef 0)}
+      .scene-mini-meter>span::after{content:'';position:absolute;inset:5px;border-radius:50%;background:#fff}
+      .scene-mini-meter>span i{position:relative;z-index:1;font-style:normal;font-weight:900;font-size:15px;line-height:1;color:#173f34}
+      .scene-mini-meter>span small{position:absolute;z-index:1;bottom:9px;font-size:7px;color:#75877f;font-weight:800}
+      .scene-mini-meter>b{align-self:end;min-width:0;font-size:11px;line-height:1.15;color:#294f43;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .scene-mini-meter>em{align-self:start;min-width:0;margin-top:2px;font-style:normal;font-size:9px;line-height:1.15;color:#71827c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .scene-mini-meter-terrain>span i{font-size:13px}
+      .scene-mini-meter-terrain>span small{display:none}
+      .scene-infographic-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:7px}
+      .scene-infographic-facts>div{min-width:0;padding:6px 8px;border-radius:9px;background:#f8faf9}
+      .scene-infographic-facts small{display:block;font-size:9px;line-height:1.15;color:#73847e;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .scene-infographic-facts b{display:block;margin-top:2px;font-size:12px;line-height:1.25;color:#173f34;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .scene-infographic-facts em{display:block;margin-top:1px;font-style:normal;font-size:8.5px;line-height:1.25;color:#71827c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .scene-infographic-facts-milky{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .scene-infographic-subline{display:flex;align-items:center;gap:8px;margin-top:6px;padding:5px 7px;border-radius:8px;background:#f8faf9;min-width:0}
+      .scene-infographic-subline small{font-size:9px;color:#73847e;font-weight:700;white-space:nowrap}
+      .scene-infographic-subline b{min-width:0;font-size:10px;color:#355b4f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .scene-infographic-insight{display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:start;margin-top:7px;padding:7px 9px;border-radius:10px;background:var(--scene-soft)}
+      .scene-infographic-insight>b{font-size:11px;line-height:1.45;color:var(--scene-accent);white-space:nowrap}
+      .scene-infographic-insight>span{font-size:10px;line-height:1.45;color:#38594f}
+      .scene-infographic-method{margin-top:5px;border:0!important;background:transparent!important}
+      .scene-infographic-method summary{cursor:pointer;display:inline-block;padding:2px 0!important;font-size:9px!important;line-height:1.3;color:#81908b!important;font-weight:700!important}
+      .scene-infographic-method p{margin:4px 0 0;padding:7px 8px;border-radius:8px;background:#f7f9f8;font-size:9px;line-height:1.45;color:#6f807a}
+      @media(max-width:760px){
+        .scene-infographic{margin-top:8px!important;padding:8px!important;border-radius:14px!important}
+        .scene-infographic-head{grid-template-columns:auto 1fr auto;gap:6px}
+        .scene-infographic-title{gap:4px}.scene-infographic-title>b{font-size:16px}.scene-infographic-icon{width:26px;height:26px}.scene-infographic-icon svg{width:24px;height:24px}
+        .scene-score-donut{width:56px;height:56px;flex-basis:56px}.scene-score-donut::after{inset:6px}.scene-score-donut>i{font-size:18px}.scene-score-donut>i small{font-size:8px}
+        .scene-infographic-score{gap:6px}.scene-infographic-score>span:last-child small{display:none}.scene-infographic-score>span:last-child b{font-size:11px;max-width:72px}
+        .scene-best-time{padding:6px 7px;gap:4px}.scene-best-time small{font-size:9px}.scene-best-time b{font-size:12px}
+        .scene-infographic-meters{gap:4px;margin-top:7px}
+        .scene-mini-meter{grid-template-columns:1fr;grid-template-rows:auto auto auto;justify-items:center;gap:0;padding:5px 2px;text-align:center}
+        .scene-mini-meter>span{grid-row:auto;width:42px;height:42px;margin-bottom:3px}.scene-mini-meter>span::after{inset:5px}.scene-mini-meter>span i{font-size:13px}.scene-mini-meter>span small{bottom:7px;font-size:6px}
+        .scene-mini-meter>b{font-size:9px;max-width:100%}.scene-mini-meter>em{font-size:8px;max-width:100%}
+        .scene-infographic-facts{gap:4px;margin-top:5px}.scene-infographic-facts>div{padding:5px 6px}.scene-infographic-facts small{font-size:8px}.scene-infographic-facts b{font-size:10px}.scene-infographic-facts em{font-size:7.5px}
+        .scene-infographic-insight{margin-top:5px;padding:6px 7px;gap:6px}.scene-infographic-insight>b{font-size:10px}.scene-infographic-insight>span{font-size:9px;line-height:1.4}
+        .scene-infographic-subline{margin-top:4px;padding:4px 6px}.scene-infographic-subline small{font-size:8px}.scene-infographic-subline b{font-size:9px}
+      }
+
 </style>
   
 
@@ -798,7 +874,7 @@
     </a>
   </div>
 </footer>
-<script src="app.js?v=1.6.84" defer></script>
+<script src="app.js?v=1.6.85" defer></script>
 <script src="asama-route-v1578.js?v=1.6.49" defer></script>
 <script src="hyakumeizan-route-enrichment-v1579.js?v=1.6.49" defer></script>
 <script src="hyakumeizan-route-enrichment-v1580.js?v=1.6.49" defer></script>
