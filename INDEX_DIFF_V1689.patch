@@ -1,0 +1,38 @@
+--- /mnt/data/traten_impl/baseline1688/v1688/index.html	2026-09-20 02:14:21.000000000 +0000
++++ /mnt/data/traten_impl/v1689/index.html	2026-09-24 14:04:18.746592949 +0000
+@@ -405,7 +405,7 @@
+         .national-map-legend-mobile span{width:14px;height:14px;font-size:7px;line-height:14px;flex:0 0 14px}
+       }
+ 
+-      /* V1.6.88: compact infographic treatment for evening / Milky Way / morning reports.
++      /* V1.6.89: compact infographic treatment for evening / Milky Way / morning reports.
+          No scenic/background images, location labels, or decorative subtitles are used. */
+       .scene-infographic{
+         --scene-accent:#157a5b;
+@@ -499,7 +499,7 @@
+     <div class="topbar-center">
+       <h1>全国から探す。自分の山行を読む。</h1>
+       <div class="topbar-badges">
+-        <span data-app-version>V1.6.88</span>
++        <span data-app-version>V1.6.89</span>
+         <span>日本三百名山 網羅</span>
+         <span>5系統アラート</span>
+         <span>全国一括簡易判定</span>
+@@ -507,7 +507,7 @@
+       </div>
+     </div>
+     <div class="mobile-topbar-copy">全国から探す。自分の山行を読む。</div>
+-    <span class="mobile-topbar-version" data-app-version>V1.6.88</span>
++    <span class="mobile-topbar-version" data-app-version>V1.6.89</span>
+     <div class="mobile-topbar-badges" aria-label="トラテン機能"><span>日本三百名山 網羅</span><span>5系統アラート</span><span>全国一括簡易判定</span><span>登山口アクセス情報</span></div>
+     <nav class="topbar-nav topbar-resource-nav" aria-label="トラテン主要メニュー">
+       <a class="topbar-nav-link trailhead" href="trailheads.html" aria-label="登山口一覧を開く"><span class="resource-nav-icon" aria-hidden="true">⛰</span><span class="resource-nav-copy"><b>登山口</b><small>アクセス情報</small></span></a>
+@@ -876,7 +876,7 @@
+     </a>
+   </div>
+ </footer>
+-<script src="app.js?v=1.6.88" defer></script>
++<script src="app.js?v=1.6.89" defer></script>
+ <script src="asama-route-v1578.js?v=1.6.49" defer></script>
+ <script src="hyakumeizan-route-enrichment-v1579.js?v=1.6.49" defer></script>
+ <script src="hyakumeizan-route-enrichment-v1580.js?v=1.6.49" defer></script>

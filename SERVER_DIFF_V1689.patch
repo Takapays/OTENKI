@@ -1,0 +1,60 @@
+--- /mnt/data/traten_impl/baseline1688/v1688/server.py	2026-09-20 02:14:21.000000000 +0000
++++ /mnt/data/traten_impl/v1689/server.py	2026-09-24 14:04:30.428188567 +0000
+@@ -36,7 +36,7 @@
+ import instagram_bot
+ 
+ BASE = os.path.dirname(os.path.abspath(__file__))
+-APP_VERSION = "1.6.85"
++APP_VERSION = "1.6.89"
+ PORT = int(os.environ.get("PORT", "8000"))
+ METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
+ WEATHERAPI_KEY = os.environ.get("WEATHERAPI_KEY", "").strip()
+@@ -3775,7 +3775,7 @@
+     nf = int(newly_fetched_count or 0)
+     payload = {"date":data.get("date"),"results":results,"version":APP_VERSION,"engine":NATIONAL_OUTLOOK_ENGINE,
+         "complete":total>0 and got==total,"allFresh":total>0 and fresh_count==total,
+-        "cache":{"state":state,"backend":"supabase+local" if _national_supabase_enabled() else "local-only",
++        "cache":{"state":state,"backend":("local-fallback" if _national_supabase_fallback_active() else "supabase+local" if _national_supabase_enabled() else "local-only"),
+             "generatedAt":datetime.fromtimestamp(gt,timezone.utc).isoformat(),"ageSeconds":max(0,round(now-gt)),
+             "freshTtlSeconds":NATIONAL_OUTLOOK_CACHE_TTL,"freshUntil":datetime.fromtimestamp(fu,timezone.utc).isoformat(),
+             "freshRemainingSeconds":max(0,int(fu-now)),"cachedCount":cc,"freshCount":fresh_count,
+@@ -4444,14 +4444,26 @@
+         points.append(_national_with_resolved_elevation({"name":name,"lat":lat,"lon":lon,"elevation":elev})); seen.add(name)
+     fp = _national_points_fingerprint(points)
+     snap = _national_cached_snapshot(date_text,fp,points)
+-    count = len(snap["results"])
+-    # V1.6.83: before showing cached badges, enrich only rows missing short-range JMA ridge evidence.
+-    # This avoids both stale B->D-on-open behavior and the V1.6.82 regression that hid rows as '?'.
+-    snap,repaired_count,repair_warning = _national_repair_snapshot_jma(date_text,fp,points,snap)
++    cache_read_error = snap.get("cacheReadError")
+     count = len(snap["results"])
+     if payload.get("cacheOnly") is True:
++        # V1.6.89: cache-only means cache-only. Do not synchronously fetch JMA here.
++        # The previous V1.6.83 repair ran before this branch, so the +3-day edge of
++        # the JMA MSM horizon could block every date-open for tens of seconds when
++        # ridge evidence was incomplete. Existing cached JMA evidence is reconciled
++        # locally; scheduled/manual refresh remains responsible for filling gaps.
++        rows = _national_valid_results(points,(snap or {}).get("results") or [])
++        reconciled = {name:_national_reconcile_cached_row(row) for name,row in rows.items()}
++        snap = _national_snapshot(date_text,fp,points,list(reconciled.values()))
++        if cache_read_error:
++            snap["cacheReadError"] = cache_read_error
++        count = len(snap["results"])
+         state = "cache-only-fresh" if count and snap["fresh_until"]>time.time() else "cache-only-stale" if count else "cache-miss"
+-        return _national_response(snap,state,warning=repair_warning,cached_count=count,newly_fetched_count=repaired_count)
++        return _national_response(snap,state,cached_count=count,newly_fetched_count=0)
++    # V1.6.83: explicit refresh may enrich rows missing short-range JMA ridge evidence.
++    # V1.6.89 keeps this network work out of cache-only first paint.
++    snap,repaired_count,repair_warning = _national_repair_snapshot_jma(date_text,fp,points,snap)
++    count = len(snap["results"])
+     if snap["complete"] and snap["fresh_until"] > time.time():
+         return _national_response(snap,"shared-fresh",warning=repair_warning,cached_count=count,newly_fetched_count=repaired_count)
+     if not _national_try_lock(date_text,fp):
+@@ -4867,6 +4879,7 @@
+         national_persistent_cache_table=NATIONAL_SUPABASE_CACHE_TABLE if _national_supabase_enabled() else None,
+         national_supabase_local_fallback_active=_national_supabase_fallback_active(),
+         national_supabase_local_fallback_reason=_national_supabase_fallback_reason(),
++        national_cache_active_backend=("local-fallback" if _national_supabase_fallback_active() else "supabase-primary" if _national_supabase_enabled() else "local-only"),
+         national_cache_engine=NATIONAL_OUTLOOK_ENGINE,national_cache_ttl_seconds=NATIONAL_OUTLOOK_CACHE_TTL,
+         national_browser_cache_ttl_seconds=NATIONAL_OUTLOOK_CACHE_TTL,national_auto_refresh_enabled=NATIONAL_OUTLOOK_AUTO_REFRESH,
+         national_refresh_interval_seconds=NATIONAL_OUTLOOK_REFRESH_INTERVAL,national_refresh_token_configured=bool(NATIONAL_CACHE_REFRESH_TOKEN),

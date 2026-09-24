@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.88';
+const APP_VERSION = '1.6.89';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -7923,10 +7923,17 @@ async function runNationalOutlook(){
   if(!eligible.length){if(status)status.textContent='表示する山の区分を1つ以上選択してください。';return;}
   if(btn)btn.disabled=true;
   const browserCached=readNationalOutlookBrowserCache(date);
-  // V1.6.84: do not optimistically paint localStorage grades before the authoritative server result.
-  nationalOutlookResults=new Map();
-  renderNationalOutlookMarkers();
-  if(status)status.textContent='全国共有キャッシュを確認中… 気温はMET主軸、風・雨はMET/GFSの要素別統合で判定します。';
+  // V1.6.89: paint the authoritative shared cache first, then refresh behind it.
+  // This keeps a partial/stale day visible immediately instead of blanking the map
+  // while one or a few missing rows are fetched.
+  const sharedPainted=await loadNationalOutlookSharedCacheOnly({silentMiss:true});
+  if(!sharedPainted){
+    nationalOutlookResults=new Map();
+    renderNationalOutlookMarkers();
+  }
+  if(status)status.textContent=sharedPainted
+    ? '保存済みの全国分析を表示中… 不足分・期限切れ分を更新しています。'
+    : '全国共有キャッシュを確認中… 気温はMET主軸、風・雨はMET/GFSの要素別統合で判定します。';
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),110000);
   try{
