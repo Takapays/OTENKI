@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.89';
+const APP_VERSION = '1.6.90';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -7897,7 +7897,18 @@ async function loadNationalOutlookSharedCacheOnly({silentMiss=false}={}){
     const expected=eligible.length;
     const missing=Math.max(0,expected-results.length);
     const coverage=`共有キャッシュ <b>${results.length}/${expected}座</b>`;
-    if(status)status.innerHTML=`${freshness}から${esc(nationalOutlookSelectedLabel())}を初期表示：<b>A ${counts.A}座</b> / <b>B ${counts.B}座</b> / <b>C ${counts.C}座</b> / <b>D ${counts.D}座</b> / <b>E ${counts.E}座</b><br><span class="national-cache-stats">${coverage}${missing?` / 残り <b>${missing}座</b> はキャッシュ更新待ち`: ' / 充足済み'}</span>`;
+    // V1.6.90: cache-only first paint should expose the same cache age/TTL information
+    // as a full nationwide refresh. Date changes therefore keep cache freshness visible
+    // without requiring the user to press "全国を判定".
+    const ageSec=Number(data.cache?.ageSeconds);
+    const remainSec=Number(data.cache?.freshRemainingSeconds);
+    let cacheAge='';
+    if(Number.isFinite(ageSec)){
+      const ageMin=Math.max(0,Math.round(ageSec/60));
+      const remainText=Number.isFinite(remainSec)?` / 4時間TTL残り 約${Math.max(0,Math.round(remainSec/60))}分`:'';
+      cacheAge=`<br><small class="national-cache-help">キャッシュ年齢 約${ageMin}分${remainText}${data.cache?.cacheHit?'（キャッシュヒット）':''}</small>`;
+    }
+    if(status)status.innerHTML=`${freshness}から${esc(nationalOutlookSelectedLabel())}を初期表示：<b>A ${counts.A}座</b> / <b>B ${counts.B}座</b> / <b>C ${counts.C}座</b> / <b>D ${counts.D}座</b> / <b>E ${counts.E}座</b><br><span class="national-cache-stats">${coverage}${missing?` / 残り <b>${missing}座</b> はキャッシュ更新待ち`: ' / 充足済み'}</span>${cacheAge}`;
     return true;
   }catch(_){
     if(browserCached?.length){
