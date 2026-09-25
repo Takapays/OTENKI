@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.92';
+const APP_VERSION = '1.6.93';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -7981,7 +7981,10 @@ async function runNationalOutlook(){
     const missing=Math.max(0,points.length-got);
     const rateLimited=!!data.rateLimited;
     if(state==='partial' && got===0){
-      if(status)status.innerHTML='<strong>予報データを一時的に取得できませんでした</strong><br><span>現在、予報データの取得が混み合っています。少し時間をおいてから、もう一度「全国を判定」をお試しください。</span>';
+      const msg=rateLimited
+        ? '現在、予報データの取得が混み合っています。少し時間をおいてから、もう一度「全国を判定」をお試しください。'
+        : '共有キャッシュがまだ生成されておらず、上流予報も一時的に取得できませんでした。少し時間をおいて、もう一度「全国を判定」をお試しください。';
+      if(status)status.innerHTML=`<strong>予報データを一時的に取得できませんでした</strong><br><span>${msg}</span>`;
     }else{
       let lead='判定完了';
       if(state.includes('stale'))lead='保存済みの最新結果を表示';

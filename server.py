@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.92"
+APP_VERSION = "1.6.93"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 WEATHERAPI_KEY = os.environ.get("WEATHERAPI_KEY", "").strip()
@@ -3414,10 +3414,31 @@ def _noaa_filter_url_region(cycle: datetime, fh: int, points: list[dict[str, Any
     params={
         "file":f"gfs.t{cycle.hour:02d}z.pgrb2.0p25.f{fh:03d}",
         "lev_2_m_above_ground":"on","lev_10_m_above_ground":"on","lev_surface":"on","lev_entire_atmosphere":"on",
-        # V1.6.91: request pressure-level wind and geopotential height in the same
-        # regional GRIB. 925/850/700/600 hPa lets the ridge estimate survive a
-        # missing individual 850/700 level without inventing a fixed multiplier.
+        # Primary request includes upper-air fields so one GRIB normally supplies both
+        # the base forecast and ridge-wind evidence. V1.6.93 adds a lightweight base
+        # retry below so an upper-air/NOMADS failure can never erase the base GFS row.
         "lev_925_mb":"on","lev_850_mb":"on","lev_700_mb":"on","lev_600_mb":"on",
+        "var_TMP":"on","var_UGRD":"on","var_VGRD":"on","var_GUST":"on","var_PRATE":"on","var_TCDC":"on","var_HGT":"on",
+        "subregion":"",
+        "leftlon":f"{max(0,min(lons)-pad):.2f}","rightlon":f"{min(359.75,max(lons)+pad):.2f}",
+        "toplat":f"{min(90,max(lats)+pad):.2f}","bottomlat":f"{max(-90,min(lats)-pad):.2f}",
+        "dir":f"/gfs.{cycle:%Y%m%d}/{cycle.hour:02d}/atmos",
+    }
+    return NOAA_GFS_FILTER+"?"+urllib.parse.urlencode(params)
+
+
+def _noaa_filter_url_region_base(cycle: datetime, fh: int, points: list[dict[str, Any]]) -> str:
+    """Lightweight GFS base retry without pressure-level fields.
+
+    Ridge-wind enrichment is optional evidence. If the expanded NOMADS request times
+    out, is rejected, or returns an unusable GRIB, this smaller request preserves
+    10 m wind / rain / temperature so the nationwide base decision can still render.
+    """
+    lats=[float(p["lat"]) for p in points]; lons=[float(p["lon"])%360.0 for p in points]
+    pad=0.35
+    params={
+        "file":f"gfs.t{cycle.hour:02d}z.pgrb2.0p25.f{fh:03d}",
+        "lev_2_m_above_ground":"on","lev_10_m_above_ground":"on","lev_surface":"on","lev_entire_atmosphere":"on",
         "var_TMP":"on","var_UGRD":"on","var_VGRD":"on","var_GUST":"on","var_PRATE":"on","var_TCDC":"on","var_HGT":"on",
         "subregion":"",
         "leftlon":f"{max(0,min(lons)-pad):.2f}","rightlon":f"{min(359.75,max(lons)+pad):.2f}",
@@ -3728,7 +3749,11 @@ def _national_gfs_results(date_text: str, points: list[dict[str, Any]], *, inclu
     best_rows=None; best_cycle=None; best_cycle_index=None; best_score=(-1,-1)
     errors=[]
     mountain_names={p["name"] for p in points if (_national_resolve_point_elevation(p.get("name"),p.get("elevation")) or 0)>=500}
-    for cycle_index,cycle in enumerate(_noaa_cycle_candidates(datetime.now(timezone.utc))):
+    for cycle_index,cycle in enumerate(_noaa_cycle_candidates(datetime.now(timezone.utc))[:2]):
+        # V1.6.93: latest + one previous cycle is the resilience window. Beyond that,
+        # GEFS is the bounded upper-air fallback; do not let deterministic ridge
+        # recovery multiply cold-fill latency across four old cycles.
+        base_retry_allowed = cycle_index == 0 or best_score[0] < len(points)
         fh_targets=[]
         for dt in targets:
             fh=_noaa_forecast_hour(cycle,dt)
@@ -3739,6 +3764,7 @@ def _national_gfs_results(date_text: str, points: list[dict[str, Any]], *, inclu
         for fh,target_dt in fh_targets:
             url=_noaa_filter_url_region(cycle,fh,points); cache_key="national-gfs-region:"+url
             cached=_cache_get(cache_key); body=cached[2] if cached else None
+            primary_error=None
             if body is None:
                 try:
                     with _national_gfs_lock:
@@ -3750,12 +3776,61 @@ def _national_gfs_results(date_text: str, points: list[dict[str, Any]], *, inclu
                     if not body.startswith(b"GRIB"): raise RuntimeError("GRIB2データではありません")
                     _cache_put(cache_key,200,"application/x-grib2",body,ttl=max(NOAA_GFS_CACHE_TTL,NATIONAL_OUTLOOK_CACHE_TTL))
                 except Exception as exc:
-                    errors.append(f"{cycle:%Y%m%d%H} f{fh:03d}:{exc}"); continue
+                    primary_error=exc; body=None
+            # V1.6.93: pressure-level enrichment must not be a single point of failure.
+            # Retry the same cycle/hour with the small historical base field set.
+            if body is None and not base_retry_allowed:
+                errors.append(f"{cycle:%Y%m%d%H} f{fh:03d}:upper={type(primary_error).__name__ if primary_error else 'unusable'}; base retry skipped (latest base complete)")
+                continue
+            if body is None:
+                base_url=_noaa_filter_url_region_base(cycle,fh,points); base_key="national-gfs-base-region:"+base_url
+                base_cached=_cache_get(base_key); body=base_cached[2] if base_cached else None
+                if body is None:
+                    try:
+                        with _national_gfs_lock:
+                            wait=NATIONAL_GFS_MIN_INTERVAL-(time.monotonic()-_national_gfs_last_request)
+                            if wait>0: time.sleep(wait)
+                            req=urllib.request.Request(base_url,headers={"User-Agent":UA,"Accept":"application/octet-stream"})
+                            with urllib.request.urlopen(req,timeout=NOAA_GFS_TIMEOUT) as resp: body=resp.read()
+                            _national_gfs_last_request=time.monotonic()
+                        if not body.startswith(b"GRIB"): raise RuntimeError("GFS base GRIB2データではありません")
+                        _cache_put(base_key,200,"application/x-grib2",body,ttl=max(NOAA_GFS_CACHE_TTL,NATIONAL_OUTLOOK_CACHE_TTL))
+                    except Exception as base_exc:
+                        errors.append(f"{cycle:%Y%m%d%H} f{fh:03d}:upper={type(primary_error).__name__ if primary_error else 'unusable'} base={type(base_exc).__name__}")
+                        continue
             tmp_path=None
             try:
                 with tempfile.NamedTemporaryFile(suffix=".grib2",delete=False) as tmp:
                     tmp.write(body); tmp_path=tmp.name
                 parsed=_parse_noaa_grib_points(tmp_path,points)
+                # A syntactically valid expanded response can still omit usable base fields.
+                # Retry lightweight base data before declaring this hour absent.
+                if not any(_finite((parsed.get(p["name"]) or {}).get("wind")) and _finite((parsed.get(p["name"]) or {}).get("temp")) for p in points) and not base_retry_allowed:
+                    continue
+                if not any(_finite((parsed.get(p["name"]) or {}).get("wind")) and _finite((parsed.get(p["name"]) or {}).get("temp")) for p in points):
+                    base_url=_noaa_filter_url_region_base(cycle,fh,points); base_key="national-gfs-base-region:"+base_url
+                    base_cached=_cache_get(base_key); base_body=base_cached[2] if base_cached else None
+                    if base_body is None:
+                        with _national_gfs_lock:
+                            wait=NATIONAL_GFS_MIN_INTERVAL-(time.monotonic()-_national_gfs_last_request)
+                            if wait>0: time.sleep(wait)
+                            req=urllib.request.Request(base_url,headers={"User-Agent":UA,"Accept":"application/octet-stream"})
+                            with urllib.request.urlopen(req,timeout=NOAA_GFS_TIMEOUT) as resp: base_body=resp.read()
+                            _national_gfs_last_request=time.monotonic()
+                        if not base_body.startswith(b"GRIB"): raise RuntimeError("GFS base GRIB2データではありません")
+                        _cache_put(base_key,200,"application/x-grib2",base_body,ttl=max(NOAA_GFS_CACHE_TTL,NATIONAL_OUTLOOK_CACHE_TTL))
+                    with tempfile.NamedTemporaryFile(suffix=".grib2",delete=False) as tmp2:
+                        tmp2.write(base_body); base_path=tmp2.name
+                    try:
+                        base_parsed=_parse_noaa_grib_points(base_path,points)
+                        for name,vals in base_parsed.items():
+                            if name not in parsed: parsed[name]={}
+                            for key,val in vals.items():
+                                if key in {"temp","u","v","wind","gust","rain","cloud","model_elevation","temperature_altitude_adjusted"}:
+                                    parsed[name][key]=val
+                    finally:
+                        try: os.unlink(base_path)
+                        except OSError: pass
                 for p in points:
                     vals=parsed.get(p["name"]) or {}
                     if vals.get("wind") is None or vals.get("temp") is None: continue
@@ -3778,7 +3853,7 @@ def _national_gfs_results(date_text: str, points: list[dict[str, Any]], *, inclu
         if ok_hours<6: continue
         base_ready=sum(1 for p in points if len(cycle_rows.get(p["name"]) or [])>=4)
         ridge_ready=sum(1 for name in mountain_names if _national_ridge_series_usable(cycle_rows.get(name) or []))
-        score=(ridge_ready,base_ready)
+        score=(base_ready,ridge_ready)
         if score>best_score:
             best_score=score; best_rows=cycle_rows; best_cycle=cycle; best_cycle_index=cycle_index
         # Latest complete pressure-level cycle wins immediately. Only fall back to
@@ -4155,7 +4230,8 @@ def _national_fetch_shared(date_text, points):
             name=p["name"]
             jseries=(jma.get(name) or {}).get("series") or []
             gseries=(gfs.get(name) or {}).get("series") or (gfs.get(name) or {}).get("_series") or []
-            if (p.get("elevation") or 0)>=500 and not _national_ridge_series_usable(jseries) and not _national_ridge_series_usable(gseries):
+            base_available=bool(metno.get(name) or gfs.get(name))
+            if base_available and (p.get("elevation") or 0)>=500 and not _national_ridge_series_usable(jseries) and not _national_ridge_series_usable(gseries):
                 gefs_points.append(p)
         if gefs_points:
             try:
