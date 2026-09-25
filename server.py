@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.94"
+APP_VERSION = "1.6.95"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 WEATHERAPI_KEY = os.environ.get("WEATHERAPI_KEY", "").strip()
@@ -4193,21 +4193,21 @@ def _national_fetch_shared(date_text, points):
     for p0 in points:
         p=_national_with_resolved_elevation(p0)
         cached = _national_point_cache_get(date_text,p)
-        source=str((cached or {}).get("source") or "")
+        # V1.6.95: normalize cold-cache/non-dict values once, then never dereference
+        # the nullable `cached` object below. This makes the None-safety structural
+        # instead of relying on boolean short-circuiting in a compound expression.
+        cached_row = cached if isinstance(cached, dict) else {}
+        source=str(cached_row.get("source") or "")
         needs_ridge=bool((p.get("elevation") or 0)>=500)
-        ridge_status=str((cached or {}).get("ridgeDecisionStatus") or "")
+        ridge_status=str(cached_row.get("ridgeDecisionStatus") or "")
         ridge_policy_ok=(not needs_ridge) or ridge_status in {"jma+gfs","jma","gfs-pressure","gfs-pressure-previous-cycle","gefs-ensemble-mean","unavailable"}
-        # V1.6.94: an empty per-point cache is a normal cold-start state.
-        # Never dereference cached before confirming it exists; V1.6.92/93 could
-        # raise AttributeError here, causing every cold-fill chunk to fail before
-        # any provider request was attempted.
-        cache_policy_ok = bool(cached) and (
-            (not source.endswith("-element-policy") or cached.get("safetyFloorVersion") == "v1677-evidence-v1")
-            and cached.get("ridgeContinuityVersion")=="v1692-ridge-continuity-v2"
+        cache_policy_ok = bool(cached_row) and (
+            (not source.endswith("-element-policy") or cached_row.get("safetyFloorVersion") == "v1677-evidence-v1")
+            and cached_row.get("ridgeContinuityVersion")=="v1692-ridge-continuity-v2"
             and ridge_policy_ok
         )
-        if cached and cache_policy_ok and (source in {"metno+gfs","metno","gfs"} or source.endswith("-element-policy")):
-            rows[p["name"]] = dict(cached,name=p["name"])
+        if cache_policy_ok and (source in {"metno+gfs","metno","gfs"} or source.endswith("-element-policy")):
+            rows[p["name"]] = dict(cached_row,name=p["name"])
         else:
             missing.append(p)
     if missing:
