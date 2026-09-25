@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.93"
+APP_VERSION = "1.6.94"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 WEATHERAPI_KEY = os.environ.get("WEATHERAPI_KEY", "").strip()
@@ -4197,7 +4197,11 @@ def _national_fetch_shared(date_text, points):
         needs_ridge=bool((p.get("elevation") or 0)>=500)
         ridge_status=str((cached or {}).get("ridgeDecisionStatus") or "")
         ridge_policy_ok=(not needs_ridge) or ridge_status in {"jma+gfs","jma","gfs-pressure","gfs-pressure-previous-cycle","gefs-ensemble-mean","unavailable"}
-        cache_policy_ok = (
+        # V1.6.94: an empty per-point cache is a normal cold-start state.
+        # Never dereference cached before confirming it exists; V1.6.92/93 could
+        # raise AttributeError here, causing every cold-fill chunk to fail before
+        # any provider request was attempted.
+        cache_policy_ok = bool(cached) and (
             (not source.endswith("-element-policy") or cached.get("safetyFloorVersion") == "v1677-evidence-v1")
             and cached.get("ridgeContinuityVersion")=="v1692-ridge-continuity-v2"
             and ridge_policy_ok

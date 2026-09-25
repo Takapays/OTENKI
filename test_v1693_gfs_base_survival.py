@@ -65,4 +65,4 @@ assert 'score=(base_ready,ridge_ready)' in src
 assert '_noaa_filter_url_region_base' in src
 assert 'base retry skipped (latest base complete)' in src
 assert 'metno-gfs-jma-ridge-gust-worstof-v18-gefs-fallback' in src
-print('V1.6.93 GFS base-survival test: PASS',calls)
+print('V1.6.94 GFS base-survival test: PASS',calls)
