@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.90"
+APP_VERSION = "1.6.92"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 WEATHERAPI_KEY = os.environ.get("WEATHERAPI_KEY", "").strip()
@@ -123,6 +123,14 @@ NOAA_GFS_FILTER = os.environ.get(
 )
 NOAA_GFS_TIMEOUT = int(os.environ.get("NOAA_GFS_TIMEOUT", "35"))
 NOAA_GFS_CACHE_TTL = int(os.environ.get("NOAA_GFS_CACHE_TTL", "1800"))
+# V1.6.92: GEFS 0.5-degree ensemble mean is a last-resort upper-air source only.
+# It is never used while JMA MSM or deterministic GFS ridge evidence is usable.
+NOAA_GEFS_FILTER = os.environ.get(
+    "NOAA_GEFS_FILTER",
+    "https://nomads.ncep.noaa.gov/cgi-bin/filter_gefs_atmos_0p50a.pl",
+)
+NOAA_GEFS_TIMEOUT = int(os.environ.get("NOAA_GEFS_TIMEOUT", "35"))
+NOAA_GEFS_CACHE_TTL = int(os.environ.get("NOAA_GEFS_CACHE_TTL", "1800"))
 
 app = Flask(__name__, static_folder=None)
 app.config["MAX_CONTENT_LENGTH"] = MAX_OVERPASS_BYTES
@@ -198,7 +206,7 @@ NATIONAL_OUTLOOK_AUTO_REFRESH = os.environ.get("NATIONAL_OUTLOOK_AUTO_REFRESH", 
 NATIONAL_CACHE_REFRESH_TOKEN = os.environ.get("NATIONAL_CACHE_REFRESH_TOKEN", "")
 NATIONAL_100_POINTS_FILE = os.path.join(BASE, "national-100-points.json")
 NATIONAL_OUTLOOK_CHUNK_SIZE = max(1, min(50, int(os.environ.get("NATIONAL_OUTLOOK_CHUNK_SIZE", "25"))))
-NATIONAL_OUTLOOK_ENGINE = "metno-gfs-jma-ridge-gust-worstof-v16-consistent-grade"
+NATIONAL_OUTLOOK_ENGINE = "metno-gfs-jma-ridge-gust-worstof-v18-gefs-fallback"
 # V1.6.83: national cache identities historically have two summit elevations missing.
 # These values already exist in the route catalog used by the browser (御嶽 3067m, 大山弥山 1709m).
 # Reuse those established values server-side so JMA pressure-level ridge wind is not silently skipped.
@@ -207,6 +215,9 @@ _national_jma_repair_lock = threading.Lock()
 NATIONAL_GFS_MIN_INTERVAL = float(os.environ.get("NATIONAL_GFS_MIN_INTERVAL", "0.35"))
 _national_gfs_lock = threading.Lock()
 _national_gfs_last_request = 0.0
+NATIONAL_GEFS_MIN_INTERVAL = float(os.environ.get("NATIONAL_GEFS_MIN_INTERVAL", "0.55"))
+_national_gefs_lock = threading.Lock()
+_national_gefs_last_request = 0.0
 NATIONAL_OUTLOOK_CACHE_DIR = os.environ.get("NATIONAL_OUTLOOK_CACHE_DIR", os.path.join(tempfile.gettempdir(), "traten-national-outlook"))
 os.makedirs(NATIONAL_OUTLOOK_CACHE_DIR, exist_ok=True)
 _national_point_cache: dict[str, tuple[float, dict[str, Any]]] = {}
@@ -2261,6 +2272,166 @@ def _national_ridge_wind_estimate(p: dict[str, Any], surface_wind: float | None,
     return max(surface,ridge) if surface is not None else ridge
 
 
+
+
+def _national_gfs_pressure_ridge_estimate(p: dict[str, Any], vals: dict[str, Any]) -> tuple[float | None, dict[str, Any]]:
+    """Estimate summit/ridge wind from GFS pressure levels using actual HGT when available.
+
+    Priority is height-bracket interpolation across surface/925/850/700/600 hPa.
+    If HGT is incomplete but 850/700 wind exists, retain the established nominal-height
+    estimator as a degraded fallback. If no defensible upper-air estimate exists, return
+    None; callers then suppress an A grade rather than pretending 10 m wind is ridge wind.
+    """
+    elev=_national_resolve_point_elevation(p.get("name"),p.get("elevation"))
+    if elev is None or not math.isfinite(float(elev)) or float(elev)<500.0:
+        return None,{"status":"not-required","method":None,"levels":[]}
+    elev=float(elev)
+    def f(v):
+        try:
+            x=float(v); return x if math.isfinite(x) else None
+        except (TypeError,ValueError):
+            return None
+    surface=f(vals.get("wind")); model_elev=f(vals.get("model_elevation"))
+    anchors=[]
+    if surface is not None and model_elev is not None:
+        anchors.append((model_elev,surface,"surface"))
+    for hpa in (925,850,700,600):
+        w=f(vals.get(f"wind{hpa}")); h=f(vals.get(f"hgt{hpa}"))
+        if w is not None and h is not None:
+            anchors.append((h,w,str(hpa)))
+    anchors=sorted(anchors,key=lambda x:x[0])
+    # Remove duplicate/near-duplicate heights while preferring the pressure-level anchor.
+    cleaned=[]
+    for a in anchors:
+        if cleaned and abs(a[0]-cleaned[-1][0])<1.0:
+            if cleaned[-1][2]=="surface" and a[2]!="surface": cleaned[-1]=a
+        else:
+            cleaned.append(a)
+    anchors=cleaned
+    raw=None; used=[]; method=None
+    pressure_anchor_count=sum(1 for a in anchors if a[2]!="surface")
+    if anchors and pressure_anchor_count>0:
+        lower=max((a for a in anchors if a[0]<=elev),default=None,key=lambda x:x[0])
+        upper=min((a for a in anchors if a[0]>=elev),default=None,key=lambda x:x[0])
+        if lower and upper:
+            if abs(upper[0]-lower[0])<1.0:
+                raw=upper[1]; used=[upper[2]]; method="height-exact"
+            else:
+                t=max(0.0,min(1.0,(elev-lower[0])/(upper[0]-lower[0])))
+                raw=lower[1]+(upper[1]-lower[1])*t
+                used=[lower[2],upper[2]]; method="height-interpolation"
+        elif lower and elev-lower[0] <= 700.0:
+            # A nearby highest pressure level is acceptable for Japanese summit elevations,
+            # but do not extrapolate far above the available atmosphere.
+            raw=lower[1]; used=[lower[2]]; method="nearest-below"
+        elif upper and upper[0]-elev <= 700.0 and surface is not None:
+            raw=max(surface,upper[1]); used=["surface",upper[2]]; method="nearest-above"
+    if raw is None:
+        # Never treat 10 m wind alone as ridge evidence. The nominal-height fallback
+        # is allowed only when at least one real pressure-level wind was retrieved.
+        has_legacy_upper=_finite(vals.get("wind850")) or _finite(vals.get("wind700"))
+        legacy=_national_ridge_wind_estimate(p,surface,vals.get("wind850"),vals.get("wind700")) if has_legacy_upper else None
+        if _finite(legacy):
+            return float(legacy),{"status":"degraded","method":"nominal-850-700","levels":[x for x in ("850" if _finite(vals.get("wind850")) else None,"700" if _finite(vals.get("wind700")) else None) if x]}
+        return None,{"status":"unavailable","method":None,"levels":[]}
+    ridge=max(surface if surface is not None else 0.0,float(raw)*0.95)
+    return ridge,{"status":"ok","method":method,"levels":used}
+
+def _national_apply_ridge_continuity(result: dict[str, Any], p: dict[str, Any], gfs: dict[str, Any] | None, jma: dict[str, Any] | None, gefs: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Apply one continuous summit-wind safety policy across short and medium range.
+
+    JMA MSM and deterministic GFS pressure-level ridge grades are primary safety-side evidence.
+    NOAA GEFS ensemble mean is used only when both are unavailable. GEFS may worsen the grade,
+    but GEFS alone never certifies A: an otherwise-A result remains capped at B because the
+    fallback is lower-resolution and ensemble-smoothed. Missing evidence is likewise cacheable.
+    """
+    out=dict(result or {})
+    base=out.get("grade") if out.get("grade") in {"A","B","C","D","E"} else None
+    if not base: return out
+    jma=jma or {}; gfs=gfs or {}; gefs=gefs or {}
+    jma_series=jma.get("series") or []
+    jma_usable=_national_ridge_series_usable(jma_series)
+    jma_grade=jma.get("shadowGrade") if jma.get("shadowGrade") in {"A","B","C","D","E"} else None
+    gfs_series=gfs.get("series") or gfs.get("_series") or []
+    gfs_daily=_national_jma_daily_from_series(gfs_series) if _national_ridge_series_usable(gfs_series) else None
+    gfs_grade=(gfs.get("ridgeGrade") if gfs.get("ridgeGrade") in {"A","B","C","D","E"} else (gfs_daily or {}).get("shadowGrade"))
+    gfs_usable=bool(gfs_daily and gfs_grade in {"A","B","C","D","E"})
+    gefs_series=gefs.get("series") or []
+    gefs_daily=_national_ridge_wind_only_daily(gefs_series) if _national_ridge_series_usable(gefs_series) else None
+    gefs_grade=(gefs.get("ridgeGrade") if gefs.get("ridgeGrade") in {"A","B","C","D","E"} else (gefs_daily or {}).get("shadowGrade"))
+    gefs_usable=bool(gefs_daily and gefs_grade in {"A","B","C","D","E"})
+    grades=[g for g in (base,jma_grade,gfs_grade,gefs_grade) if g in {"A","B","C","D","E"}]
+    final=max(grades,key=_national_grade_rank) if grades else base
+    elev=_national_resolve_point_elevation(p.get("name"),p.get("elevation"))
+    needs_ridge=bool(elev is not None and float(elev)>=500.0)
+    # GEFS ensemble mean is a lower-confidence fallback. Even a calm GEFS mean does
+    # not prove an A day; it may only keep/worsen the safety grade while A stays capped.
+    primary_usable=bool(jma_usable or gfs_usable)
+    cap=bool(needs_ridge and not primary_usable and final=="A")
+    if cap: final="B"
+    if jma_usable and gfs_usable: ridge_status="jma+gfs"
+    elif jma_usable: ridge_status="jma"
+    elif gfs_usable: ridge_status="gfs-pressure-previous-cycle" if gfs.get("cycleFallback") else "gfs-pressure"
+    elif gefs_usable: ridge_status="gefs-ensemble-mean"
+    elif needs_ridge: ridge_status="unavailable"
+    else: ridge_status="not-required"
+    out.update({
+        "grade":final,"preRidgeGrade":base,"preJmaGrade":base,
+        "jmaGrade":jma_grade,"jmaWorstOfApplied":bool(jma_grade and _national_grade_rank(jma_grade)>_national_grade_rank(base)),
+        "gfsRidgeGrade":gfs_grade if gfs_grade in {"A","B","C","D","E"} else None,
+        "gfsRidgeWorstOfApplied":bool(gfs_grade in {"A","B","C","D","E"} and _national_grade_rank(gfs_grade)>_national_grade_rank(base)),
+        "gefsRidgeGrade":gefs_grade if gefs_grade in {"A","B","C","D","E"} else None,
+        "gefsRidgeWorstOfApplied":bool(gefs_grade in {"A","B","C","D","E"} and _national_grade_rank(gefs_grade)>_national_grade_rank(base)),
+        "ridgeDecisionStatus":ridge_status,"ridgeEvidenceAvailable":bool(jma_usable or gfs_usable or gefs_usable),
+        "ridgePrimaryEvidenceAvailable":bool(primary_usable),
+        "ridgeConfidenceCapApplied":cap,"ridgeContinuityVersion":"v1692-ridge-continuity-v2",
+        "decisionPolicy":"base-plus-jma-gfs-gefs-ridge-worstof-v1692",
+    })
+    if jma:
+        out["jmaValues"]={
+            "maxWind":jma.get("maxWind"),"maxSurfaceWind":jma.get("maxSurfaceWind"),"maxRidgeWind":jma.get("maxRidgeWind"),
+            "maxEstimatedRidgeGust":jma.get("maxEstimatedRidgeGust"),"ridgeWindApplied":jma.get("ridgeWindApplied"),
+            "maxRain":jma.get("maxRain"),"minTemp":jma.get("minTemp"),"cautionHours":jma.get("cautionHours"),
+            "bcCautionHours":jma.get("bcCautionHours"),"severeHours":jma.get("severeHours"),"extremeHours":jma.get("extremeHours"),
+            "series":[{k:x.get(k) for k in ("hour","wind","ridgeWind","estimatedRidgeGust","wind850","wind700","wind600","rain")} for x in (jma.get("series") or []) if isinstance(x,dict)]
+        }
+    if gfs:
+        gd=gfs_daily or {}
+        ridge_vals=[float(x.get("ridgeWind")) for x in gfs_series if isinstance(x,dict) and _finite(x.get("ridgeWind"))]
+        out["gfsRidgeValues"]={
+            "ridgeWindApplied":bool(gfs_usable),"maxRidgeWind":round(max(ridge_vals),1) if ridge_vals else None,
+            "maxEstimatedRidgeGust":gd.get("maxEstimatedRidgeGust"),"cautionHours":gd.get("cautionHours"),
+            "bcCautionHours":gd.get("bcCautionHours"),"severeHours":gd.get("severeHours"),"extremeHours":gd.get("extremeHours"),
+            "modelRun":gfs.get("modelRun"),"cycleFallback":bool(gfs.get("cycleFallback")),
+            "ridgeQuality":gfs.get("ridgeQuality"),"pressureLevels":gfs.get("pressureLevels") or [],
+            "series":[{k:x.get(k) for k in ("hour","wind","ridgeWind","estimatedRidgeGust","wind925","wind850","wind700","wind600","hgt925","hgt850","hgt700","hgt600","rain","ridgeMethod")} for x in gfs_series if isinstance(x,dict)]
+        }
+    if gefs:
+        gd=gefs_daily or {}
+        ridge_vals=[float(x.get("ridgeWind")) for x in gefs_series if isinstance(x,dict) and _finite(x.get("ridgeWind"))]
+        out["gefsRidgeValues"]={
+            "ridgeWindApplied":bool(gefs_usable),"maxRidgeWind":round(max(ridge_vals),1) if ridge_vals else None,
+            "maxEstimatedRidgeGust":gd.get("maxEstimatedRidgeGust"),"cautionHours":gd.get("cautionHours"),
+            "bcCautionHours":gd.get("bcCautionHours"),"severeHours":gd.get("severeHours"),"extremeHours":gd.get("extremeHours"),
+            "modelRun":gefs.get("modelRun"),"cycleFallback":bool(gefs.get("cycleFallback")),
+            "ridgeQuality":gefs.get("ridgeQuality"),"nativeHours":gefs.get("nativeHours") or [],
+            "temporalInterpolation":bool(gefs.get("temporalInterpolation")),
+            "series":[{k:x.get(k) for k in ("hour","wind","ridgeWind","estimatedRidgeGust","ridgeMethod","nativeSample")} for x in gefs_series if isinstance(x,dict)]
+        }
+    suffix=[]
+    if out.get("jmaWorstOfApplied"): suffix.append("JMA MSM稜線風")
+    if out.get("gfsRidgeWorstOfApplied"): suffix.append("NOAA GFS上空風")
+    if out.get("gefsRidgeWorstOfApplied"): suffix.append("NOAA GEFSアンサンブル平均")
+    base_summary=str(out.get("summary") or "").strip()
+    if cap:
+        if gefs_usable:
+            out["summary"]=(base_summary+" NOAA GEFSアンサンブル平均の上空風のみ確認できたため、A（良好）は出さずBとして表示しています。").strip()
+        else:
+            out["summary"]=(base_summary+" 上空風データを確認できないため、A（良好）は出さずBとして表示しています。").strip()
+    elif suffix and _national_grade_rank(final)>=_national_grade_rank(base):
+        out["summary"]=(base_summary+" "+" / ".join(suffix)+"を安全側に反映しています。").strip()
+    return out
+
 def _openmeteo_jma_shadow_day_result(p: dict[str, Any], payload: dict[str, Any], date_text: str) -> dict[str, Any] | None:
     hourly = payload.get("hourly") or {}
     times = hourly.get("time") or []
@@ -2353,6 +2524,13 @@ def _openmeteo_jma_production_results(date_text: str, points: list[dict[str, Any
     """
     out: dict[str, dict[str, Any]] = {}
     if not points:
+        return out
+    try:
+        target=datetime.strptime(date_text,"%Y-%m-%d").date()
+        today=(datetime.now(timezone.utc)+timedelta(hours=9)).date()
+        if target<today or target>today+timedelta(days=max(0,OPENMETEO_JMA_SHADOW_DAYS-1)):
+            return out
+    except ValueError:
         return out
     for start in range(0, len(points), OPENMETEO_JMA_SHADOW_BATCH_SIZE):
         batch = points[start:start+OPENMETEO_JMA_SHADOW_BATCH_SIZE]
@@ -3236,6 +3414,10 @@ def _noaa_filter_url_region(cycle: datetime, fh: int, points: list[dict[str, Any
     params={
         "file":f"gfs.t{cycle.hour:02d}z.pgrb2.0p25.f{fh:03d}",
         "lev_2_m_above_ground":"on","lev_10_m_above_ground":"on","lev_surface":"on","lev_entire_atmosphere":"on",
+        # V1.6.91: request pressure-level wind and geopotential height in the same
+        # regional GRIB. 925/850/700/600 hPa lets the ridge estimate survive a
+        # missing individual 850/700 level without inventing a fixed multiplier.
+        "lev_925_mb":"on","lev_850_mb":"on","lev_700_mb":"on","lev_600_mb":"on",
         "var_TMP":"on","var_UGRD":"on","var_VGRD":"on","var_GUST":"on","var_PRATE":"on","var_TCDC":"on","var_HGT":"on",
         "subregion":"",
         "leftlon":f"{max(0,min(lons)-pad):.2f}","rightlon":f"{min(359.75,max(lons)+pad):.2f}",
@@ -3255,9 +3437,10 @@ def _national_adjust_gfs_temperature(temp_c: float, model_elevation_m: float, ta
     return float(temp_c) - 0.0065 * (float(target_elevation_m) - float(model_elevation_m))
 
 
-def _parse_noaa_grib_points(path: str, points: list[dict[str, Any]]) -> dict[str, dict[str, float]]:
+def _parse_noaa_grib_points(path: str, points: list[dict[str, Any]], *, pressure_levels: tuple[int, ...] = (925,850,700,600)) -> dict[str, dict[str, float]]:
     from eccodes import codes_get, codes_grib_find_nearest, codes_grib_new_from_file, codes_release
     out={p["name"]:{} for p in points}
+    pressure_levels=set(int(x) for x in pressure_levels)
     with open(path,"rb") as fh:
         while True:
             gid=codes_grib_new_from_file(fh)
@@ -3274,6 +3457,12 @@ def _parse_noaa_grib_points(path: str, points: list[dict[str, Any]]) -> dict[str
                 elif short=="prate": key="rain"
                 elif short in {"tcc","tcdc"}: key="cloud"
                 elif short in {"orog","gh","z"} and level_type=="surface": key="model_elevation"
+                elif level_type in {"isobaricInhPa","isobaricInPa"}:
+                    hpa=int(round(level/100.0)) if level_type=="isobaricInPa" else int(round(level))
+                    if hpa in pressure_levels:
+                        if short in {"u","ugrd"}: key=f"u{hpa}"
+                        elif short in {"v","vgrd"}: key=f"v{hpa}"
+                        elif short in {"gh","hgt","z"}: key=f"hgt{hpa}"
                 if not key: continue
                 for p in points:
                     try:
@@ -3285,19 +3474,22 @@ def _parse_noaa_grib_points(path: str, points: list[dict[str, Any]]) -> dict[str
                         if key=="temp" and val>150: val-=273.15
                         elif key=="rain": val=max(0.0,val*3600.0)
                         elif key=="cloud" and 0<=val<=1.01: val*=100.0
+                        elif key.startswith("hgt") or key=="model_elevation":
+                            # NOAA HGT/gh is normally geopotential metres. Keep a defensive
+                            # conversion for a provider exposing geopotential (m2/s2) as z.
+                            if val>20000: val/=9.80665
                         out[p["name"]][key]=val
                     except Exception:
                         continue
             finally:
                 codes_release(gid)
-    # GFS 2 m temperature follows the model-grid terrain, which can be far below
-    # a mountain summit at 0.25 degree resolution. Correct temperature from the
-    # GFS surface-orography height to Traten's registered mountain elevation.
-    # Wind/gust/rain are intentionally unchanged.
     for p in points:
         vals=out.get(p["name"]) or {}
         if "u" in vals and "v" in vals:
             vals["wind"]=math.hypot(vals["u"],vals["v"])
+        for hpa in sorted(pressure_levels, reverse=True):
+            if f"u{hpa}" in vals and f"v{hpa}" in vals:
+                vals[f"wind{hpa}"]=math.hypot(vals[f"u{hpa}"],vals[f"v{hpa}"])
         if "temp" in vals and "model_elevation" in vals and p.get("elevation") is not None:
             try:
                 model_elev=float(vals["model_elevation"]); target_elev=float(p["elevation"])
@@ -3309,15 +3501,234 @@ def _parse_noaa_grib_points(path: str, points: list[dict[str, Any]]) -> dict[str
     return out
 
 
+
+def _noaa_gefs_cycle_candidates(now_utc: datetime) -> list[datetime]:
+    """Recent GEFS cycles, newest first, with a slightly wider publication cushion."""
+    base=now_utc.replace(minute=0,second=0,microsecond=0)-timedelta(hours=6)
+    first=base.replace(hour=(base.hour//6)*6)
+    return [first-timedelta(hours=6*i) for i in range(4)]
+
+
+def _noaa_gefs_forecast_hour(cycle: datetime, target_utc: datetime) -> int | None:
+    """GEFS pgrb2a ensemble-mean fields are available on 3-hour forecast steps."""
+    hours=(target_utc-cycle).total_seconds()/3600.0
+    if hours < 0 or hours > 384:
+        return None
+    fh=int(round(hours/3.0)*3)
+    return max(0,min(384,fh))
+
+
+def _noaa_gefs_filter_url_region(cycle: datetime, fh: int, points: list[dict[str, Any]]) -> str:
+    lats=[float(p["lat"]) for p in points]; lons=[float(p["lon"])%360.0 for p in points]
+    pad=0.60  # GEFS is 0.5 degree, so keep a wider regional margin than deterministic GFS.
+    params={
+        "file":f"geavg.t{cycle.hour:02d}z.pgrb2a.0p50.f{fh:03d}",
+        "lev_10_m_above_ground":"on",
+        "lev_925_mb":"on","lev_850_mb":"on","lev_700_mb":"on","lev_500_mb":"on",
+        "var_UGRD":"on","var_VGRD":"on","var_HGT":"on",
+        "subregion":"",
+        "leftlon":f"{max(0,min(lons)-pad):.2f}","rightlon":f"{min(359.75,max(lons)+pad):.2f}",
+        "toplat":f"{min(90,max(lats)+pad):.2f}","bottomlat":f"{max(-90,min(lats)-pad):.2f}",
+        "dir":f"/gefs.{cycle:%Y%m%d}/{cycle.hour:02d}/atmos/pgrb2ap5",
+    }
+    return NOAA_GEFS_FILTER+"?"+urllib.parse.urlencode(params)
+
+
+def _national_gefs_pressure_ridge_estimate(p: dict[str, Any], vals: dict[str, Any]) -> tuple[float | None, dict[str, Any]]:
+    """Estimate ridge wind from GEFS ensemble-mean pressure levels.
+
+    GEFS pgrb2a provides actual HGT at 925/850/700 hPa. It also provides 500 hPa
+    wind but not 500 hPa HGT in this product, so the 500-hPa anchor is used only
+    as an explicitly degraded nominal-height fallback for the highest summits.
+    """
+    elev=_national_resolve_point_elevation(p.get("name"),p.get("elevation"))
+    if elev is None or not math.isfinite(float(elev)) or float(elev)<500.0:
+        return None,{"status":"not-required","method":None,"levels":[]}
+    elev=float(elev)
+    def f(v):
+        try:
+            x=float(v); return x if math.isfinite(x) else None
+        except (TypeError,ValueError):
+            return None
+    surface=f(vals.get("wind"))
+    anchors=[]
+    for hpa in (925,850,700):
+        w=f(vals.get(f"wind{hpa}")); h=f(vals.get(f"hgt{hpa}"))
+        if w is not None and h is not None:
+            anchors.append((h,w,str(hpa),False))
+    # Official GEFS pgrb2a has 500-hPa U/V but no 500-hPa HGT. Use the standard
+    # nominal 500-hPa geopotential height only if it is needed to bracket a summit
+    # above the highest actual GEFS height. The real GEFS wind is never fabricated.
+    w500=f(vals.get("wind500"))
+    if w500 is not None and (not anchors or elev>max(a[0] for a in anchors)):
+        anchors.append((5570.0,w500,"500~",True))
+    anchors=sorted(anchors,key=lambda x:x[0])
+    if not anchors:
+        return None,{"status":"unavailable","method":None,"levels":[]}
+    lower=max((a for a in anchors if a[0]<=elev),default=None,key=lambda x:x[0])
+    upper=min((a for a in anchors if a[0]>=elev),default=None,key=lambda x:x[0])
+    raw=None; used=[]; degraded=False; method=None
+    if lower and upper:
+        degraded=bool(lower[3] or upper[3])
+        if abs(upper[0]-lower[0])<1.0:
+            raw=upper[1]; used=[upper[2]]; method="gefs-height-exact"
+        else:
+            t=max(0.0,min(1.0,(elev-lower[0])/(upper[0]-lower[0])))
+            raw=lower[1]+(upper[1]-lower[1])*t
+            used=[lower[2],upper[2]]; method="gefs-height-interpolation"
+    elif lower and elev-lower[0] <= 900.0:
+        raw=lower[1]; used=[lower[2]]; degraded=bool(lower[3]); method="gefs-nearest-below"
+    elif upper and upper[0]-elev <= 900.0 and surface is not None:
+        raw=max(surface,upper[1]); used=["surface",upper[2]]; degraded=bool(upper[3]); method="gefs-nearest-above"
+    if raw is None:
+        return None,{"status":"unavailable","method":None,"levels":[]}
+    ridge=max(surface if surface is not None else 0.0,float(raw)*0.95)
+    return ridge,{"status":"degraded" if degraded else "ok","method":method,"levels":used}
+
+
+def _national_gefs_interpolate_series(samples: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Expand native 3-hour GEFS mean ridge samples to the 06-15 JST hourly decision grid."""
+    native={int(x["hour"]):x for x in samples if isinstance(x,dict) and _finite(x.get("hour")) and _finite(x.get("ridgeWind"))}
+    hours=sorted(native)
+    if len(hours)<2:
+        return []
+    out=[]
+    for hour in range(6,16):
+        if hour in native:
+            src=native[hour]
+            out.append({"hour":hour,"wind":float(src.get("wind") or 0),"ridgeWind":float(src["ridgeWind"]),
+                        "estimatedRidgeGust":float(src.get("estimatedRidgeGust") or float(src["ridgeWind"])*1.5),
+                        "ridgeMethod":src.get("ridgeMethod"),"nativeSample":True})
+            continue
+        lo=max((h for h in hours if h<hour),default=None); hi=min((h for h in hours if h>hour),default=None)
+        if lo is None or hi is None: continue
+        a=native[lo]; b=native[hi]; t=(hour-lo)/(hi-lo)
+        ridge=float(a["ridgeWind"])+(float(b["ridgeWind"])-float(a["ridgeWind"]))*t
+        aw=float(a.get("wind") or 0); bw=float(b.get("wind") or 0); wind=aw+(bw-aw)*t
+        out.append({"hour":hour,"wind":wind,"ridgeWind":ridge,"estimatedRidgeGust":ridge*1.5,
+                    "ridgeMethod":"gefs-time-interpolation","nativeSample":False})
+    return out
+
+
+def _national_ridge_wind_only_daily(series: Any, *, min_hours: int = 6) -> dict[str, Any] | None:
+    """Daily A-E from upper-air wind only; precipitation remains owned by the base models."""
+    rows=[]
+    for x in series if isinstance(series,list) else []:
+        if not isinstance(x,dict): continue
+        try:
+            hour=int(x.get("hour")); ridge=float(x.get("ridgeWind"))
+        except (TypeError,ValueError):
+            continue
+        if not (6<=hour<=15 and math.isfinite(ridge) and ridge>=0): continue
+        try:
+            gust=float(x.get("estimatedRidgeGust"))
+            if not math.isfinite(gust): raise ValueError
+        except (TypeError,ValueError):
+            gust=ridge*1.5
+        rows.append({"hour":hour,"ridgeWind":ridge,"estimatedRidgeGust":gust})
+    if len(rows)<min_hours:
+        return None
+    caution=sum(1 for r in rows if r["ridgeWind"]>=5 or r["estimatedRidgeGust"]>=12)
+    severe=sum(1 for r in rows if r["ridgeWind"]>=9 or r["estimatedRidgeGust"]>=18)
+    extreme=sum(1 for r in rows if r["ridgeWind"]>=15 or r["estimatedRidgeGust"]>=25)
+    bc=sum(1 for r in rows if r["ridgeWind"]>=5 or r["estimatedRidgeGust"]>=12)
+    max_ridge=max(r["ridgeWind"] for r in rows); max_g=max(r["estimatedRidgeGust"] for r in rows)
+    grade,_=_national_grade(max_ridge,max_g,0,0,0,None,caution_hours=caution,severe_hours=severe,extreme_hours=extreme,bc_caution_hours=bc)
+    return {"shadowGrade":grade,"maxRidgeWind":round(max_ridge,1),"maxEstimatedRidgeGust":round(max_g,1),
+            "cautionHours":caution,"bcCautionHours":bc,"severeHours":severe,"extremeHours":extreme,"series":rows}
+
+
+def _national_gefs_ridge_results(date_text: str, points: list[dict[str, Any]], *, include_series: bool = False) -> dict[str, dict[str, Any]]:
+    """Last-resort NOAA GEFS ensemble-mean ridge wind for mountains lacking JMA/GFS upper-air evidence."""
+    global _national_gefs_last_request
+    try: target_date=datetime.strptime(date_text,"%Y-%m-%d").date()
+    except ValueError: return {}
+    points=[_national_with_resolved_elevation(p) for p in points if (_national_resolve_point_elevation(p.get("name"),p.get("elevation")) or 0)>=500]
+    if not points: return {}
+    # Native GEFS mean cadence is 3 hourly. Four daytime anchors are interpolated
+    # to the same 06-15 hourly decision grid used by the deterministic models.
+    targets=[datetime.combine(target_date,datetime.min.time(),tzinfo=timezone(timedelta(hours=9))).replace(hour=h).astimezone(timezone.utc) for h in (6,9,12,15)]
+    best_rows=None; best_cycle=None; best_cycle_index=None; best_score=(-1,-1); errors=[]
+    mountain_names={p["name"] for p in points}
+    for cycle_index,cycle in enumerate(_noaa_gefs_cycle_candidates(datetime.now(timezone.utc))):
+        fh_targets=[]
+        for dt in targets:
+            fh=_noaa_gefs_forecast_hour(cycle,dt)
+            if fh is None: break
+            fh_targets.append((fh,dt))
+        if len(fh_targets)!=len(targets): continue
+        cycle_rows={p["name"]:[] for p in points}; ok_hours=0
+        for fh,target_dt in fh_targets:
+            url=_noaa_gefs_filter_url_region(cycle,fh,points); cache_key="national-gefs-region:"+url
+            cached=_cache_get(cache_key); body=cached[2] if cached else None
+            if body is None:
+                try:
+                    with _national_gefs_lock:
+                        wait=NATIONAL_GEFS_MIN_INTERVAL-(time.monotonic()-_national_gefs_last_request)
+                        if wait>0: time.sleep(wait)
+                        req=urllib.request.Request(url,headers={"User-Agent":UA,"Accept":"application/octet-stream"})
+                        with urllib.request.urlopen(req,timeout=NOAA_GEFS_TIMEOUT) as resp: body=resp.read()
+                        _national_gefs_last_request=time.monotonic()
+                    if not body.startswith(b"GRIB"): raise RuntimeError("GEFS GRIB2データではありません")
+                    _cache_put(cache_key,200,"application/x-grib2",body,ttl=max(NOAA_GEFS_CACHE_TTL,NATIONAL_OUTLOOK_CACHE_TTL))
+                except Exception as exc:
+                    errors.append(f"{cycle:%Y%m%d%H} f{fh:03d}:{type(exc).__name__}"); continue
+            tmp_path=None
+            try:
+                with tempfile.NamedTemporaryFile(suffix=".grib2",delete=False) as tmp:
+                    tmp.write(body); tmp_path=tmp.name
+                parsed=_parse_noaa_grib_points(tmp_path,points,pressure_levels=(925,850,700,500))
+                for p in points:
+                    vals=parsed.get(p["name"]) or {}
+                    ridge,rmeta=_national_gefs_pressure_ridge_estimate(p,vals)
+                    if not _finite(ridge): continue
+                    cycle_rows[p["name"]].append({
+                        "hour":target_dt.astimezone(timezone(timedelta(hours=9))).hour,
+                        "wind":float(vals.get("wind") or 0),"ridgeWind":float(ridge),"estimatedRidgeGust":float(ridge)*1.5,
+                        "ridgeMethod":rmeta.get("method"),"ridgeStatus":rmeta.get("status")})
+                ok_hours+=1
+            finally:
+                if tmp_path:
+                    try: os.unlink(tmp_path)
+                    except OSError: pass
+        if ok_hours<3: continue
+        ridge_ready=sum(1 for name in mountain_names if len(cycle_rows.get(name) or [])>=3)
+        native_count=sum(len(cycle_rows.get(name) or []) for name in mountain_names)
+        score=(ridge_ready,native_count)
+        if score>best_score:
+            best_score=score; best_rows=cycle_rows; best_cycle=cycle; best_cycle_index=cycle_index
+        if ridge_ready==len(mountain_names): break
+    results={}; rows=best_rows or {p["name"]:[] for p in points}
+    for p in points:
+        native=rows.get(p["name"]) or []
+        series=_national_gefs_interpolate_series(native)
+        daily=_national_ridge_wind_only_daily(series)
+        if not daily: continue
+        methods={str(x.get("ridgeMethod") or "") for x in native}
+        out={"name":p["name"],"source":"gefs-ensemble-mean","ridgeGrade":daily.get("shadowGrade"),
+             "ridgeWindApplied":True,"maxRidgeWind":daily.get("maxRidgeWind"),"maxEstimatedRidgeGust":daily.get("maxEstimatedRidgeGust"),
+             "cautionHours":daily.get("cautionHours"),"bcCautionHours":daily.get("bcCautionHours"),"severeHours":daily.get("severeHours"),"extremeHours":daily.get("extremeHours"),
+             "ridgeQuality":"degraded" if any("500" in m for m in methods) else "ensemble-mean",
+             "modelRun":best_cycle.isoformat().replace("+00:00","Z") if best_cycle else None,
+             "cycleFallback":bool((best_cycle_index or 0)>0),"cycleIndex":best_cycle_index,
+             "nativeHours":sorted(int(x.get("hour")) for x in native if _finite(x.get("hour"))),
+             "temporalInterpolation":True,"series":series}
+        if include_series: out["series"]=series
+        results[p["name"]]=out
+    if not results and errors:
+        app.logger.warning("national_gefs_failed_all date=%s errors=%s",date_text," / ".join(errors[-4:]))
+    return results
+
 def _national_gfs_results(date_text: str, points: list[dict[str, Any]], *, include_series: bool = False) -> dict[str, dict[str, Any]]:
     global _national_gfs_last_request
     try: target_date=datetime.strptime(date_text,"%Y-%m-%d").date()
     except ValueError: return {}
-    # 06:00-15:00 JST => convert each hour to UTC and use one common recent GFS cycle.
+    points=[_national_with_resolved_elevation(p) for p in points]
     targets=[datetime.combine(target_date,datetime.min.time(),tzinfo=timezone(timedelta(hours=9))).replace(hour=h).astimezone(timezone.utc) for h in range(6,16)]
-    rows={p["name"]:[] for p in points}
+    best_rows=None; best_cycle=None; best_cycle_index=None; best_score=(-1,-1)
     errors=[]
-    for cycle in _noaa_cycle_candidates(datetime.now(timezone.utc)):
+    mountain_names={p["name"] for p in points if (_national_resolve_point_elevation(p.get("name"),p.get("elevation")) or 0)>=500}
+    for cycle_index,cycle in enumerate(_noaa_cycle_candidates(datetime.now(timezone.utc))):
         fh_targets=[]
         for dt in targets:
             fh=_noaa_forecast_hour(cycle,dt)
@@ -3339,7 +3750,7 @@ def _national_gfs_results(date_text: str, points: list[dict[str, Any]], *, inclu
                     if not body.startswith(b"GRIB"): raise RuntimeError("GRIB2データではありません")
                     _cache_put(cache_key,200,"application/x-grib2",body,ttl=max(NOAA_GFS_CACHE_TTL,NATIONAL_OUTLOOK_CACHE_TTL))
                 except Exception as exc:
-                    errors.append(f"f{fh:03d}:{exc}"); continue
+                    errors.append(f"{cycle:%Y%m%d%H} f{fh:03d}:{exc}"); continue
             tmp_path=None
             try:
                 with tempfile.NamedTemporaryFile(suffix=".grib2",delete=False) as tmp:
@@ -3348,14 +3759,33 @@ def _national_gfs_results(date_text: str, points: list[dict[str, Any]], *, inclu
                 for p in points:
                     vals=parsed.get(p["name"]) or {}
                     if vals.get("wind") is None or vals.get("temp") is None: continue
-                    cycle_rows[p["name"]].append({"hour":target_dt.astimezone(timezone(timedelta(hours=9))).hour,"wind":float(vals.get("wind") or 0),"gust":float(vals.get("gust") or vals.get("wind") or 0),"rain":float(vals.get("rain") or 0),"temp":float(vals.get("temp")),"cloud":vals.get("cloud")})
+                    ridge,rmeta=_national_gfs_pressure_ridge_estimate(p,vals)
+                    estimated_gust=float(ridge)*1.5 if _finite(ridge) else None
+                    row={"hour":target_dt.astimezone(timezone(timedelta(hours=9))).hour,
+                         "wind":float(vals.get("wind") or 0),"gust":float(vals.get("gust") or vals.get("wind") or 0),
+                         "rain":float(vals.get("rain") or 0),"temp":float(vals.get("temp")),"cloud":vals.get("cloud"),
+                         "ridgeWind":float(ridge) if _finite(ridge) else None,"estimatedRidgeGust":estimated_gust,
+                         "ridgeMethod":rmeta.get("method"),"ridgeStatus":rmeta.get("status")}
+                    for hpa in (925,850,700,600):
+                        row[f"wind{hpa}"]=float(vals[f"wind{hpa}"]) if _finite(vals.get(f"wind{hpa}")) else None
+                        row[f"hgt{hpa}"]=float(vals[f"hgt{hpa}"]) if _finite(vals.get(f"hgt{hpa}")) else None
+                    cycle_rows[p["name"]].append(row)
                 ok_hours+=1
             finally:
                 if tmp_path:
                     try: os.unlink(tmp_path)
                     except OSError: pass
-        if ok_hours>=6:
-            rows=cycle_rows; break
+        if ok_hours<6: continue
+        base_ready=sum(1 for p in points if len(cycle_rows.get(p["name"]) or [])>=4)
+        ridge_ready=sum(1 for name in mountain_names if _national_ridge_series_usable(cycle_rows.get(name) or []))
+        score=(ridge_ready,base_ready)
+        if score>best_score:
+            best_score=score; best_rows=cycle_rows; best_cycle=cycle; best_cycle_index=cycle_index
+        # Latest complete pressure-level cycle wins immediately. Only fall back to
+        # older cycles when ridge evidence is actually missing.
+        if base_ready==len(points) and ridge_ready==len(mountain_names):
+            break
+    rows=best_rows or {p["name"]:[] for p in points}
     results={}
     for p in points:
         rr=rows.get(p["name"]) or []
@@ -3366,11 +3796,34 @@ def _national_gfs_results(date_text: str, points: list[dict[str, Any]], *, inclu
         extreme=sum(1 for x in rr if x["wind"]>=15 or x.get("gust",x["wind"])>=25 or x["rain"]>=6)
         bc_caution_hours=_national_bc_caution_hours(rr)
         grade,summary=_national_grade(max(winds),max(gusts),max(rains),0,min(temps),None,caution_hours=caution,severe_hours=severe,extreme_hours=extreme,bc_caution_hours=bc_caution_hours)
-        series=[{"hour":int(x.get("hour")),"wind":round(float(x["wind"]),1),"gust":round(float(x.get("gust",x["wind"])),1),"rain":round(float(x["rain"]),1),"temp":round(float(x["temp"]),1)} for x in rr]
-        out={"name":p["name"],"grade":grade,"summary":summary,"maxWind":round(max(winds),1),"maxGust":round(max(gusts),1),"maxRain":round(max(rains),1),"maxCape":0,"minTemp":round(min(temps),1),"minVisibility":None,"thunder":"–","cautionHours":caution,"bcCautionHours":bc_caution_hours,"lightRainOnlyHours":max(0,caution-bc_caution_hours),"severeHours":severe,"source":"gfs","_series":series}
-        if include_series:
-            out["series"]=series
+        series=[]
+        methods=set(); pressure_levels=set()
+        for x in rr:
+            row={"hour":int(x.get("hour")),"wind":round(float(x["wind"]),1),"gust":round(float(x.get("gust",x["wind"])),1),
+                 "rain":round(float(x["rain"]),1),"temp":round(float(x["temp"]),1),
+                 "ridgeWind":round(float(x["ridgeWind"]),1) if _finite(x.get("ridgeWind")) else None,
+                 "estimatedRidgeGust":round(float(x["estimatedRidgeGust"]),1) if _finite(x.get("estimatedRidgeGust")) else None,
+                 "ridgeMethod":x.get("ridgeMethod")}
+            if x.get("ridgeMethod"): methods.add(str(x.get("ridgeMethod")))
+            for hpa in (925,850,700,600):
+                row[f"wind{hpa}"]=round(float(x[f"wind{hpa}"]),1) if _finite(x.get(f"wind{hpa}")) else None
+                row[f"hgt{hpa}"]=round(float(x[f"hgt{hpa}"])) if _finite(x.get(f"hgt{hpa}")) else None
+                if row[f"wind{hpa}"] is not None: pressure_levels.add(hpa)
+            series.append(row)
+        ridge_daily=_national_jma_daily_from_series(series) if _national_ridge_series_usable(series) else None
+        ridge_quality="unavailable"
+        if ridge_daily:
+            ridge_quality="degraded" if "nominal-850-700" in methods else "height-interpolated"
+        out={"name":p["name"],"grade":grade,"summary":summary,"maxWind":round(max(winds),1),"maxGust":round(max(gusts),1),"maxRain":round(max(rains),1),"maxCape":0,"minTemp":round(min(temps),1),"minVisibility":None,"thunder":"–","cautionHours":caution,"bcCautionHours":bc_caution_hours,"lightRainOnlyHours":max(0,caution-bc_caution_hours),"severeHours":severe,"source":"gfs","_series":series,
+             "ridgeGrade":(ridge_daily or {}).get("shadowGrade"),"ridgeWindApplied":bool(ridge_daily),
+             "maxRidgeWind":(ridge_daily or {}).get("maxRidgeWind"),"maxEstimatedRidgeGust":(ridge_daily or {}).get("maxEstimatedRidgeGust"),
+             "ridgeQuality":ridge_quality,"pressureLevels":sorted(pressure_levels),
+             "modelRun":best_cycle.isoformat().replace("+00:00","Z") if best_cycle else None,
+             "cycleFallback":bool((best_cycle_index or 0)>0),"cycleIndex":best_cycle_index}
+        if include_series: out["series"]=series
         results[p["name"]]=out
+    if not results and errors:
+        app.logger.warning("national_gfs_failed_all date=%s errors=%s",date_text," / ".join(errors[-4:]))
     return results
 
 
@@ -3659,27 +4112,20 @@ def _national_meteoblue_results(date_text: str, points: list[dict[str, Any]]) ->
 
 
 def _national_fetch_shared(date_text, points):
-    # Nationwide base decision remains the existing MET Norway + NOAA GFS element
-    # policy. JMA MSM is added only as a safety-side worst-of grade after that
-    # decision is complete. Missing/unavailable JMA never changes the base grade.
-    rows = {}; missing = []; warnings = []; metno = {}; gfs = {}; mb = {}; jma = {}; stats = {}
-    for p in points:
+    # V1.6.92: keep MET Norway + deterministic GFS as the base integration.
+    # Ridge evidence order is JMA/GFS primary -> NOAA GEFS ensemble mean fallback -> A cap.
+    rows = {}; missing = []; warnings = []; metno = {}; gfs = {}; gefs = {}; mb = {}; jma = {}; stats = {}
+    for p0 in points:
+        p=_national_with_resolved_elevation(p0)
         cached = _national_point_cache_get(date_text,p)
         source=str((cached or {}).get("source") or "")
-        jma_values=(cached or {}).get("jmaValues") if isinstance(cached,dict) else None
-        jma_series=(jma_values or {}).get("series") if isinstance(jma_values,dict) else None
-        needs_ridge=False
-        try:
-            needs_ridge=float(p.get("elevation")) >= 500.0
-        except (TypeError,ValueError):
-            needs_ridge=False
-        has_ridge=bool(isinstance(jma_series,list) and any(_finite(x.get("ridgeWind")) for x in jma_series if isinstance(x,dict)))
-        # V1.6.78: cached national rows for mountain points must carry same-generation
-        # JMA ridge-wind evidence. Otherwise refresh rather than silently falling back
-        # to 10 m wind and producing incomparable grades between nearby mountains.
+        needs_ridge=bool((p.get("elevation") or 0)>=500)
+        ridge_status=str((cached or {}).get("ridgeDecisionStatus") or "")
+        ridge_policy_ok=(not needs_ridge) or ridge_status in {"jma+gfs","jma","gfs-pressure","gfs-pressure-previous-cycle","gefs-ensemble-mean","unavailable"}
         cache_policy_ok = (
             (not source.endswith("-element-policy") or cached.get("safetyFloorVersion") == "v1677-evidence-v1")
-            and (not needs_ridge or has_ridge)
+            and cached.get("ridgeContinuityVersion")=="v1692-ridge-continuity-v2"
+            and ridge_policy_ok
         )
         if cached and cache_policy_ok and (source in {"metno+gfs","metno","gfs"} or source.endswith("-element-policy")):
             rows[p["name"]] = dict(cached,name=p["name"])
@@ -3693,7 +4139,7 @@ def _national_fetch_shared(date_text, points):
             warnings.append("MET Norway unavailable")
             app.logger.warning("national_metno_failed %s",type(exc).__name__)
         try:
-            gfs = _national_gfs_results(date_text,missing)
+            gfs = _national_gfs_results(date_text,missing,include_series=True)
         except Exception as exc:
             warnings.append("NOAA GFS unavailable")
             app.logger.warning("national_gfs_failed %s",type(exc).__name__)
@@ -3702,6 +4148,21 @@ def _national_fetch_shared(date_text, points):
         except Exception as exc:
             warnings.append("JMA MSM unavailable")
             app.logger.warning("national_jma_failed %s",type(exc).__name__)
+        # GEFS is last-resort only: request it for mountains where neither JMA nor
+        # deterministic GFS provides usable ridge series. This keeps NOAA load bounded.
+        gefs_points=[]
+        for p in missing:
+            name=p["name"]
+            jseries=(jma.get(name) or {}).get("series") or []
+            gseries=(gfs.get(name) or {}).get("series") or (gfs.get(name) or {}).get("_series") or []
+            if (p.get("elevation") or 0)>=500 and not _national_ridge_series_usable(jseries) and not _national_ridge_series_usable(gseries):
+                gefs_points.append(p)
+        if gefs_points:
+            try:
+                gefs=_national_gefs_ridge_results(date_text,gefs_points,include_series=True)
+            except Exception as exc:
+                warnings.append("NOAA GEFS upper-air unavailable")
+                app.logger.warning("national_gefs_failed %s",type(exc).__name__)
         mb_points=[p for p in missing if _national_meteoblue_candidate(metno.get(p["name"]),gfs.get(p["name"]))]
         if mb_points:
             try:
@@ -3713,42 +4174,7 @@ def _national_fetch_shared(date_text, points):
         for p in missing:
             result = _national_merge_two_models(p,metno.get(p["name"]),gfs.get(p["name"]),mb.get(p["name"]))
             if result:
-                result = dict(result)
-                base_grade = result.get("grade")
-                jr = jma.get(p["name"]) or {}
-                jma_grade = jr.get("shadowGrade")
-                applied = (
-                    base_grade in {"A","B","C","D","E"}
-                    and jma_grade in {"A","B","C","D","E"}
-                    and _national_grade_rank(jma_grade) > _national_grade_rank(base_grade)
-                )
-                result["preJmaGrade"] = base_grade
-                result["jmaGrade"] = jma_grade if jma_grade in {"A","B","C","D","E"} else None
-                result["jmaWorstOfApplied"] = bool(applied)
-                result["decisionPolicy"] = "existing-jma-worst-of"
-                result["jmaValues"] = ({
-                    "maxWind":jr.get("maxWind"),
-                    "maxSurfaceWind":jr.get("maxSurfaceWind"),
-                    "maxRidgeWind":jr.get("maxRidgeWind"),
-                    "maxEstimatedRidgeGust":jr.get("maxEstimatedRidgeGust"),
-                    "ridgeWindApplied":jr.get("ridgeWindApplied"),
-                    "maxRain":jr.get("maxRain"),
-                    "minTemp":jr.get("minTemp"),
-                    "cautionHours":jr.get("cautionHours"),
-                    "bcCautionHours":jr.get("bcCautionHours"),
-                    "severeHours":jr.get("severeHours"),
-                    "extremeHours":jr.get("extremeHours"),
-                    "series":[
-                        {"hour":x.get("hour"),"wind":x.get("wind"),"ridgeWind":x.get("ridgeWind"),"estimatedRidgeGust":x.get("estimatedRidgeGust"),"wind850":x.get("wind850"),"wind700":x.get("wind700"),"wind600":x.get("wind600"),"rain":x.get("rain")}
-                        for x in (jr.get("series") or []) if isinstance(x,dict)
-                    ],
-                } if jr else None)
-                if applied:
-                    result["grade"] = jma_grade
-                    result["summary"] = (
-                        str(result.get("summary") or "")
-                        + " JMA MSMがより厳しいため、安全側の判定を採用しています。"
-                    ).strip()
+                result=_national_apply_ridge_continuity(result,p,gfs.get(p["name"]),jma.get(p["name"]),gefs.get(p["name"]))
                 row = dict(result,_cache_meta=_national_meta(result,fetched_at=fetched_at))
                 rows[p["name"]] = row
                 _national_point_cache_put(date_text,p,row)
@@ -4552,7 +4978,7 @@ def national_outlook_detail():
     if target<today or target>today+timedelta(days=15) or not name or not (20<=lat<=50 and 120<=lon<=155):
         return jsonify(error="invalid request"),400
     p=_national_with_resolved_elevation({"name":name,"lat":lat,"lon":lon,"elevation":elev})
-    met=None; gfs=None; jma=None; warnings=[]; cached={}
+    met=None; gfs=None; jma=None; gefs=None; warnings=[]; cached={}
     try:
         met=_national_result_from_metno(p,date_text,_request_metno_national_point(p) or {},include_series=True)
     except Exception as exc:
@@ -4581,11 +5007,33 @@ def national_outlook_detail():
                 warnings.append("JMA MSM hourly data unavailable")
     except Exception as exc:
         warnings.append("JMA MSM hourly data unavailable"); app.logger.warning("national_detail_jma_failed %s",type(exc).__name__)
-    # Detail integration remains MET Norway + NOAA GFS. JMA is an independent chart comparison.
+    # GEFS detail fallback is network-sparing: prefer the shared cached GEFS series.
+    # Only make a GEFS request when JMA and deterministic GFS ridge evidence are both absent.
+    try:
+        gv=cached.get("gefsRidgeValues") if isinstance(cached,dict) else None
+        if isinstance(gv,dict) and _national_ridge_series_usable(gv.get("series")):
+            gefs={"name":name,"source":"gefs-ensemble-mean-cache","series":gv.get("series"),
+                  "ridgeGrade":cached.get("gefsRidgeGrade"),"modelRun":gv.get("modelRun"),
+                  "ridgeQuality":gv.get("ridgeQuality"),"nativeHours":gv.get("nativeHours"),"temporalInterpolation":gv.get("temporalInterpolation")}
+        else:
+            gseries=(gfs or {}).get("series") or (gfs or {}).get("_series") or []
+            jseries=(jma or {}).get("series") or []
+            if (p.get("elevation") or 0)>=500 and not _national_ridge_series_usable(gseries) and not _national_ridge_series_usable(jseries):
+                gefs=_national_gefs_ridge_results(date_text,[p],include_series=True).get(name)
+                if not gefs:
+                    warnings.append("NOAA GEFS upper-air unavailable")
+    except Exception as exc:
+        warnings.append("NOAA GEFS upper-air unavailable"); app.logger.warning("national_detail_gefs_failed %s",type(exc).__name__)
+    # Detail uses the same ridge-continuity rule as the nationwide cache so an
+    # opened medium-range day cannot look safer than its map badge.
     merged=_national_merge_two_models(p,met,gfs,None)
     if not merged:
         return jsonify(error="forecast unavailable",warning="; ".join(warnings) or None),503
-    reconciled=dict(cached if isinstance(cached,dict) and cached.get("grade") in {"A","B","C","D","E"} else merged)
+    live_reconciled=_national_apply_ridge_continuity(merged,p,gfs,jma,gefs)
+    reconciled=dict(cached if isinstance(cached,dict) and cached.get("grade") in {"A","B","C","D","E"} else live_reconciled)
+    # Never let a fresh detail computation make an authoritative cached badge safer.
+    if _national_grade_rank(live_reconciled.get("grade"))>_national_grade_rank(reconciled.get("grade")):
+        reconciled=live_reconciled
     reconciled["name"]=name
     if jma and _national_ridge_series_usable(jma.get("series")):
         jr_full={"series":jma.get("series")}
@@ -4616,7 +5064,7 @@ def national_outlook_detail():
     def detail_model(row):
         if not row: return None
         return {k:v for k,v in row.items() if k != "_series"}
-    return jsonify(ok=True,date=date_text,name=name,merged=merged,reconciled=_national_public_result(reconciled),models={"metno":detail_model(met),"gfs":detail_model(gfs),"jma":detail_model(jma)},
+    return jsonify(ok=True,date=date_text,name=name,merged=merged,reconciled=_national_public_result(reconciled),models={"metno":detail_model(met),"gfs":detail_model(gfs),"jma":detail_model(jma),"gefs":detail_model(gefs)},
         jmaStatus={"source":("direct-fallback" if jma_new_request else "national-cache"),"available":bool(jma),"newJmaRequest":bool(jma_new_request),"gustAvailable":False,"ridgeUsable":bool(jma and _national_ridge_series_usable(jma.get("series")))},
         warning="; ".join(warnings) or None,version=APP_VERSION)
 
@@ -4881,6 +5329,7 @@ def health():
         national_supabase_local_fallback_reason=_national_supabase_fallback_reason(),
         national_cache_active_backend=("local-fallback" if _national_supabase_fallback_active() else "supabase-primary" if _national_supabase_enabled() else "local-only"),
         national_cache_engine=NATIONAL_OUTLOOK_ENGINE,national_cache_ttl_seconds=NATIONAL_OUTLOOK_CACHE_TTL,
+        national_gefs_fallback_enabled=True,national_gefs_fallback_source="NOAA GEFS 0.5 ensemble mean",
         national_browser_cache_ttl_seconds=NATIONAL_OUTLOOK_CACHE_TTL,national_auto_refresh_enabled=NATIONAL_OUTLOOK_AUTO_REFRESH,
         national_refresh_interval_seconds=NATIONAL_OUTLOOK_REFRESH_INTERVAL,national_refresh_token_configured=bool(NATIONAL_CACHE_REFRESH_TOKEN),
         national_100_rolling_auto_cache=NATIONAL_100_ROLLING_AUTO_CACHE,national_100_rolling_days=NATIONAL_100_ROLLING_DAYS,
