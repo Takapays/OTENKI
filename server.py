@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.95"
+APP_VERSION = "1.6.96"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 WEATHERAPI_KEY = os.environ.get("WEATHERAPI_KEY", "").strip()
@@ -230,7 +230,7 @@ _national_refresh_thread_lock = threading.Lock()
 NATIONAL_OUTLOOK_BOOT_GRACE = max(0, int(os.environ.get("NATIONAL_OUTLOOK_BOOT_GRACE", "45")))
 NATIONAL_100_ROLLING_AUTO_CACHE = os.environ.get("NATIONAL_100_ROLLING_AUTO_CACHE", os.environ.get("NATIONAL_NEXTDAY_100_AUTO_CACHE", "1")).lower() not in {"0", "false", "no", "off", ""}
 NATIONAL_100_ROLLING_DAYS = max(1, min(15, int(os.environ.get("NATIONAL_100_ROLLING_DAYS", "7"))))
-NATIONAL_100_ROLLING_DATES_PER_CYCLE = max(1, min(15, int(os.environ.get("NATIONAL_100_ROLLING_DATES_PER_CYCLE", "1"))))
+NATIONAL_100_ROLLING_DATES_PER_CYCLE = max(1, min(15, int(os.environ.get("NATIONAL_100_ROLLING_DATES_PER_CYCLE", "2"))))
 NATIONAL_PREFETCH_COUNT = 100
 NATIONAL_PREFETCH_POINTS_FILE = os.path.join(BASE, "national-runtime-points-v161.json")
 NATIONAL_REFRESH_STATUS_FILE = os.path.join(NATIONAL_OUTLOOK_CACHE_DIR, "refresh-status.json")
@@ -4277,14 +4277,23 @@ def _national_response(data, state, *, warning=None, cached_count=None, newly_fe
     gt = min((m["generated_ts"] for m in metas),default=now)
     fu = min((m["fresh_until"] for m in metas),default=now)
     fresh_count = sum(m["fresh_until"] > now for m in metas)
+    # V1.6.96: ageSeconds historically represented the oldest row only. Keep it for
+    # backward compatibility, but expose average/newest/oldest ages separately so a
+    # single stale mountain does not make the whole 100-mountain cache look old.
+    age_values = [max(0.0, now-float(m["generated_ts"])) for m in metas]
+    oldest_age = max(age_values, default=0.0)
+    newest_age = min(age_values, default=0.0)
+    average_age = (sum(age_values)/len(age_values)) if age_values else 0.0
     cc = got if cached_count is None else int(cached_count)
     nf = int(newly_fetched_count or 0)
     payload = {"date":data.get("date"),"results":results,"version":APP_VERSION,"engine":NATIONAL_OUTLOOK_ENGINE,
         "complete":total>0 and got==total,"allFresh":total>0 and fresh_count==total,
         "cache":{"state":state,"backend":("local-fallback" if _national_supabase_fallback_active() else "supabase+local" if _national_supabase_enabled() else "local-only"),
             "generatedAt":datetime.fromtimestamp(gt,timezone.utc).isoformat(),"ageSeconds":max(0,round(now-gt)),
-            "freshTtlSeconds":NATIONAL_OUTLOOK_CACHE_TTL,"freshUntil":datetime.fromtimestamp(fu,timezone.utc).isoformat(),
-            "freshRemainingSeconds":max(0,int(fu-now)),"cachedCount":cc,"freshCount":fresh_count,
+            "oldestAgeSeconds":max(0,round(oldest_age)),"averageAgeSeconds":max(0,round(average_age)),
+            "newestAgeSeconds":max(0,round(newest_age)),"freshTtlSeconds":NATIONAL_OUTLOOK_CACHE_TTL,
+            "freshUntil":datetime.fromtimestamp(fu,timezone.utc).isoformat(),"freshRemainingSeconds":max(0,int(fu-now)),
+            "cachedCount":cc,"freshCount":fresh_count,"totalCount":total,
             "staleCount":got-fresh_count,"newlyFetchedCount":nf,"staleFallbackCount":max(stale_fallback_count,got-fresh_count),
             "missingCount":max(0,total-got),"remainingDueCount":max(0,total-fresh_count),"cacheHit":cc>0 and nf==0},
         "rateLimited":bool(data.get("rateLimited")),

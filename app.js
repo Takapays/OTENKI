@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.95';
+const APP_VERSION = '1.6.96';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -7919,13 +7919,16 @@ async function loadNationalOutlookSharedCacheOnly({silentMiss=false}={}){
     // V1.6.90: cache-only first paint should expose the same cache age/TTL information
     // as a full nationwide refresh. Date changes therefore keep cache freshness visible
     // without requiring the user to press "全国を判定".
-    const ageSec=Number(data.cache?.ageSeconds);
-    const remainSec=Number(data.cache?.freshRemainingSeconds);
+    const ageSec=Number(data.cache?.oldestAgeSeconds ?? data.cache?.ageSeconds);
+    const avgAgeSec=Number(data.cache?.averageAgeSeconds);
+    const freshCount=Number(data.cache?.freshCount);
+    const cacheTotal=Number(data.cache?.totalCount||expected);
     let cacheAge='';
     if(Number.isFinite(ageSec)){
-      const ageMin=Math.max(0,Math.round(ageSec/60));
-      const remainText=Number.isFinite(remainSec)?` / 4時間TTL残り 約${Math.max(0,Math.round(remainSec/60))}分`:'';
-      cacheAge=`<br><small class="national-cache-help">キャッシュ年齢 約${ageMin}分${remainText}${data.cache?.cacheHit?'（キャッシュヒット）':''}</small>`;
+      const oldestMin=Math.max(0,Math.round(ageSec/60));
+      const avgText=Number.isFinite(avgAgeSec)?` / 平均 約${Math.max(0,Math.round(avgAgeSec/60))}分`:'';
+      const freshText=Number.isFinite(freshCount)&&cacheTotal>0?`キャッシュ鮮度 <b>${Math.max(0,Math.round(freshCount))}/${Math.max(0,Math.round(cacheTotal))}座</b>${avgText}`:`キャッシュ${avgText}`;
+      cacheAge=`<br><small class="national-cache-help">${freshText} / 最古 約${oldestMin}分 / TTL 240分${data.cache?.cacheHit?'（キャッシュヒット）':''}</small>`;
     }
     if(status)status.innerHTML=`${freshness}から${esc(nationalOutlookSelectedLabel())}を初期表示：<b>A ${counts.A}座</b> / <b>B ${counts.B}座</b> / <b>C ${counts.C}座</b> / <b>D ${counts.D}座</b> / <b>E ${counts.E}座</b><br><span class="national-cache-stats">${coverage}${missing?` / 残り <b>${missing}座</b> はキャッシュ更新待ち`: ' / 充足済み'}</span>${cacheAge}`;
     return true;
@@ -7998,12 +8001,15 @@ async function runNationalOutlook(){
       let note='';
       const cachedCount=Number(data.cache?.cachedCount||0), newlyFetched=Number(data.cache?.newlyFetchedCount||0), staleFallback=Number(data.cache?.staleFallbackCount||0);
       note+=`<br><span class="national-cache-stats">共有キャッシュ <b>${cachedCount}座</b> / 新規取得 <b>${newlyFetched}座</b>${staleFallback?` / 保存済み予報で補完 <b>${staleFallback}座</b>`:''}</span>`;
-      const ageSec=Number(data.cache?.ageSeconds);
-      const remainSec=Number(data.cache?.freshRemainingSeconds);
-      if(Number.isFinite(ageSec)&&Number.isFinite(remainSec)){
-        const ageMin=Math.max(0,Math.round(ageSec/60));
-        const remainMin=Math.max(0,Math.round(remainSec/60));
-        note+=`<br><small class="national-cache-help">キャッシュ年齢 約${ageMin}分 / 4時間TTL残り 約${remainMin}分${data.cache?.cacheHit?'（キャッシュヒット）':''}</small>`;
+      const ageSec=Number(data.cache?.oldestAgeSeconds ?? data.cache?.ageSeconds);
+      const avgAgeSec=Number(data.cache?.averageAgeSeconds);
+      const freshCount=Number(data.cache?.freshCount);
+      const cacheTotal=Number(data.cache?.totalCount||points.length);
+      if(Number.isFinite(ageSec)){
+        const oldestMin=Math.max(0,Math.round(ageSec/60));
+        const avgText=Number.isFinite(avgAgeSec)?` / 平均 約${Math.max(0,Math.round(avgAgeSec/60))}分`:'';
+        const freshText=Number.isFinite(freshCount)&&cacheTotal>0?`キャッシュ鮮度 <b>${Math.max(0,Math.round(freshCount))}/${Math.max(0,Math.round(cacheTotal))}座</b>${avgText}`:`キャッシュ${avgText}`;
+        note+=`<br><small class="national-cache-help">${freshText} / 最古 約${oldestMin}分 / TTL 240分${data.cache?.cacheHit?'（キャッシュヒット）':''}</small>`;
       }else{
         note+=`<br><small class="national-cache-help">先行保存対象は翌日〜7日先を共有キャッシュへ保存し、各結果は4時間TTLで更新します。キャッシュがない対象は全国判定に1〜2分程度かかることがあります。</small>`;
       }
