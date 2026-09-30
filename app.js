@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.96';
+const APP_VERSION = '1.6.97';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -7780,7 +7780,7 @@ function showNationalOutlookDetail(p,result){
     nationalMetricHtml('最小視界',Number.isFinite(result.minVisibility)?`${Math.round(result.minVisibility/100)/10} km`:'–','参考情報'),
     nationalMetricHtml('判定信頼度',`<span class="national-confidence tone-${confidence.tone}">${confidence.label}</span>`,confidence.note)
   ].join(''):'';
-  const summary=result?esc(result.summary||''):(p.eligible?'まだ判定していません。日付を選んで「全国を判定」を押してください。':'全国簡易判定は対象外です。');
+  const summary=result?esc(result.summary||''):(p.eligible?'まだ判定していません。日付を選んで「最新情報取り込み」を押してください。':'全国簡易判定は対象外です。');
   const mbFetched=!!result?.modelValues?.meteoblue;
   const mbUsed=!!result?.meteoblueUsed;
   const sourceNote=result?`<span class="national-backup-source">簡易判定：${String(result.source||'').includes('element-policy')?`要素別統合（MET Norway / NOAA GFS${mbFetched?' / meteoblue':''}${mbUsed?'・仲裁あり':''}）`:result.source==='metno'?'MET Norway':result.source==='gfs'?'NOAA GFS':'MET Norway / NOAA GFS'}${result.weatherapiProvider?' / 補助データ: WeatherAPI.com':''}</span>`:'';
@@ -7904,7 +7904,7 @@ async function loadNationalOutlookSharedCacheOnly({silentMiss=false}={}){
     if(!results.length){
       nationalOutlookResults=new Map();
       renderNationalOutlookMarkers();
-      if(status&&!silentMiss)status.innerHTML=`${esc(nationalOutlookSelectedLabel())}の共有キャッシュはまだありません。<small> 「全国を判定」を押すと取得します。</small>`;
+      if(status&&!silentMiss)status.innerHTML=`${esc(nationalOutlookSelectedLabel())}の共有キャッシュはまだありません。<small> 「最新情報取り込み」を押すと取得します。</small>`;
       return false;
     }
     nationalOutlookResults=new Map(results.map(x=>[x.name,x]));
@@ -7918,7 +7918,7 @@ async function loadNationalOutlookSharedCacheOnly({silentMiss=false}={}){
     const coverage=`共有キャッシュ <b>${results.length}/${expected}座</b>`;
     // V1.6.90: cache-only first paint should expose the same cache age/TTL information
     // as a full nationwide refresh. Date changes therefore keep cache freshness visible
-    // without requiring the user to press "全国を判定".
+    // without requiring the user to press "最新情報取り込み".
     const ageSec=Number(data.cache?.oldestAgeSeconds ?? data.cache?.ageSeconds);
     const avgAgeSec=Number(data.cache?.averageAgeSeconds);
     const freshCount=Number(data.cache?.freshCount);
@@ -7943,7 +7943,7 @@ async function loadNationalOutlookSharedCacheOnly({silentMiss=false}={}){
         return true;
       }
     }
-    if(status&&!silentMiss)status.textContent='共有キャッシュを確認できませんでした。「全国を判定」は利用できます。';
+    if(status&&!silentMiss)status.textContent='共有キャッシュを確認できませんでした。「最新情報取り込み」は利用できます。';
     return false;
   }
 }
@@ -7985,8 +7985,8 @@ async function runNationalOutlook(){
     const rateLimited=!!data.rateLimited;
     if(state==='partial' && got===0){
       const msg=rateLimited
-        ? '現在、予報データの取得が混み合っています。少し時間をおいてから、もう一度「全国を判定」をお試しください。'
-        : '共有キャッシュがまだ生成されておらず、上流予報も一時的に取得できませんでした。少し時間をおいて、もう一度「全国を判定」をお試しください。';
+        ? '現在、予報データの取得が混み合っています。少し時間をおいてから、もう一度「最新情報取り込み」をお試しください。'
+        : '共有キャッシュがまだ生成されておらず、上流予報も一時的に取得できませんでした。少し時間をおいて、もう一度「最新情報取り込み」をお試しください。';
       if(status)status.innerHTML=`<strong>予報データを一時的に取得できませんでした</strong><br><span>${msg}</span>`;
     }else{
       let lead='判定完了';

@@ -152,6 +152,26 @@
         .topbar-resource-nav .resource-nav-copy b{font-size:13px !important;}
       }
 
+      /* V1.6.97: keep the header simple and place the four resource shortcuts below nationwide analysis. */
+      .topbar-version-only{margin-top:8px !important;}
+      .national-resource-nav{
+        width:100% !important;
+        margin:14px 0 0 !important;
+        padding-top:12px !important;
+        border-top:1px solid rgba(38,91,76,.12) !important;
+        position:static !important;
+      }
+      .bottom-seo-intro{
+        width:min(1480px,calc(100% - 40px));
+        margin:20px auto 28px !important;
+        box-sizing:border-box;
+      }
+      @media (max-width:760px){
+        .topbar-version-only{display:none !important;}
+        .national-resource-nav{margin-top:10px !important;padding-top:10px !important;}
+        .bottom-seo-intro{width:calc(100% - 24px);margin:14px auto 20px !important;}
+      }
+
       /* V1.6.1: root fix. Dedicated mobile representative-course panel directly below mountain selection.
          No shared .hidden dependency; JS owns visibility with inline !important. */
       @media (max-width:760px){
@@ -498,27 +518,12 @@
     </div>
     <div class="topbar-center">
       <h1>全国から探す。自分の山行を読む。</h1>
-      <div class="topbar-badges">
-        <span data-app-version>V1.6.93</span>
-        <span>日本三百名山 網羅</span>
-        <span>5系統アラート</span>
-        <span>全国一括簡易判定</span>
-        <span>登山口アクセス情報</span>
+      <div class="topbar-badges topbar-version-only">
+        <span data-app-version>V1.6.97</span>
       </div>
     </div>
     <div class="mobile-topbar-copy">全国から探す。自分の山行を読む。</div>
-    <span class="mobile-topbar-version" data-app-version>V1.6.93</span>
-    <div class="mobile-topbar-badges" aria-label="トラテン機能"><span>日本三百名山 網羅</span><span>5系統アラート</span><span>全国一括簡易判定</span><span>登山口アクセス情報</span></div>
-    <nav class="topbar-nav topbar-resource-nav" aria-label="トラテン主要メニュー">
-      <a class="topbar-nav-link trailhead" href="trailheads.html" aria-label="登山口一覧を開く"><span class="resource-nav-icon" aria-hidden="true">⛰</span><span class="resource-nav-copy"><b>登山口</b><small>アクセス情報</small></span></a>
-      <a class="topbar-nav-link hut" href="huts.html" aria-label="山小屋一覧を開く"><span class="resource-nav-icon" aria-hidden="true">⌂</span><span class="resource-nav-copy"><b>山小屋</b><small>公式HP</small></span></a>
-      <a class="topbar-nav-link water" href="water-sources.html" aria-label="水場一覧を開く"><span class="resource-nav-icon" aria-hidden="true">💧</span><span class="resource-nav-copy"><b>水場</b><small>固定監査</small></span></a>
-      <a class="topbar-nav-link camera" href="live-cameras.html" aria-label="ライブカメラ専用ページを開く"><span class="resource-nav-icon" aria-hidden="true">◉</span><span class="resource-nav-copy"><b>ライブカメラ</b><small>現地を確認</small></span></a>
-      <a class="topbar-guide-link" href="guide.html" aria-label="トラテンの使い方を見る">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 5.5h6.5a3 3 0 0 1 3 3v10a3.6 3.6 0 0 0-3-2H4.5z"/><path d="M19.5 5.5H13a3 3 0 0 0-3 3"/><path d="M13.5 5.5h6v11H13a3.6 3.6 0 0 0-3 2"/></svg>
-        <span>使い方</span>
-      </a>
-    </nav>
+    <span class="mobile-topbar-version" data-app-version>V1.6.97</span>
     <button id="installAppBtn" class="mobile-install-app hidden" type="button" aria-label="トラテンをホーム画面に追加">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0-11-4 4m4-4 4 4"/><path d="M5 11v8h14v-8"/></svg>
       <span>ホーム画面に追加</span>
@@ -528,30 +533,12 @@
 </header>
 
 <main class="dashboard-shell">
-  <section class="top-value" aria-labelledby="topValueTitle">
-    <div class="top-value-copy">
-      <div class="top-value-kicker">TRATEN / TRAVERSE WEATHER</div>
-      <h2 id="topValueTitle">全国の登山日和を地図で見る。<br><strong>自分専用の登山天気予報をつくる。</strong></h2>
-      <p>「どこへ行く？」は全国分析で比較。行く山が決まったら、ルートと出発時刻から<strong>あなたが各地点を通る時刻の天気</strong>を分析します。</p>
-    </div>
-    <div class="top-value-actions" aria-label="トラテンの主な使い方">
-      <a class="top-value-action national" href="#nationalOutlook"><span>1</span><b>全国から登山日和を探す</b><small>日本地図で候補を比較</small></a>
-      <a class="top-value-action personal" href="#routePlanner"><span>2</span><b>自分専用予報をつくる</b><small>ルート × 通過時刻で分析</small></a>
-    </div>
-  </section>
-  <section class="seo-intro" aria-labelledby="seoIntroTitle">
-    <div>
-      <h2 id="seoIntroTitle">全国分析から、自分専用の登山天気予報へ</h2>
-      <p>日本地図で全国の山を比較し、行き先を決めたら、登山口・山頂・山小屋などの<strong>通過予定時刻</strong>に合わせて天気・気温・風・雨・雷・視界を分析します。山頂の天気だけでなく、<strong>あなたの山行の時間軸</strong>で確認できます。</p>
-    </div>
-    <a href="guide.html">トラテンの使い方を見る</a>
-  </section>
   <section class="national-outlook panel" id="nationalOutlook" aria-labelledby="nationalOutlookTitle">
     <div class="national-outlook-head">
       <div><div class="panel-kicker">NATIONAL OUTLOOK</div><h2 id="nationalOutlookTitle">全国分析｜どこが登山日和？</h2><p>日本地図で全国の候補を比較。気になる山を見つけたら、そのまま自分専用予報へ。</p></div>
       <div class="national-outlook-controls">
         <label>日付<input id="nationalOutlookDate" type="date"></label>
-        <button id="nationalOutlookRun" class="primary" type="button">全国を分析</button>
+        <button id="nationalOutlookRun" class="primary" type="button">最新情報取り込み</button>
       </div>
     </div>
     <div class="national-mountain-filters" aria-label="表示する名山区分">
@@ -569,6 +556,12 @@
       <aside id="nationalOutlookDetail" class="national-outlook-detail"><div style="padding:18px"><strong>山をタップで時間帯別分析📊</strong><p>ABCDE判定、6〜15時の気象要約、複数モデルの時間帯別予測、代表コースを確認し、その山の「自分専用予報」へ進めます。</p></div></aside>
     </div>
     <p class="national-outlook-note">※ABCDEは「どこへ行くか」を探すための簡易指標です。登山可否を保証するものではありません。候補を決めたら「この山を山行設定に入力」からルート・通過時刻・複数モデルを確認し、自分専用の予報で判断してください。</p>
+    <nav class="topbar-nav topbar-resource-nav national-resource-nav" aria-label="登山関連情報">
+      <a class="topbar-nav-link trailhead" href="trailheads.html" aria-label="登山口一覧を開く"><span class="resource-nav-icon" aria-hidden="true">⛰</span><span class="resource-nav-copy"><b>登山口</b><small>アクセス情報</small></span></a>
+      <a class="topbar-nav-link hut" href="huts.html" aria-label="山小屋一覧を開く"><span class="resource-nav-icon" aria-hidden="true">⌂</span><span class="resource-nav-copy"><b>山小屋</b><small>公式HP</small></span></a>
+      <a class="topbar-nav-link water" href="water-sources.html" aria-label="水場一覧を開く"><span class="resource-nav-icon" aria-hidden="true">💧</span><span class="resource-nav-copy"><b>水場</b><small>固定監査</small></span></a>
+      <a class="topbar-nav-link camera" href="live-cameras.html" aria-label="ライブカメラ専用ページを開く"><span class="resource-nav-icon" aria-hidden="true">◉</span><span class="resource-nav-copy"><b>ライブカメラ</b><small>現地を確認</small></span></a>
+    </nav>
   </section>
 
   <aside class="planner-rail">
@@ -785,6 +778,14 @@
   </section>
 </main>
 
+<section class="seo-intro bottom-seo-intro" aria-labelledby="seoIntroTitle">
+  <div>
+    <h2 id="seoIntroTitle">全国分析から、自分専用の登山天気予報へ</h2>
+    <p>日本地図で全国の山を比較し、行き先を決めたら、登山口・山頂・山小屋などの<strong>通過予定時刻</strong>に合わせて天気・気温・風・雨・雷・視界を分析します。山頂の天気だけでなく、<strong>あなたの山行の時間軸</strong>で確認できます。</p>
+  </div>
+  <a href="guide.html">トラテンの使い方を見る</a>
+</section>
+
 <div id="savedRoutesModal" class="saved-routes-modal hidden" aria-hidden="true">
   <div class="saved-routes-backdrop" data-saved-routes-close></div>
   <section class="saved-routes-dialog" role="dialog" aria-modal="true" aria-labelledby="savedRoutesTitle">
@@ -876,7 +877,7 @@
     </a>
   </div>
 </footer>
-<script src="app.js?v=1.6.96" defer></script>
+<script src="app.js?v=1.6.97" defer></script>
 <script src="asama-route-v1578.js?v=1.6.49" defer></script>
 <script src="hyakumeizan-route-enrichment-v1579.js?v=1.6.49" defer></script>
 <script src="hyakumeizan-route-enrichment-v1580.js?v=1.6.49" defer></script>
