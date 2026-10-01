@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.97';
+const APP_VERSION = '1.6.101';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -7731,7 +7731,7 @@ function nationalModelDetailHtml(data,dateText='',result=null){
   const jmaStatus=data?.jmaStatus||null;
   const jmaNote=jmaStatus&&!jmaStatus.available?'<div class="national-model-chart-empty">JMA MSM：保存済み時間別データなし（追加リクエストなし）</div>':'';
   const forecastDate=String(dateText||'').match(/^\d{4}-\d{2}-\d{2}$/)?String(dateText).replaceAll('-','/'):'';
-  return `<section class="national-rich-section national-model-section national-model-section-simple"><div class="national-model-simple-head"><h4>時間別予測${forecastDate?` ｜ ${esc(forecastDate)}`:''}</h4><span>MET Norway / NOAA GFS + JMA MSM / GFS上空風 / GEFS補助</span></div>${jmaNote}${nationalHourlyGradeHtml(rows,centerSeries)}${nationalDecisionTraceHtml(result,rows,centerSeries)}${nationalModelChartSvg(rows,'wind','10m風（モデル比較）','m/s',7)}${nationalRidgeWindChartSvg(rows)}${nationalModelChartSvg(rows,'rain','降水','mm/h',7,'bars')}<details class="national-grade-criteria"><summary>ABCDE 判定基準を見る</summary><div><p><b>A 良好</b>：主要な注意条件なし</p><p><b>B 軽い注意</b>：弱い雨のみ、または注意条件が1時間</p><p><b>C 注意</b>：風・突風・0.5mm/h以上の雨の注意条件が合計2時間以上、または強い条件が1時間</p><p><b>D 悪い</b>：強い条件が2時間以上</p><p><b>E 非常に悪い</b>：極端な条件が1時間でもある</p><small>日判定：弱い雨＝0.1以上0.5mm/h未満（続いても雨だけではCにしない）／Cへの累積対象＝風5m/s・突風12m/s・雨0.5mm/h以上／強い＝風9m/s・突風18m/s・雨1.5mm/h以上／極端＝風15m/s・突風25m/s・雨6mm/h以上。対象は6〜15時です。</small><small>時間別マーク：A＝注意未満、B＝風5・突風12・雨0.1以上、C＝風7・突風15・雨0.5以上、D＝風9・突風18・雨1.5以上、E＝風15・突風25・雨6以上。気温はMET主軸。全国安全側判定と時間別マークにはJMA MSMとNOAA GFS（925/850/700/600hPa）の上空風から推定した稜線風を反映し、両方が取れない場合のみNOAA GEFS 0.5°アンサンブル平均（925/850/700/500hPa）を補助使用します。GEFS補助だけで穏やかな場合もAは確定せずBを上限とし、すべて取れない場合もAを出しません。10m風から稜線風は捏造しません。</small></div></details></section>`;
+  return `<section class="national-rich-section national-model-section national-model-section-simple"><div class="national-model-simple-head"><h4>時間別予測${forecastDate?` ｜ ${esc(forecastDate)}`:''}</h4><span>MET Norway / NOAA GFS + JMA MSM / GFS上空風 / GEFS補助</span></div>${jmaNote}${nationalHourlyGradeHtml(rows,centerSeries)}${nationalDecisionTraceHtml(result,rows,centerSeries)}${nationalModelChartSvg(rows,'wind','10m風（モデル比較）','m/s',7)}${nationalRidgeWindChartSvg(rows)}${nationalModelChartSvg(rows,'rain','降水','mm/h',7,'bars')}<details class="national-grade-criteria"><summary>ABCDE 判定基準を見る</summary><div><p><b>A 良好</b>：主要な注意条件なし</p><p><b>B 軽い注意</b>：弱い雨のみ、または注意条件が1時間</p><p><b>C 注意</b>：風7m/s以上・突風12m/s以上・0.5mm/h以上の雨の注意条件が合計2時間以上、または強い条件が1時間</p><p><b>D 悪い</b>：強い条件が2時間以上</p><p><b>E 非常に悪い</b>：極端な条件が1時間でもある</p><small>日判定：弱い雨＝0.1以上0.5mm/h未満（続いても雨だけではCにしない）／Cへの累積対象＝風7m/s・突風12m/s・雨0.5mm/h以上／強い＝風9m/s・突風18m/s・雨1.5mm/h以上／極端＝風15m/s・突風25m/s・雨6mm/h以上。対象は6〜15時です。</small><small>時間別マーク：A＝注意未満、B＝風5・突風12・雨0.1以上、C＝風7・突風15・雨0.5以上、D＝風9・突風18・雨1.5以上、E＝風15・突風25・雨6以上。気温はMET主軸。全国安全側判定と時間別マークにはJMA MSMとNOAA GFS（925/850/700/600hPa）の上空風から推定した稜線風を反映し、両方が取れない場合のみNOAA GEFS 0.5°アンサンブル平均（925/850/700/500hPa）を補助使用します。GEFS補助だけで穏やかな場合もAは確定せずBを上限とし、すべて取れない場合もAを出しません。10m風から稜線風は捏造しません。</small></div></details></section>`;
 }
 async function hydrateNationalModelDetail(box,p,result=null){
   const slots=Array.from(box?.querySelectorAll('[data-national-model-detail]')||[]); if(!slots.length)return;
@@ -7741,13 +7741,14 @@ async function hydrateNationalModelDetail(box,p,result=null){
     const r=await fetch('/api/national-outlook/detail',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date,point:{name:p.name,lat:p.lat,lon:p.lon,elevation:p.elevation}})});
     const j=await r.json(); if(!r.ok)throw new Error(j?.error||`HTTP ${r.status}`);
     if(box.querySelector('.national-rich-hero h3')?.textContent?.trim()!==p.name)return;
-    // V1.6.79: detail data is the freshest same-mountain snapshot. Reconcile the
-    // large daily badge with the same hourly/JMA evidence shown below, then update
-    // the map/browser snapshot so a stale B cannot remain above all-D hourly rows.
+    // V1.6.101: the opened-mountain live calculation remains authoritative for this
+    // mountain. Update the map/browser snapshot immediately and persist server-side,
+    // so a real A->D deterioration is surfaced instead of hidden behind an old cache.
     const reconciled=(j?.reconciled&&typeof j.reconciled==='object')?j.reconciled:reconcileNationalDetailResult(result,j);
     nationalOutlookResults.set(p.name,reconciled);
     patchNationalOutlookBrowserCacheResult(date,reconciled);
     updateNationalDetailGradeBadge(box,reconciled.grade);
+    const summaryP=box.querySelector('.national-rich-summary p'); if(summaryP&&reconciled?.summary)summaryP.textContent=reconciled.summary;
     renderNationalOutlookMarkers();
     const html=nationalModelDetailHtml(j,date,reconciled); slots.forEach(slot=>slot.innerHTML=html);
   }catch(e){slots.forEach(slot=>slot.innerHTML='<div class="national-model-chart-empty">時間別モデル比較を取得できませんでした。全国判定と既存情報はそのまま利用できます。</div>');}
@@ -7856,10 +7857,10 @@ async function openMountainFromNationalMap(name){
   }
   $('mountainPreset')?.scrollIntoView({behavior:'smooth',block:'center'});
 }
-const NATIONAL_OUTLOOK_BROWSER_CACHE_KEY='traten:national-outlook:v1684-server-authority';
+const NATIONAL_OUTLOOK_BROWSER_CACHE_KEY='traten:national-outlook:v16101-wind7';
 const NATIONAL_OUTLOOK_BROWSER_CACHE_TTL=4*60*60*1000;
 const NATIONAL_OUTLOOK_BROWSER_STALE_BRIDGE_TTL=5*60*1000;
-const NATIONAL_OUTLOOK_CACHE_ENGINE='metno-gfs-jma-ridge-gust-worstof-v18-gefs-fallback';
+const NATIONAL_OUTLOOK_CACHE_ENGINE='metno-gfs-jma-ridge-gust-worstof-v19-cumulative-wind7';
 function readNationalOutlookBrowserCache(date){
   try{
     const obj=JSON.parse(localStorage.getItem(NATIONAL_OUTLOOK_BROWSER_CACHE_KEY)||'null');
@@ -7965,12 +7966,12 @@ async function runNationalOutlook(){
     renderNationalOutlookMarkers();
   }
   if(status)status.textContent=sharedPainted
-    ? '保存済みの全国分析を表示中… 不足分・期限切れ分を更新しています。'
-    : '全国共有キャッシュを確認中… 気温はMET主軸、風・雨はMET/GFSの要素別統合で判定します。';
+    ? '保存済みの全国分析を表示中… 全山を最新データで再取得しています。'
+    : '全国の最新データを取得中… 気温はMET主軸、風・雨はMET/GFSの要素別統合で判定します。';
   const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),110000);
+  const timer=setTimeout(()=>controller.abort(),180000);
   try{
-    const res=await fetch('/api/national-outlook',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date,points:eligible}),signal:controller.signal});
+    const res=await fetch('/api/national-outlook',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date,points:eligible,forceRefresh:true}),signal:controller.signal});
     const data=await res.json().catch(()=>({}));
     if(!res.ok)throw new Error(data.error||`HTTP ${res.status}`);
     // Server returns the merged shared cache, so replace the local map with that snapshot.

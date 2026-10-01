@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.97"
+APP_VERSION = "1.6.101"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 WEATHERAPI_KEY = os.environ.get("WEATHERAPI_KEY", "").strip()
@@ -206,7 +206,7 @@ NATIONAL_OUTLOOK_AUTO_REFRESH = os.environ.get("NATIONAL_OUTLOOK_AUTO_REFRESH", 
 NATIONAL_CACHE_REFRESH_TOKEN = os.environ.get("NATIONAL_CACHE_REFRESH_TOKEN", "")
 NATIONAL_100_POINTS_FILE = os.path.join(BASE, "national-100-points.json")
 NATIONAL_OUTLOOK_CHUNK_SIZE = max(1, min(50, int(os.environ.get("NATIONAL_OUTLOOK_CHUNK_SIZE", "25"))))
-NATIONAL_OUTLOOK_ENGINE = "metno-gfs-jma-ridge-gust-worstof-v18-gefs-fallback"
+NATIONAL_OUTLOOK_ENGINE = "metno-gfs-jma-ridge-gust-worstof-v19-cumulative-wind7"
 # V1.6.83: national cache identities historically have two summit elevations missing.
 # These values already exist in the route catalog used by the browser (御嶽 3067m, 大山弥山 1709m).
 # Reuse those established values server-side so JMA pressure-level ridge wind is not silently skipped.
@@ -1318,24 +1318,66 @@ def _national_jma_daily_from_series(series: Any) -> dict[str, Any] | None:
             "cautionHours":caution,"bcCautionHours":bc,"severeHours":severe,"extremeHours":extreme,"series":rows}
 
 def _national_reconcile_cached_row(row: dict[str, Any]) -> dict[str, Any]:
+    """Safety-side reconcile a saved nationwide row from the evidence saved with it.
+
+    V1.6.81 reconciled cached JMA ridge evidence before first paint. After deterministic
+    GFS/GEFS ridge continuity was added, this read-path still looked only at JMA, which
+    could let an old A/B badge survive even when the same cached row already contained
+    worse GFS/GEFS ridge evidence. Rebuild all saved ridge grades without provider I/O.
+    """
     out=dict(row)
+    valid={"A","B","C","D","E"}
+    current=out.get("grade") if out.get("grade") in valid else None
+    base=(out.get("preRidgeGrade") if out.get("preRidgeGrade") in valid else
+          out.get("preJmaGrade") if out.get("preJmaGrade") in valid else current)
+    if base not in valid:
+        return out
+
     jv=out.get("jmaValues") if isinstance(out.get("jmaValues"),dict) else None
+    gv=out.get("gfsRidgeValues") if isinstance(out.get("gfsRidgeValues"),dict) else None
+    ev=out.get("gefsRidgeValues") if isinstance(out.get("gefsRidgeValues"),dict) else None
     jr=_national_jma_daily_from_series((jv or {}).get("series"))
-    if not jr:
-        return out
-    base=out.get("preJmaGrade") if out.get("preJmaGrade") in {"A","B","C","D","E"} else out.get("grade")
-    jg=jr.get("shadowGrade")
-    if base not in {"A","B","C","D","E"} or jg not in {"A","B","C","D","E"}:
-        return out
+    gr=_national_jma_daily_from_series((gv or {}).get("series"))
+    er=_national_ridge_wind_only_daily((ev or {}).get("series"))
+    jg=(jr or {}).get("shadowGrade") if jr else None
+    gg=(gr or {}).get("shadowGrade") if gr else None
+    eg=(er or {}).get("shadowGrade") if er else None
+
+    grades=[g for g in (current,base,jg,gg,eg) if g in valid]
+    final=max(grades,key=_national_grade_rank) if grades else base
+    primary_usable=bool(jr or gr)
+    gefs_usable=bool(er)
+    # Preserve the V1.6.92 confidence rule on the cache read path as well: GEFS-only
+    # (or a row already marked as missing primary upper-air evidence) cannot certify A.
+    cap_required=bool(final=="A" and not primary_usable and (
+        gefs_usable or out.get("ridgeConfidenceCapApplied") or
+        out.get("ridgeDecisionStatus") in {"gefs-ensemble-mean","unavailable"}
+    ))
+    if cap_required:
+        final="B"
+
+    out["preRidgeGrade"]=base
     out["preJmaGrade"]=base
-    out["jmaGrade"]=jg
-    out["jmaWorstOfApplied"]=_national_grade_rank(jg)>_national_grade_rank(base)
-    out["decisionPolicy"]="existing-jma-worst-of"
-    out["jmaValues"]={**(jv or {}),**{k:v for k,v in jr.items() if k!="shadowGrade"}}
-    # Reconciliation is safety-side only. Normal provider refresh may improve a grade later.
-    if _national_grade_rank(jg)>_national_grade_rank(out.get("grade")):
-        out["grade"]=jg
-    out["detailReconciledVersion"]="v1684-server-read"
+    if jg in valid:
+        out["jmaGrade"]=jg
+        out["jmaWorstOfApplied"]=_national_grade_rank(jg)>_national_grade_rank(base)
+        out["jmaValues"]={**(jv or {}),**{k:v for k,v in jr.items() if k!="shadowGrade"}}
+    if gg in valid:
+        out["gfsRidgeGrade"]=gg
+        out["gfsRidgeWorstOfApplied"]=_national_grade_rank(gg)>_national_grade_rank(base)
+        out["gfsRidgeValues"]={**(gv or {}),**{k:v for k,v in gr.items() if k not in {"shadowGrade","series"}}}
+    if eg in valid:
+        out["gefsRidgeGrade"]=eg
+        out["gefsRidgeWorstOfApplied"]=_national_grade_rank(eg)>_national_grade_rank(base)
+        out["gefsRidgeValues"]={**(ev or {}),**{k:v for k,v in er.items() if k not in {"shadowGrade","series"}}}
+    if cap_required:
+        out["ridgeConfidenceCapApplied"]=True
+    # Read reconciliation is monotonic safety-side only. A normal nationwide refresh
+    # may improve the grade when a newer complete model generation is acquired.
+    if current not in valid or _national_grade_rank(final)>_national_grade_rank(current):
+        out["grade"]=final
+    out["decisionPolicy"]="base-plus-jma-gfs-gefs-ridge-worstof-v1699-cache-read"
+    out["detailReconciledVersion"]="v1699-server-read"
     return out
 
 def _national_attach_jma_result(row: dict[str, Any], jr: dict[str, Any]) -> dict[str, Any]:
@@ -1495,7 +1537,7 @@ def _national_cached_snapshot(date_text, fingerprint, points):
         snap["cacheReadError"] = read_error
     return snap
 
-def _national_fetch_and_persist(date_text, points, due, initial=None, *, deadline=None, allow_scheduled_remaining=False):
+def _national_fetch_and_persist(date_text, points, due, initial=None, *, deadline=None, allow_scheduled_remaining=False, force_fetch=False):
     """Fetch due rows in checkpointed chunks and verify persistent writes.
 
     Foreground calls keep the historical all-due behavior. Scheduled/background callers may pass
@@ -1520,7 +1562,7 @@ def _national_fetch_and_persist(date_text, points, due, initial=None, *, deadlin
         cr = {"start":start,"requested":len(batch),"fetched":0,"persisted":0,"completeFetch":False,"error":None}
         at = time.time()
         try:
-            received,complete,limited,warning = _national_fetch_shared(date_text,batch)
+            received,complete,limited,warning = _national_fetch_shared(date_text,batch,force_fetch=force_fetch)
             valid = _national_valid_results(batch,received,fetched_at=at)
             # V1.6.57: preserve a still-current daily WeatherAPI safety overlay across base-model refreshes.
             for name, fresh_row in list(valid.items()):
@@ -1848,17 +1890,19 @@ def _run_national_refresh_cycle(trigger):
         _save_national_refresh_runtime()
 
 NATIONAL_DAILY_RAIN_C_MM_H = 0.5
+NATIONAL_DAILY_WIND_C_MS = 7.0
 
 
 def _national_bc_caution_hours(rows: list[dict[str, Any]]) -> int:
     """Count daily B/C caution slots, not necessarily consecutive hours.
 
-    Trace/light rain (0.1 <= rain < 0.5 mm/h) still contributes to B, but
-    cannot by itself accumulate into C. Wind, gust and D/E limits are unchanged.
+    Trace/light rain (0.1 <= rain < 0.5 mm/h) and 5 <= wind < 7 m/s can still
+    contribute to B, but cannot by themselves accumulate into C. Gust and D/E
+    limits are unchanged.
     Missing values stay missing; this helper never mutates a forecast value.
     """
     return sum(1 for row in rows if
-               (_finite(row.get("wind")) and float(row["wind"]) >= 5) or
+               (_finite(row.get("wind")) and float(row["wind"]) >= NATIONAL_DAILY_WIND_C_MS) or
                (_finite(row.get("gust")) and float(row["gust"]) >= 12) or
                (_finite(row.get("rain")) and float(row["rain"]) >= NATIONAL_DAILY_RAIN_C_MM_H))
 
@@ -1872,7 +1916,7 @@ def _national_grade(max_wind: float, max_gust: float, max_rain: float, max_cape:
     if severe_hours >= 2:
         return "D", "6〜15時に強い風・突風・雨が複数時間見込まれ、厳しい条件です。時間帯別予測を確認してください。"
     if severe_hours >= 1 or significant_hours >= 2:
-        return "C", "6〜15時に風・突風・0.5mm/h以上の雨の注意条件が合計2時間以上、または強い条件が1時間見込まれます。時間帯別予測を確認してください。"
+        return "C", "6〜15時に風7m/s以上・突風12m/s以上・0.5mm/h以上の雨の注意条件が合計2時間以上、または強い条件が1時間見込まれます。時間帯別予測を確認してください。"
     if caution_hours >= 1:
         return "B", "6〜15時に弱い雨、または一時的な注意要素があります。山をタップして時間帯とモデル差を確認してください。"
     return "A", "6〜15時に主要な注意条件が見当たらない日です。山をタップして時間帯別予測を最終確認してください。"
@@ -4186,7 +4230,7 @@ def _national_meteoblue_results(date_text: str, points: list[dict[str, Any]]) ->
     return out
 
 
-def _national_fetch_shared(date_text, points):
+def _national_fetch_shared(date_text, points, *, force_fetch=False):
     # V1.6.92: keep MET Norway + deterministic GFS as the base integration.
     # Ridge evidence order is JMA/GFS primary -> NOAA GEFS ensemble mean fallback -> A cap.
     rows = {}; missing = []; warnings = []; metno = {}; gfs = {}; gefs = {}; mb = {}; jma = {}; stats = {}
@@ -4206,7 +4250,7 @@ def _national_fetch_shared(date_text, points):
             and cached_row.get("ridgeContinuityVersion")=="v1692-ridge-continuity-v2"
             and ridge_policy_ok
         )
-        if cache_policy_ok and (source in {"metno+gfs","metno","gfs"} or source.endswith("-element-policy")):
+        if (not force_fetch) and cache_policy_ok and (source in {"metno+gfs","metno","gfs"} or source.endswith("-element-policy")):
             rows[p["name"]] = dict(cached_row,name=p["name"])
         else:
             missing.append(p)
@@ -4975,6 +5019,22 @@ def national_outlook():
         count = len(snap["results"])
         state = "cache-only-fresh" if count and snap["fresh_until"]>time.time() else "cache-only-stale" if count else "cache-miss"
         return _national_response(snap,state,cached_count=count,newly_fetched_count=0)
+
+    # The green button literally means "latest": bypass the four-hour row TTL
+    # and reacquire every displayed mountain through the full national model pipeline.
+    if payload.get("forceRefresh") is True:
+        if not _national_try_lock(date_text,fp):
+            return _national_response(snap,"forced-refreshing",warning="Latest-data refresh already in progress",cached_count=count,newly_fetched_count=0)
+        try:
+            snap=_national_cached_snapshot(date_text,fp,points)
+            count=len(snap["results"])
+            snap,report=_national_fetch_and_persist(date_text,points,points,snap,force_fetch=True)
+            state="live-forced" if report.get("pointsFetched") else "forced-fallback"
+            warning="; ".join(report.get("errors") or []) or None
+            return _national_response(snap,state,warning=warning,cached_count=count,newly_fetched_count=report.get("pointsFetched",0))
+        finally:
+            _national_unlock(date_text,fp)
+
     # V1.6.83: explicit refresh may enrich rows missing short-range JMA ridge evidence.
     # V1.6.89 keeps this network work out of cache-only first paint.
     snap,repaired_count,repair_warning = _national_repair_snapshot_jma(date_text,fp,points,snap)
@@ -5119,42 +5179,30 @@ def national_outlook_detail():
     if not merged:
         return jsonify(error="forecast unavailable",warning="; ".join(warnings) or None),503
     live_reconciled=_national_apply_ridge_continuity(merged,p,gfs,jma,gefs)
-    reconciled=dict(cached if isinstance(cached,dict) and cached.get("grade") in {"A","B","C","D","E"} else live_reconciled)
-    # Never let a fresh detail computation make an authoritative cached badge safer.
-    if _national_grade_rank(live_reconciled.get("grade"))>_national_grade_rank(reconciled.get("grade")):
-        reconciled=live_reconciled
+    # V1.6.100: the live opened-mountain calculation is authoritative for that mountain.
+    # Carry forward a still-valid WeatherAPI safety overlay, then write this exact live
+    # result back to the shared point cache so the map and later users converge instead
+    # of hiding a real A->D deterioration behind an older nationwide snapshot.
+    reconciled=_weatherapi_guard_carry_forward(live_reconciled,cached,date_text)
+    reconciled=dict(reconciled or {})
     reconciled["name"]=name
-    if jma and _national_ridge_series_usable(jma.get("series")):
-        jr_full={"series":jma.get("series")}
-        rebuilt=_national_jma_daily_from_series(jma.get("series"))
-        # Rebuild the safety grade from the exact hourly ridge series shown in detail.
-        if rebuilt:
-            jr_full.update({k:v for k,v in rebuilt.items() if k != "series"})
-            jr_full["shadowGrade"]=rebuilt.get("shadowGrade")
-            # Build a minimal provider-shaped row without making another JMA request.
-            ridge_vals=[float(x.get("ridgeWind")) for x in jma.get("series") if isinstance(x,dict) and _finite(x.get("ridgeWind"))]
-            surface_vals=[float(x.get("wind")) for x in jma.get("series") if isinstance(x,dict) and _finite(x.get("wind"))]
-            rain_vals=[float(x.get("rain")) for x in jma.get("series") if isinstance(x,dict) and _finite(x.get("rain"))]
-            jr_full.update({
-                "maxWind":max(ridge_vals) if ridge_vals else None,"maxSurfaceWind":max(surface_vals) if surface_vals else None,
-                "maxRidgeWind":max(ridge_vals) if ridge_vals else None,"maxEstimatedRidgeGust":rebuilt.get("maxEstimatedRidgeGust"),
-                "ridgeWindApplied":bool(ridge_vals),"maxRain":max(rain_vals) if rain_vals else None
-            })
-            reconciled=_national_attach_jma_result(reconciled,jr_full)
-            reconciled["detailReconciledVersion"]="v1684"
-            meta=(cached.get("_cache_meta") if isinstance(cached,dict) else None) or _national_meta(reconciled,fetched_at=time.time())
-            row=dict(reconciled,_cache_meta=meta)
-            _national_point_cache_put(date_text,p,row)
-            try:
-                if _national_supabase_enabled() and not _national_supabase_fallback_active():
-                    _national_supabase_write(date_text,[p],[row])
-            except Exception as exc:
-                app.logger.warning("national_detail_reconcile_write_failed %s",type(exc).__name__)
+    reconciled["detailPreviousCachedGrade"]=cached.get("grade") if isinstance(cached,dict) else None
+    reconciled["detailGradeChanged"]=bool(reconciled.get("detailPreviousCachedGrade") in {"A","B","C","D","E"} and reconciled.get("grade")!=reconciled.get("detailPreviousCachedGrade"))
+    reconciled["detailSnapshotLocked"]=False
+    reconciled["detailReconciledVersion"]="v16101-live-authority"
+    fetched_at=time.time()
+    reconciled_row=dict(reconciled,_cache_meta=_national_meta(reconciled,fetched_at=fetched_at))
+    _national_point_cache_put(date_text,p,reconciled_row)
+    detail_persisted=False
+    try:
+        detail_persisted=_national_supabase_write(date_text,[p],[reconciled_row]) if _national_supabase_enabled() and not _national_supabase_fallback_active() else False
+    except Exception as exc:
+        app.logger.warning("national_detail_reconcile_write_failed %s",type(exc).__name__)
     def detail_model(row):
         if not row: return None
         return {k:v for k,v in row.items() if k != "_series"}
     return jsonify(ok=True,date=date_text,name=name,merged=merged,reconciled=_national_public_result(reconciled),models={"metno":detail_model(met),"gfs":detail_model(gfs),"jma":detail_model(jma),"gefs":detail_model(gefs)},
-        jmaStatus={"source":("direct-fallback" if jma_new_request else "national-cache"),"available":bool(jma),"newJmaRequest":bool(jma_new_request),"gustAvailable":False,"ridgeUsable":bool(jma and _national_ridge_series_usable(jma.get("series")))},
+        jmaStatus={"source":("direct-fallback" if jma_new_request else "national-cache"),"available":bool(jma),"newJmaRequest":bool(jma_new_request),"gustAvailable":False,"ridgeUsable":bool(jma and _national_ridge_series_usable(jma.get("series"))),"sharedCacheUpdated":bool(detail_persisted)},
         warning="; ".join(warnings) or None,version=APP_VERSION)
 
 

@@ -152,7 +152,7 @@
         .topbar-resource-nav .resource-nav-copy b{font-size:13px !important;}
       }
 
-      /* V1.6.97: keep the header simple and place the four resource shortcuts below nationwide analysis. */
+      /* V1.6.101: keep the simplified nationwide-analysis layout. */
       .topbar-version-only{margin-top:8px !important;}
       .national-resource-nav{
         width:100% !important;
@@ -396,7 +396,7 @@
       .national-marker.grade-c,.national-nearby-grade.grade-c,.national-rich-grade.grade-c{background:#b08a19!important;color:#fff!important}
       .national-marker.grade-d,.national-nearby-grade.grade-d,.national-rich-grade.grade-d{background:#d66c20!important;color:#fff!important}
       .national-marker.grade-e,.national-nearby-grade.grade-e,.national-rich-grade.grade-e{background:#b62d2d!important;color:#fff!important}
-      .national-tap-guide{margin:8px 0 10px;padding:9px 11px;border-radius:10px;background:#eef7f3;color:#315b4d;font-size:12px;line-height:1.5}.national-tap-guide b{color:#126243}
+      
       .national-model-top{position:relative;z-index:1;margin:0 0 12px;padding:0 2px}.national-model-top .national-model-section{margin-top:0}.national-map-legend-overlay{position:absolute;z-index:650;top:10px;left:50%;transform:translateX(-50%);max-width:calc(100% - 128px);box-shadow:0 4px 14px rgba(20,48,39,.18);background:rgba(255,255,255,.94);backdrop-filter:blur(4px);pointer-events:none}.national-model-section{margin-top:14px}.national-model-status{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;padding:10px 12px;border-radius:12px;background:#f3f7f8}.national-model-status.low{background:#fff1e8}.national-model-status b{font-size:13px}.national-model-status span{font-size:12px;color:#536873}
       .national-model-chart{margin-top:12px;padding:12px;border:1px solid #dbe6ea;border-radius:14px;background:#fff}.national-model-chart-title{display:flex;justify-content:space-between;gap:10px;align-items:baseline}.national-model-chart-title strong{font-size:14px}.national-model-chart-title span{font-size:11px;color:#687d87}.national-model-chart svg{display:block;width:100%;height:auto;max-height:210px;margin-top:4px;overflow:visible}.nm-grid{stroke:#e7eef1;stroke-width:1}.nm-axis{fill:#6a7d86;font-size:10px}.nm-line{fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}.nm-met{stroke:#2678b8}.nm-gfs{stroke:#d46a25;stroke-dasharray:7 5}.nm-mb{stroke:#7b5dbb;stroke-dasharray:2 4}.nm-jma{stroke:#2e8b57;stroke-dasharray:3 3}.nm-gefs{stroke:#7b5dbb;stroke-dasharray:2 5}.nm-avg{stroke:#253746;stroke-width:3}.nm-bar{shape-rendering:geometricPrecision}.nm-bar-met{fill:#2678b8}.nm-bar-gfs{fill:#d46a25}.nm-bar-jma{fill:#2e8b57}.nm-over{fill:#b62d2d;font-size:13px;font-weight:900}.national-model-legend span.bar:before{height:9px;border-top:0!important;border-radius:2px;vertical-align:-1px}.national-model-legend .met.bar:before{background:#2678b8}.national-model-legend .gfs.bar:before{background:#d46a25}.national-model-legend .jma.bar:before{background:#2e8b57}.national-model-legend{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;font-size:11px;color:#5e7079}.national-model-legend span:before{content:'';display:inline-block;width:18px;border-top:3px solid;vertical-align:middle;margin-right:5px}.national-model-legend .met:before{border-color:#2678b8}.national-model-legend .gfs:before{border-color:#d46a25;border-top-style:dashed}.national-model-legend .mb:before{border-color:#7b5dbb;border-top-style:dotted}.national-model-legend .jma:before{border-color:#2e8b57;border-top-style:dotted}.national-model-legend .gefs:before{border-color:#7b5dbb;border-top-style:dotted}.national-model-legend .avg:before{border-color:#253746}.national-model-legend small{margin-left:auto}.national-model-note,.national-model-loading,.national-model-chart-empty{font-size:12px;line-height:1.6;color:#60727b}.national-model-loading,.national-model-chart-empty{padding:14px;border-radius:12px;background:#f5f8f9;margin-top:10px}.national-model-loading{color:#c62828;font-weight:900}.national-loading-dots{display:inline-block;width:3em;white-space:nowrap;overflow:hidden;vertical-align:bottom;animation:nationalLoadingDots 1.05s steps(3,end) infinite}@keyframes nationalLoadingDots{0%{width:0}100%{width:3em}}.national-grade-criteria{margin-top:10px;border:1px solid #dbe6ea;border-radius:12px;background:#fbfcfc}.national-grade-criteria summary{cursor:pointer;padding:11px 12px;font-weight:800;font-size:12px;color:#315b4d}.national-grade-criteria>div{padding:0 12px 12px}.national-grade-criteria p{margin:5px 0;font-size:12px}.national-grade-criteria small{display:block;margin-top:8px;line-height:1.6;color:#60727b}
       .national-model-slot-mobile{display:none}
@@ -519,11 +519,11 @@
     <div class="topbar-center">
       <h1>全国から探す。自分の山行を読む。</h1>
       <div class="topbar-badges topbar-version-only">
-        <span data-app-version>V1.6.97</span>
+        <span data-app-version>V1.6.101</span>
       </div>
     </div>
     <div class="mobile-topbar-copy">全国から探す。自分の山行を読む。</div>
-    <span class="mobile-topbar-version" data-app-version>V1.6.97</span>
+    <span class="mobile-topbar-version" data-app-version>V1.6.101</span>
     <button id="installAppBtn" class="mobile-install-app hidden" type="button" aria-label="トラテンをホーム画面に追加">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0-11-4 4m4-4 4 4"/><path d="M5 11v8h14v-8"/></svg>
       <span>ホーム画面に追加</span>
@@ -547,7 +547,6 @@
       <label><input id="nationalFilter200" type="checkbox"><b>二百名山</b></label>
       <label><input id="nationalFilter300" type="checkbox"><b>三百名山</b></label>
     </div>
-    <div class="national-tap-guide"><b>山をタップ</b>すると、判定理由・判定基準・MET Norway / NOAA GFS / JMA MSM の時間帯別モデル差を確認できます。</div>
     <div id="nationalOutlookStatus" class="national-outlook-status">7日ローリング共有キャッシュを確認しています。地図内の‹ ›で前日・翌日に移動できます。</div>
     <div class="national-mobile-map-hint" aria-hidden="true">山をタップで時間帯別分析📊</div>
     <div class="national-outlook-body">
@@ -877,7 +876,7 @@
     </a>
   </div>
 </footer>
-<script src="app.js?v=1.6.97" defer></script>
+<script src="app.js?v=1.6.101" defer></script>
 <script src="asama-route-v1578.js?v=1.6.49" defer></script>
 <script src="hyakumeizan-route-enrichment-v1579.js?v=1.6.49" defer></script>
 <script src="hyakumeizan-route-enrichment-v1580.js?v=1.6.49" defer></script>
