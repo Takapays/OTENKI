@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.101"
+APP_VERSION = "1.6.102"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 WEATHERAPI_KEY = os.environ.get("WEATHERAPI_KEY", "").strip()
@@ -201,7 +201,10 @@ NATIONAL_METNO_RETRY_MAX = float(os.environ.get("NATIONAL_METNO_RETRY_MAX", "12"
 _national_metno_lock = threading.Lock()
 _national_metno_last_request = 0.0
 NATIONAL_OUTLOOK_STALE_TTL = int(os.environ.get("NATIONAL_OUTLOOK_STALE_TTL", "86400"))
-NATIONAL_OUTLOOK_REFRESH_INTERVAL = int(os.environ.get("NATIONAL_OUTLOOK_REFRESH_INTERVAL", "900"))
+# V1.6.102: nationwide persistence checks are intentionally no more frequent than hourly.
+# Keep the environment variable for compatibility, but clamp older 900-second deployments
+# to 3600 seconds so an existing Render setting cannot silently restore 15-minute polling.
+NATIONAL_OUTLOOK_REFRESH_INTERVAL = max(3600, int(os.environ.get("NATIONAL_OUTLOOK_REFRESH_INTERVAL", "3600")))
 NATIONAL_OUTLOOK_AUTO_REFRESH = os.environ.get("NATIONAL_OUTLOOK_AUTO_REFRESH", "1").lower() not in {"0", "false", "no"}
 NATIONAL_CACHE_REFRESH_TOKEN = os.environ.get("NATIONAL_CACHE_REFRESH_TOKEN", "")
 NATIONAL_100_POINTS_FILE = os.path.join(BASE, "national-100-points.json")
@@ -1695,15 +1698,20 @@ def _national_100_date_local_cache_status(date_text, points, *, force=False, rea
         "fallbackReason":reason or _national_supabase_fallback_reason()}, due
 
 def _national_100_date_cache_status(date_text, points, *, force=False):
+    """Check rolling-cache freshness without downloading forecast result JSON bodies.
+
+    V1.6.102: scheduled due checks only need cache identity/timestamps. The full result
+    payload is fetched later only for dates that actually require refresh/merge work.
+    """
     try:
-        fresh,stale,_ = _national_supabase_read(date_text,points)
+        fresh,stale,_ = _national_supabase_read_meta(date_text,points)
     except RuntimeError as exc:
         if _national_supabase_fallback_active():
             return _national_100_date_local_cache_status(date_text,points,force=force,reason=str(exc))
         raise
     due = points if force else [p for p in points if p["name"] not in fresh]
     return {"date":date_text,"seedCount":len(points),"freshBefore":len(fresh),"staleBefore":len(stale),
-        "missingBefore":max(0,len(points)-len(set(fresh)|set(stale))),"pointsDue":len(due),
+        "missingBefore":max(0,len(points)-len(fresh|stale)),"pointsDue":len(due),
         "pointsUpdated":0,"ok":not due,"processed":False,"backend":"supabase+local"}, due
 
 def _refresh_rolling_100_cache(*, force=False, max_dates=None, deadline=None):
@@ -4439,6 +4447,28 @@ def weatherapi_shadow_refresh():
     return jsonify(report), status
 
 
+def _national_refresh_interval_gate():
+    """Return (due, remaining_seconds) for scheduled refresh callers.
+
+    GitHub Actions may still be configured at the historical 15-minute cadence. V1.6.102
+    keeps those wake-ups harmless: only one expensive persistence refresh is allowed per
+    configured interval (minimum one hour). The in-process worker uses the same interval.
+    """
+    snap = _national_refresh_runtime_snapshot()
+    stamp = snap.get("lastRunFinishedAt") or snap.get("lastCheckAt")
+    if not stamp:
+        return True, 0
+    try:
+        dt = datetime.fromisoformat(str(stamp))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        age = max(0.0,(datetime.now(timezone.utc)-dt.astimezone(timezone.utc)).total_seconds())
+    except (TypeError,ValueError):
+        return True, 0
+    remaining = max(0,int(math.ceil(NATIONAL_OUTLOOK_REFRESH_INTERVAL-age)))
+    return remaining <= 0, remaining
+
+
 @app.post("/api/national-outlook/refresh-cache")
 def national_outlook_refresh_cache():
     if not NATIONAL_CACHE_REFRESH_TOKEN:
@@ -4448,14 +4478,27 @@ def national_outlook_refresh_cache():
         return jsonify(error="unauthorized"),401
     if not _national_supabase_enabled():
         return jsonify(error="Supabase national cache is not configured"),503
+    due,remaining = _national_refresh_interval_gate()
+    if not due:
+        return jsonify(ok=True,skipped=True,state="interval-not-due",
+            refreshIntervalSeconds=NATIONAL_OUTLOOK_REFRESH_INTERVAL,
+            nextEligibleInSeconds=remaining),200
+    started_iso = datetime.now(timezone.utc).isoformat()
+    _national_refresh_runtime.update(lastCheckAt=started_iso,lastRunStartedAt=started_iso,state="running",lastError=None,trigger="scheduled-endpoint")
+    _save_national_refresh_runtime()
     try:
         report = _refresh_national_persistent_cache(force=False)
+        _national_refresh_runtime.update(lastRunOk=bool(report.get("ok")),lastError=None if report.get("ok") else str(report.get("errors"))[:500],state="sleeping")
     except Exception as exc:
         app.logger.exception("national_manual_refresh_failed")
         report = {"ok":False,"state":"failed","error":type(exc).__name__,"pointsUpdated":0}
-    # V1.6.2 scheduler semantics: a recoverable partial acquisition is not a GitHub Actions
+        _national_refresh_runtime.update(lastRunOk=False,lastError=type(exc).__name__+": "+str(exc)[:200],state="error")
+    finally:
+        _national_refresh_runtime["lastRunFinishedAt"] = datetime.now(timezone.utc).isoformat()
+        _save_national_refresh_runtime()
+    # Scheduler semantics: a recoverable partial acquisition is not a GitHub Actions
     # failure. The JSON still keeps ok=false/incomplete so health monitoring can see the gap,
-    # and the next 15-minute run resumes from Supabase. Configuration/DB-write failures remain 503.
+    # and the next eligible scheduled run resumes from Supabase. Configuration/DB-write failures remain 503.
     def _recoverable_partial_refresh(r):
         if r.get("state") == "running-elsewhere":
             return False

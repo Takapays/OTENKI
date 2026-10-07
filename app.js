@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.101';
+const APP_VERSION = '1.6.102';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -7741,7 +7741,7 @@ async function hydrateNationalModelDetail(box,p,result=null){
     const r=await fetch('/api/national-outlook/detail',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date,point:{name:p.name,lat:p.lat,lon:p.lon,elevation:p.elevation}})});
     const j=await r.json(); if(!r.ok)throw new Error(j?.error||`HTTP ${r.status}`);
     if(box.querySelector('.national-rich-hero h3')?.textContent?.trim()!==p.name)return;
-    // V1.6.101: the opened-mountain live calculation remains authoritative for this
+    // V1.6.102: the opened-mountain live calculation remains authoritative for this
     // mountain. Update the map/browser snapshot immediately and persist server-side,
     // so a real A->D deterioration is surfaced instead of hidden behind an old cache.
     const reconciled=(j?.reconciled&&typeof j.reconciled==='object')?j.reconciled:reconcileNationalDetailResult(result,j);
