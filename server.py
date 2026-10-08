@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.103"
+APP_VERSION = "1.6.104"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 WEATHERAPI_KEY = os.environ.get("WEATHERAPI_KEY", "").strip()
@@ -4264,21 +4264,34 @@ def _national_fetch_shared(date_text, points, *, force_fetch=False):
             missing.append(p)
     if missing:
         fetched_at = time.time()
-        try:
-            metno,stats = _national_metno_results(date_text,missing)
-        except Exception as exc:
-            warnings.append("MET Norway unavailable")
-            app.logger.warning("national_metno_failed %s",type(exc).__name__)
-        try:
-            gfs = _national_gfs_results(date_text,missing,include_series=True)
-        except Exception as exc:
-            warnings.append("NOAA GFS unavailable")
-            app.logger.warning("national_gfs_failed %s",type(exc).__name__)
-        try:
-            jma = _openmeteo_jma_production_results(date_text,missing)
-        except Exception as exc:
-            warnings.append("JMA MSM unavailable")
-            app.logger.warning("national_jma_failed %s",type(exc).__name__)
+        # V1.6.104: MET Norway, deterministic GFS, and JMA MSM are independent
+        # base/ridge providers. Fetch them concurrently; GEFS and meteoblue remain
+        # second-stage selective fallbacks after these three have completed.
+        base_timings = {}
+        def fetch_base(kind):
+            started = time.monotonic()
+            try:
+                if kind == "metno": value = _national_metno_results(date_text,missing)
+                elif kind == "gfs": value = _national_gfs_results(date_text,missing,include_series=True)
+                else: value = _openmeteo_jma_production_results(date_text,missing)
+                return kind,value,None,round(time.monotonic()-started,2)
+            except Exception as exc:
+                return kind,None,exc,round(time.monotonic()-started,2)
+        base_started = time.monotonic()
+        with ThreadPoolExecutor(max_workers=3,thread_name_prefix="traten-national-base") as ex:
+            futures=[ex.submit(fetch_base,k) for k in ("metno","gfs","jma")]
+            for fut in as_completed(futures):
+                kind,value,exc,elapsed=fut.result(); base_timings[kind]=elapsed
+                if exc is not None:
+                    label={"metno":"MET Norway","gfs":"NOAA GFS","jma":"JMA MSM"}[kind]
+                    warnings.append(label+" unavailable")
+                    app.logger.warning("national_%s_failed %s",kind,type(exc).__name__)
+                    continue
+                if kind == "metno": metno,stats=value
+                elif kind == "gfs": gfs=value
+                else: jma=value
+        app.logger.info("national_base_parallel date=%s points=%s metno=%.2fs gfs=%.2fs jma=%.2fs total=%.2fs",
+            date_text,len(missing),base_timings.get("metno",0.0),base_timings.get("gfs",0.0),base_timings.get("jma",0.0),time.monotonic()-base_started)
         # GEFS is last-resort only: request it for mountains where neither JMA nor
         # deterministic GFS provides usable ridge series. This keeps NOAA load bounded.
         gefs_points=[]

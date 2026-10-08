@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.103';
+const APP_VERSION = '1.6.104';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -190,7 +190,7 @@ function showRenderMigrationNotice(){
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',showRenderMigrationNotice,{once:true});
 else showRenderMigrationNotice();
 
-// V1.6.103: temporary nationwide-cache maintenance notice.
+// V1.6.104: temporary nationwide-cache maintenance notice.
 // Uses Japan time explicitly and disappears automatically after 2026-11-07 JST.
 function showTemporaryMaintenanceNotice(){
   const host=window.location.hostname;
@@ -207,7 +207,7 @@ function showTemporaryMaintenanceNotice(){
   const title=document.createElement('strong');
   title.textContent='お知らせ';
   const detail=document.createElement('span');
-  detail.textContent='　11/7まで全国分析キャッシュはメンテ中です。最新情報を取得で分析は可能です。';
+  detail.textContent='　11/7まで全国分析キャッシュはメンテ中です。「最新情報を取り込み」ボタンで分析は可能です。';
   notice.append(title,detail);
   document.body.insertBefore(notice,document.body.firstChild);
 }
@@ -7949,6 +7949,33 @@ async function loadNationalOutlookSharedCacheOnly({silentMiss=false}={}){
   }
 }
 
+// V1.6.104: prioritize the nationwide manual refresh by usefulness instead of
+// catalog latitude. Groups 1-3 are curated; group 4 is the remaining 百名山 in its
+// stable catalog order. Each group is 25 mountains for progressive display.
+const NATIONAL_OUTLOOK_PRIORITY_GROUPS=Object.freeze([
+  Object.freeze([
+    '槍ヶ岳','奥穂高岳','剱岳','立山','白馬岳','薬師岳','木曽駒ヶ岳','御嶽','北岳','甲斐駒ヶ岳',
+    '富士山','八ヶ岳（赤岳）','谷川岳','茶臼岳（那須岳）','奥白根山','利尻山','大雪山（旭岳）','岩木山','岩手山','鳥海山','月山','白山','大山（鳥取）','石鎚山','久住山'
+  ]),
+  Object.freeze([
+    '鹿島槍ヶ岳','五竜岳','常念岳','乗鞍岳','焼岳','水晶岳（黒岳）','鷲羽岳','仙丈ヶ岳','間ノ岳','赤石岳','聖岳','美ヶ原','霧ヶ峰（車山）','蓼科山','浅間山','筑波山','丹沢山','雲取山','金峰山','瑞牆山','大菩薩嶺','赤城山（黒檜山）','磐梯山','安達太良山','阿蘇山（高岳）'
+  ]),
+  Object.freeze([
+    '羅臼岳','斜里岳','トムラウシ山','十勝岳','後方羊蹄山','八甲田山','八幡平','早池峰山','大朝日岳','蔵王山（熊野岳）','飯豊山','会津駒ヶ岳','越後駒ヶ岳','燧ヶ岳','至仏山','妙高山','火打山','苗場山','武尊山','四阿山','甲武信ヶ岳','空木岳','塩見岳','荒川岳','霧島山（韓国岳）'
+  ])
+]);
+const NATIONAL_OUTLOOK_PRIORITY_ORDER=Object.freeze(NATIONAL_OUTLOOK_PRIORITY_GROUPS.flat());
+function nationalOutlookPriorityPoints(points){
+  const rank=new Map(NATIONAL_OUTLOOK_PRIORITY_ORDER.map((name,i)=>[name,i]));
+  return points.map((p,i)=>({p,i,r:rank.has(p.name)?rank.get(p.name):NATIONAL_OUTLOOK_PRIORITY_ORDER.length+i}))
+    .sort((a,b)=>a.r-b.r||a.i-b.i).map(x=>x.p);
+}
+function nationalOutlookRefreshBatches(points,size=25){
+  const ordered=nationalOutlookPriorityPoints(points), out=[];
+  for(let i=0;i<ordered.length;i+=size)out.push(ordered.slice(i,i+size));
+  return out;
+}
+
 async function runNationalOutlook(){
   const date=$('nationalOutlookDate')?.value, status=$('nationalOutlookStatus'), btn=$('nationalOutlookRun');
   if(!date){if(status)status.textContent='日付を選択してください。';return;}
@@ -7957,30 +7984,63 @@ async function runNationalOutlook(){
   if(!eligible.length){if(status)status.textContent='表示する山の区分を1つ以上選択してください。';return;}
   if(btn)btn.disabled=true;
   const browserCached=readNationalOutlookBrowserCache(date);
-  // V1.6.89: paint the authoritative shared cache first, then refresh behind it.
-  // This keeps a partial/stale day visible immediately instead of blanking the map
-  // while one or a few missing rows are fetched.
+  // Keep the shared snapshot visible while the latest-data batches replace it.
   const sharedPainted=await loadNationalOutlookSharedCacheOnly({silentMiss:true});
   if(!sharedPainted){
     nationalOutlookResults=new Map();
     renderNationalOutlookMarkers();
   }
+  const batches=nationalOutlookRefreshBatches(eligible,25);
   if(status)status.textContent=sharedPainted
-    ? '保存済みの全国分析を表示中… 全山を最新データで再取得しています。'
-    : '全国の最新データを取得中… 気温はMET主軸、風・雨はMET/GFSの要素別統合で判定します。';
-  const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),180000);
+    ? `保存済みの全国分析を表示中… 主要山から25座ずつ最新データを取り込んでいます（0/${eligible.length}座）。`
+    : `全国の最新データを主要山から25座ずつ取得中…（0/${eligible.length}座）`;
+  let finalData=null;
+  let completedRefresh=0;
+  let totalNewlyFetched=0;
+  const refreshWarnings=[];
   try{
-    const res=await fetch('/api/national-outlook',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date,points:eligible,forceRefresh:true}),signal:controller.signal});
-    const data=await res.json().catch(()=>({}));
-    if(!res.ok)throw new Error(data.error||`HTTP ${res.status}`);
-    // Server returns the merged shared cache, so replace the local map with that snapshot.
-    nationalOutlookResults=new Map((data.results||[]).map(x=>[x.name,x]));
-    renderNationalOutlookMarkers();
+    for(let i=0;i<batches.length;i++){
+      const batch=batches[i];
+      const controller=new AbortController();
+      const timer=setTimeout(()=>controller.abort(),180000);
+      let data;
+      try{
+        const res=await fetch('/api/national-outlook',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+          date,points:batch,forceRefresh:true
+        }),signal:controller.signal});
+        data=await res.json().catch(()=>({}));
+        if(!res.ok)throw new Error(data.error||`HTTP ${res.status}`);
+      }catch(e){
+        if(completedRefresh>0){
+          refreshWarnings.push(e?.name==='AbortError'?'後続25座の取得がタイムアウトしました。':String(e?.message||e));
+          break;
+        }
+        throw e;
+      }finally{
+        clearTimeout(timer);
+      }
+      finalData=data;
+      totalNewlyFetched+=Number(data.cache?.newlyFetchedCount||0);
+      for(const p of batch)nationalOutlookResults.delete(p.name);
+      for(const row of (data.results||[]))nationalOutlookResults.set(row.name,row);
+      renderNationalOutlookMarkers();
+      const got=nationalOutlookResults.size;
+      if(got)writeNationalOutlookBrowserCache(date,[...nationalOutlookResults.values()],data.cache,data.engine);
+      completedRefresh+=batch.length;
+      const remaining=Math.max(0,eligible.length-completedRefresh);
+      if(status&&remaining>0){
+        const lead=i===0?'主要山25座の最新判定を表示しました。':'最新判定を順次表示しています。';
+        status.innerHTML=`${lead} <b>${completedRefresh}/${eligible.length}座</b> 更新済み / 残り <b>${remaining}座</b> を取得中…`;
+      }
+      if(data.rateLimited){
+        refreshWarnings.push('上流予報がレート制限中のため、残りの取得を停止しました。');
+        break;
+      }
+    }
+    if(!finalData)throw new Error('No nationwide refresh result');
+    const data=finalData;
     const counts={A:0,B:0,C:0,D:0,E:0};for(const r of nationalOutlookResults.values())if(counts[r.grade]!=null)counts[r.grade]++;
     const got=nationalOutlookResults.size;
-    // V1.4.124: save partial results too. The next run can show them instantly and fill only missing mountains.
-    if(got)writeNationalOutlookBrowserCache(date,[...nationalOutlookResults.values()],data.cache,data.engine);
     const state=String(data.cache?.state||'');
     const missing=Math.max(0,points.length-got);
     const rateLimited=!!data.rateLimited;
@@ -7990,36 +8050,20 @@ async function runNationalOutlook(){
         : '共有キャッシュがまだ生成されておらず、上流予報も一時的に取得できませんでした。少し時間をおいて、もう一度「最新情報取り込み」をお試しください。';
       if(status)status.innerHTML=`<strong>予報データを一時的に取得できませんでした</strong><br><span>${msg}</span>`;
     }else{
-      let lead='判定完了';
-      if(state.includes('stale'))lead='保存済みの最新結果を表示';
-      else if(state==='supabase-fresh')lead='永続共有キャッシュから即時表示';
-      else if(state==='shared-fresh')lead='共有キャッシュから即時表示';
-      else if(state==='partial-completed')lead='保存済み結果に不足分を追加して判定完了';
-      else if(state==='partial-updated')lead='保存済み結果を利用して一部更新';
-      else if(state==='shared-partial-refreshing')lead='保存済み結果を表示（不足分を更新中）';
-      else if(state==='live-generated')lead='判定完了・共有キャッシュを保存';
-      else if(state==='partial')lead='一部の山を判定しました';
+      const allRefreshed=completedRefresh>=eligible.length&&!refreshWarnings.length;
+      let lead=allRefreshed?'判定完了':'主要山から最新判定を更新';
+      if(state.includes('stale')&&!completedRefresh)lead='保存済みの最新結果を表示';
       let note='';
-      const cachedCount=Number(data.cache?.cachedCount||0), newlyFetched=Number(data.cache?.newlyFetchedCount||0), staleFallback=Number(data.cache?.staleFallbackCount||0);
-      note+=`<br><span class="national-cache-stats">共有キャッシュ <b>${cachedCount}座</b> / 新規取得 <b>${newlyFetched}座</b>${staleFallback?` / 保存済み予報で補完 <b>${staleFallback}座</b>`:''}</span>`;
-      const ageSec=Number(data.cache?.oldestAgeSeconds ?? data.cache?.ageSeconds);
-      const avgAgeSec=Number(data.cache?.averageAgeSeconds);
-      const freshCount=Number(data.cache?.freshCount);
-      const cacheTotal=Number(data.cache?.totalCount||points.length);
-      if(Number.isFinite(ageSec)){
-        const oldestMin=Math.max(0,Math.round(ageSec/60));
-        const avgText=Number.isFinite(avgAgeSec)?` / 平均 約${Math.max(0,Math.round(avgAgeSec/60))}分`:'';
-        const freshText=Number.isFinite(freshCount)&&cacheTotal>0?`キャッシュ鮮度 <b>${Math.max(0,Math.round(freshCount))}/${Math.max(0,Math.round(cacheTotal))}座</b>${avgText}`:`キャッシュ${avgText}`;
-        note+=`<br><small class="national-cache-help">${freshText} / 最古 約${oldestMin}分 / TTL 240分${data.cache?.cacheHit?'（キャッシュヒット）':''}</small>`;
-      }else{
-        note+=`<br><small class="national-cache-help">先行保存対象は翌日〜7日先を共有キャッシュへ保存し、各結果は4時間TTLで更新します。キャッシュがない対象は全国判定に1〜2分程度かかることがあります。</small>`;
-      }
+      const cachedCount=Number(data.cache?.cachedCount||0), staleFallback=Number(data.cache?.staleFallbackCount||0);
+      note+=`<br><span class="national-cache-stats">共有キャッシュ <b>${cachedCount}座</b> / 今回の最新取得 <b>${totalNewlyFetched}座</b>${staleFallback?` / 保存済み予報で補完 <b>${staleFallback}座</b>`:''}</span>`;
+      note+=`<br><small class="national-cache-help">25座ごとに最新モデルを取得して地図へ反映しています。共有キャッシュの鮮度・年齢は初期表示時に確認できます。</small>`;
       const dualCount=Number(data.dualModelCount||0);
       const mbFetchedCount=Number(data.meteoblueFetchedCount||0), mbUsedCount=Number(data.meteoblueUsedCount||0);
       const metnoOnly=Number(data.metnoOnlyCount||0), gfsOnly=Number(data.gfsOnlyCount||0);
       if(dualCount>0)note+=`<br><small>気温はMET主軸、風・雨はMET/GFSを基本統合し、必要時のみmeteoblueで仲裁。GFS突風は判定から除外（MET+GFS ${dualCount}座 / meteoblue取得 ${mbFetchedCount}座 / 実際に仲裁・補完 ${mbUsedCount}座）。</small>`;
       if(metnoOnly||gfsOnly)note+=`<br><small>片方のみ取得：MET Norway ${metnoOnly}座 / NOAA GFS ${gfsOnly}座。</small>`;
-      if(data.warning)note+=`<br><small>${esc(String(data.warning))}</small>`;
+      const warnings=[data.warning,...refreshWarnings].filter(Boolean);
+      if(warnings.length)note+=`<br><small>${esc(warnings.join(' / '))}</small>`;
       if(status)status.innerHTML=`${lead}：<b>A ${counts.A}座</b> / <b>B ${counts.B}座</b> / <b>C ${counts.C}座</b> / <b>D ${counts.D}座</b> / <b>E ${counts.E}座</b>${missing?` / 未取得 ${missing}座`:''}${note}`;
     }
   }catch(e){
@@ -8033,13 +8077,12 @@ async function runNationalOutlook(){
         return;
       }
     }
-    const msg=e?.name==='AbortError'?'全国共有キャッシュの生成がタイムアウトしました。少し時間をおいて再度お試しください。':(e.message||e);
     if(status)status.innerHTML=`<strong>全国判定を実行できませんでした</strong><br><span>${e?.name==='AbortError'?'処理に時間がかかっています。少し時間をおいて、もう一度お試しください。':'予報データを取得できませんでした。少し時間をおいて、もう一度お試しください。'}</span>`;
   }finally{
-    clearTimeout(timer);
     if(btn)btn.disabled=false;
   }
 }
+
 // V1.4.208: external libraries must never block the initial planner screen.
 // Load Leaflet only after the app shell is interactive. If the CDN is unreachable,
 // the planner continues to work and only map rendering falls back to the point list.
