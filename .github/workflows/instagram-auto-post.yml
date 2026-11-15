@@ -1,0 +1,50 @@
+name: Instagram auto post
+
+on:
+  schedule:
+    # 12:10 JST every day. GitHub Actions cron uses UTC.
+    - cron: '10 3 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: traten-instagram-auto-post
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Start dedicated Instagram job
+        env:
+          CACHE_TOKEN: ${{ secrets.NATIONAL_CACHE_REFRESH_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$CACHE_TOKEN" || { echo "NATIONAL_CACHE_REFRESH_TOKEN secret is missing"; exit 1; }
+          curl --fail-with-body --silent --show-error --max-time 60 \
+            -X POST \
+            -H "X-Traten-Cache-Token: $CACHE_TOKEN" \
+            https://otenki.onrender.com/api/instagram/auto-post-start
+
+      - name: Poll until posting completes
+        env:
+          CACHE_TOKEN: ${{ secrets.NATIONAL_CACHE_REFRESH_TOKEN }}
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 100); do
+            sleep 15
+            BODY="$(curl --fail-with-body --silent --show-error --max-time 60 \
+              -H "X-Traten-Cache-Token: $CACHE_TOKEN" \
+              https://otenki.onrender.com/api/instagram/auto-post-status)"
+            echo "$BODY"
+            export BODY
+            STATE="$(python3 -c 'import json,os; j=json.loads(os.environ["BODY"]); print("running" if not j.get("done") else ("ok" if j.get("ok") else "failed"))')"
+            if [ "$STATE" = "ok" ]; then
+              exit 0
+            fi
+            if [ "$STATE" = "failed" ]; then
+              exit 1
+            fi
+          done
+          echo "Instagram auto-post job timed out"
+          exit 1
