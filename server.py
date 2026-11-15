@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.109"
+APP_VERSION = "1.6.110"
 
 
 def _instagram_normalize_access_token(raw: Any) -> str:
@@ -95,6 +95,128 @@ def _instagram_sync_access_token() -> dict[str, Any]:
 
 # Synchronize once at process import; protected endpoints synchronize again before each Meta call.
 _INSTAGRAM_TOKEN_BOOT_SYNC = _instagram_sync_access_token()
+_instagram_graph_compat_lock = threading.Lock()
+
+
+def _instagram_uses_facebook_login_token() -> bool:
+    """System-user/Facebook login tokens are EAA... and belong on graph.facebook.com."""
+    token = _instagram_normalize_access_token(os.environ.get("INSTAGRAM_ACCESS_TOKEN", ""))
+    return token.upper().startswith("EAA")
+
+
+def _instagram_rewrite_graph_url(value: str) -> str:
+    text = str(value or "")
+    if _instagram_uses_facebook_login_token():
+        text = text.replace("https://graph.instagram.com/", "https://graph.facebook.com/")
+        text = text.replace("http://graph.instagram.com/", "https://graph.facebook.com/")
+    return text
+
+
+def _instagram_compat_urlopen(target, *args, **kwargs):
+    """Rewrite only instagram_bot Graph calls when an EAA Facebook/System User token is used."""
+    if isinstance(target, urllib.request.Request):
+        old_url = target.full_url
+        new_url = _instagram_rewrite_graph_url(old_url)
+        if new_url != old_url:
+            target = urllib.request.Request(
+                new_url,
+                data=target.data,
+                headers=dict(target.header_items()),
+                method=target.get_method(),
+            )
+    elif isinstance(target, str):
+        target = _instagram_rewrite_graph_url(target)
+    return urllib.request.urlopen(target, *args, **kwargs)
+
+
+class _InstagramRequestProxy:
+    def __getattr__(self, name):
+        return getattr(urllib.request, name)
+
+    def Request(self, url, *args, **kwargs):
+        return urllib.request.Request(_instagram_rewrite_graph_url(url), *args, **kwargs)
+
+    def urlopen(self, target, *args, **kwargs):
+        return _instagram_compat_urlopen(target, *args, **kwargs)
+
+
+class _InstagramUrllibProxy:
+    request = _InstagramRequestProxy()
+    parse = urllib.parse
+    error = urllib.error
+
+    def __getattr__(self, name):
+        import urllib as _urllib_pkg
+        return getattr(_urllib_pkg, name)
+
+
+def _instagram_graph_compat_call(func, *args, **kwargs):
+    """Run legacy instagram_bot calls on the correct host for Facebook Login/System User tokens.
+
+    Old bot revisions may target graph.instagram.com. That host is for the Instagram-login
+    token family, while this app uses instagram_basic / instagram_content_publish with an
+    EAA... Facebook System User token. Meta requires graph.facebook.com for that flow.
+    """
+    _instagram_sync_access_token()
+    if not _instagram_uses_facebook_login_token():
+        return func(*args, **kwargs)
+    with _instagram_graph_compat_lock:
+        restore = {}
+        # Patch common module-level URL/base constants without assuming their exact names.
+        for name, value in list(vars(instagram_bot).items()):
+            if isinstance(value, str) and "graph.instagram.com" in value:
+                restore[name] = value
+                setattr(instagram_bot, name, _instagram_rewrite_graph_url(value))
+        # Support both `import urllib` and `from urllib.request import ...` styles.
+        if hasattr(instagram_bot, "urllib"):
+            restore["urllib"] = getattr(instagram_bot, "urllib")
+            setattr(instagram_bot, "urllib", _InstagramUrllibProxy())
+        if hasattr(instagram_bot, "urlopen"):
+            restore["urlopen"] = getattr(instagram_bot, "urlopen")
+            setattr(instagram_bot, "urlopen", _instagram_compat_urlopen)
+        if hasattr(instagram_bot, "Request"):
+            restore["Request"] = getattr(instagram_bot, "Request")
+            setattr(instagram_bot, "Request", _InstagramRequestProxy().Request)
+        try:
+            return func(*args, **kwargs)
+        finally:
+            for name, value in restore.items():
+                setattr(instagram_bot, name, value)
+
+
+def _instagram_direct_account_probe() -> dict[str, Any]:
+    token = _instagram_normalize_access_token(os.environ.get("INSTAGRAM_ACCESS_TOKEN", ""))
+    ig_user_id = str(os.environ.get("INSTAGRAM_USER_ID", "") or getattr(instagram_bot, "INSTAGRAM_USER_ID", "")).strip()
+    version = str(os.environ.get("INSTAGRAM_GRAPH_API_VERSION", "") or getattr(instagram_bot, "INSTAGRAM_GRAPH_API_VERSION", "v24.0")).strip() or "v24.0"
+    result: dict[str, Any] = {
+        "attempted": False,
+        "ok": False,
+        "graphHost": "graph.facebook.com" if _instagram_uses_facebook_login_token() else "graph.instagram.com",
+        "graphApiVersion": version,
+        "instagramUserIdPresent": bool(ig_user_id),
+    }
+    if not token or not ig_user_id:
+        result["error"] = "INSTAGRAM_ACCESS_TOKEN or INSTAGRAM_USER_ID is missing"
+        return result
+    result["attempted"] = True
+    host = result["graphHost"]
+    params = urllib.parse.urlencode({"fields":"id,username","access_token":token})
+    url = f"https://{host}/{version}/{urllib.parse.quote(ig_user_id, safe='')}?{params}"
+    req = urllib.request.Request(url, headers={"Accept":"application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        result.update(ok=True, httpStatus=int(getattr(resp,"status",200) or 200), id=str(data.get("id") or ""), username=str(data.get("username") or ""))
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")[:1200]
+        try:
+            err = json.loads(body)
+        except Exception:
+            err = {"raw":body[:500]}
+        result.update(httpStatus=int(exc.code), error=err)
+    except Exception as exc:
+        result["error"] = {"type":type(exc).__name__,"message":str(exc)[:500]}
+    return result
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 WEATHERAPI_KEY = os.environ.get("WEATHERAPI_KEY", "").strip()
@@ -1866,8 +1988,12 @@ def _instagram_maybe_post_after_refresh():
     if key is None:
         return {"ok":True,"skipped":True,"reason":"posting-in-progress"}
     try:
-        return instagram_bot.maybe_post_tomorrow(now_jst=datetime.now(timezone.utc)+timedelta(hours=9),
-            load_results=_instagram_load_fresh_100_results, load_reel_detail=_instagram_load_yarigatake_detail)
+        return _instagram_graph_compat_call(
+            instagram_bot.maybe_post_tomorrow,
+            now_jst=datetime.now(timezone.utc)+timedelta(hours=9),
+            load_results=_instagram_load_fresh_100_results,
+            load_reel_detail=_instagram_load_yarigatake_detail,
+        )
     except Exception as exc:
         app.logger.exception("instagram_auto_post_failed")
         return {"ok":False,"error":type(exc).__name__}
@@ -1881,7 +2007,12 @@ def _instagram_post_with_lock(date_text, rows, *, force=False, load_carousel_res
         return {"ok":False,"skipped":True,"reason":"posting-in-progress"}
     try:
         carousel_loader = load_carousel_results or _instagram_carousel_result_loader(date_text)
-        return instagram_bot.post_national(date_text,rows,force=force,load_reel_detail=_instagram_load_yarigatake_detail,load_carousel_results=carousel_loader)
+        return _instagram_graph_compat_call(
+            instagram_bot.post_national,
+            date_text, rows, force=force,
+            load_reel_detail=_instagram_load_yarigatake_detail,
+            load_carousel_results=carousel_loader,
+        )
     finally:
         _national_close_lock(key)
 
@@ -4657,7 +4788,7 @@ video{display:block;width:min(100%,540px);height:auto;max-height:76vh;border-rad
 </style>
 </head><body><main class="wrap">
 <h1>トラテン Instagram 管理</h1>
-<div class="sub">V1.6.109 / 接続確認・トークン診断・カルーセル/リールプレビュー・手動投稿・自動投稿監視</div>
+<div class="sub">V1.6.110 / Facebook Graph互換・接続確認・カルーセル/リールプレビュー・手動投稿・自動投稿監視</div>
 
 <section class="card">
 <label>管理トークン（任意・Basic認証利用時は空欄でOK）</label>
@@ -5325,7 +5456,9 @@ def instagram_token_diagnostic():
         except Exception as exc:
             probe.update(error={"type":type(exc).__name__,"message":str(exc)[:300]})
     diag["directGraphProbe"] = probe
-    return jsonify(diag), 200 if probe.get("ok") else 503
+    diag["targetInstagramProbe"] = _instagram_direct_account_probe()
+    ok = bool(probe.get("ok") and diag["targetInstagramProbe"].get("ok"))
+    return jsonify(diag), 200 if ok else 503
 
 
 @app.get("/api/instagram/test-connection")
@@ -5334,7 +5467,8 @@ def instagram_test_connection():
         return jsonify(error="unauthorized"), 401
     try:
         _instagram_sync_access_token()
-        result = instagram_bot.test_connection()
+        result = _instagram_direct_account_probe()
+        result["transport"] = "direct-facebook-graph" if _instagram_uses_facebook_login_token() else "direct-instagram-graph"
         return jsonify(result), 200 if result.get("ok") else 503
     except Exception as exc:
         app.logger.exception("instagram_connection_test_failed")
