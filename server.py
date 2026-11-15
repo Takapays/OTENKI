@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.107"
+APP_VERSION = "1.6.108"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 WEATHERAPI_KEY = os.environ.get("WEATHERAPI_KEY", "").strip()
@@ -3210,7 +3210,7 @@ def _refresh_national_persistent_cache(*, force=False):
                     report["maintenanceDeferred"] = True
             finally:
                 _national_unlock(d,fp)
-        # V1.6.107: Instagram publishing remains decoupled from the nationwide
+        # V1.6.108: Instagram publishing remains decoupled from the nationwide
         # cache refresh HTTP request. A dedicated scheduler endpoint owns social posting so
         # a long cache refresh can no longer prevent the daily Instagram run from starting.
         report["instagram"] = {"ok":True,"skipped":True,"reason":"separate-scheduler-v107"}
@@ -4598,7 +4598,7 @@ video{display:block;width:min(100%,540px);height:auto;max-height:76vh;border-rad
 </style>
 </head><body><main class="wrap">
 <h1>トラテン Instagram 管理</h1>
-<div class="sub">V1.6.107 / 接続確認・カルーセル/リールプレビュー・手動投稿・自動投稿監視</div>
+<div class="sub">V1.6.108 / 接続確認・カルーセル/リールプレビュー・手動投稿・自動投稿監視</div>
 
 <section class="card">
 <label>管理トークン（任意・Basic認証利用時は空欄でOK）</label>
@@ -4797,7 +4797,7 @@ def _instagram_load_best_100_results(date_text: str, *, prefer_fresh: bool = Fal
 
 
 def _instagram_load_week_100_results(start_date_text: str) -> dict[str, list[dict[str, Any]]]:
-    """V1.6.107 carousel policy: tomorrow fresh-first with saved fallback; days 2-7 saved-first."""
+    """V1.6.108 carousel policy: tomorrow fresh-first with saved fallback; days 2-7 saved-first."""
     start = datetime.strptime(start_date_text, "%Y-%m-%d").date()
     week: dict[str, list[dict[str, Any]]] = {}
     for i in range(7):
@@ -4809,7 +4809,7 @@ def _instagram_load_week_100_results(start_date_text: str) -> dict[str, list[dic
 def _instagram_fill_100_results_for_use(date_text: str, *, require_fresh: bool, progress_callback=None) -> list[dict[str, Any]]:
     """Fill only the cache rows Instagram actually needs, coordinating with the rolling refresher.
 
-    V1.6.107 changes the same-date lock collision from an immediate failure into a follower:
+    V1.6.108 changes the same-date lock collision from an immediate failure into a follower:
     - tomorrow prefers fresh rows but accepts a complete still-valid saved set;
     - if another national refresh owns the date lock, poll Supabase and expose row progress;
     - when the lock becomes available, fill only the remaining rows in existing 25-mountain chunks.
@@ -4929,7 +4929,7 @@ def _instagram_prepare_week_100_results_for_preview(start_date_text: str, progre
 
 
 def _instagram_carousel_result_loader(start_date_text: str, prepared_week: dict[str, list[dict[str, Any]]] | None = None):
-    """Return the loader passed to instagram_bot.post_national under the V1.6.107 policy."""
+    """Return the loader passed to instagram_bot.post_national under the V1.6.108 policy."""
     def load(date_text: str) -> list[dict[str, Any]]:
         if prepared_week and date_text in prepared_week:
             return prepared_week[date_text]
@@ -5362,11 +5362,22 @@ def instagram_post_national():
         datetime.strptime(date_text, "%Y-%m-%d")
     except ValueError:
         return jsonify(error="invalid date"), 400
-    rows = _instagram_load_fresh_100_results(date_text)
+    # V1.6.108: manual publish must use the exact same fresh-first/saved-fallback
+    # policy as the successful carousel preview. V1.6.107 still required a fully
+    # fresh tomorrow cache here, so a preview could succeed while manual publish
+    # immediately failed with "fresh nationwide cache is incomplete".
+    rows = _instagram_load_best_100_results(date_text, prefer_fresh=True)
     if len(rows) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
-        return jsonify(ok=False, error="fresh nationwide cache is incomplete", count=len(rows), minimum=instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS, date=date_text), 409
+        return jsonify(ok=False, error="Instagram publish cache is incomplete", count=len(rows), minimum=instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS, date=date_text), 409
+    week = _instagram_load_week_100_results(date_text)
+    incomplete = {d:len(v) for d,v in week.items() if len(v) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS}
+    if incomplete:
+        return jsonify(ok=False, error="Instagram carousel cache is incomplete", incomplete=incomplete, minimum=instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS, date=date_text), 409
     try:
-        result = _instagram_post_with_lock(date_text, rows, force=bool(payload.get("force")))
+        result = _instagram_post_with_lock(
+            date_text, rows, force=bool(payload.get("force")),
+            load_carousel_results=_instagram_carousel_result_loader(date_text, week),
+        )
         return jsonify(result), 200 if result.get("ok") else 503
     except Exception as exc:
         app.logger.exception("instagram_manual_post_failed date=%s", date_text)
