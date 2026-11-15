@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.105"
+APP_VERSION = "1.6.106"
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 WEATHERAPI_KEY = os.environ.get("WEATHERAPI_KEY", "").strip()
@@ -1540,7 +1540,7 @@ def _national_cached_snapshot(date_text, fingerprint, points):
         snap["cacheReadError"] = read_error
     return snap
 
-def _national_fetch_and_persist(date_text, points, due, initial=None, *, deadline=None, allow_scheduled_remaining=False, force_fetch=False):
+def _national_fetch_and_persist(date_text, points, due, initial=None, *, deadline=None, allow_scheduled_remaining=False, force_fetch=False, progress_callback=None):
     """Fetch due rows in checkpointed chunks and verify persistent writes.
 
     Foreground calls keep the historical all-due behavior. Scheduled/background callers may pass
@@ -1618,6 +1618,18 @@ def _national_fetch_and_persist(date_text, points, due, initial=None, *, deadlin
         if cr["error"]:
             errors.append(cr["error"])
         chunks.append(cr)
+        if progress_callback is not None:
+            try:
+                progress_callback({
+                    "start": start,
+                    "requested": len(batch),
+                    "attempted": attempted,
+                    "dueTotal": len(due),
+                    "fetched": len(fetched_names),
+                    "chunk": dict(cr),
+                })
+            except Exception as exc:
+                app.logger.warning("national_progress_callback_failed %s", type(exc).__name__)
         if limited:
             break
     snap = _national_snapshot(date_text,fp,points,list(rows.values()))
@@ -1804,12 +1816,13 @@ def _instagram_maybe_post_after_refresh():
     finally:
         _national_close_lock(key)
 
-def _instagram_post_with_lock(date_text, rows, *, force=False):
+def _instagram_post_with_lock(date_text, rows, *, force=False, load_carousel_results=None):
     key = _national_open_lock("instagram-publish")
     if key is None:
         return {"ok":False,"skipped":True,"reason":"posting-in-progress"}
     try:
-        return instagram_bot.post_national(date_text,rows,force=force,load_reel_detail=_instagram_load_yarigatake_detail,load_carousel_results=_instagram_load_fresh_100_results)
+        carousel_loader = load_carousel_results or _instagram_carousel_result_loader(date_text)
+        return instagram_bot.post_national(date_text,rows,force=force,load_reel_detail=_instagram_load_yarigatake_detail,load_carousel_results=carousel_loader)
     finally:
         _national_close_lock(key)
 
@@ -3197,10 +3210,10 @@ def _refresh_national_persistent_cache(*, force=False):
                     report["maintenanceDeferred"] = True
             finally:
                 _national_unlock(d,fp)
-        # V1.6.105: Instagram publishing is intentionally decoupled from the nationwide
+        # V1.6.106: Instagram publishing remains decoupled from the nationwide
         # cache refresh HTTP request. A dedicated scheduler endpoint owns social posting so
         # a long cache refresh can no longer prevent the daily Instagram run from starting.
-        report["instagram"] = {"ok":True,"skipped":True,"reason":"separate-scheduler-v105"}
+        report["instagram"] = {"ok":True,"skipped":True,"reason":"separate-scheduler-v106"}
         rolling_complete = bool(rolling.get("windowComplete", True))
         on_demand_complete = all(int(x.get("remainingDueAfter") or 0) == 0 for x in report["onDemandReports"])
         report["ok"] = bool(not report["errors"] and rolling_complete and on_demand_complete and not report.get("maintenanceDeferred"))
@@ -4585,7 +4598,7 @@ video{display:block;width:min(100%,540px);height:auto;max-height:76vh;border-rad
 </style>
 </head><body><main class="wrap">
 <h1>トラテン Instagram 管理</h1>
-<div class="sub">V1.6.105 / 接続確認・カルーセル/リールプレビュー・手動投稿・自動投稿監視</div>
+<div class="sub">V1.6.106 / 接続確認・カルーセル/リールプレビュー・手動投稿・自動投稿監視</div>
 
 <section class="card">
 <label>管理トークン（任意・Basic認証利用時は空欄でOK）</label>
@@ -4660,8 +4673,12 @@ async function preview(){
     for(let i=0;i<600 && !r.ready;i++){
       if(r.error)throw new Error(r.error);
       const done=Number(r.daysCompleted||0), total=Number(r.totalDays||7);
-      const pct=r.stage==='rendering'?95:Math.min(90,Math.round((done/Math.max(1,total))*90));
-      const label=r.stage==='rendering'?'画像を生成しています':`全国キャッシュを確認しています ${done}/${total}日`;
+      const mDone=Math.max(0,Number(r.mountainsCompleted||0)), mTotal=Math.max(1,Number(r.mountainsTotal||100));
+      const frac=Math.min(1,mDone/mTotal);
+      const pct=r.stage==='rendering'?95:Math.min(90,Math.round(((done+(r.stage==='cache'?frac:0))/Math.max(1,total))*90));
+      const mode=r.cacheMode==='fresh'?'明日分を最新化':(r.cacheMode==='saved'?'保存済みデータ確認':'全国キャッシュ確認');
+      const day=Number(r.dayIndex||Math.min(total,done+1));
+      const label=r.stage==='rendering'?'画像を生成しています':`${mode} ${day}/${total}日・${Math.min(mTotal,mDone)}/${mTotal}座`;
       $('previewMsg').textContent=`${label}… ${pct}%`;
       await new Promise(resolve=>setTimeout(resolve,2000));
       r=await api('/api/instagram/carousel-preview-status?date='+encodeURIComponent(d));
@@ -4719,20 +4736,70 @@ $('token').value=sessionStorage.getItem('tratenIgAdminToken')||'';
 </body></html>""", content_type="text/html; charset=utf-8")
 
 
-def _instagram_load_week_100_results(start_date_text: str) -> dict[str, list[dict[str, Any]]]:
-    start = datetime.strptime(start_date_text, "%Y-%m-%d").date()
-    return {(start + timedelta(days=i)).isoformat(): _instagram_load_fresh_100_results((start + timedelta(days=i)).isoformat()) for i in range(7)}
+def _instagram_load_100_results_from_supabase(date_text: str, *, include_stale: bool, require_minimum: bool) -> list[dict[str, Any]]:
+    """Load Instagram rows from Supabase without refreshing providers.
 
-
-def _instagram_fill_fresh_100_results_for_preview(date_text: str) -> list[dict[str, Any]]:
-    """Foreground-fill one missing Instagram preview date without relaxing freshness rules.
-
-    The rolling worker intentionally warms tomorrow onward. A carousel preview can start today,
-    so that first date may legitimately be absent even while the rolling cache is healthy. Only
-    preview generation calls this helper; posting/static signed endpoints keep their existing
-    fresh-cache requirements and never silently fall back to stale rows.
+    Fresh rows always win. When include_stale=True, rows still inside the existing
+    national stale TTL are accepted as saved forecast data. This is used only for
+    carousel days 2-7; the first/next-day page continues to require fresh rows.
     """
-    rows = _instagram_load_fresh_100_results(date_text)
+    points = _national_load_100_points()
+    if len(points) != 100 or not _national_supabase_enabled():
+        return []
+    try:
+        fresh, stale, _ = _national_supabase_read(date_text, points)
+    except RuntimeError:
+        return []
+    by_name: dict[str, dict[str, Any]] = {}
+    if include_stale:
+        by_name.update({str(k):dict(v) for k,v in stale.items() if isinstance(v,dict)})
+    by_name.update({str(k):dict(v) for k,v in fresh.items() if isinstance(v,dict)})
+    ordered = []
+    for point in points:
+        row = by_name.get(point["name"])
+        if not isinstance(row, dict):
+            continue
+        item = dict(row)
+        item["grade5"] = item.get("grade")
+        item["name"] = point["name"]
+        item["lat"] = point.get("lat")
+        item["lon"] = point.get("lon")
+        item["elevation"] = point.get("elevation")
+        ordered.append(item)
+    if require_minimum and len(ordered) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
+        return []
+    return ordered
+
+
+def _instagram_load_fresh_100_results_partial(date_text: str) -> list[dict[str, Any]]:
+    return _instagram_load_100_results_from_supabase(date_text, include_stale=False, require_minimum=False)
+
+
+def _instagram_load_saved_100_results(date_text: str) -> list[dict[str, Any]]:
+    """Load fresh + still-valid stale rows for carousel future pages without provider calls."""
+    return _instagram_load_100_results_from_supabase(date_text, include_stale=True, require_minimum=False)
+
+
+def _instagram_load_week_100_results(start_date_text: str) -> dict[str, list[dict[str, Any]]]:
+    """V1.6.106 carousel policy: first day fresh; days 2-7 may use saved rows within stale TTL."""
+    start = datetime.strptime(start_date_text, "%Y-%m-%d").date()
+    week: dict[str, list[dict[str, Any]]] = {}
+    for i in range(7):
+        d = (start + timedelta(days=i)).isoformat()
+        week[d] = _instagram_load_fresh_100_results_partial(d) if i == 0 else _instagram_load_saved_100_results(d)
+    return week
+
+
+def _instagram_fill_100_results_for_use(date_text: str, *, require_fresh: bool, progress_callback=None) -> list[dict[str, Any]]:
+    """Fill only what the Instagram use case actually needs.
+
+    First carousel day: all non-fresh rows are due, preserving an authoritative tomorrow page.
+    Days 2-7: fresh or stale-within-TTL rows are accepted; only truly missing rows are fetched.
+    Provider work remains checkpointed in the existing 25-mountain chunks, and the optional
+    callback exposes those chunk boundaries to the admin UI / dedicated auto-post status.
+    """
+    loader = _instagram_load_fresh_100_results_partial if require_fresh else _instagram_load_saved_100_results
+    rows = loader(date_text)
     if len(rows) >= instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
         return rows
     points = _national_load_100_points()
@@ -4748,56 +4815,79 @@ def _instagram_fill_fresh_100_results_for_preview(date_text: str) -> list[dict[s
 
     fp = _national_points_fingerprint(points)
     if not _national_try_lock(date_text, fp):
-        # A normal UI/scheduled refresh is already filling this date. Give its verified Supabase
-        # write a short propagation window, then return the authoritative fresh rows visible now.
         for _ in range(6):
             time.sleep(0.5)
-            rows = _instagram_load_fresh_100_results(date_text)
+            rows = loader(date_text)
             if len(rows) >= instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
                 return rows
         return rows
     try:
-        # Re-read inside the preview lock to avoid refetching rows completed by another worker.
-        rows = _instagram_load_fresh_100_results(date_text)
+        rows = loader(date_text)
         if len(rows) >= instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
             return rows
         try:
-            fresh, _, _ = _national_supabase_read(date_text, points)
+            fresh, stale, _ = _national_supabase_read(date_text, points)
         except RuntimeError:
             return rows
-        due = [p for p in points if p["name"] not in fresh]
+        available = set(fresh) if require_fresh else (set(fresh) | set(stale))
+        due = [point for point in points if point["name"] not in available]
         if not due:
-            return _instagram_load_fresh_100_results(date_text)
+            return loader(date_text)
         initial = _national_cached_snapshot(date_text, fp, points)
         _, report = _national_fetch_and_persist(
-            date_text, points, due, initial, allow_scheduled_remaining=False
+            date_text,
+            points,
+            due,
+            initial,
+            allow_scheduled_remaining=True,
+            progress_callback=progress_callback,
         )
-        if not report.get("ok"):
+        if report.get("errors"):
             app.logger.warning(
-                "instagram_carousel_preview_cache_fill_incomplete date=%s fresh=%s remaining=%s errors=%s",
+                "instagram_cache_fill_partial date=%s require_fresh=%s available=%s due=%s errors=%s",
                 date_text,
-                report.get("freshAfter"),
-                report.get("remainingDueAfter"),
+                require_fresh,
+                len(available),
+                len(due),
                 report.get("errors"),
             )
-        return _instagram_load_fresh_100_results(date_text)
+        return loader(date_text)
     except Exception as exc:
-        app.logger.exception(
-            "instagram_carousel_preview_cache_fill_failed date=%s error=%s",
-            date_text,
-            type(exc).__name__,
-        )
-        return _instagram_load_fresh_100_results(date_text)
+        app.logger.exception("instagram_cache_fill_failed date=%s error=%s", date_text, type(exc).__name__)
+        return loader(date_text)
     finally:
         _national_unlock(date_text, fp)
 
 
-def _instagram_prepare_week_100_results_for_preview(start_date_text: str) -> dict[str, list[dict[str, Any]]]:
-    week = _instagram_load_week_100_results(start_date_text)
-    for date_text, rows in list(week.items()):
+def _instagram_fill_fresh_100_results_for_preview(date_text: str, progress_callback=None) -> list[dict[str, Any]]:
+    """Compatibility wrapper: the first carousel day still requires fresh rows."""
+    return _instagram_fill_100_results_for_use(date_text, require_fresh=True, progress_callback=progress_callback)
+
+
+def _instagram_prepare_week_100_results_for_preview(start_date_text: str, progress_callback=None) -> dict[str, list[dict[str, Any]]]:
+    start = datetime.strptime(start_date_text, "%Y-%m-%d").date()
+    week: dict[str, list[dict[str, Any]]] = {}
+    for i in range(7):
+        d = (start + timedelta(days=i)).isoformat()
+        require_fresh = i == 0
+        loader = _instagram_load_fresh_100_results_partial if require_fresh else _instagram_load_saved_100_results
+        rows = loader(d)
         if len(rows) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
-            week[date_text] = _instagram_fill_fresh_100_results_for_preview(date_text)
+            rows = _instagram_fill_100_results_for_use(d, require_fresh=require_fresh, progress_callback=progress_callback)
+        week[d] = rows
     return week
+
+
+def _instagram_carousel_result_loader(start_date_text: str, prepared_week: dict[str, list[dict[str, Any]]] | None = None):
+    """Return the loader passed to instagram_bot.post_national under the V1.6.106 policy."""
+    def load(date_text: str) -> list[dict[str, Any]]:
+        if prepared_week and date_text in prepared_week:
+            return prepared_week[date_text]
+        if date_text == start_date_text:
+            return _instagram_load_fresh_100_results(date_text)
+        rows = _instagram_load_saved_100_results(date_text)
+        return rows if len(rows) >= instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS else []
+    return load
 
 
 _instagram_carousel_jobs_lock = threading.Lock()
@@ -4820,20 +4910,37 @@ def _instagram_carousel_preview_background(date_text: str) -> None:
     try:
         start = datetime.strptime(date_text, "%Y-%m-%d").date()
         week: dict[str, list[dict[str, Any]]] = {}
-        fresh_counts: dict[str, int] = {}
+        cache_counts: dict[str, int] = {}
         for i in range(7):
             d = (start + timedelta(days=i)).isoformat()
-            _instagram_carousel_job_update(date_text, stage="cache", currentDate=d, daysCompleted=i, totalDays=7)
-            rows = _instagram_load_fresh_100_results(d)
+            require_fresh = i == 0
+            mode = "fresh" if require_fresh else "saved"
+            loader = _instagram_load_fresh_100_results_partial if require_fresh else _instagram_load_saved_100_results
+            rows = loader(d)
+            before = len(rows)
+            _instagram_carousel_job_update(
+                date_text, stage="cache", currentDate=d, dayIndex=i+1, daysCompleted=i,
+                totalDays=7, cacheMode=mode, mountainsCompleted=before, mountainsTotal=100,
+            )
             if len(rows) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
-                rows = _instagram_fill_fresh_100_results_for_preview(d)
+                def progress(info, *, base=before, day=i+1, day_text=d, cache_mode=mode):
+                    completed = min(100, base + int(info.get("attempted") or 0))
+                    _instagram_carousel_job_update(
+                        date_text, stage="cache", currentDate=day_text, dayIndex=day,
+                        daysCompleted=day-1, totalDays=7, cacheMode=cache_mode,
+                        mountainsCompleted=completed, mountainsTotal=100,
+                    )
+                rows = _instagram_fill_100_results_for_use(d, require_fresh=require_fresh, progress_callback=progress)
             week[d] = rows
-            fresh_counts[d] = len(rows)
-            _instagram_carousel_job_update(date_text, daysCompleted=i+1, freshCounts=dict(fresh_counts))
+            cache_counts[d] = len(rows)
+            _instagram_carousel_job_update(
+                date_text, daysCompleted=i+1, dayIndex=i+1, cacheMode=mode,
+                mountainsCompleted=len(rows), mountainsTotal=100, cacheCounts=dict(cache_counts),
+            )
         incomplete = {d: len(rows) for d, rows in week.items() if len(rows) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS}
         if incomplete:
-            raise RuntimeError("fresh 7-day Hyakumeizan cache is incomplete: " + json.dumps(incomplete, ensure_ascii=False, separators=(",", ":")))
-        _instagram_carousel_job_update(date_text, stage="rendering", daysCompleted=7)
+            raise RuntimeError("Instagram carousel cache is incomplete: " + json.dumps(incomplete, ensure_ascii=False, separators=(",", ":")))
+        _instagram_carousel_job_update(date_text, stage="rendering", daysCompleted=7, mountainsCompleted=100, mountainsTotal=100)
         paths = instagram_bot.render_national_carousel_images(date_text, week, logo_path=os.path.join(BASE, "instagram-carousel-logo.jpg"))
         urls = list(instagram_bot.carousel_image_urls(date_text) or [])
         pages = len(urls) or len(paths or []) or int(getattr(instagram_bot, "CAROUSEL_PAGE_COUNT", 0) or 0)
@@ -4862,7 +4969,7 @@ def instagram_carousel_preview_url():
         if job.get("ready"):
             return jsonify(date=date_text, **job), 200
         if not job.get("running"):
-            job = {"running":True,"ready":False,"stage":"starting","error":None,"daysCompleted":0,"totalDays":7,"started":time.time()}
+            job = {"running":True,"ready":False,"stage":"starting","error":None,"daysCompleted":0,"totalDays":7,"dayIndex":1,"mountainsCompleted":0,"mountainsTotal":100,"started":time.time()}
             _instagram_carousel_jobs[date_text] = job
             threading.Thread(target=_instagram_carousel_preview_background,args=(date_text,),daemon=True,name=f"instagram-carousel-{date_text}").start()
     return jsonify(date=date_text, **job), 202
@@ -5003,7 +5110,7 @@ def instagram_carousel_static(date_text: str, page: int):
     week = _instagram_load_week_100_results(date_text)
     incomplete = {d: len(rows) for d, rows in week.items() if len(rows) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS}
     if incomplete:
-        return jsonify(error="fresh 7-day Hyakumeizan cache is incomplete", incomplete=incomplete), 409
+        return jsonify(error="Instagram carousel cache is incomplete", incomplete=incomplete), 409
     try:
         paths = instagram_bot.render_national_carousel_images(date_text, week, logo_path=os.path.join(BASE, "instagram-carousel-logo.jpg"))
         return send_file(paths[page-1], mimetype="image/png", conditional=True, download_name=f"traten-{date_text}-carousel-p{page}.png")
@@ -5063,6 +5170,7 @@ def instagram_status():
     status["tomorrow"] = target
     status["tomorrowFreshCount"] = len(_instagram_load_fresh_100_results(target))
     status["carouselPageCount"] = int(getattr(instagram_bot,"CAROUSEL_PAGE_COUNT",0) or 0)
+    status["carouselCachePolicy"] = "day1-fresh-days2-7-saved-within-stale-ttl"
     status["autoPostJob"] = _instagram_auto_post_job_snapshot(target)
     status["carouselPreviewJob"] = _instagram_carousel_job_snapshot(target)
     if instagram_bot.configured():
@@ -5106,22 +5214,45 @@ def _instagram_auto_post_background(date_text: str) -> None:
             result = {"ok":False,"skipped":True,"reason":"auto-post-disabled"}
             _instagram_auto_post_job_update(date_text,running=False,done=True,ok=False,stage="disabled",result=result,finished=time.time())
             return
-        # Prepare the same seven-day fresh dataset used by the current carousel publisher.
         start = datetime.strptime(date_text, "%Y-%m-%d").date()
-        fresh_counts: dict[str, int] = {}
+        week: dict[str, list[dict[str, Any]]] = {}
+        cache_counts: dict[str, int] = {}
         for i in range(7):
             d = (start + timedelta(days=i)).isoformat()
-            _instagram_auto_post_job_update(date_text,stage="cache",currentDate=d,daysCompleted=i,totalDays=7)
-            rows = _instagram_load_fresh_100_results(d)
+            require_fresh = i == 0
+            mode = "fresh" if require_fresh else "saved"
+            loader = _instagram_load_fresh_100_results_partial if require_fresh else _instagram_load_saved_100_results
+            rows = loader(d)
+            before = len(rows)
+            _instagram_auto_post_job_update(
+                date_text,stage="cache",currentDate=d,dayIndex=i+1,daysCompleted=i,totalDays=7,
+                cacheMode=mode,mountainsCompleted=before,mountainsTotal=100,
+            )
             if len(rows) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
-                rows = _instagram_fill_fresh_100_results_for_preview(d)
-            fresh_counts[d] = len(rows)
-            _instagram_auto_post_job_update(date_text,daysCompleted=i+1,freshCounts=dict(fresh_counts))
-        incomplete = {d:c for d,c in fresh_counts.items() if c < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS}
+                def progress(info, *, base=before, day=i+1, day_text=d, cache_mode=mode):
+                    completed = min(100, base + int(info.get("attempted") or 0))
+                    _instagram_auto_post_job_update(
+                        date_text,stage="cache",currentDate=day_text,dayIndex=day,daysCompleted=day-1,totalDays=7,
+                        cacheMode=cache_mode,mountainsCompleted=completed,mountainsTotal=100,
+                    )
+                rows = _instagram_fill_100_results_for_use(d, require_fresh=require_fresh, progress_callback=progress)
+            week[d] = rows
+            cache_counts[d] = len(rows)
+            _instagram_auto_post_job_update(
+                date_text,daysCompleted=i+1,dayIndex=i+1,cacheMode=mode,
+                mountainsCompleted=len(rows),mountainsTotal=100,cacheCounts=dict(cache_counts),
+            )
+        incomplete = {d:len(rows) for d,rows in week.items() if len(rows) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS}
         if incomplete:
-            raise RuntimeError("fresh 7-day Hyakumeizan cache is incomplete: " + json.dumps(incomplete,ensure_ascii=False,separators=(",", ":")))
-        _instagram_auto_post_job_update(date_text,stage="publishing",daysCompleted=7)
-        result = _instagram_maybe_post_after_refresh()
+            raise RuntimeError("Instagram carousel cache is incomplete: " + json.dumps(incomplete,ensure_ascii=False,separators=(",", ":")))
+        tomorrow_rows = week.get(date_text) or []
+        _instagram_auto_post_job_update(date_text,stage="publishing",daysCompleted=7,mountainsCompleted=100,mountainsTotal=100)
+        result = _instagram_post_with_lock(
+            date_text,
+            tomorrow_rows,
+            force=False,
+            load_carousel_results=_instagram_carousel_result_loader(date_text, week),
+        )
         ok = bool(result.get("ok")) and result.get("reason") != "auto-post-disabled"
         _instagram_auto_post_job_update(date_text,running=False,done=True,ok=ok,stage="done" if ok else "publish-error",result=result,finished=time.time())
     except Exception as exc:
@@ -5149,7 +5280,7 @@ def instagram_auto_post_start():
         # A completed success is safe to return; remote deduplication remains the final authority.
         if job.get("done") and job.get("ok"):
             return jsonify(date=date_text,**job), 200
-        job = {"running":True,"done":False,"ok":None,"stage":"starting","error":None,"daysCompleted":0,"totalDays":7,"started":time.time()}
+        job = {"running":True,"done":False,"ok":None,"stage":"starting","error":None,"daysCompleted":0,"totalDays":7,"dayIndex":1,"mountainsCompleted":0,"mountainsTotal":100,"started":time.time()}
         _instagram_auto_post_jobs[date_text] = job
         threading.Thread(target=_instagram_auto_post_background,args=(date_text,),daemon=True,name=f"instagram-auto-post-{date_text}").start()
     return jsonify(date=date_text,**job), 202
