@@ -36,7 +36,65 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.108"
+APP_VERSION = "1.6.109"
+
+
+def _instagram_normalize_access_token(raw: Any) -> str:
+    """Normalize the Render secret without logging or exposing the full token."""
+    token = "" if raw is None else str(raw)
+    token = token.strip().replace("\ufeff", "").replace("\u200b", "")
+    if len(token) >= 2 and token[0] == token[-1] and token[0] in {"'", '"'}:
+        token = token[1:-1].strip()
+    low = token.lower()
+    if low.startswith("bearer "):
+        token = token[7:].strip()
+    if token.lower().startswith("access_token="):
+        token = token.split("=", 1)[1].strip()
+    # Meta access tokens never require whitespace; remove accidental pasted CR/LF/tabs/spaces.
+    token = "".join(token.split())
+    return token
+
+
+def _instagram_token_meta(value: Any) -> dict[str, Any]:
+    raw = "" if value is None else str(value)
+    normalized = _instagram_normalize_access_token(raw)
+    return {
+        "present": bool(raw),
+        "rawLength": len(raw),
+        "normalizedLength": len(normalized),
+        "prefix4": normalized[:4] if normalized else "",
+        "suffix4": normalized[-4:] if normalized else "",
+        "sha256_12": hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:12] if normalized else "",
+        "containsWhitespace": any(ch.isspace() for ch in raw),
+        "normalizedChanged": normalized != raw,
+    }
+
+
+def _instagram_sync_access_token() -> dict[str, Any]:
+    """Make instagram_bot use the current Render secret even if the module cached an older value."""
+    raw = os.environ.get("INSTAGRAM_ACCESS_TOKEN", "")
+    normalized = _instagram_normalize_access_token(raw)
+    patched = []
+    candidates = {}
+    for name in ("INSTAGRAM_ACCESS_TOKEN", "GRAPH_ACCESS_TOKEN", "ACCESS_TOKEN"):
+        if not hasattr(instagram_bot, name):
+            continue
+        current = getattr(instagram_bot, name)
+        if isinstance(current, str):
+            candidates[name] = _instagram_token_meta(current)
+            if normalized and current != normalized:
+                setattr(instagram_bot, name, normalized)
+                patched.append(name)
+    return {
+        "environment": _instagram_token_meta(raw),
+        "moduleCandidatesBeforeSync": candidates,
+        "patchedModuleAttributes": patched,
+        "normalizedTokenPresent": bool(normalized),
+    }
+
+
+# Synchronize once at process import; protected endpoints synchronize again before each Meta call.
+_INSTAGRAM_TOKEN_BOOT_SYNC = _instagram_sync_access_token()
 PORT = int(os.environ.get("PORT", "8000"))
 METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 WEATHERAPI_KEY = os.environ.get("WEATHERAPI_KEY", "").strip()
@@ -1817,6 +1875,7 @@ def _instagram_maybe_post_after_refresh():
         _national_close_lock(key)
 
 def _instagram_post_with_lock(date_text, rows, *, force=False, load_carousel_results=None):
+    _instagram_sync_access_token()
     key = _national_open_lock("instagram-publish")
     if key is None:
         return {"ok":False,"skipped":True,"reason":"posting-in-progress"}
@@ -4598,7 +4657,7 @@ video{display:block;width:min(100%,540px);height:auto;max-height:76vh;border-rad
 </style>
 </head><body><main class="wrap">
 <h1>トラテン Instagram 管理</h1>
-<div class="sub">V1.6.108 / 接続確認・カルーセル/リールプレビュー・手動投稿・自動投稿監視</div>
+<div class="sub">V1.6.109 / 接続確認・トークン診断・カルーセル/リールプレビュー・手動投稿・自動投稿監視</div>
 
 <section class="card">
 <label>管理トークン（任意・Basic認証利用時は空欄でOK）</label>
@@ -4611,6 +4670,7 @@ video{display:block;width:min(100%,540px);height:auto;max-height:76vh;border-rad
 <section class="card">
 <h2>1. 状態・接続確認</h2>
 <button onclick="loadStatus()">状態確認</button>
+<button onclick="tokenDiagnostic()">トークン診断</button>
 <button onclick="testConnection()">Instagram接続確認</button>
 <div id="summary" style="margin:10px 0"></div>
 <div id="out" class="status">未確認</div>
@@ -4658,6 +4718,10 @@ async function loadStatus(){
     const j=await api('/api/instagram/status');show('out',j);$('date').value=j.tomorrow||'';
     $('summary').innerHTML=`<span class="pill">configured: ${j.configured}</span><span class="pill">autoPost: ${j.autoPost}</span><span class="pill">autoMedia: ${j.autoMedia}</span><span class="pill">fresh: ${j.tomorrowFreshCount}</span>`;
   }catch(e){$('out').textContent=e.message}
+}
+async function tokenDiagnostic(){
+  try{show('out',await api('/api/instagram/token-diagnostic'))}
+  catch(e){$('out').textContent=e.message}
 }
 async function testConnection(){
   try{show('out',await api('/api/instagram/test-connection'))}
@@ -5216,7 +5280,9 @@ def instagram_national_reel(date_text: str):
 def instagram_status():
     if not _instagram_admin_authorized():
         return jsonify(error="unauthorized"), 401
+    token_sync = _instagram_sync_access_token()
     status = instagram_bot.status()
+    status["accessTokenDiagnostic"] = token_sync
     target = _national_nextday_date_text()
     status["tomorrow"] = target
     status["tomorrowFreshCount"] = len(_instagram_load_fresh_100_results(target))
@@ -5231,11 +5297,43 @@ def instagram_status():
     return jsonify(status)
 
 
+@app.get("/api/instagram/token-diagnostic")
+def instagram_token_diagnostic():
+    if not _instagram_admin_authorized():
+        return jsonify(error="unauthorized"), 401
+    diag = _instagram_sync_access_token()
+    token = _instagram_normalize_access_token(os.environ.get("INSTAGRAM_ACCESS_TOKEN", ""))
+    version = str(os.environ.get("INSTAGRAM_GRAPH_API_VERSION", "") or getattr(instagram_bot, "INSTAGRAM_GRAPH_API_VERSION", "")).strip()
+    base = "https://graph.facebook.com"
+    url = f"{base}/{version}/me" if version else f"{base}/me"
+    probe = {"attempted": False, "ok": False, "graphApiVersion": version or "default"}
+    if token:
+        probe["attempted"] = True
+        params = urllib.parse.urlencode({"fields":"id,name","access_token":token})
+        req = urllib.request.Request(url + "?" + params, headers={"Accept":"application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            probe.update(ok=True, httpStatus=int(getattr(resp,"status",200) or 200), id=str(data.get("id") or ""), name=str(data.get("name") or ""))
+        except urllib.error.HTTPError as exc:
+            body = exc.read().decode("utf-8", errors="replace")[:800]
+            try:
+                err = json.loads(body)
+            except Exception:
+                err = {"raw": body[:300]}
+            probe.update(httpStatus=int(exc.code), error=err)
+        except Exception as exc:
+            probe.update(error={"type":type(exc).__name__,"message":str(exc)[:300]})
+    diag["directGraphProbe"] = probe
+    return jsonify(diag), 200 if probe.get("ok") else 503
+
+
 @app.get("/api/instagram/test-connection")
 def instagram_test_connection():
     if not _instagram_admin_authorized():
         return jsonify(error="unauthorized"), 401
     try:
+        _instagram_sync_access_token()
         result = instagram_bot.test_connection()
         return jsonify(result), 200 if result.get("ok") else 503
     except Exception as exc:
