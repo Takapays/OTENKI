@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.110"
+APP_VERSION = "1.6.111"
 
 
 def _instagram_normalize_access_token(raw: Any) -> str:
@@ -5493,10 +5493,6 @@ def _instagram_auto_post_job_snapshot(date_text: str) -> dict[str, Any]:
 
 def _instagram_auto_post_background(date_text: str) -> None:
     try:
-        if not instagram_bot.INSTAGRAM_AUTO_POST:
-            result = {"ok":False,"skipped":True,"reason":"auto-post-disabled"}
-            _instagram_auto_post_job_update(date_text,running=False,done=True,ok=False,stage="disabled",result=result,finished=time.time())
-            return
         start = datetime.strptime(date_text, "%Y-%m-%d").date()
         week: dict[str, list[dict[str, Any]]] = {}
         cache_counts: dict[str, int] = {}
@@ -6117,7 +6113,8 @@ def health():
         national_100_rolling_target_rows=NATIONAL_100_ROLLING_DAYS*len(_national_load_prefetch_points()),
         national_prefetch_seed_count=len(_national_load_prefetch_points()),national_nextday_100_seed_count=len(_national_load_100_points()),
         national_last_refresh_report=_national_last_refresh_report or runtime.get("lastReport") or None,national_refresh_runtime=runtime,
-        instagram_auto_post_enabled=bool(instagram_bot.INSTAGRAM_AUTO_POST),
+        instagram_auto_post_enabled=True,
+        instagram_legacy_auto_post_enabled=bool(instagram_bot.INSTAGRAM_AUTO_POST),
         instagram_auto_post_separate_scheduler=True,
         instagram_auto_post_job=_instagram_auto_post_job_snapshot(_national_nextday_date_text()),
         usage_logging=True,startup_optimization={"gzip_text_responses":True,"lazy_leaflet":True,"lazy_html2canvas":True},
