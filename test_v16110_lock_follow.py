@@ -21,7 +21,7 @@ ns={'Any':Any,'instagram_bot':SimpleNamespace(INSTAGRAM_MIN_NATIONAL_RESULTS=80)
     '_national_load_100_points':lambda: (_ for _ in ()).throw(AssertionError('provider fill should not start')),
     'time':FakeTime()}
 exec(code,ns)
-out=ns['_instagram_fill_100_results_for_use']('2026-11-16',require_fresh=True)
+out=ns['_instagram_fill_100_results_for_use']((__import__('datetime').datetime.now(__import__('datetime').timezone.utc)+__import__('datetime').timedelta(hours=9,days=1)).date().isoformat(),require_fresh=True)
 assert len(out)==100
 
 # Case 2: another national refresh owns the date lock. Follow Supabase checkpoints until enough rows arrive.
@@ -42,8 +42,8 @@ ns={'Any':Any,'instagram_bot':SimpleNamespace(INSTAGRAM_MIN_NATIONAL_RESULTS=80)
     '_national_points_fingerprint':lambda p:'fp','_national_try_lock':try_lock,
     'time':FakeTime()}
 exec(code,ns)
-out=ns['_instagram_fill_100_results_for_use']('2026-11-16',require_fresh=True,progress_callback=progress.append)
+out=ns['_instagram_fill_100_results_for_use']((__import__('datetime').datetime.now(__import__('datetime').timezone.utc)+__import__('datetime').timedelta(hours=9,days=1)).date().isoformat(),require_fresh=True,progress_callback=progress.append)
 assert len(out)==100
 assert any(x.get('phase')=='waiting-lock' for x in progress)
 assert max(x.get('availableCount',0) for x in progress)>=25
-print('V1.6.111 lock-follow behavior: PASS')
+print('V1.6.112 lock-follow behavior: PASS')

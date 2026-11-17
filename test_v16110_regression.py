@@ -5,10 +5,10 @@ app = Path('app.js').read_text(encoding='utf-8')
 server = Path('server.py').read_text(encoding='utf-8')
 idx = Path('index.html').read_text(encoding='utf-8')
 
-assert "const APP_VERSION = '1.6.111';" in app
-assert 'APP_VERSION = "1.6.111"' in server
-assert 'app.js?v=1.6.111' in idx
-assert idx.count('data-app-version>V1.6.111</span>') == 2
+assert "const APP_VERSION = '1.6.112';" in app
+assert 'APP_VERSION = "1.6.112"' in server
+assert 'app.js?v=1.6.112' in idx
+assert idx.count('data-app-version>V1.6.112</span>') == 2
 
 engine='metno-gfs-jma-ridge-gust-worstof-v19-cumulative-wind7'
 assert f"const NATIONAL_OUTLOOK_CACHE_ENGINE='{engine}';" in app
@@ -50,4 +50,4 @@ assert bc(rows)==2
 assert grade(7.1,0,0,0,0,None,caution_hours=2,severe_hours=0,extreme_hours=0,bc_caution_hours=bc(rows))[0]=='C'
 assert grade(9,18,1.5,0,0,None,caution_hours=2,severe_hours=2,extreme_hours=0,bc_caution_hours=2)[0]=='D'
 assert grade(15,25,6,0,0,None,caution_hours=1,severe_hours=1,extreme_hours=1,bc_caution_hours=1)[0]=='E'
-print('V1.6.111 V1.6.101 behavior regression checks: PASS')
+print('V1.6.112 V1.6.101 behavior regression checks: PASS')

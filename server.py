@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.111"
+APP_VERSION = "1.6.112"
 
 
 def _instagram_normalize_access_token(raw: Any) -> str:
@@ -5544,6 +5544,65 @@ def _instagram_scheduler_authorized() -> bool:
         return False
     supplied = request.headers.get("X-Traten-Cache-Token", "")
     return bool(supplied and hmac.compare_digest(supplied, NATIONAL_CACHE_REFRESH_TOKEN))
+
+
+@app.post("/api/instagram/auto-post-prepare-day")
+def instagram_auto_post_prepare_day():
+    """Stateless scheduler step: make one carousel day publishable in Supabase.
+
+    GitHub Actions calls this once for offsets 0..6. No in-memory job state is
+    required, so Render worker changes/restarts cannot lose scheduler progress.
+    """
+    if not _instagram_scheduler_authorized():
+        return jsonify(error="unauthorized"), 401
+    payload = request.get_json(silent=True) or {}
+    try:
+        offset = int(payload.get("offset", 0))
+    except (TypeError, ValueError):
+        return jsonify(ok=False, error="invalid offset"), 400
+    if offset < 0 or offset > 6:
+        return jsonify(ok=False, error="offset must be 0..6"), 400
+
+    start = datetime.strptime(_national_nextday_date_text(), "%Y-%m-%d").date()
+    date_text = (start + timedelta(days=offset)).isoformat()
+    require_fresh = offset == 0
+    rows = _instagram_load_best_100_results(date_text, prefer_fresh=True) if require_fresh else _instagram_load_saved_100_results(date_text)
+    before = len(rows)
+    if len(rows) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS:
+        rows = _instagram_fill_100_results_for_use(date_text, require_fresh=require_fresh)
+    count = len(rows)
+    ok = count >= instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS
+    return jsonify(
+        ok=ok, date=date_text, offset=offset, count=count, before=before,
+        minimum=instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS,
+        cacheMode="fresh-first-with-saved-fallback" if require_fresh else "saved",
+    ), 200 if ok else 503
+
+
+@app.post("/api/instagram/auto-post-publish")
+def instagram_auto_post_publish():
+    """Stateless scheduler step: publish after all seven Supabase days are ready."""
+    if not _instagram_scheduler_authorized():
+        return jsonify(error="unauthorized"), 401
+    date_text = _national_nextday_date_text()
+    week = _instagram_load_week_100_results(date_text)
+    incomplete = {d: len(rows) for d, rows in week.items() if len(rows) < instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS}
+    if incomplete:
+        return jsonify(
+            ok=False, date=date_text, error="Instagram carousel cache is incomplete",
+            incomplete=incomplete, minimum=instagram_bot.INSTAGRAM_MIN_NATIONAL_RESULTS,
+        ), 409
+    rows = week.get(date_text) or []
+    try:
+        result = _instagram_post_with_lock(
+            date_text, rows, force=False,
+            load_carousel_results=_instagram_carousel_result_loader(date_text, week),
+        )
+    except Exception as exc:
+        app.logger.exception("instagram_stateless_auto_post_failed date=%s", date_text)
+        return jsonify(ok=False, date=date_text, error=str(exc)[:700]), 502
+    ok = bool(result.get("ok"))
+    return jsonify(ok=ok, date=date_text, result=result), 200 if ok else 503
 
 
 @app.post("/api/instagram/auto-post-start")
