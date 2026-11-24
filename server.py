@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.112"
+APP_VERSION = "1.6.113"
 
 
 def _instagram_normalize_access_token(raw: Any) -> str:
@@ -381,10 +381,12 @@ NATIONAL_METNO_RETRY_MAX = float(os.environ.get("NATIONAL_METNO_RETRY_MAX", "12"
 _national_metno_lock = threading.Lock()
 _national_metno_last_request = 0.0
 NATIONAL_OUTLOOK_STALE_TTL = int(os.environ.get("NATIONAL_OUTLOOK_STALE_TTL", "86400"))
-# V1.6.102: nationwide persistence checks are intentionally no more frequent than hourly.
-# Keep the environment variable for compatibility, but clamp older 900-second deployments
-# to 3600 seconds so an existing Render setting cannot silently restore 15-minute polling.
+# In-process maintenance remains hourly to avoid waking a sleeping Render service too often.
 NATIONAL_OUTLOOK_REFRESH_INTERVAL = max(3600, int(os.environ.get("NATIONAL_OUTLOOK_REFRESH_INTERVAL", "3600")))
+# V1.6.113: the external GitHub scheduler is intentionally allowed every 15 minutes.
+# It is bounded independently from the hourly in-process worker so a 7-day x 100-row
+# rolling cache can actually keep up with the 4-hour fresh TTL.
+NATIONAL_SCHEDULED_REFRESH_INTERVAL = max(300, min(1800, int(os.environ.get("NATIONAL_SCHEDULED_REFRESH_INTERVAL", "900"))))
 NATIONAL_OUTLOOK_AUTO_REFRESH = os.environ.get("NATIONAL_OUTLOOK_AUTO_REFRESH", "1").lower() not in {"0", "false", "no"}
 NATIONAL_CACHE_REFRESH_TOKEN = os.environ.get("NATIONAL_CACHE_REFRESH_TOKEN", "")
 NATIONAL_100_POINTS_FILE = os.path.join(BASE, "national-100-points.json")
@@ -1731,21 +1733,26 @@ def _national_fetch_and_persist(date_text, points, due, initial=None, *, deadlin
     rows = _national_valid_results(points,(initial or {}).get("results") or [])
     fetched_names = set(); persisted_names = set(); verification_pending = set(); errors = []; warnings = []; chunks = []; limited = False
     persistent = _national_supabase_enabled() and not _national_supabase_fallback_active(); attempted = 0; deferred_by_budget = 0
-    for start in range(0,len(due),NATIONAL_OUTLOOK_CHUNK_SIZE):
+    scheduled = deadline is not None
+    chunk_size = NATIONAL_SCHEDULED_CHUNK_SIZE if scheduled else NATIONAL_OUTLOOK_CHUNK_SIZE
+    # V1.6.113: scheduled GFS regions must stay geographically compact. The UI/prefetch
+    # priority order is intentionally untouched; only maintenance work is reordered south -> north.
+    work_due = list(due)
+    if scheduled:
+        work_due.sort(key=lambda p:(float(p.get("lat") or 0.0), float(p.get("lon") or 0.0), str(p.get("name") or "")))
+    for start in range(0,len(work_due),chunk_size):
         if _national_refresh_stop.is_set():
             errors.append("refresh interrupted"); break
-        # V1.6.44: do not begin another expensive chunk when the scheduler deadline is close.
-        # Always allow the first chunk so every run makes progress.
-        if deadline is not None and start > 0 and time.monotonic() + NATIONAL_SCHEDULED_REFRESH_BATCH_GUARD >= deadline:
-            deferred_by_budget = len(due) - start
+        if deadline is not None and time.monotonic() + NATIONAL_SCHEDULED_REFRESH_BATCH_GUARD >= deadline:
+            deferred_by_budget = len(work_due) - start
             warnings.append(f"scheduled refresh budget reached; {deferred_by_budget} rows deferred")
             break
-        batch = due[start:start+NATIONAL_OUTLOOK_CHUNK_SIZE]
+        batch = work_due[start:start+chunk_size]
         attempted += len(batch)
         cr = {"start":start,"requested":len(batch),"fetched":0,"persisted":0,"completeFetch":False,"error":None}
         at = time.time()
         try:
-            received,complete,limited,warning = _national_fetch_shared(date_text,batch,force_fetch=force_fetch)
+            received,complete,limited,warning = _national_fetch_shared(date_text,batch,force_fetch=force_fetch,deadline=deadline)
             valid = _national_valid_results(batch,received,fetched_at=at)
             # V1.6.57: preserve a still-current daily WeatherAPI safety overlay across base-model refreshes.
             for name, fresh_row in list(valid.items()):
@@ -1804,7 +1811,7 @@ def _national_fetch_and_persist(date_text, points, due, initial=None, *, deadlin
                     "start": start,
                     "requested": len(batch),
                     "attempted": attempted,
-                    "dueTotal": len(due),
+                    "dueTotal": len(work_due),
                     "fetched": len(fetched_names),
                     "chunk": dict(cr),
                 })
@@ -1839,7 +1846,7 @@ def _national_fetch_and_persist(date_text, points, due, initial=None, *, deadlin
         "persistedCount":len(persisted_names),"verificationPendingCount":len(verification_pending),
         "freshAfter":fresh_count,"missingAfter":max(0,len(points)-stored),
         "remainingDueAfter":remaining,"deferredByBudget":deferred_by_budget,
-        "chunkSize":NATIONAL_OUTLOOK_CHUNK_SIZE,"chunks":chunks,
+        "chunkSize":chunk_size,"scheduledOrder":"south-to-north" if scheduled else "input-order","chunks":chunks,
         "warnings":list(dict.fromkeys(warnings)),"errors":list(dict.fromkeys(errors)),"rateLimited":limited,
         "backend":"supabase+local" if persistent else "local-only"}
     if remaining and not report["errors"]:
@@ -2140,10 +2147,12 @@ NATIONAL_SUPABASE_TIMEOUT = int(os.environ.get("NATIONAL_SUPABASE_TIMEOUT", "12"
 # declaring a database failure. This never converts an unconfirmed write to success.
 NATIONAL_SUPABASE_VERIFY_RETRIES = max(0, min(5, int(os.environ.get("NATIONAL_SUPABASE_VERIFY_RETRIES", "3"))))
 NATIONAL_SUPABASE_VERIFY_DELAY = max(0.1, min(3.0, float(os.environ.get("NATIONAL_SUPABASE_VERIFY_DELAY", "0.6"))))
-# V1.6.44: keep a scheduled refresh comfortably below the external 300-second HTTP ceiling.
-# The foreground/user path is intentionally unbounded so a user-triggered national analysis can still finish all due rows.
-NATIONAL_SCHEDULED_REFRESH_BUDGET = max(90, min(240, int(os.environ.get("NATIONAL_SCHEDULED_REFRESH_BUDGET", "210"))))
-NATIONAL_SCHEDULED_REFRESH_BATCH_GUARD = max(15, min(90, int(os.environ.get("NATIONAL_SCHEDULED_REFRESH_BATCH_GUARD", "60"))))
+# V1.6.113: scheduled refreshes are hard-bounded below the GitHub 300-second ceiling.
+# Foreground/user analysis keeps the historical chunk size; only scheduled maintenance
+# uses smaller geographically coherent batches.
+NATIONAL_SCHEDULED_REFRESH_BUDGET = max(120, min(240, int(os.environ.get("NATIONAL_SCHEDULED_REFRESH_BUDGET", "240"))))
+NATIONAL_SCHEDULED_REFRESH_BATCH_GUARD = max(10, min(60, int(os.environ.get("NATIONAL_SCHEDULED_REFRESH_BATCH_GUARD", "30"))))
+NATIONAL_SCHEDULED_CHUNK_SIZE = max(5, min(20, int(os.environ.get("NATIONAL_SCHEDULED_CHUNK_SIZE", "10"))))
 # V1.6.60: keep nationwide forecast generation alive during temporary Supabase fair-use/HTTP outages.
 # This is a bounded circuit breaker; after the interval expires the next cache access retries Supabase
 # automatically, so normal supabase+local operation resumes without a redeploy.
@@ -3916,7 +3925,20 @@ def _national_ridge_wind_only_daily(series: Any, *, min_hours: int = 6) -> dict[
             "cautionHours":caution,"bcCautionHours":bc,"severeHours":severe,"extremeHours":extreme,"series":rows}
 
 
-def _national_gefs_ridge_results(date_text: str, points: list[dict[str, Any]], *, include_series: bool = False) -> dict[str, dict[str, Any]]:
+def _national_deadline_timeout(deadline: float | None, default_timeout: float, *, reserve: float = 5.0) -> float:
+    """Return a per-request timeout that cannot run beyond a scheduled refresh deadline.
+
+    Foreground calls pass no deadline and retain their historical provider timeouts.
+    """
+    if deadline is None:
+        return float(default_timeout)
+    remaining = float(deadline) - time.monotonic() - float(reserve)
+    if remaining <= 1.0:
+        raise TimeoutError("scheduled refresh deadline reached")
+    return max(1.0, min(float(default_timeout), remaining))
+
+
+def _national_gefs_ridge_results(date_text: str, points: list[dict[str, Any]], *, include_series: bool = False, deadline: float | None = None) -> dict[str, dict[str, Any]]:
     """Last-resort NOAA GEFS ensemble-mean ridge wind for mountains lacking JMA/GFS upper-air evidence."""
     global _national_gefs_last_request
     try: target_date=datetime.strptime(date_text,"%Y-%m-%d").date()
@@ -3937,6 +3959,9 @@ def _national_gefs_ridge_results(date_text: str, points: list[dict[str, Any]], *
         if len(fh_targets)!=len(targets): continue
         cycle_rows={p["name"]:[] for p in points}; ok_hours=0
         for fh,target_dt in fh_targets:
+            if deadline is not None and time.monotonic() + 5.0 >= deadline:
+                errors.append(f"{cycle:%Y%m%d%H} f{fh:03d}:scheduled-deadline")
+                break
             url=_noaa_gefs_filter_url_region(cycle,fh,points); cache_key="national-gefs-region:"+url
             cached=_cache_get(cache_key); body=cached[2] if cached else None
             if body is None:
@@ -3945,7 +3970,7 @@ def _national_gefs_ridge_results(date_text: str, points: list[dict[str, Any]], *
                         wait=NATIONAL_GEFS_MIN_INTERVAL-(time.monotonic()-_national_gefs_last_request)
                         if wait>0: time.sleep(wait)
                         req=urllib.request.Request(url,headers={"User-Agent":UA,"Accept":"application/octet-stream"})
-                        with urllib.request.urlopen(req,timeout=NOAA_GEFS_TIMEOUT) as resp: body=resp.read()
+                        with urllib.request.urlopen(req,timeout=_national_deadline_timeout(deadline,NOAA_GEFS_TIMEOUT)) as resp: body=resp.read()
                         _national_gefs_last_request=time.monotonic()
                     if not body.startswith(b"GRIB"): raise RuntimeError("GEFS GRIB2データではありません")
                     _cache_put(cache_key,200,"application/x-grib2",body,ttl=max(NOAA_GEFS_CACHE_TTL,NATIONAL_OUTLOOK_CACHE_TTL))
@@ -3997,7 +4022,7 @@ def _national_gefs_ridge_results(date_text: str, points: list[dict[str, Any]], *
         app.logger.warning("national_gefs_failed_all date=%s errors=%s",date_text," / ".join(errors[-4:]))
     return results
 
-def _national_gfs_results(date_text: str, points: list[dict[str, Any]], *, include_series: bool = False) -> dict[str, dict[str, Any]]:
+def _national_gfs_results(date_text: str, points: list[dict[str, Any]], *, include_series: bool = False, deadline: float | None = None) -> dict[str, dict[str, Any]]:
     global _national_gfs_last_request
     try: target_date=datetime.strptime(date_text,"%Y-%m-%d").date()
     except ValueError: return {}
@@ -4019,6 +4044,9 @@ def _national_gfs_results(date_text: str, points: list[dict[str, Any]], *, inclu
         if len(fh_targets)!=len(targets): continue
         cycle_rows={p["name"]:[] for p in points}; ok_hours=0
         for fh,target_dt in fh_targets:
+            if deadline is not None and time.monotonic() + 5.0 >= deadline:
+                errors.append(f"{cycle:%Y%m%d%H} f{fh:03d}:scheduled-deadline")
+                break
             url=_noaa_filter_url_region(cycle,fh,points); cache_key="national-gfs-region:"+url
             cached=_cache_get(cache_key); body=cached[2] if cached else None
             primary_error=None
@@ -4028,7 +4056,7 @@ def _national_gfs_results(date_text: str, points: list[dict[str, Any]], *, inclu
                         wait=NATIONAL_GFS_MIN_INTERVAL-(time.monotonic()-_national_gfs_last_request)
                         if wait>0: time.sleep(wait)
                         req=urllib.request.Request(url,headers={"User-Agent":UA,"Accept":"application/octet-stream"})
-                        with urllib.request.urlopen(req,timeout=NOAA_GFS_TIMEOUT) as resp: body=resp.read()
+                        with urllib.request.urlopen(req,timeout=_national_deadline_timeout(deadline,NOAA_GFS_TIMEOUT)) as resp: body=resp.read()
                         _national_gfs_last_request=time.monotonic()
                     if not body.startswith(b"GRIB"): raise RuntimeError("GRIB2データではありません")
                     _cache_put(cache_key,200,"application/x-grib2",body,ttl=max(NOAA_GFS_CACHE_TTL,NATIONAL_OUTLOOK_CACHE_TTL))
@@ -4048,7 +4076,7 @@ def _national_gfs_results(date_text: str, points: list[dict[str, Any]], *, inclu
                             wait=NATIONAL_GFS_MIN_INTERVAL-(time.monotonic()-_national_gfs_last_request)
                             if wait>0: time.sleep(wait)
                             req=urllib.request.Request(base_url,headers={"User-Agent":UA,"Accept":"application/octet-stream"})
-                            with urllib.request.urlopen(req,timeout=NOAA_GFS_TIMEOUT) as resp: body=resp.read()
+                            with urllib.request.urlopen(req,timeout=_national_deadline_timeout(deadline,NOAA_GFS_TIMEOUT)) as resp: body=resp.read()
                             _national_gfs_last_request=time.monotonic()
                         if not body.startswith(b"GRIB"): raise RuntimeError("GFS base GRIB2データではありません")
                         _cache_put(base_key,200,"application/x-grib2",body,ttl=max(NOAA_GFS_CACHE_TTL,NATIONAL_OUTLOOK_CACHE_TTL))
@@ -4072,7 +4100,7 @@ def _national_gfs_results(date_text: str, points: list[dict[str, Any]], *, inclu
                             wait=NATIONAL_GFS_MIN_INTERVAL-(time.monotonic()-_national_gfs_last_request)
                             if wait>0: time.sleep(wait)
                             req=urllib.request.Request(base_url,headers={"User-Agent":UA,"Accept":"application/octet-stream"})
-                            with urllib.request.urlopen(req,timeout=NOAA_GFS_TIMEOUT) as resp: base_body=resp.read()
+                            with urllib.request.urlopen(req,timeout=_national_deadline_timeout(deadline,NOAA_GFS_TIMEOUT)) as resp: base_body=resp.read()
                             _national_gfs_last_request=time.monotonic()
                         if not base_body.startswith(b"GRIB"): raise RuntimeError("GFS base GRIB2データではありません")
                         _cache_put(base_key,200,"application/x-grib2",base_body,ttl=max(NOAA_GFS_CACHE_TTL,NATIONAL_OUTLOOK_CACHE_TTL))
@@ -4443,7 +4471,7 @@ def _national_meteoblue_results(date_text: str, points: list[dict[str, Any]]) ->
     return out
 
 
-def _national_fetch_shared(date_text, points, *, force_fetch=False):
+def _national_fetch_shared(date_text, points, *, force_fetch=False, deadline=None):
     # V1.6.92: keep MET Norway + deterministic GFS as the base integration.
     # Ridge evidence order is JMA/GFS primary -> NOAA GEFS ensemble mean fallback -> A cap.
     rows = {}; missing = []; warnings = []; metno = {}; gfs = {}; gefs = {}; mb = {}; jma = {}; stats = {}
@@ -4477,7 +4505,7 @@ def _national_fetch_shared(date_text, points, *, force_fetch=False):
             started = time.monotonic()
             try:
                 if kind == "metno": value = _national_metno_results(date_text,missing)
-                elif kind == "gfs": value = _national_gfs_results(date_text,missing,include_series=True)
+                elif kind == "gfs": value = _national_gfs_results(date_text,missing,include_series=True,deadline=deadline)
                 else: value = _openmeteo_jma_production_results(date_text,missing)
                 return kind,value,None,round(time.monotonic()-started,2)
             except Exception as exc:
@@ -4509,7 +4537,7 @@ def _national_fetch_shared(date_text, points, *, force_fetch=False):
                 gefs_points.append(p)
         if gefs_points:
             try:
-                gefs=_national_gefs_ridge_results(date_text,gefs_points,include_series=True)
+                gefs=_national_gefs_ridge_results(date_text,gefs_points,include_series=True,deadline=deadline)
             except Exception as exc:
                 warnings.append("NOAA GEFS upper-air unavailable")
                 app.logger.warning("national_gefs_failed %s",type(exc).__name__)
@@ -4668,12 +4696,14 @@ def weatherapi_shadow_refresh():
 def _national_refresh_interval_gate():
     """Return (due, remaining_seconds) for scheduled refresh callers.
 
-    GitHub Actions may still be configured at the historical 15-minute cadence. V1.6.102
-    keeps those wake-ups harmless: only one expensive persistence refresh is allowed per
-    configured interval (minimum one hour). The in-process worker uses the same interval.
+    GitHub Actions runs every 15 minutes. V1.6.113 gives that external scheduler its own
+    bounded interval; the in-process Render worker remains hourly. Only a completed run
+    starts this external gate, so a timed-out request cannot mask the next retry.
     """
     snap = _national_refresh_runtime_snapshot()
-    stamp = snap.get("lastRunFinishedAt") or snap.get("lastCheckAt")
+    # V1.6.113: only a completed scheduled run starts the gate. A timed-out/aborted
+    # request must never suppress the next retry merely because it wrote lastCheckAt.
+    stamp = snap.get("lastRunFinishedAt")
     if not stamp:
         return True, 0
     try:
@@ -4683,7 +4713,7 @@ def _national_refresh_interval_gate():
         age = max(0.0,(datetime.now(timezone.utc)-dt.astimezone(timezone.utc)).total_seconds())
     except (TypeError,ValueError):
         return True, 0
-    remaining = max(0,int(math.ceil(NATIONAL_OUTLOOK_REFRESH_INTERVAL-age)))
+    remaining = max(0,int(math.ceil(NATIONAL_SCHEDULED_REFRESH_INTERVAL-age)))
     return remaining <= 0, remaining
 
 
@@ -4699,7 +4729,7 @@ def national_outlook_refresh_cache():
     due,remaining = _national_refresh_interval_gate()
     if not due:
         return jsonify(ok=True,skipped=True,state="interval-not-due",
-            refreshIntervalSeconds=NATIONAL_OUTLOOK_REFRESH_INTERVAL,
+            refreshIntervalSeconds=NATIONAL_SCHEDULED_REFRESH_INTERVAL,
             nextEligibleInSeconds=remaining),200
     started_iso = datetime.now(timezone.utc).isoformat()
     _national_refresh_runtime.update(lastCheckAt=started_iso,lastRunStartedAt=started_iso,state="running",lastError=None,trigger="scheduled-endpoint")
@@ -6166,7 +6196,7 @@ def health():
         national_cache_engine=NATIONAL_OUTLOOK_ENGINE,national_cache_ttl_seconds=NATIONAL_OUTLOOK_CACHE_TTL,
         national_gefs_fallback_enabled=True,national_gefs_fallback_source="NOAA GEFS 0.5 ensemble mean",
         national_browser_cache_ttl_seconds=NATIONAL_OUTLOOK_CACHE_TTL,national_auto_refresh_enabled=NATIONAL_OUTLOOK_AUTO_REFRESH,
-        national_refresh_interval_seconds=NATIONAL_OUTLOOK_REFRESH_INTERVAL,national_refresh_token_configured=bool(NATIONAL_CACHE_REFRESH_TOKEN),
+        national_refresh_interval_seconds=NATIONAL_OUTLOOK_REFRESH_INTERVAL,national_scheduled_refresh_interval_seconds=NATIONAL_SCHEDULED_REFRESH_INTERVAL,national_scheduled_chunk_size=NATIONAL_SCHEDULED_CHUNK_SIZE,national_refresh_token_configured=bool(NATIONAL_CACHE_REFRESH_TOKEN),
         national_100_rolling_auto_cache=NATIONAL_100_ROLLING_AUTO_CACHE,national_100_rolling_days=NATIONAL_100_ROLLING_DAYS,
         national_100_rolling_dates_per_cycle=NATIONAL_100_ROLLING_DATES_PER_CYCLE,national_100_chunk_size=NATIONAL_OUTLOOK_CHUNK_SIZE,
         national_100_rolling_target_rows=NATIONAL_100_ROLLING_DAYS*len(_national_load_prefetch_points()),

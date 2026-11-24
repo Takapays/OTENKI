@@ -3,9 +3,9 @@ s=Path('server.py').read_text(encoding='utf-8')
 a=Path('app.js').read_text(encoding='utf-8')
 i=Path('index.html').read_text(encoding='utf-8')
 y=Path('.github/workflows/instagram-auto-post.yml').read_text(encoding='utf-8')
-assert 'APP_VERSION = "1.6.112"' in s
-assert "const APP_VERSION = '1.6.112';" in a
-assert 'V1.6.112' in i and 'app.js?v=1.6.112' in i
+assert 'APP_VERSION = "1.6.113"' in s
+assert "const APP_VERSION = '1.6.113';" in a
+assert 'V1.6.113' in i and 'app.js?v=1.6.113' in i
 assert 'separate-scheduler-v107' in s
 assert 'report["instagram"] = _instagram_maybe_post_after_refresh()' not in s
 assert 'def _instagram_load_best_100_results' in s
@@ -22,4 +22,4 @@ assert "cron: '10 3 * * *'" in y
 assert 'timeout-minutes: 60' in y
 assert 'metno-gfs-jma-ridge-gust-worstof-v19-cumulative-wind7' in s
 assert 'NATIONAL_DAILY_WIND_C_MS = 7.0' in s
-print('V1.6.112 Instagram lock/fallback regression: PASS')
+print('V1.6.113 Instagram lock/fallback regression: PASS')

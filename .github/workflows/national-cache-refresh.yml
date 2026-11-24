@@ -1,9 +1,8 @@
-name: Refresh nationwide cache
+name: 全国キャッシュを更新する
 
 on:
   schedule:
-    # V1.6.2: maintain the next 7 days for all 300 mountains.
-    # Render checkpoints forecast rows every 25 mountains; only stale/missing rows are fetched.
+    # 15分ごと。GitHub Actions cronはUTC。
     - cron: '7,22,37,52 * * * *'
   workflow_dispatch:
 
@@ -14,16 +13,20 @@ concurrency:
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 7
+    env:
+      CACHE_TOKEN: ${{ secrets.NATIONAL_CACHE_REFRESH_TOKEN }}
     steps:
-      - name: Wake Render and refresh stale nationwide cache
-        env:
-          CACHE_TOKEN: ${{ secrets.TRATEN_CACHE_REFRESH_TOKEN }}
+      - name: Validate scheduler secret
         run: |
           set -euo pipefail
-          test -n "$CACHE_TOKEN"
+          test -n "$CACHE_TOKEN" || { echo "NATIONAL_CACHE_REFRESH_TOKEN secret is missing"; exit 1; }
+
+      - name: Wake Render and refresh stale nationwide cache
+        run: |
+          set -euo pipefail
           curl --fail-with-body --show-error --silent \
-            --retry 2 --retry-all-errors --retry-delay 15 --max-time 840 \
+            --max-time 300 \
             -X POST \
             -H "X-Traten-Cache-Token: $CACHE_TOKEN" \
             https://otenki.onrender.com/api/national-outlook/refresh-cache
