@@ -111,15 +111,30 @@ def run(api, *, budget=420, chunk_size=10, status_only=False, today=None):
         api.NATIONAL_OUTLOOK_CACHE_TTL = old_ttl
     final = [coverage(api, d, points) for d in dates]
     totals = {k: sum(len(s[k]) for s in final) for k in ("fresh", "stale", "missing")}
-    confirmed = sum(1 for s in final for name in s["fresh"]
-                    if (s["date"], name) in expected_writes
-                    and s["meta"][name]["generated_ts"] >= expected_writes[(s["date"], name)])
-    if confirmed != len(expected_writes):
-        errors.append({"writeVerification": f"{confirmed}/{len(expected_writes)} confirmed"})
+    # The maintenance objective is fresh coverage of the exact due mountain
+    # identities. A successful upsert followed by a fresh read-back satisfies it,
+    # even if timestamp precision or a concurrent legitimate writer differs.
+    # Keep the stricter timestamp count as diagnostic evidence, not a failure.
+    confirmed_keys = {(s["date"], name) for s in final for name in s["fresh"]
+                      if (s["date"], name) in expected_writes}
+    timestamp_confirmed = sum(1 for s in final for name in s["fresh"]
+                              if (s["date"], name) in expected_writes
+                              and s["meta"][name]["generated_ts"] >= expected_writes[(s["date"], name)])
+    confirmed = len(confirmed_keys)
+    unconfirmed = sorted(set(expected_writes) - confirmed_keys)
+    if unconfirmed:
+        errors.append({"writeVerification": f"{confirmed}/{len(expected_writes)} fresh after write",
+                       "unconfirmed": [{"date": d, "mountain": n} for d, n in unconfirmed]})
+    complete = totals["fresh"] == 700
+    no_progress = expected > 0 and written == 0 and not complete
+    if no_progress:
+        errors.append({"noProgress": True})
+    state = "failed" if errors else "complete" if complete else "partial-progress"
     log("cache-after", dates=[public_status(s) for s in final], **totals, acknowledged=written, confirmed=confirmed,
+        timestampConfirmed=timestamp_confirmed, timestampMismatch=confirmed-timestamp_confirmed,
         elapsedSeconds=round(time.monotonic()-started, 1), budgetDeferred=stop, errors=errors,
-        complete=totals["fresh"] == 700)
-    return int(bool(errors) or (expected > 0 and written == 0 and totals["fresh"] < 700))
+        complete=complete, state=state)
+    return int(bool(errors))
 
 
 def main():

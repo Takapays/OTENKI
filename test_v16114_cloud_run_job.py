@@ -55,4 +55,4 @@ assert not api.calls
 api.rows.clear()
 with contextlib.redirect_stdout(io.StringIO()): assert run(api,today=TODAY,status_only=True)==0
 assert not api.calls
-print('V1.6.114 Cloud Run Job mock tests: PASS')
+print('V1.6.115 Cloud Run Job mock tests: PASS')

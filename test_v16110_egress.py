@@ -3,10 +3,10 @@ import re
 server=Path('server.py').read_text(encoding='utf-8')
 app=Path('app.js').read_text(encoding='utf-8')
 idx=Path('index.html').read_text(encoding='utf-8')
-assert 'APP_VERSION = "1.6.114"' in server
-assert "const APP_VERSION = '1.6.114';" in app
-assert 'app.js?v=1.6.114' in idx
-assert idx.count('data-app-version>V1.6.114</span>') == 2
+assert 'APP_VERSION = "1.6.115"' in server
+assert "const APP_VERSION = '1.6.115';" in app
+assert 'app.js?v=1.6.115' in idx
+assert idx.count('data-app-version>V1.6.115</span>') == 2
 m=re.search(r'def _national_100_date_cache_status\(.*?\n(?=def _refresh_rolling_100_cache)',server,re.S)
 assert m
 block=m.group(0)
@@ -18,4 +18,4 @@ assert 'state="interval-not-due"' in server
 assert 'NATIONAL_OUTLOOK_ENGINE = "metno-gfs-jma-ridge-gust-worstof-v19-cumulative-wind7"' in server
 assert 'NATIONAL_OUTLOOK_CACHE_TTL = int(os.environ.get("NATIONAL_OUTLOOK_CACHE_TTL", "14400"))' in server
 assert 'NATIONAL_100_ROLLING_DAYS = max(1, min(15, int(os.environ.get("NATIONAL_100_ROLLING_DAYS", "7")))' in server
-print('V1.6.114 Supabase egress regression checks: PASS')
+print('V1.6.115 Supabase egress regression checks: PASS')
