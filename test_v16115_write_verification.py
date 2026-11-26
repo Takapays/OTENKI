@@ -37,4 +37,4 @@ with patch.object(job.time, 'monotonic', side_effect=lambda: next(vals,400)):
     with contextlib.redirect_stdout(out): rc=run(api,budget=420,today=TODAY)
 report=json.loads(out.getvalue().splitlines()[-1])
 assert rc==0 and report['state']=='partial-progress' and not report['complete'] and report['fresh']==10, report
-print('V1.6.115 coverage verification, missing write and partial-progress tests: PASS')
+print('V1.6.116 coverage verification, missing write and partial-progress tests: PASS')
