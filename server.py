@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.113"
+APP_VERSION = "1.6.114"
 
 
 def _instagram_normalize_access_token(raw: Any) -> str:
@@ -2207,7 +2207,7 @@ def _national_supabase_key(date_text: str, p: dict[str, Any]) -> str:
     raw=f'{NATIONAL_OUTLOOK_ENGINE}|{date_text}|{p["name"]}|{p["lat"]:.5f}|{p["lon"]:.5f}|{"" if p.get("elevation") is None else round(float(p["elevation"]))}'
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
-def _national_supabase_read(date_text, points):
+def _national_supabase_read(date_text, points, *, restrict_keys=False):
     """Return fresh, stale and original per-row timestamps; never reset freshness on reads.
 
     V1.6.84: for the two mountains whose summit elevation was historically null in the
@@ -2222,6 +2222,16 @@ def _national_supabase_read(date_text, points):
     params = {"select":"cache_key,mountain_name,result,generated_ts,fresh_until,stale_until",
               "forecast_date":f"eq.{date_text}", "engine":f"eq.{NATIONAL_OUTLOOK_ENGINE}",
               "stale_until":f"gt.{time.time()}", "limit":"1000"}
+    if restrict_keys:
+        keys = set()
+        for p in points:
+            keys.add(_national_supabase_key(date_text,p))
+            if p.get("name") in NATIONAL_MOUNTAIN_ELEVATION_OVERRIDES:
+                legacy = dict(p, elevation=None)
+                keys.add(_national_supabase_key(date_text,legacy))
+        if not keys:
+            return {}, {}, {}
+        params["cache_key"] = "in.(" + ",".join(sorted(keys)) + ")"
     url = f"{SUPABASE_URL}/rest/v1/{NATIONAL_SUPABASE_CACHE_TABLE}?" + urllib.parse.urlencode(params, safe=",.:+-")
     req = urllib.request.Request(url, headers=_supabase_headers(accept_json=True))
     try:
@@ -2263,7 +2273,7 @@ def _national_supabase_read(date_text, points):
         (fresh if meta["fresh_until"] > time.time() else stale)[name] = enriched
     return fresh, stale, meta_by_name
 
-def _national_supabase_read_meta(date_text, points):
+def _national_supabase_read_meta(date_text, points, *, restrict_keys=False):
     """Return fresh/stale names plus cache timestamps without transferring result JSON bodies.
 
     V1.6.84 recognizes legacy null-elevation keys for 御嶽 and 大山（鳥取） so persistence
@@ -2276,6 +2286,16 @@ def _national_supabase_read_meta(date_text, points):
     params = {"select":"cache_key,generated_ts,fresh_until,stale_until",
               "forecast_date":f"eq.{date_text}", "engine":f"eq.{NATIONAL_OUTLOOK_ENGINE}",
               "stale_until":f"gt.{time.time()}", "limit":"1000"}
+    if restrict_keys:
+        keys = set()
+        for p in points:
+            keys.add(_national_supabase_key(date_text,p))
+            if p.get("name") in NATIONAL_MOUNTAIN_ELEVATION_OVERRIDES:
+                legacy = dict(p, elevation=None)
+                keys.add(_national_supabase_key(date_text,legacy))
+        if not keys:
+            return set(), set(), {}
+        params["cache_key"] = "in.(" + ",".join(sorted(keys)) + ")"
     url = f"{SUPABASE_URL}/rest/v1/{NATIONAL_SUPABASE_CACHE_TABLE}?" + urllib.parse.urlencode(params, safe=",.:+-")
     req = urllib.request.Request(url, headers=_supabase_headers(accept_json=True))
     try:
@@ -4589,7 +4609,7 @@ def _national_response(data, state, *, warning=None, cached_count=None, newly_fe
         "cache":{"state":state,"backend":("local-fallback" if _national_supabase_fallback_active() else "supabase+local" if _national_supabase_enabled() else "local-only"),
             "generatedAt":datetime.fromtimestamp(gt,timezone.utc).isoformat(),"ageSeconds":max(0,round(now-gt)),
             "oldestAgeSeconds":max(0,round(oldest_age)),"averageAgeSeconds":max(0,round(average_age)),
-            "newestAgeSeconds":max(0,round(newest_age)),"freshTtlSeconds":NATIONAL_OUTLOOK_CACHE_TTL,
+            "newestAgeSeconds":max(0,round(newest_age)),"freshTtlSeconds":round(min((m["fresh_until"]-m["generated_ts"] for m in metas),default=NATIONAL_OUTLOOK_CACHE_TTL)),
             "freshUntil":datetime.fromtimestamp(fu,timezone.utc).isoformat(),"freshRemainingSeconds":max(0,int(fu-now)),
             "cachedCount":cc,"freshCount":fresh_count,"totalCount":total,
             "staleCount":got-fresh_count,"newlyFetchedCount":nf,"staleFallbackCount":max(stale_fallback_count,got-fresh_count),

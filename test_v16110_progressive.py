@@ -44,4 +44,4 @@ assert 'ThreadPoolExecutor(max_workers=3,thread_name_prefix="traten-national-bas
 assert 'for k in ("metno","gfs","jma")' in block
 assert 'national_base_parallel' in block
 assert block.index('ThreadPoolExecutor(max_workers=3') < block.index('gefs_points=[]') < block.index('mb_points=')
-print('V1.6.113 progressive priority/parallel checks: PASS')
+print('V1.6.114 progressive priority/parallel checks: PASS')

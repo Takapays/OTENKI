@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.113';
+const APP_VERSION = '1.6.114';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -7929,7 +7929,7 @@ async function loadNationalOutlookSharedCacheOnly({silentMiss=false}={}){
       const oldestMin=Math.max(0,Math.round(ageSec/60));
       const avgText=Number.isFinite(avgAgeSec)?` / 平均 約${Math.max(0,Math.round(avgAgeSec/60))}分`:'';
       const freshText=Number.isFinite(freshCount)&&cacheTotal>0?`キャッシュ鮮度 <b>${Math.max(0,Math.round(freshCount))}/${Math.max(0,Math.round(cacheTotal))}座</b>${avgText}`:`キャッシュ${avgText}`;
-      cacheAge=`<br><small class="national-cache-help">${freshText} / 最古 約${oldestMin}分 / TTL 240分${data.cache?.cacheHit?'（キャッシュヒット）':''}</small>`;
+      cacheAge=`<br><small class="national-cache-help">${freshText} / 最古 約${oldestMin}分 / TTL ${Math.round(Number(data.cache?.freshTtlSeconds||14400)/60)}分${data.cache?.cacheHit?'（キャッシュヒット）':''}</small>`;
     }
     if(status)status.innerHTML=`${freshness}から${esc(nationalOutlookSelectedLabel())}を初期表示：<b>A ${counts.A}座</b> / <b>B ${counts.B}座</b> / <b>C ${counts.C}座</b> / <b>D ${counts.D}座</b> / <b>E ${counts.E}座</b><br><span class="national-cache-stats">${coverage}${missing?` / 残り <b>${missing}座</b> はキャッシュ更新待ち`: ' / 充足済み'}</span>${cacheAge}`;
     return true;

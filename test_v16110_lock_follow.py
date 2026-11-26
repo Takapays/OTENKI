@@ -46,4 +46,4 @@ out=ns['_instagram_fill_100_results_for_use']((__import__('datetime').datetime.n
 assert len(out)==100
 assert any(x.get('phase')=='waiting-lock' for x in progress)
 assert max(x.get('availableCount',0) for x in progress)>=25
-print('V1.6.113 lock-follow behavior: PASS')
+print('V1.6.114 lock-follow behavior: PASS')
