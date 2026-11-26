@@ -16,4 +16,4 @@ Allow: /
 Disallow: /api/
 Disallow: /usage-dashboard
 
-Sitemap: https://otenki.onrender.com/sitemap.xml
+Sitemap: https://traten-1075463785472.asia-northeast1.run.app/sitemap.xml

@@ -31,12 +31,12 @@ import re
 import unicodedata
 from typing import Any
 
-from flask import Flask, Response, jsonify, request, send_from_directory, send_file, abort
+from flask import Flask, Response, jsonify, request, send_from_directory, send_file, abort, redirect
 
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.116"
+APP_VERSION = "1.6.117"
 
 
 def _instagram_normalize_access_token(raw: Any) -> str:
@@ -261,8 +261,8 @@ USAGE_DASHBOARD_RESET_AT = "2026-09-06T02:00:01+00:00"
 INDEXNOW_KEY = "5d55ce5ee953aa38b715681f5207ee3d"
 INDEXNOW_KEY_FILENAME = f"{INDEXNOW_KEY}.txt"
 INDEXNOW_ENDPOINT = "https://api.indexnow.org/IndexNow"
-INDEXNOW_HOST = "otenki.onrender.com"
-INDEXNOW_PUBLIC_URLS = ['https://otenki.onrender.com/', 'https://otenki.onrender.com/guide.html', 'https://otenki.onrender.com/live-cameras.html', 'https://otenki.onrender.com/trailheads.html', 'https://otenki.onrender.com/huts.html', 'https://otenki.onrender.com/water-sources.html']
+INDEXNOW_HOST = "traten-1075463785472.asia-northeast1.run.app"
+INDEXNOW_PUBLIC_URLS = ['https://traten-1075463785472.asia-northeast1.run.app/', 'https://traten-1075463785472.asia-northeast1.run.app/guide.html', 'https://traten-1075463785472.asia-northeast1.run.app/live-cameras.html', 'https://traten-1075463785472.asia-northeast1.run.app/trailheads.html', 'https://traten-1075463785472.asia-northeast1.run.app/huts.html', 'https://traten-1075463785472.asia-northeast1.run.app/water-sources.html']
 
 ALLOWED_EVENT_NAMES = {'openmeteo_request', 'trail_route_calculated', 'route_created', 'page_view', 'result_screenshot', 'route_camera', 'water_list', 'weather_api_audit', 'arrival_times_calculated', 'classic_route_loaded', 'planner_clear', 'representative_course_loaded', 'route_candidates_loaded', 'water_report', 'route_point_used', 'mountain_selected', 'point_selected', 'weather_analysis'}
 
@@ -7206,6 +7206,25 @@ def security_headers(response):
         except Exception:
             pass
     return response
+
+
+# V1.6.117: enable only on the legacy service after the new site is verified.
+# Restrict redirects to the known public search pages; leave API/jobs and
+# verification files reachable on the old host during the transition.
+@app.before_request
+def _redirect_legacy_public_pages():
+    if os.environ.get("TRATEN_LEGACY_REDIRECT", "0").strip().lower() not in {"1", "true", "yes"}:
+        return None
+    if request.method not in {"GET", "HEAD"} or request.host.split(":", 1)[0].lower() != "otenki.onrender.com":
+        return None
+    paths = {"/", "/index.html", "/guide.html", "/live-cameras.html", "/water-sources.html", "/trailheads.html", "/huts.html", "/trailhead-access.html"}
+    if request.path not in paths:
+        return None
+    path = "/" if request.path == "/index.html" else request.path
+    target = "https://traten-1075463785472.asia-northeast1.run.app" + path
+    if request.query_string:
+        target += "?" + request.query_string.decode("latin-1")
+    return redirect(target, code=301)
 
 
 # V1.6.1: failover on requests, but a cache-only read must not launch forecast work.
