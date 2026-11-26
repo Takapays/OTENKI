@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.117"
+APP_VERSION = "1.6.118"
 
 
 def _instagram_normalize_access_token(raw: Any) -> str:
@@ -391,7 +391,7 @@ NATIONAL_OUTLOOK_AUTO_REFRESH = os.environ.get("NATIONAL_OUTLOOK_AUTO_REFRESH", 
 NATIONAL_CACHE_REFRESH_TOKEN = os.environ.get("NATIONAL_CACHE_REFRESH_TOKEN", "")
 NATIONAL_100_POINTS_FILE = os.path.join(BASE, "national-100-points.json")
 NATIONAL_OUTLOOK_CHUNK_SIZE = max(1, min(50, int(os.environ.get("NATIONAL_OUTLOOK_CHUNK_SIZE", "25"))))
-NATIONAL_OUTLOOK_ENGINE = "metno-gfs-jma-ridge-gust-worstof-v19-cumulative-wind7"
+NATIONAL_OUTLOOK_ENGINE = "metno-gfs-jma-ridge-gust-worstof-v20-daily-e"
 # V1.6.83: national cache identities historically have two summit elevations missing.
 # These values already exist in the route catalog used by the browser (御嶽 3067m, 大山弥山 1709m).
 # Reuse those established values server-side so JMA pressure-level ridge wind is not silently skipped.
@@ -2129,8 +2129,15 @@ def _national_grade(max_wind: float, max_gust: float, max_rain: float, max_cape:
     # V1.6.40: only the daily light-rain B/C accumulation changes.
     # Legacy callers without hourly evidence retain their previous behavior.
     significant_hours = caution_hours if bc_caution_hours is None else bc_caution_hours
+    # V1.6.118: reserve daily E for exceptional intensity or repeated dangerous
+    # slots. One or two old-E slots still force D, never C/B/A. Hourly warnings
+    # keep the original (15/25/6) thresholds; route-point stop rules are unchanged.
+    hard_stop = any(_finite(v) and v >= limit for v, limit in
+                    ((max_wind, 18), (max_gust, 28), (max_rain, 8)))
+    if hard_stop or extreme_hours >= 3:
+        return "E", "6〜15時に特に強い風・突風・雨、または危険条件が合計3時間以上見込まれます。中止・延期を検討し、時間帯別予測を確認してください。"
     if extreme_hours >= 1:
-        return "E", "6〜15時に極端な風・突風・雨が見込まれます。モデル差と時間帯別予測を必ず確認してください。"
+        return "D", "6〜15時に危険な風・突風・雨が1〜2時間見込まれます。Dでも危険な時間帯があり、登山の安全を意味しません。計画見直しを検討してください。"
     if severe_hours >= 2:
         return "D", "6〜15時に強い風・突風・雨が複数時間見込まれ、厳しい条件です。時間帯別予測を確認してください。"
     if severe_hours >= 1 or significant_hours >= 2:
@@ -4421,18 +4428,25 @@ def _national_merge_two_models(p: dict[str, Any], met: dict[str, Any] | None, gf
                 extreme_rows.append({"hour":hour,"wind":wind,"rain":rain})
             if (wind is not None and wind>=9) or (rain is not None and rain>=1.5):
                 severe_rows.append({"hour":hour,"wind":wind,"rain":rain})
-        if extreme_rows:
-            rank=max(rank,5)
-            safety_floor_evidence.append({"model":model_id,"modelLabel":model_labels.get(model_id,model_id),"grade":"E","hours":extreme_rows})
-        elif len(severe_rows)>=2:
-            rank=max(rank,4)
-            safety_floor_evidence.append({"model":model_id,"modelLabel":model_labels.get(model_id,model_id),"grade":"D","hours":severe_rows})
+        # Same daily rule as the integrated and ridge forecasts. Do not count
+        # direct GFS gust here, which is diagnostic-only in the element policy.
+        model_grade,_=_national_grade(
+            max((r["wind"] for r in extreme_rows if r["wind"] is not None),default=0),
+            0,
+            max((r["rain"] for r in extreme_rows if r["rain"] is not None),default=0),
+            0,0,None,severe_hours=len(severe_rows),extreme_hours=len(extreme_rows))
+        if model_grade in {"D","E"}:
+            rank=max(rank,_national_grade_rank(model_grade))
+            safety_floor_evidence.append({"model":model_id,"modelLabel":model_labels.get(model_id,model_id),"grade":model_grade,"hours":extreme_rows or severe_rows})
     grade={1:"A",2:"B",3:"C",4:"D",5:"E"}.get(rank,base_grade)
     safety_floor_applied=_national_grade_rank(grade)>_national_grade_rank(base_grade)
     grades={k:v.get("grade") for k,v in (("metno",met),("gfs",gfs),("meteoblue",mb)) if v}
     vals=list(grades.values()); ranks=[_national_grade_rank(x) for x in vals if _national_grade_rank(x)]
     diff=(max(ranks)-min(ranks)) if ranks else 0
-    summary=base_summary + (" モデル差が大きいため、時間別グラフを確認してください。" if diff>=2 else "")
+    summary=base_summary
+    if safety_floor_applied:
+        summary=("単一モデルでも特に強い、または繰り返す危険条件が予測されています。中止・延期を検討してください。" if grade=="E" else "単一モデルで強い条件が予測されています。Dでも危険な時間帯があり、登山の安全を意味しません。計画見直しを検討してください。")
+    if diff>=2: summary += " モデル差が大きいため、時間別グラフを確認してください。"
     source="metno+gfs"+("+meteoblue" if mb else "")+"-element-policy"
     public_series=[{k:v for k,v in row.items()} for row in center]
     return {"name":p["name"],"grade":grade,"summary":summary,

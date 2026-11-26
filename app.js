@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.117';
+const APP_VERSION = '1.6.118';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -7534,7 +7534,14 @@ function nationalHourlyDecisionRows(rows,centerSeries=[]){
     };
     addRidge('jma','JMA安全側');
     addRidge('gfs','GFS稜線風');
-    let candidates=[...baseCandidates,...ridgeCandidates].filter(x=>Number.isFinite(x.value)&&x.grade!=='?');
+    if(!maps.jma?.size&&!maps.gfs?.size)addRidge('gefs','GEFS補助稜線風');
+    const singleModelWarnings=[];
+    for(const [model,label] of [['metno','MET Norway'],['gfs','NOAA GFS'],['meteoblue','meteoblue']]){
+      const r=maps[model]?.get(hour);if(!r)continue;
+      if(typeof r.wind==='number'&&r.wind>=15)singleModelWarnings.push({source:label,element:'10m風',value:r.wind,unit:'m/s',grade:'E'});
+      if(typeof r.rain==='number'&&r.rain>=6)singleModelWarnings.push({source:label,element:'降水',value:r.rain,unit:'mm/h',grade:'E'});
+    }
+    let candidates=[...baseCandidates,...ridgeCandidates,...singleModelWarnings].filter(x=>Number.isFinite(x.value)&&x.grade!=='?');
     if(!candidates.length){
       const modelRows=['metno','gfs','meteoblue'].map(m=>maps[m]?.get(hour)).filter(Boolean);
       const mean=key=>{const vals=modelRows.map(x=>x?.[key]).filter(v=>typeof v==='number'&&Number.isFinite(v));return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:NaN;};
@@ -7558,29 +7565,33 @@ function nationalHourlyGradeHtml(rows,centerSeries=[]){
   return `<div class="national-hourly-grades"><div class="national-hourly-grades-head"><strong>時間別 A〜E</strong><small>6〜15時</small></div><div class="national-hourly-grade-grid">${grades.map(x=>`<div class="national-hourly-grade-item"><time>${x.hour}時</time><span class="national-hourly-grade-dot grade-${x.grade==='?'?'u':x.grade.toLowerCase()}">${x.grade}</span></div>`).join('')}</div></div>`;
 }
 
-function nationalDailyRuleCounts(series=[],useRidge=false){
-  let caution=0,bc=0,severe=0,extreme=0;
+function nationalDailyRuleCounts(series=[],useRidge=false,windOnly=false){
+  let caution=0,bc=0,severe=0,extreme=0,hard=false;
+  const numeric=v=>typeof v==='number'&&Number.isFinite(v)?v:NaN;
   for(const r of series||[]){
-    const w=Number(useRidge&&Number.isFinite(Number(r?.ridgeWind))?r.ridgeWind:r?.wind);
-    const g=Number(useRidge&&Number.isFinite(Number(r?.estimatedRidgeGust))?r.estimatedRidgeGust:r?.gust);
-    const rain=Number(r?.rain);
+    const w=useRidge?numeric(r?.ridgeWind):numeric(r?.wind);
+    const g=useRidge?(Number.isFinite(numeric(r?.estimatedRidgeGust))?r.estimatedRidgeGust:w*1.5):numeric(r?.gust);
+    if(!Number.isInteger(r?.hour)||r.hour<6||r.hour>15)continue;
+    const rain=windOnly?NaN:numeric(r?.rain);
+    if(w>=18||g>=28||rain>=8)hard=true;
     if((Number.isFinite(w)&&w>=15)||(Number.isFinite(g)&&g>=25)||(Number.isFinite(rain)&&rain>=6))extreme++;
     if((Number.isFinite(w)&&w>=9)||(Number.isFinite(g)&&g>=18)||(Number.isFinite(rain)&&rain>=1.5))severe++;
     if((Number.isFinite(w)&&w>=5)||(Number.isFinite(g)&&g>=12)||(Number.isFinite(rain)&&rain>=0.1))caution++;
-    if((Number.isFinite(w)&&w>=5)||(Number.isFinite(g)&&g>=12)||(Number.isFinite(rain)&&rain>=0.5))bc++;
+    if((Number.isFinite(w)&&w>=(windOnly?5:7))||(Number.isFinite(g)&&g>=12)||(Number.isFinite(rain)&&rain>=0.5))bc++;
   }
-  return {caution,bc,severe,extreme};
+  return {caution,bc,severe,extreme,hard};
 }
 function nationalDailyRuleReason(grade,counts){
-  if(grade==='E')return `極端条件 ${counts.extreme}時間（Eは1時間以上）`;
-  if(grade==='D')return `強い条件 ${counts.severe}時間（Dは2時間以上）`;
+  if(grade==='E')return counts.hard?'特に強い条件あり（風18・突風28・雨8以上）':`危険条件 ${counts.extreme}時間（Eは合計3時間以上、または特に強い条件）`;
+  if(grade==='D')return counts.extreme>=1?`危険条件 ${counts.extreme}時間（時間別Eあり。計画見直しを検討）`:`強い条件 ${counts.severe}時間（Dは2時間以上）`;
   if(grade==='C')return counts.severe>=1?`強い条件 ${counts.severe}時間`:`注意条件 ${counts.bc}時間（Cは2時間以上）`;
   if(grade==='B')return `軽い注意 ${counts.caution}時間`;
   if(grade==='A')return '主要な注意条件なし';
   return '判定根拠データなし';
 }
 function nationalDailyGradeFromCounts(counts={}){
-  if(Number(counts.extreme||0)>=1)return 'E';
+  if(counts.hard||Number(counts.extreme||0)>=3)return 'E';
+  if(Number(counts.extreme||0)>=1)return 'D';
   if(Number(counts.severe||0)>=2)return 'D';
   if(Number(counts.severe||0)>=1||Number(counts.bc||0)>=2)return 'C';
   if(Number(counts.caution||0)>=1)return 'B';
@@ -7593,7 +7604,7 @@ function reconcileNationalDetailResult(result,data){
   const gefsSeries=Array.isArray(data?.models?.gefs?.series)?data.models.gefs.series:[];
   const jmaCounts=nationalDailyRuleCounts(jmaSeries,true);
   const gfsCounts=nationalDailyRuleCounts(gfsSeries,true);
-  const gefsCounts=nationalDailyRuleCounts(gefsSeries,true);
+  const gefsCounts=nationalDailyRuleCounts(gefsSeries,true,true);
   const jmaGrade=jmaSeries.some(x=>Number.isFinite(Number(x?.ridgeWind)))?nationalDailyGradeFromCounts(jmaCounts):null;
   const gfsGrade=gfsSeries.some(x=>Number.isFinite(Number(x?.ridgeWind)))?nationalDailyGradeFromCounts(gfsCounts):null;
   const gefsGrade=gefsSeries.some(x=>Number.isFinite(Number(x?.ridgeWind)))?nationalDailyGradeFromCounts(gefsCounts):null;
@@ -7648,9 +7659,9 @@ function nationalDecisionTraceHtml(result,rows,centerSeries=[]){
   const gefsGrade=String(result?.gefsRidgeGrade||'?');
   const jmaApplied=Boolean(result?.jmaWorstOfApplied), gfsApplied=Boolean(result?.gfsRidgeWorstOfApplied), gefsApplied=Boolean(result?.gefsRidgeWorstOfApplied), capApplied=Boolean(result?.ridgeConfidenceCapApplied);
   const baseCounts=nationalDailyRuleCounts(centerSeries,false);
-  const jmaCounts=result?.jmaValues?{caution:Number(result.jmaValues.cautionHours)||0,bc:Number(result.jmaValues.bcCautionHours)||0,severe:Number(result.jmaValues.severeHours)||0,extreme:Number(result.jmaValues.extremeHours)||0}:nationalDailyRuleCounts(jma?.series||[],true);
-  const gfsCounts=result?.gfsRidgeValues?{caution:Number(result.gfsRidgeValues.cautionHours)||0,bc:Number(result.gfsRidgeValues.bcCautionHours)||0,severe:Number(result.gfsRidgeValues.severeHours)||0,extreme:Number(result.gfsRidgeValues.extremeHours)||0}:nationalDailyRuleCounts(gfs?.series||[],true);
-  const gefsCounts=result?.gefsRidgeValues?{caution:Number(result.gefsRidgeValues.cautionHours)||0,bc:Number(result.gefsRidgeValues.bcCautionHours)||0,severe:Number(result.gefsRidgeValues.severeHours)||0,extreme:Number(result.gefsRidgeValues.extremeHours)||0}:nationalDailyRuleCounts(gefs?.series||[],true);
+  const jmaCounts=nationalDailyRuleCounts(result?.jmaValues?.series||jma?.series||[],true);
+  const gfsCounts=nationalDailyRuleCounts(result?.gfsRidgeValues?.series||gfs?.series||[],true);
+  const gefsCounts=nationalDailyRuleCounts(result?.gefsRidgeValues?.series||gefs?.series||[],true,true);
   let chosenCounts=baseCounts;if(gefsApplied&&nationalGradeRank(gefsGrade)>=Math.max(nationalGradeRank(gfsGrade),nationalGradeRank(jmaGrade)))chosenCounts=gefsCounts;else if(gfsApplied&&nationalGradeRank(gfsGrade)>=nationalGradeRank(jmaGrade))chosenCounts=gfsCounts;else if(jmaApplied)chosenCounts=jmaCounts;
   const floorApplied=!jmaApplied&&!gfsApplied&&!gefsApplied&&!capApplied&&Boolean(result?.safetyFloorApplied);
   const chosenSource=capApplied&&result?.ridgeDecisionStatus==='gefs-ensemble-mean'?'GEFS補助のみ・A抑制':capApplied?'上空風未取得・A抑制':gefsApplied?'NOAA GEFS補助安全側':(jmaApplied&&gfsApplied)?'JMA/GFS稜線風安全側':gfsApplied?'NOAA GFS稜線風安全側':jmaApplied?'JMA安全側':floorApplied?'単一モデル安全側floor':'従来統合';
@@ -7731,7 +7742,7 @@ function nationalModelDetailHtml(data,dateText='',result=null){
   const jmaStatus=data?.jmaStatus||null;
   const jmaNote=jmaStatus&&!jmaStatus.available?'<div class="national-model-chart-empty">JMA MSM：保存済み時間別データなし（追加リクエストなし）</div>':'';
   const forecastDate=String(dateText||'').match(/^\d{4}-\d{2}-\d{2}$/)?String(dateText).replaceAll('-','/'):'';
-  return `<section class="national-rich-section national-model-section national-model-section-simple"><div class="national-model-simple-head"><h4>時間別予測${forecastDate?` ｜ ${esc(forecastDate)}`:''}</h4><span>MET Norway / NOAA GFS + JMA MSM / GFS上空風 / GEFS補助</span></div>${jmaNote}${nationalHourlyGradeHtml(rows,centerSeries)}${nationalDecisionTraceHtml(result,rows,centerSeries)}${nationalModelChartSvg(rows,'wind','10m風（モデル比較）','m/s',7)}${nationalRidgeWindChartSvg(rows)}${nationalModelChartSvg(rows,'rain','降水','mm/h',7,'bars')}<details class="national-grade-criteria"><summary>ABCDE 判定基準を見る</summary><div><p><b>A 良好</b>：主要な注意条件なし</p><p><b>B 軽い注意</b>：弱い雨のみ、または注意条件が1時間</p><p><b>C 注意</b>：風7m/s以上・突風12m/s以上・0.5mm/h以上の雨の注意条件が合計2時間以上、または強い条件が1時間</p><p><b>D 悪い</b>：強い条件が2時間以上</p><p><b>E 非常に悪い</b>：極端な条件が1時間でもある</p><small>日判定：弱い雨＝0.1以上0.5mm/h未満（続いても雨だけではCにしない）／Cへの累積対象＝風7m/s・突風12m/s・雨0.5mm/h以上／強い＝風9m/s・突風18m/s・雨1.5mm/h以上／極端＝風15m/s・突風25m/s・雨6mm/h以上。対象は6〜15時です。</small><small>時間別マーク：A＝注意未満、B＝風5・突風12・雨0.1以上、C＝風7・突風15・雨0.5以上、D＝風9・突風18・雨1.5以上、E＝風15・突風25・雨6以上。気温はMET主軸。全国安全側判定と時間別マークにはJMA MSMとNOAA GFS（925/850/700/600hPa）の上空風から推定した稜線風を反映し、両方が取れない場合のみNOAA GEFS 0.5°アンサンブル平均（925/850/700/500hPa）を補助使用します。GEFS補助だけで穏やかな場合もAは確定せずBを上限とし、すべて取れない場合もAを出しません。10m風から稜線風は捏造しません。</small></div></details></section>`;
+  return `<section class="national-rich-section national-model-section national-model-section-simple"><div class="national-model-simple-head"><h4>時間別予測${forecastDate?` ｜ ${esc(forecastDate)}`:''}</h4><span>MET Norway / NOAA GFS + JMA MSM / GFS上空風 / GEFS補助</span></div>${jmaNote}${nationalHourlyGradeHtml(rows,centerSeries)}${nationalDecisionTraceHtml(result,rows,centerSeries)}${nationalModelChartSvg(rows,'wind','10m風（モデル比較）','m/s',7)}${nationalRidgeWindChartSvg(rows)}${nationalModelChartSvg(rows,'rain','降水','mm/h',7,'bars')}<details class="national-grade-criteria"><summary>ABCDE 判定基準を見る</summary><div><p><b>A 良好</b>：主要な注意条件なし</p><p><b>B 軽い注意</b>：弱い雨のみ、または注意条件が1時間</p><p><b>C 注意</b>：風7m/s以上・突風12m/s以上・0.5mm/h以上の雨の注意条件が合計2時間以上、または強い条件が1時間</p><p><b>D 悪い</b>：強い条件が2時間以上、または危険条件が1〜2時間（時間別Eを含む場合あり。計画見直しを検討）</p><p><b>E 非常に悪い</b>：風18m/s・突風28m/s・雨8mm/h以上が1時間でもある、または危険条件が合計3時間以上</p><small>日判定：弱い雨＝0.1以上0.5mm/h未満（続いても雨だけではCにしない）／Cへの累積対象＝風7m/s・突風12m/s・雨0.5mm/h以上／強い＝風9m/s・突風18m/s・雨1.5mm/h以上／危険＝風15m/s・突風25m/s・雨6mm/h以上。対象は6〜15時です。日判定Dでも安全を意味しません。</small><small>時間別マーク：A＝注意未満、B＝風5・突風12・雨0.1以上、C＝風7・突風15・雨0.5以上、D＝風9・突風18・雨1.5以上、E＝風15・突風25・雨6以上。気温はMET主軸。全国安全側判定と時間別マークにはJMA MSMとNOAA GFS（925/850/700/600hPa）の上空風から推定した稜線風を反映し、両方が取れない場合のみNOAA GEFS 0.5°アンサンブル平均（925/850/700/500hPa）を補助使用します。GEFS補助だけで穏やかな場合もAは確定せずBを上限とし、すべて取れない場合もAを出しません。10m風から稜線風は捏造しません。</small></div></details></section>`;
 }
 async function hydrateNationalModelDetail(box,p,result=null){
   const slots=Array.from(box?.querySelectorAll('[data-national-model-detail]')||[]); if(!slots.length)return;
@@ -7860,7 +7871,7 @@ async function openMountainFromNationalMap(name){
 const NATIONAL_OUTLOOK_BROWSER_CACHE_KEY='traten:national-outlook:v16101-wind7';
 const NATIONAL_OUTLOOK_BROWSER_CACHE_TTL=4*60*60*1000;
 const NATIONAL_OUTLOOK_BROWSER_STALE_BRIDGE_TTL=5*60*1000;
-const NATIONAL_OUTLOOK_CACHE_ENGINE='metno-gfs-jma-ridge-gust-worstof-v19-cumulative-wind7';
+const NATIONAL_OUTLOOK_CACHE_ENGINE='metno-gfs-jma-ridge-gust-worstof-v20-daily-e';
 function readNationalOutlookBrowserCache(date){
   try{
     const obj=JSON.parse(localStorage.getItem(NATIONAL_OUTLOOK_BROWSER_CACHE_KEY)||'null');
