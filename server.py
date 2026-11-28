@@ -34,9 +34,10 @@ from typing import Any
 from flask import Flask, Response, jsonify, request, send_from_directory, send_file, abort, redirect
 
 import instagram_bot
+from cloud_run_national_job import ttl_seconds as _national_date_ttl_seconds
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.123"
+APP_VERSION = "1.6.124"
 
 
 def _instagram_normalize_access_token(raw: Any) -> str:
@@ -1358,7 +1359,13 @@ def _bytes_response(status: int, ctype: str, body: bytes, *, cache_control: str 
 def _national_public_result(row):
     return {k:v for k,v in row.items() if not k.startswith("_")}
 
-def _national_meta(row, *, fetched_at=None):
+def _national_policy_ttl(date_text, at=None):
+    """Forecast-date TTL, measured from actual acquisition in JST."""
+    today = datetime.fromtimestamp(time.time() if at is None else at, timezone(timedelta(hours=9))).date()
+    return _national_date_ttl_seconds(date_text, today)
+
+
+def _national_meta(row, *, fetched_at=None, date_text=None):
     meta = row.get("_cache_meta") if isinstance(row, dict) else None
     if isinstance(meta, dict):
         try:
@@ -1369,16 +1376,17 @@ def _national_meta(row, *, fetched_at=None):
             pass
     if fetched_at is None:
         return None
-    return {"generated_ts":fetched_at, "fresh_until":fetched_at + NATIONAL_OUTLOOK_CACHE_TTL,
-            "stale_until":fetched_at + max(NATIONAL_OUTLOOK_CACHE_TTL,NATIONAL_OUTLOOK_STALE_TTL)}
+    ttl = _national_policy_ttl(date_text, fetched_at) if date_text is not None else NATIONAL_OUTLOOK_CACHE_TTL
+    return {"generated_ts":fetched_at, "fresh_until":fetched_at + ttl,
+            "stale_until":fetched_at + max(ttl,NATIONAL_OUTLOOK_STALE_TTL)}
 
-def _national_valid_results(points, results, *, fetched_at=None):
+def _national_valid_results(points, results, *, fetched_at=None, date_text=None):
     wanted = {p["name"] for p in points}
     rows = {}
     for row in results or []:
         if not isinstance(row, dict) or row.get("name") not in wanted or row.get("grade") not in {"A","B","C","D","E"}:
             continue
-        meta = _national_meta(row, fetched_at=fetched_at)
+        meta = _national_meta(row, fetched_at=fetched_at, date_text=date_text)
         if meta is None or meta["stale_until"] <= time.time():
             continue
         rows[row["name"]] = dict(row, _cache_meta=meta)
@@ -1721,7 +1729,7 @@ def _national_repair_snapshot_jma(date_text: str, fingerprint: str, points: list
                 continue
             updated=_national_attach_jma_result(row,jr)
             # Preserve the original base-model cache age; only the result payload is enriched.
-            updated["_cache_meta"]=row.get("_cache_meta") or _national_meta(row,fetched_at=time.time())
+            updated["_cache_meta"]=row.get("_cache_meta") or _national_meta(row,fetched_at=time.time(),date_text=date_text)
             rows[p["name"]]=updated; repaired.append((p,updated))
             _national_point_cache_put(date_text,p,updated)
         if repaired:
@@ -1859,7 +1867,7 @@ def _national_fetch_and_persist(date_text, points, due, initial=None, *, deadlin
         at = time.time()
         try:
             received,complete,limited,warning = _national_fetch_shared(date_text,batch,force_fetch=force_fetch,deadline=deadline)
-            valid = _national_valid_results(batch,received,fetched_at=at)
+            valid = _national_valid_results(batch,received,fetched_at=at,date_text=date_text)
             # V1.6.57: preserve a still-current daily WeatherAPI safety overlay across base-model refreshes.
             for name, fresh_row in list(valid.items()):
                 valid[name] = _weatherapi_guard_carry_forward(fresh_row, rows.get(name), date_text)
@@ -3639,7 +3647,7 @@ def _national_point_cache_get(date_text: str, p: dict[str, Any]) -> dict[str, An
 
 
 def _national_point_cache_put(date_text, p, result, ttl=None):
-    meta = _national_meta(result, fetched_at=time.time())
+    meta = _national_meta(result, fetched_at=time.time(),date_text=date_text)
     expires = meta["fresh_until"]
     if ttl is not None:
         expires = min(expires,time.time()+max(1,int(ttl)))
@@ -4534,7 +4542,7 @@ def _national_fetch_shared(date_text, points, *, force_fetch=False, deadline=Non
             result = _national_merge_two_models(p,metno.get(p["name"]),gfs.get(p["name"]))
             if result:
                 result=_national_apply_ridge_continuity(result,p,gfs.get(p["name"]),jma.get(p["name"]),gefs.get(p["name"]))
-                row = dict(result,_cache_meta=_national_meta(result,fetched_at=fetched_at))
+                row = dict(result,_cache_meta=_national_meta(result,fetched_at=fetched_at,date_text=date_text))
                 rows[p["name"]] = row
                 _national_point_cache_put(date_text,p,row)
     absent = [p["name"] for p in points if p["name"] not in rows]
@@ -4563,6 +4571,11 @@ def _national_response(data, state, *, warning=None, cached_count=None, newly_fe
     oldest_age = max(age_values, default=0.0)
     newest_age = min(age_values, default=0.0)
     average_age = (sum(age_values)/len(age_values)) if age_values else 0.0
+    stored_ttls = [round(m["fresh_until"]-m["generated_ts"]) for m in metas]
+    try:
+        policy_ttl = _national_policy_ttl(data.get("date"), now)
+    except (TypeError, ValueError):
+        policy_ttl = None
     cc = got if cached_count is None else int(cached_count)
     nf = int(newly_fetched_count or 0)
     payload = {"date":data.get("date"),"results":results,"version":APP_VERSION,"engine":NATIONAL_OUTLOOK_ENGINE,
@@ -4571,6 +4584,7 @@ def _national_response(data, state, *, warning=None, cached_count=None, newly_fe
             "generatedAt":datetime.fromtimestamp(gt,timezone.utc).isoformat(),"ageSeconds":max(0,round(now-gt)),
             "oldestAgeSeconds":max(0,round(oldest_age)),"averageAgeSeconds":max(0,round(average_age)),
             "newestAgeSeconds":max(0,round(newest_age)),"freshTtlSeconds":round(min((m["fresh_until"]-m["generated_ts"] for m in metas),default=NATIONAL_OUTLOOK_CACHE_TTL)),
+            "policyTtlSeconds":policy_ttl,"storedTtlMaxSeconds":max(stored_ttls,default=None),
             "freshUntil":datetime.fromtimestamp(fu,timezone.utc).isoformat(),"freshRemainingSeconds":max(0,int(fu-now)),
             "cachedCount":cc,"freshCount":fresh_count,"totalCount":total,
             "staleCount":got-fresh_count,"newlyFetchedCount":nf,"staleFallbackCount":max(stale_fallback_count,got-fresh_count),
@@ -5898,7 +5912,7 @@ def national_outlook_detail():
     reconciled["detailSnapshotLocked"]=False
     reconciled["detailReconciledVersion"]="v16101-live-authority"
     fetched_at=time.time()
-    reconciled_row=dict(reconciled,_cache_meta=_national_meta(reconciled,fetched_at=fetched_at))
+    reconciled_row=dict(reconciled,_cache_meta=_national_meta(reconciled,fetched_at=fetched_at,date_text=date_text))
     _national_point_cache_put(date_text,p,reconciled_row)
     detail_persisted=False
     try:
