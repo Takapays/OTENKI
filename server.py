@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.121"
+APP_VERSION = "1.6.122"
 
 
 def _instagram_normalize_access_token(raw: Any) -> str:
@@ -1533,8 +1533,9 @@ def _national_daily_compound_policy(row, base, jg, gg, eg, jr, gr, er=None, raw_
 
     A-C and the old hourly/model grades remain diagnostic. D is serious, not safe.
     E: exceptionally severe single hazard, or >=5 simultaneous corroborated
-    severe wind+rain / strong wind+severe cold hours (06-15 JST). Unknowns are
-    not calm. A prior E without enough evidence to exclude these stays E.
+    severe wind+rain / strong wind+severe cold hours (06-15 JST). Use
+    available hourly evidence when a comparison model is missing. Unknown
+    weather is not calm; never clear an unexplained prior E.
     """
     valid={"A","B","C","D","E"}
     worst=max([g for g in (base,jg,gg,eg) if g in valid],key=_national_grade_rank,default="?")
@@ -1566,29 +1567,75 @@ def _national_daily_compound_policy(row, base, jg, gg, eg, jr, gr, er=None, raw_
         return "E","極端な地上風・突風・降水。中止・延期を検討。"
     if row.get("thunder")=="HIGH" or ge(row,"maxCape",700) or (_finite(row.get("minVisibility")) and row["minVisibility"]<=100):
         return "E","雷・視界の重大な危険条件。中止・延期を検討。"
-    # The saved center is not an independent model. Confirm wind and rain with
-    # JMA/GFS per hour; for severe cold use the existing MET-led temperature.
-    compound=set(); known=set()
+    # A missing comparison model is uncertainty, not a weather hazard. Use
+    # actual available hourly wind/rain/temperature without inventing a second
+    # vote. When both primary models are present, keep the 120 consensus rule.
+    # Partial raw ridge series still carry useful evidence.
+    raw=list(raw_series)
+    for target,series in zip((j,g,e),raw):
+        for h,x in by_hour(series).items():
+            if h not in target or not _finite(target[h].get("ridgeWind")):
+                target[h]=x
+    compound=set(); known=set(); compared=set()
+    def has_ridge(x): return _finite(x.get("ridgeWind")) and x["ridgeWind"]>=0
+    def has_rain(x): return _finite(x.get("rain")) and x["rain"]>=0
+    def risk(x,ridge,t,gt):
+        return ge(x,"ridgeWind" if ridge else "wind",t) or ge(x,"estimatedRidgeGust" if ridge else "gust",gt) or (ridge and ge(x,"wind",t))
     for h in hours:
-        a=j.get(h,{}); b=g.get(h,{}); c=center.get(h,{})
-        if not (_finite(a.get("ridgeWind")) and _finite(b.get("ridgeWind")) and _finite(a.get("rain")) and _finite(b.get("rain"))):
-            continue
-        both_wind=(wind(a,True) or wind(a)) and (wind(b,True) or wind(b))
-        both_strong=(strong(a,True) or strong(a)) and (strong(b,True) or strong(b))
-        rain=ge(a,"rain",1.5) and ge(b,"rain",1.5)
-        cold=_finite(c.get("temp")) and c["temp"]<=-10 and both_strong
-        if both_wind and (rain or cold): compound.add(h)
-        # Missing temperature is only consequential when strong winds coincide.
-        if not both_strong or _finite(c.get("temp")) or rain: known.add(h)
+        a=j.get(h,{}); b=g.get(h,{}); z=e.get(h,{}); c=center.get(h,{})
+        primary=[x for x in (a,b) if has_ridge(x)]
+        if len(primary)==2 and all(has_rain(x) for x in primary):
+            compared.add(h)
+            wet=all(ge(x,"rain",1.5) for x in primary)
+            windy=all(risk(x,True,9,18) for x in primary)
+            strong_wind=all(risk(x,True,15,25) for x in primary)
+            rain_known=True
+        else:
+            # Use the available primary ridge estimate, or the existing GEFS
+            # fallback; do not substitute surface wind for missing ridge wind.
+            candidates=primary or ([z] if has_ridge(z) else [])
+            if not candidates:
+                # Surface-only data cannot rule out a saved, unverified ridge E.
+                if any(k=="E" for k in (jg,gg,eg)) or not _finite(c.get("wind")):
+                    continue
+                # For surface-only forecasts, use the surface evidence, with
+                # the existing A confidence cap and separate UI warning.
+                candidates=[c]; ridge=False
+            else:
+                ridge=True
+            windy=all(risk(x,ridge,9,18) for x in candidates)
+            strong_wind=all(risk(x,ridge,15,25) for x in candidates)
+            rain_sources=[x for x in candidates if has_rain(x)]
+            if not rain_sources and has_rain(c): rain_sources=[c]
+            rain_known=bool(rain_sources)
+            wet=rain_known and all(ge(x,"rain",1.5) for x in rain_sources)
+        temp_known=_finite(c.get("temp"))
+        cold=strong_wind and temp_known and c["temp"]<=-10
+        if windy and (wet or cold): compound.add(h); known.add(h)
+        elif not windy or (rain_known and (not strong_wind or temp_known)):
+            known.add(h)
+    # Preserve extremes present in saved ridge aggregate values even if some
+    # hourly records are unavailable. Never lower a known extreme to D.
+    for v in (row.get("jmaValues"),row.get("gfsRidgeValues"),row.get("gefsRidgeValues")):
+        if isinstance(v,dict) and (ge(v,"maxRidgeWind",25) or ge(v,"maxEstimatedRidgeGust",37.5) or ge(v,"maxRain",10)):
+            return "E","極端な稜線風・降水。中止・延期を検討。"
     if len(compound)>=5:
         return "E",f"複合危険が{len(compound)}時間。中止・延期を検討。"
     if worst not in {"D","E"}: return old,None
-    # If 5 compound hours could be hidden by missing slots, keep the old E.
-    # In a complete comparison, one model E or short/single hazard stays D.
-    if worst=="E" and (len(known)<6 or len(compound)+10-len(known)>=5):
-        if old=="E" or row.get("grade")=="E": return "E","比較不足のためEを維持。時間別予報を確認。"
-        return old,_RIDGE_DISAGREEMENT_SUMMARY
-    if worst=="E" or compound:
+    if worst=="E":
+        # Inadequate actual weather coverage (rather than missing a second
+        # model) can conceal a sustained compound risk. Keep the warning.
+        if len(known)<6 or len(compound)+10-len(known)>=5:
+            if old=="E" or row.get("grade")=="E": return "E","気象値不足のためE維持。中止を検討。"
+            return old,_RIDGE_DISAGREEMENT_SUMMARY
+        # An old E without any ridge evidence cannot be explained if its
+        # saved reason says ridge risk; leave unexplained legacy E intact.
+        if not (j or g or e) and any(row.get(k)=="E" for k in ("jmaGrade","gfsRidgeGrade","gefsRidgeGrade")):
+            return "E","気象値不足のためE維持。中止を検討。"
+        if len(compared)<10:
+            return "D","単独・短時間の危険。比較不足に注意。"
+        return "D","単独・短時間の危険。時間別Eを確認し計画見直し。"
+    if compound:
         return "D","単独・短時間の危険。時間別Eを確認し計画見直し。"
     return old,None
 
@@ -1622,7 +1669,7 @@ def _national_reconcile_cached_row(row: dict[str, Any]) -> dict[str, Any]:
     eg=(er or {}).get("shadowGrade") if er else None
 
     final,reason=_national_daily_compound_policy(out,base,jg,gg,eg,jr,gr,er,((jv or {}).get("series"),(gv or {}).get("series"),(ev or {}).get("series")))
-    disagreement=(final=="D" and reason is not None and not out.get("weatherapiApplied") and ("E" in (base,jg,gg,eg)))
+    disagreement=(final=="D" and reason is not None and not out.get("weatherapiApplied") and ("E" in (base,jg,gg,eg)) and (out.get("preRidgeGrade") in valid or out.get("preJmaGrade") in valid))
     # Keep unexplained prior E and external safety overlays. A verified daily
     # single/short hazard may lower an old E; otherwise remain monotonic.
     if current in valid and not (current=="E" and disagreement and not out.get("weatherapiApplied")):
@@ -1659,7 +1706,7 @@ def _national_reconcile_cached_row(row: dict[str, Any]) -> dict[str, Any]:
         out["grade"]=final
     if reason and final==out.get("grade") and not out.get("weatherapiApplied"):
         out["summary"]=reason
-    out["decisionPolicy"]="daily-compound-v16120-cache-read"
+    out["decisionPolicy"]="daily-compound-v16122-cache-read"
     out["detailReconciledVersion"]="v1699-server-read"
     return out
 
@@ -2783,7 +2830,7 @@ def _national_apply_ridge_continuity(result: dict[str, Any], p: dict[str, Any], 
         "ridgeDecisionStatus":ridge_status,"ridgeEvidenceAvailable":bool(jma_usable or gfs_usable or gefs_usable),
         "ridgePrimaryEvidenceAvailable":bool(primary_usable),
         "ridgeConfidenceCapApplied":cap,"ridgeContinuityVersion":"v1692-ridge-continuity-v2",
-        "decisionPolicy":"daily-compound-v16120",
+        "decisionPolicy":"daily-compound-v16122",
     })
     if jma:
         out["jmaValues"]={
