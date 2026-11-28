@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.120"
+APP_VERSION = "1.6.121"
 
 
 def _instagram_normalize_access_token(raw: Any) -> str:

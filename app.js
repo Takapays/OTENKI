@@ -158,7 +158,7 @@ function normalizeTimeToTenMinutes(value){
   total=((total%1440)+1440)%1440;
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
-const APP_VERSION = '1.6.120';
+const APP_VERSION = '1.6.121';
 // V1.5.122: keep desktop/mobile visible version badges synchronized with the JS build.
 // The HTML still carries a fallback value so the version is visible before JS executes.
 function syncVisibleAppVersion(){
@@ -7281,7 +7281,81 @@ function nationalMarkerIcon(grade='?'){
   const g=['A','B','C','D','E'].includes(grade)?grade:'?';
   return L.divIcon({className:'national-marker-wrap',html:`<div class="national-marker grade-${g==='?'?'u':g.toLowerCase()}">${g}</div>`,iconSize:[26,26],iconAnchor:[13,13]});
 }
+// V1.6.121: browser-only diagnostic of the actual displayed E rows.
+// No request, storage write or grade mutation. The saved server summary is authoritative;
+// subtypes are inferred only when existing public evidence supports them.
+const NATIONAL_E_DIAGNOSTIC_LABELS=Object.freeze({
+  wind:'極端な暴風・突風',rain:'極端な降水',extremeBoth:'極端な風・降水（両方）',extremeUnknown:'極端条件（内訳不明）',
+  windRain:'風＋降水',windCold:'風＋低温',compoundMixed:'風＋降水／低温（混在）',compoundUnknown:'複合危険（内訳不明）',
+  missing:'比較データ不足',thunderVisibility:'雷・視界の重大条件',overlay:'外部予報の安全側補正',unknown:'原因不明・従来判定'
+});
+function nationalEReason(row){
+  if(row?.grade!=='E')return null;
+  const summary=String(row.summary||'');
+  const finite=x=>typeof x==='number'&&Number.isFinite(x);
+  const ge=(x,k,t)=>finite(x?.[k])&&x[k]>=t;
+  const hourly=series=>new Map((Array.isArray(series)?series:[]).filter(x=>x&&Number.isInteger(x.hour)&&x.hour>=6&&x.hour<=15).map(x=>[x.hour,x]));
+  const j=hourly(row.jmaValues?.series),g=hourly(row.gfsRidgeValues?.series),e=hourly(row.gefsRidgeValues?.series),c=hourly(row.series);
+  if(row.weatherapiApplied&&row.weatherapiBaseGrade!=='E')return 'overlay';
+  if(summary.includes('比較不足のためE'))return 'missing';
+  if(summary.includes('雷・視界の重大な危険条件'))return 'thunderVisibility';
+  if(summary.includes('複合危険が')){
+    const n=Number(summary.match(/複合危険が(\d+)時間/)?.[1]);
+    let wet=0,cold=0,total=0;
+    const wind=(x,t,gt)=>ge(x,'ridgeWind',t)||ge(x,'estimatedRidgeGust',gt)||ge(x,'wind',t)||ge(x,'gust',gt);
+    for(let h=6;h<=15;h++){
+      const a=j.get(h),b=g.get(h),z=c.get(h);
+      if(!finite(a?.ridgeWind)||!finite(b?.ridgeWind)||!finite(a?.rain)||!finite(b?.rain))continue;
+      const both=wind(a,9,18)&&wind(b,9,18);
+      const r=both&&ge(a,'rain',1.5)&&ge(b,'rain',1.5);
+      const t=both&&wind(a,15,25)&&wind(b,15,25)&&finite(z?.temp)&&z.temp<=-10;
+      if(r)wet++;if(t)cold++;if(r||t)total++;
+    }
+    if(total!==n||total<5)return 'compoundUnknown';
+    if(wet&&cold)return 'compoundMixed';
+    // Without a center temperature series we cannot exclude an additional cold cause.
+    if(wet)return 'windRain';
+    if(cold)return 'windCold';
+    return 'compoundUnknown';
+  }
+  if(summary.includes('極端な')&&(summary.includes('稜線風')||summary.includes('地上風')||summary.includes('単独モデル'))){
+    let w=false,r=false;
+    if(summary.includes('稜線風')){
+      for(const x of [...j.values(),...g.values(),...e.values()]){w=w||ge(x,'ridgeWind',25)||ge(x,'estimatedRidgeGust',37.5);r=r||ge(x,'rain',10);}
+    }else if(summary.includes('単独モデル')){
+      for(const [name,x] of Object.entries(row.modelValues||{})){w=w||ge(x,'maxWind',20)||(name!=='gfs'&&ge(x,'maxGust',28));r=r||ge(x,'maxRain',10);}
+    }else{
+      for(const x of c.values()){w=w||ge(x,'wind',20)||ge(x,'gust',28);r=r||ge(x,'rain',10);}
+      w=w||ge(row,'maxWind',20)||ge(row,'maxGust',28);r=r||ge(row,'maxRain',10);
+    }
+    return w&&r?'extremeBoth':w?'wind':r?'rain':'extremeUnknown';
+  }
+  return 'unknown';
+}
+function nationalECollect(rows){
+  const groups=new Map();let total=0;
+  for(const row of rows){const reason=nationalEReason(row);if(!reason)continue;total++;if(!groups.has(reason))groups.set(reason,[]);groups.get(reason).push(row);}
+  return {total,groups};
+}
+function renderNationalEDiagnostic(){
+  const panel=$('nationalEDiagnostic');if(!panel)return;
+  const rows=nationalOutlookVisiblePoints().map(p=>nationalOutlookResults.get(p.name)).filter(Boolean);
+  const {total,groups}=nationalECollect(rows);
+  panel.hidden=!rows.length;
+  if(!rows.length){panel.innerHTML='';return;}
+  const open=!!panel.querySelector('details')?.open;
+  const body=[...groups.entries()].sort((a,b)=>b[1].length-a[1].length).map(([key,list])=>{
+    const names=list.map(r=>esc(r.name||'不明')).join('、');
+    const unknown=['unknown','extremeUnknown','compoundUnknown'].includes(key);
+    const reasons=unknown?`<div style="font-size:12px;color:#60786f;overflow-wrap:anywhere">${list.map(r=>`${esc(r.name||'不明')}：${esc(r.summary||'理由の保存なし')}`).join('<br>')}</div>`:'';
+    return `<div style="margin:9px 0"><div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(NATIONAL_E_DIAGNOSTIC_LABELS[key])}</b><b>${list.length}座</b></div><div style="height:7px;background:#e1e9e5;border-radius:5px;margin:4px 0"><div style="height:7px;width:${100*list.length/total}%;background:#b84b48;border-radius:5px"></div></div><div style="font-size:12px;overflow-wrap:anywhere">${names}</div>${reasons}</div>`;
+  }).join('');
+  const date=$('nationalOutlookDate')?.value||'';
+  panel.innerHTML=`<details${open?' open':''}><summary><b>E判定の原因別内訳：${total}座</b></summary><div style="margin-top:8px;font-size:13px;line-height:1.6"><div>${esc(date)} ／ 表示済み ${rows.length}座</div>${body||'E判定はありません。'}<small>1座につき1分類。保存済みの日判定理由を優先し、既存の予報値から内訳を推定します。複数の要因が同時にあっても重複集計しません。不明は推測で埋めません。追加の予報取得なし。</small></div></details>`;
+}
+
 function renderNationalOutlookMarkers(){
+  renderNationalEDiagnostic();
   if(!nationalOutlookMap||!window.L)return;
   if(nationalOutlookLayer)nationalOutlookLayer.remove();
   nationalOutlookLayer=L.layerGroup().addTo(nationalOutlookMap);
