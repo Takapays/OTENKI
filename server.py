@@ -37,7 +37,7 @@ import instagram_bot
 from cloud_run_national_job import ttl_seconds as _national_date_ttl_seconds
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.124"
+APP_VERSION = "1.6.125"
 
 
 def _instagram_normalize_access_token(raw: Any) -> str:
@@ -1616,6 +1616,10 @@ def _national_reconcile_cached_row(row: dict[str, Any]) -> dict[str, Any]:
     out=dict(row)
     valid={"A","B","C","D","E"}
     current=out.get("grade") if out.get("grade") in valid else None
+    # A finalized row already passed the daily policy and any external overlay.
+    # Rebuilding it from compact, partly missing series can manufacture a worse grade.
+    if current and out.get("decisionPolicy") in {"daily-compound-v16122", "daily-compound-v16125", "daily-compound-v16125-cache-read"}:
+        return out
     base=(out.get("preRidgeGrade") if out.get("preRidgeGrade") in valid else
           out.get("preJmaGrade") if out.get("preJmaGrade") in valid else current)
     if base not in valid:
@@ -1671,7 +1675,7 @@ def _national_reconcile_cached_row(row: dict[str, Any]) -> dict[str, Any]:
         out["grade"]=final
     if reason and final==out.get("grade") and not out.get("weatherapiApplied"):
         out["summary"]=reason
-    out["decisionPolicy"]="daily-compound-v16122-cache-read"
+    out["decisionPolicy"]="daily-compound-v16125-cache-read"
     out["detailReconciledVersion"]="v1699-server-read"
     return out
 
@@ -2767,8 +2771,8 @@ def _national_apply_ridge_continuity(result: dict[str, Any], p: dict[str, Any], 
     jma_daily=_national_jma_daily_from_series(jma_series)
     # The same rounded, already stored series are used by cache-read reconciliation.
     # Incomplete evidence retains the older safety-side result.
-    policy_jg="E" if (jma_daily or {}).get("shadowGrade")=="E" else jma_grade
-    policy_gg="E" if (gfs_daily or {}).get("shadowGrade")=="E" else gfs_grade
+    policy_jg=max((g for g in (jma_grade,(jma_daily or {}).get("shadowGrade")) if g in {"A","B","C","D","E"}),key=_national_grade_rank,default=None)
+    policy_gg=max((g for g in (gfs_grade,(gfs_daily or {}).get("shadowGrade")) if g in {"A","B","C","D","E"}),key=_national_grade_rank,default=None)
     final,reason=_national_daily_compound_policy(out,base,policy_jg,policy_gg,gefs_grade,jma_daily,gfs_daily,gefs_daily,(jma_series,gfs_series,gefs_series))
     jma_grade,gfs_grade=policy_jg,policy_gg
     elev=_national_resolve_point_elevation(p.get("name"),p.get("elevation"))
@@ -2794,7 +2798,7 @@ def _national_apply_ridge_continuity(result: dict[str, Any], p: dict[str, Any], 
         "ridgeDecisionStatus":ridge_status,"ridgeEvidenceAvailable":bool(jma_usable or gfs_usable or gefs_usable),
         "ridgePrimaryEvidenceAvailable":bool(primary_usable),
         "ridgeConfidenceCapApplied":cap,"ridgeContinuityVersion":"v1692-ridge-continuity-v2",
-        "decisionPolicy":"daily-compound-v16122",
+        "decisionPolicy":"daily-compound-v16125",
     })
     if jma:
         out["jmaValues"]={
@@ -4271,6 +4275,7 @@ def _national_gfs_results(date_text: str, points: list[dict[str, Any]], *, inclu
                     row={"hour":target_dt.astimezone(timezone(timedelta(hours=9))).hour,
                          "wind":float(vals.get("wind") or 0),"gust":float(vals.get("gust") or vals.get("wind") or 0),
                          "rain":float(vals.get("rain") or 0),"temp":float(vals.get("temp")),"cloud":vals.get("cloud"),
+                         "tempAltitudeAdjusted":bool(vals.get("temperature_altitude_adjusted")),
                          "ridgeWind":float(ridge) if _finite(ridge) else None,"estimatedRidgeGust":estimated_gust,
                          "ridgeMethod":rmeta.get("method"),"ridgeStatus":rmeta.get("status")}
                     for hpa in (925,850,700,600):
@@ -4308,6 +4313,7 @@ def _national_gfs_results(date_text: str, points: list[dict[str, Any]], *, inclu
         for x in rr:
             row={"hour":int(x.get("hour")),"wind":round(float(x["wind"]),1),"gust":round(float(x.get("gust",x["wind"])),1),
                  "rain":round(float(x["rain"]),1),"temp":round(float(x["temp"]),1),
+                 "tempAltitudeAdjusted":bool(x.get("tempAltitudeAdjusted")),
                  "ridgeWind":round(float(x["ridgeWind"]),1) if _finite(x.get("ridgeWind")) else None,
                  "estimatedRidgeGust":round(float(x["estimatedRidgeGust"]),1) if _finite(x.get("estimatedRidgeGust")) else None,
                  "ridgeMethod":x.get("ridgeMethod")}
@@ -4389,6 +4395,8 @@ def _national_merge_two_models(p: dict[str, Any], met: dict[str, Any] | None, gf
         wind=sum(wg)/len(wg) if wg else None
         rain=sum(rg)/len(rg) if rg else None
         temp=mv(mr,"temp")
+        if temp is None and gr and gr.get("tempAltitudeAdjusted") is True:
+            temp=mv(gr,"temp")
         gust=mv(mr,"gust")
         if wind is None and rain is None and temp is None and gust is None: continue
         center.append({"hour":h,"wind":wind,"gust":gust,"rain":rain,"temp":temp})
@@ -4558,7 +4566,7 @@ def _national_fetch_shared(date_text, points, *, force_fetch=False, deadline=Non
 def _national_response(data, state, *, warning=None, cached_count=None, newly_fetched_count=None, stale_fallback_count=0):
     now = time.time()
     rows = _national_valid_results(data.get("points") or [],data.get("results") or [])
-    results = [_national_public_result(r) for r in rows.values()]
+    results = [_national_public_result(_national_reconcile_cached_row(r)) for r in rows.values()]
     total = len(data.get("points") or []); got = len(results)
     metas = [r["_cache_meta"] for r in rows.values()]
     gt = min((m["generated_ts"] for m in metas),default=now)
@@ -5881,7 +5889,8 @@ def national_outlook_detail():
     # Only make a GEFS request when JMA and deterministic GFS ridge evidence are both absent.
     try:
         gv=cached.get("gefsRidgeValues") if isinstance(cached,dict) else None
-        if isinstance(gv,dict) and _national_ridge_series_usable(gv.get("series")):
+        primary_now=any(_national_ridge_series_usable((model or {}).get("series") or (model or {}).get("_series")) for model in (gfs,jma))
+        if not primary_now and isinstance(gv,dict) and _national_ridge_series_usable(gv.get("series")):
             gefs={"name":name,"source":"gefs-ensemble-mean-cache","series":gv.get("series"),
                   "ridgeGrade":cached.get("gefsRidgeGrade"),"modelRun":gv.get("modelRun"),
                   "ridgeQuality":gv.get("ridgeQuality"),"nativeHours":gv.get("nativeHours"),"temporalInterpolation":gv.get("temporalInterpolation")}
