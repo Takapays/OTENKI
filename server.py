@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.119"
+APP_VERSION = "1.6.120"
 
 
 def _instagram_normalize_access_token(raw: Any) -> str:
@@ -1528,6 +1528,71 @@ def _national_ridge_consensus_grade(base, jg, gg, eg, jr, gr):
 _RIDGE_DISAGREEMENT_SUMMARY = "稜線風のモデル差により日判定D。危険な時間帯あり。中止・延期も検討し、時間別E警告を確認してください。"
 
 
+def _national_daily_compound_policy(row, base, jg, gg, eg, jr, gr, er=None, raw_series=()):
+    """National candidate-day classification only; no I/O, no new persisted fields.
+
+    A-C and the old hourly/model grades remain diagnostic. D is serious, not safe.
+    E: exceptionally severe single hazard, or >=5 simultaneous corroborated
+    severe wind+rain / strong wind+severe cold hours (06-15 JST). Unknowns are
+    not calm. A prior E without enough evidence to exclude these stays E.
+    """
+    valid={"A","B","C","D","E"}
+    worst=max([g for g in (base,jg,gg,eg) if g in valid],key=_national_grade_rank,default="?")
+    old=_national_ridge_consensus_grade(base,jg,gg,eg,jr,gr)
+    hours=set(range(6,16))
+    def by_hour(series):
+        return {int(x["hour"]):x for x in (series or []) if isinstance(x,dict) and _finite(x.get("hour")) and x["hour"] in hours}
+    def ge(x,k,t):
+        v=x.get(k); return _finite(v) and v>=t
+    def wind(x,ridge=False):
+        return ge(x,"ridgeWind" if ridge else "wind",9) or ge(x,"estimatedRidgeGust" if ridge else "gust",18)
+    def strong(x,ridge=False):
+        return ge(x,"ridgeWind" if ridge else "wind",15) or ge(x,"estimatedRidgeGust" if ridge else "gust",25)
+    center=by_hour(row.get("series") or row.get("_series"))
+    j=by_hour((jr or {}).get("series")); g=by_hour((gr or {}).get("series")); e=by_hour((er or {}).get("series"))
+    # Never count estimated gust as a second independent hazard/model.
+    for x in list(j.values())+list(g.values())+list(e.values())+[x for series in raw_series for x in by_hour(series).values()]:
+        if ge(x,"ridgeWind",25) or ge(x,"estimatedRidgeGust",37.5) or ge(x,"rain",10):
+            return "E","極端な稜線風・降水。中止・延期を検討。"
+    for x in center.values():
+        if ge(x,"wind",20) or ge(x,"gust",28) or ge(x,"rain",10):
+            return "E","極端な地上風・突風・降水。中止・延期を検討。"
+    # Single-model exceptional surface wind/rain must not be averaged away.
+    for model,v in (row.get("modelValues") or {}).items():
+        if not isinstance(v,dict): continue
+        if ge(v,"maxWind",20) or ge(v,"maxRain",10) or (model!="gfs" and ge(v,"maxGust",28)):
+            return "E","単独モデルでも極端な風・降水。中止・延期を検討。"
+    if ge(row,"maxWind",20) or ge(row,"maxGust",28) or ge(row,"maxRain",10):
+        return "E","極端な地上風・突風・降水。中止・延期を検討。"
+    if row.get("thunder")=="HIGH" or ge(row,"maxCape",700) or (_finite(row.get("minVisibility")) and row["minVisibility"]<=100):
+        return "E","雷・視界の重大な危険条件。中止・延期を検討。"
+    # The saved center is not an independent model. Confirm wind and rain with
+    # JMA/GFS per hour; for severe cold use the existing MET-led temperature.
+    compound=set(); known=set()
+    for h in hours:
+        a=j.get(h,{}); b=g.get(h,{}); c=center.get(h,{})
+        if not (_finite(a.get("ridgeWind")) and _finite(b.get("ridgeWind")) and _finite(a.get("rain")) and _finite(b.get("rain"))):
+            continue
+        both_wind=(wind(a,True) or wind(a)) and (wind(b,True) or wind(b))
+        both_strong=(strong(a,True) or strong(a)) and (strong(b,True) or strong(b))
+        rain=ge(a,"rain",1.5) and ge(b,"rain",1.5)
+        cold=_finite(c.get("temp")) and c["temp"]<=-10 and both_strong
+        if both_wind and (rain or cold): compound.add(h)
+        # Missing temperature is only consequential when strong winds coincide.
+        if not both_strong or _finite(c.get("temp")) or rain: known.add(h)
+    if len(compound)>=5:
+        return "E",f"複合危険が{len(compound)}時間。中止・延期を検討。"
+    if worst not in {"D","E"}: return old,None
+    # If 5 compound hours could be hidden by missing slots, keep the old E.
+    # In a complete comparison, one model E or short/single hazard stays D.
+    if worst=="E" and (len(known)<6 or len(compound)+10-len(known)>=5):
+        if old=="E" or row.get("grade")=="E": return "E","比較不足のためEを維持。時間別予報を確認。"
+        return old,_RIDGE_DISAGREEMENT_SUMMARY
+    if worst=="E" or compound:
+        return "D","単独・短時間の危険。時間別Eを確認し計画見直し。"
+    return old,None
+
+
 def _national_reconcile_cached_row(row: dict[str, Any]) -> dict[str, Any]:
     """Safety-side reconcile a saved nationwide row from the evidence saved with it.
 
@@ -1556,10 +1621,10 @@ def _national_reconcile_cached_row(row: dict[str, Any]) -> dict[str, Any]:
     if gr and out.get("gfsRidgeGrade")=="E": gg="E"
     eg=(er or {}).get("shadowGrade") if er else None
 
-    final=_national_ridge_consensus_grade(base,jg,gg,eg,jr,gr)
-    disagreement=(final=="D" and base!="E" and "E" in (jg,gg,eg))
-    # Keep any unexplained prior E or external safety overlay. Only the known
-    # ridge disagreement may lower an existing E; all other reads remain monotonic.
+    final,reason=_national_daily_compound_policy(out,base,jg,gg,eg,jr,gr,er,((jv or {}).get("series"),(gv or {}).get("series"),(ev or {}).get("series")))
+    disagreement=(final=="D" and reason is not None and not out.get("weatherapiApplied") and ("E" in (base,jg,gg,eg)))
+    # Keep unexplained prior E and external safety overlays. A verified daily
+    # single/short hazard may lower an old E; otherwise remain monotonic.
     if current in valid and not (current=="E" and disagreement and not out.get("weatherapiApplied")):
         final=max((current,final),key=_national_grade_rank)
     primary_usable=bool(jr or gr)
@@ -1589,12 +1654,12 @@ def _national_reconcile_cached_row(row: dict[str, Any]) -> dict[str, Any]:
         out["gefsRidgeValues"]={**(ev or {}),**{k:v for k,v in er.items() if k not in {"shadowGrade","series"}}}
     if cap_required:
         out["ridgeConfidenceCapApplied"]=True
-    # Except for confirmed ridge-only disagreement, retain monotonic read safety.
+    # Except for a supported E-to-D reclassification, retain monotonic read safety.
     if current not in valid or _national_grade_rank(final)>_national_grade_rank(current) or (current=="E" and disagreement and final=="D"):
         out["grade"]=final
-    if disagreement and final=="D":
-        out["summary"]=_RIDGE_DISAGREEMENT_SUMMARY
-    out["decisionPolicy"]="ridge-consensus-v16119-cache-read"
+    if reason and final==out.get("grade") and not out.get("weatherapiApplied"):
+        out["summary"]=reason
+    out["decisionPolicy"]="daily-compound-v16120-cache-read"
     out["detailReconciledVersion"]="v1699-server-read"
     return out
 
@@ -2693,9 +2758,8 @@ def _national_apply_ridge_continuity(result: dict[str, Any], p: dict[str, Any], 
     # Incomplete evidence retains the older safety-side result.
     policy_jg="E" if (jma_daily or {}).get("shadowGrade")=="E" else jma_grade
     policy_gg="E" if (gfs_daily or {}).get("shadowGrade")=="E" else gfs_grade
-    final=_national_ridge_consensus_grade(base,policy_jg,policy_gg,gefs_grade,jma_daily,gfs_daily)
+    final,reason=_national_daily_compound_policy(out,base,policy_jg,policy_gg,gefs_grade,jma_daily,gfs_daily,gefs_daily,(jma_series,gfs_series,gefs_series))
     jma_grade,gfs_grade=policy_jg,policy_gg
-    disagreement=(final=="D" and base!="E" and "E" in (policy_jg,policy_gg,gefs_grade))
     elev=_national_resolve_point_elevation(p.get("name"),p.get("elevation"))
     needs_ridge=bool(elev is not None and float(elev)>=500.0)
     # GEFS ensemble mean is a lower-confidence fallback. Even a calm GEFS mean does
@@ -2719,7 +2783,7 @@ def _national_apply_ridge_continuity(result: dict[str, Any], p: dict[str, Any], 
         "ridgeDecisionStatus":ridge_status,"ridgeEvidenceAvailable":bool(jma_usable or gfs_usable or gefs_usable),
         "ridgePrimaryEvidenceAvailable":bool(primary_usable),
         "ridgeConfidenceCapApplied":cap,"ridgeContinuityVersion":"v1692-ridge-continuity-v2",
-        "decisionPolicy":"ridge-consensus-v16119",
+        "decisionPolicy":"daily-compound-v16120",
     })
     if jma:
         out["jmaValues"]={
@@ -2764,8 +2828,8 @@ def _national_apply_ridge_continuity(result: dict[str, Any], p: dict[str, Any], 
             out["summary"]=(base_summary+" 上空風データを確認できないため、A（良好）は出さずBとして表示しています。").strip()
     elif suffix and _national_grade_rank(final)>=_national_grade_rank(base):
         out["summary"]=(base_summary+" "+" / ".join(suffix)+"を安全側に反映しています。").strip()
-    if disagreement:
-        out["summary"]=_RIDGE_DISAGREEMENT_SUMMARY
+    if reason:
+        out["summary"]=reason
     return out
 
 def _openmeteo_jma_shadow_day_result(p: dict[str, Any], payload: dict[str, Any], date_text: str) -> dict[str, Any] | None:
@@ -5063,7 +5127,7 @@ def _instagram_load_100_results_from_supabase(date_text: str, *, include_stale: 
         row = by_name.get(point["name"])
         if not isinstance(row, dict):
             continue
-        item = dict(row)
+        item = _national_reconcile_cached_row(row)
         item["grade5"] = item.get("grade")
         item["name"] = point["name"]
         item["lat"] = point.get("lat")

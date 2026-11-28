@@ -475,7 +475,7 @@ def render_national_image(date_text: str, results: list[dict[str, Any]], *, logo
     grade_big_font = _load_font(66)
     count_font = _load_font(42)
     label_font = _load_font(21)
-    labels = {"A": "良好", "B": "軽い注意", "C": "注意", "D": "悪い", "E": "非常に悪い"}
+    labels = {"A": "良好", "B": "軽い注意", "C": "注意", "D": "危険", "E": "極めて危険"}
     for idx, grade in enumerate("ABCDE"):
         x1 = margin + idx * (card_w + gap)
         x2 = x1 + card_w
@@ -745,7 +745,7 @@ def _draw_reel_legend(draw, x: int, y: int, width: int = 560):
     # ABC legend baked into the approved scene-1 template without hiding footer copy.
     height=205
     draw.rounded_rectangle((x,y,x+width,y+height),radius=24,fill=(255,255,255,248))
-    rows=[("A","良好"),("B","軽い注意"),("C","注意"),("D","悪い"),("E","非常に悪い")]
+    rows=[("A","良好"),("B","軽い注意"),("C","注意"),("D","危険"),("E","極めて危険")]
     fgmap={"A":(35,134,75,255),"B":(79,143,58,255),"C":(176,138,25,255),"D":(214,108,32,255),"E":(182,45,45,255)}
     cell=width/5.0
     for i,(g,label) in enumerate(rows):
@@ -952,7 +952,7 @@ def _build_reel_yarigatake_scene(target: date, detail: dict[str, Any], W: int, H
     d.text((40,163),'MET Norway × NOAA GFS',font=_load_font(27),fill=(196,220,231,255))
     c=_reel_grade_color(grade); d.rounded_rectangle((660,35,824,200),radius=38,fill=c)
     f=_load_font(76); bb=d.textbbox((0,0),grade,font=f); d.text((742-(bb[2]-bb[0])/2,48),grade,font=f,fill=(255,255,255,255))
-    labels={'A':'良好','B':'軽い注意','C':'注意','D':'悪い','E':'非常に悪い'}
+    labels={'A':'良好','B':'軽い注意','C':'注意','D':'危険','E':'極めて危険'}
     lf=_load_font(22); txt=labels[grade]; bb=d.textbbox((0,0),txt,font=lf); d.text((742-(bb[2]-bb[0])/2,148),txt,font=lf,fill=(255,255,255,255))
     # V1.6.24: same 06:00-15:00 instantaneous A-E strip as the web mountain detail.
     _draw_reel_hourly_grade_strip(d,(24,252,W-24,370),hours,met,gfs)
