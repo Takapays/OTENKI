@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.118"
+APP_VERSION = "1.6.119"
 
 
 def _instagram_normalize_access_token(raw: Any) -> str:
@@ -1502,6 +1502,32 @@ def _national_jma_daily_from_series(series: Any) -> dict[str, Any] | None:
     return {"shadowGrade":grade,"maxRidgeWind":round(max_ridge,1),"maxEstimatedRidgeGust":round(max_g,1),"maxRain":round(max_r,1),
             "cautionHours":caution,"bcCautionHours":bc,"severeHours":severe,"extremeHours":extreme,"series":rows}
 
+def _national_ridge_consensus_grade(base, jg, gg, eg, jr, gr):
+    """Daily nationwide ridge consensus. Never change the underlying surface grade.
+    Missing comparison or exceptional hazards retain E; GEFS is not a second vote.
+    No data fetching or additional cache fields are required.
+    """
+    valid={"A","B","C","D","E"}
+    worst=max([g for g in (base,jg,gg,eg) if g in valid],key=_national_grade_rank)
+    if worst!="E" or base=="E": return worst
+    if jg not in valid or gg not in valid or not jr or not gr: return "E"
+    if jg==gg=="E": return "E"
+    # Two usable primary forecasts must cover the dangerous slots before treating
+    # a single E as disagreement, not as missing data. Extreme winds/rain stay E.
+    jm={x["hour"]:x for x in jr.get("series",[]) if isinstance(x,dict)}
+    gm={x["hour"]:x for x in gr.get("series",[]) if isinstance(x,dict)}
+    if len(set(jm)&set(gm))<6: return "E"
+    for own,other in ((jm,gm),(gm,jm)):
+        for h,x in own.items():
+            w=x.get("ridgeWind"); g=x.get("estimatedRidgeGust"); r=x.get("rain")
+            if (_finite(w) and w>=22) or (_finite(g) and g>=33) or (_finite(r) and r>=8): return "E"
+            if any(_finite(v) and v>=t for v,t in ((w,15),(g,25),(r,6))) and h not in other: return "E"
+    return "D"
+
+
+_RIDGE_DISAGREEMENT_SUMMARY = "稜線風のモデル差により日判定D。危険な時間帯あり。中止・延期も検討し、時間別E警告を確認してください。"
+
+
 def _national_reconcile_cached_row(row: dict[str, Any]) -> dict[str, Any]:
     """Safety-side reconcile a saved nationwide row from the evidence saved with it.
 
@@ -1526,10 +1552,16 @@ def _national_reconcile_cached_row(row: dict[str, Any]) -> dict[str, Any]:
     er=_national_ridge_wind_only_daily((ev or {}).get("series"))
     jg=(jr or {}).get("shadowGrade") if jr else None
     gg=(gr or {}).get("shadowGrade") if gr else None
+    if jr and out.get("jmaGrade")=="E": jg="E"
+    if gr and out.get("gfsRidgeGrade")=="E": gg="E"
     eg=(er or {}).get("shadowGrade") if er else None
 
-    grades=[g for g in (current,base,jg,gg,eg) if g in valid]
-    final=max(grades,key=_national_grade_rank) if grades else base
+    final=_national_ridge_consensus_grade(base,jg,gg,eg,jr,gr)
+    disagreement=(final=="D" and base!="E" and "E" in (jg,gg,eg))
+    # Keep any unexplained prior E or external safety overlay. Only the known
+    # ridge disagreement may lower an existing E; all other reads remain monotonic.
+    if current in valid and not (current=="E" and disagreement and not out.get("weatherapiApplied")):
+        final=max((current,final),key=_national_grade_rank)
     primary_usable=bool(jr or gr)
     gefs_usable=bool(er)
     # Preserve the V1.6.92 confidence rule on the cache read path as well: GEFS-only
@@ -1557,11 +1589,12 @@ def _national_reconcile_cached_row(row: dict[str, Any]) -> dict[str, Any]:
         out["gefsRidgeValues"]={**(ev or {}),**{k:v for k,v in er.items() if k not in {"shadowGrade","series"}}}
     if cap_required:
         out["ridgeConfidenceCapApplied"]=True
-    # Read reconciliation is monotonic safety-side only. A normal nationwide refresh
-    # may improve the grade when a newer complete model generation is acquired.
-    if current not in valid or _national_grade_rank(final)>_national_grade_rank(current):
+    # Except for confirmed ridge-only disagreement, retain monotonic read safety.
+    if current not in valid or _national_grade_rank(final)>_national_grade_rank(current) or (current=="E" and disagreement and final=="D"):
         out["grade"]=final
-    out["decisionPolicy"]="base-plus-jma-gfs-gefs-ridge-worstof-v1699-cache-read"
+    if disagreement and final=="D":
+        out["summary"]=_RIDGE_DISAGREEMENT_SUMMARY
+    out["decisionPolicy"]="ridge-consensus-v16119-cache-read"
     out["detailReconciledVersion"]="v1699-server-read"
     return out
 
@@ -1585,6 +1618,10 @@ def _national_attach_jma_result(row: dict[str, Any], jr: dict[str, Any]) -> dict
     }
     if out["jmaWorstOfApplied"] and _national_grade_rank(out["jmaGrade"])>_national_grade_rank(out.get("grade")):
         out["grade"]=out["jmaGrade"]
+    checked=_national_reconcile_cached_row(out)
+    if out.get("grade")=="E" and checked.get("grade")=="D":
+        out["grade"]="D"
+        out["summary"]=checked["summary"]
     return out
 
 def _national_repair_snapshot_jma(date_text: str, fingerprint: str, points: list[dict[str, Any]], snap: dict[str, Any]) -> tuple[dict[str, Any], int, str | None]:
@@ -2651,8 +2688,14 @@ def _national_apply_ridge_continuity(result: dict[str, Any], p: dict[str, Any], 
     gefs_daily=_national_ridge_wind_only_daily(gefs_series) if _national_ridge_series_usable(gefs_series) else None
     gefs_grade=(gefs.get("ridgeGrade") if gefs.get("ridgeGrade") in {"A","B","C","D","E"} else (gefs_daily or {}).get("shadowGrade"))
     gefs_usable=bool(gefs_daily and gefs_grade in {"A","B","C","D","E"})
-    grades=[g for g in (base,jma_grade,gfs_grade,gefs_grade) if g in {"A","B","C","D","E"}]
-    final=max(grades,key=_national_grade_rank) if grades else base
+    jma_daily=_national_jma_daily_from_series(jma_series)
+    # The same rounded, already stored series are used by cache-read reconciliation.
+    # Incomplete evidence retains the older safety-side result.
+    policy_jg="E" if (jma_daily or {}).get("shadowGrade")=="E" else jma_grade
+    policy_gg="E" if (gfs_daily or {}).get("shadowGrade")=="E" else gfs_grade
+    final=_national_ridge_consensus_grade(base,policy_jg,policy_gg,gefs_grade,jma_daily,gfs_daily)
+    jma_grade,gfs_grade=policy_jg,policy_gg
+    disagreement=(final=="D" and base!="E" and "E" in (policy_jg,policy_gg,gefs_grade))
     elev=_national_resolve_point_elevation(p.get("name"),p.get("elevation"))
     needs_ridge=bool(elev is not None and float(elev)>=500.0)
     # GEFS ensemble mean is a lower-confidence fallback. Even a calm GEFS mean does
@@ -2676,7 +2719,7 @@ def _national_apply_ridge_continuity(result: dict[str, Any], p: dict[str, Any], 
         "ridgeDecisionStatus":ridge_status,"ridgeEvidenceAvailable":bool(jma_usable or gfs_usable or gefs_usable),
         "ridgePrimaryEvidenceAvailable":bool(primary_usable),
         "ridgeConfidenceCapApplied":cap,"ridgeContinuityVersion":"v1692-ridge-continuity-v2",
-        "decisionPolicy":"base-plus-jma-gfs-gefs-ridge-worstof-v1692",
+        "decisionPolicy":"ridge-consensus-v16119",
     })
     if jma:
         out["jmaValues"]={
@@ -2721,6 +2764,8 @@ def _national_apply_ridge_continuity(result: dict[str, Any], p: dict[str, Any], 
             out["summary"]=(base_summary+" 上空風データを確認できないため、A（良好）は出さずBとして表示しています。").strip()
     elif suffix and _national_grade_rank(final)>=_national_grade_rank(base):
         out["summary"]=(base_summary+" "+" / ".join(suffix)+"を安全側に反映しています。").strip()
+    if disagreement:
+        out["summary"]=_RIDGE_DISAGREEMENT_SUMMARY
     return out
 
 def _openmeteo_jma_shadow_day_result(p: dict[str, Any], payload: dict[str, Any], date_text: str) -> dict[str, Any] | None:
