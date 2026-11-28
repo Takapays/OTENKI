@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, send_f
 import instagram_bot
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = "1.6.122"
+APP_VERSION = "1.6.123"
 
 
 def _instagram_normalize_access_token(raw: Any) -> str:
@@ -218,7 +218,6 @@ def _instagram_direct_account_probe() -> dict[str, Any]:
         result["error"] = {"type":type(exc).__name__,"message":str(exc)[:500]}
     return result
 PORT = int(os.environ.get("PORT", "8000"))
-METEOBLUE_API_KEY = os.environ.get("METEOBLUE_API_KEY", "").strip()
 WEATHERAPI_KEY = os.environ.get("WEATHERAPI_KEY", "").strip()
 WEATHERAPI_SHADOW_DAYS = max(1, min(3, int(os.environ.get("WEATHERAPI_SHADOW_DAYS", "3"))))
 WEATHERAPI_SHADOW_TIMEOUT = max(5, min(60, int(os.environ.get("WEATHERAPI_SHADOW_TIMEOUT", "25"))))
@@ -317,48 +316,6 @@ app.config["MAX_CONTENT_LENGTH"] = MAX_OVERPASS_BYTES
 
 _cache: "OrderedDict[str, tuple[float, int, str, bytes]]" = OrderedDict()
 _cache_lock = threading.Lock()
-
-# V1.6.39: meteoblue free API protection. All server-side meteoblue paths
-# (national refresh and browser proxy) share this pacing/circuit within a process.
-_meteoblue_lock = threading.Lock()
-_meteoblue_last_request = 0.0
-_meteoblue_circuit_until = 0.0
-METEOBLUE_MIN_INTERVAL = float(os.environ.get("METEOBLUE_MIN_INTERVAL", "2.0"))
-METEOBLUE_429_COOLDOWN = float(os.environ.get("METEOBLUE_429_COOLDOWN", "60"))
-
-class MeteoblueCircuitOpen(Exception):
-    def __init__(self, retry_after: float):
-        self.retry_after = max(1.0, float(retry_after))
-        super().__init__(f"meteoblue cooldown {self.retry_after:.0f}s")
-
-def _meteoblue_upstream_fetch(url: str) -> tuple[int, str, bytes]:
-    global _meteoblue_last_request, _meteoblue_circuit_until
-    with _meteoblue_lock:
-        now = time.monotonic()
-        if now < _meteoblue_circuit_until:
-            raise MeteoblueCircuitOpen(_meteoblue_circuit_until - now)
-        wait = METEOBLUE_MIN_INTERVAL - (now - _meteoblue_last_request)
-        if wait > 0:
-            time.sleep(wait)
-        req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/json"})
-        try:
-            with urllib.request.urlopen(req, timeout=UPSTREAM_TIMEOUT) as resp:
-                body = resp.read()
-                status = int(resp.status)
-                ctype = resp.headers.get("Content-Type", "application/json")
-                return status, ctype, body
-        except urllib.error.HTTPError as exc:
-            if int(exc.code) == 429:
-                retry_after = None
-                try:
-                    retry_after = float(exc.headers.get("Retry-After") or 0) if exc.headers else None
-                except (TypeError, ValueError):
-                    retry_after = None
-                cooldown = max(METEOBLUE_429_COOLDOWN, retry_after or 0)
-                _meteoblue_circuit_until = time.monotonic() + cooldown
-            raise
-        finally:
-            _meteoblue_last_request = time.monotonic()
 
 # Open-Meteo free endpoints can return HTTP 429 when several model requests
 # arrive in a burst. Serialize those calls, keep a small gap between them, and
@@ -2117,7 +2074,7 @@ def _instagram_load_yarigatake_detail(date_text: str) -> dict[str, Any]:
     p=next((dict(x) for x in points if str(x.get("name") or "")=="槍ヶ岳"),None)
     if not p:
         raise RuntimeError("Yarigatake point is unavailable")
-    met=None; gfs=None; mb=None
+    met=None; gfs=None
     try:
         met=_national_result_from_metno(p,date_text,_request_metno_national_point(p) or {},include_series=True)
     except Exception as exc:
@@ -2126,14 +2083,13 @@ def _instagram_load_yarigatake_detail(date_text: str) -> dict[str, Any]:
         gfs=_national_gfs_results(date_text,[p],include_series=True).get("槍ヶ岳")
     except Exception as exc:
         app.logger.warning("instagram_yarigatake_gfs_failed %s",type(exc).__name__)
-    mb=_national_fetch_meteoblue_detail(p,date_text) if _national_meteoblue_candidate(met,gfs) else None
-    merged=_national_merge_two_models(p,met,gfs,mb)
+    merged=_national_merge_two_models(p,met,gfs)
     if not merged or (not met and not gfs):
         raise RuntimeError("Yarigatake forecast unavailable")
     def clean(row):
         if not row: return None
         return {k:v for k,v in row.items() if k != "_series"}
-    return {"date":date_text,"name":"槍ヶ岳","merged":merged,"models":{"metno":clean(met),"gfs":clean(gfs),"meteoblue":clean(mb)}}
+    return {"date":date_text,"name":"槍ヶ岳","merged":merged,"models":{"metno":clean(met),"gfs":clean(gfs)}}
 
 
 def _instagram_maybe_post_after_refresh():
@@ -4397,95 +4353,6 @@ def _national_metno_results(date_text: str, points: list[dict[str, Any]]) -> tup
 
 
 
-def _meteoblue_time_jst(value: Any) -> datetime | None:
-    raw=str(value or "").strip()
-    if not raw: return None
-    try:
-        if raw.endswith("Z") or re.search(r"[+-]\d\d:\d\d$",raw):
-            return datetime.fromisoformat(raw.replace("Z","+00:00")).astimezone(timezone(timedelta(hours=9)))
-        return datetime.fromisoformat(raw.replace(" ","T")).replace(tzinfo=timezone(timedelta(hours=9)))
-    except Exception:
-        return None
-
-
-def _national_request_meteoblue(p: dict[str, Any]) -> dict[str, Any] | None:
-    if not METEOBLUE_API_KEY: return None
-    params={"lat":f'{float(p["lat"]):.5f}',"lon":f'{float(p["lon"]):.5f}',"apikey":METEOBLUE_API_KEY,
-        "format":"json","tz":"Asia/Tokyo","windspeed":"ms-1","winddirection":"degree","precipitationamount":"mm","temperature":"C"}
-    if p.get("elevation") is not None:
-        try: params["asl"]=str(round(float(p["elevation"])))
-        except (TypeError,ValueError): pass
-    public_params={k:v for k,v in params.items() if k!="apikey"}
-    cache_key="meteoblue:national-element-policy:v1635:"+urllib.parse.urlencode(public_params)
-    cached=_cache_get(cache_key)
-    body=cached[2] if cached else None
-    if body is None:
-        url="https://my.meteoblue.com/packages/basic-1h_clouds-3h_wind-3h_air-3h?"+urllib.parse.urlencode(params)
-        status,ctype,body=_meteoblue_upstream_fetch(url)
-        # One meteoblue response spans several forecast days. Reuse it aggressively
-        # so national/detail users do not spend a new API call for the same mountain.
-        _cache_put(cache_key,200,"application/json",body,ttl=21600)
-    return json.loads(body.decode("utf-8"))
-
-
-def _national_result_from_meteoblue(p: dict[str, Any], date_text: str, payload: dict[str, Any]) -> dict[str, Any] | None:
-    d1=payload.get("data_1h") or payload.get("data1h") or {}; d3=payload.get("data_3h") or payload.get("data3h") or {}
-    t1=d1.get("time") or []; t3=d3.get("time") or []
-    def val(data,keys,i):
-        for k in keys:
-            try:
-                x=float((data.get(k) or [])[i])
-                if math.isfinite(x): return x
-            except (TypeError,ValueError,IndexError): pass
-        return None
-    three=[]
-    for i,t in enumerate(t3):
-        dt=_meteoblue_time_jst(t)
-        if not dt: continue
-        three.append((dt,val(d3,["gust","windgust","windgusts","wind_gust","wind_gusts"],i)))
-    def interp_gust(dt):
-        pts=[(x,g) for x,g in three if g is not None]
-        if not pts:return None
-        pts.sort(key=lambda x:x[0])
-        if dt<=pts[0][0]: return pts[0][1] if (pts[0][0]-dt).total_seconds()<=3*3600 else None
-        if dt>=pts[-1][0]: return pts[-1][1] if (dt-pts[-1][0]).total_seconds()<=3*3600 else None
-        for (a,ga),(b,gb) in zip(pts,pts[1:]):
-            if a<=dt<=b:
-                span=(b-a).total_seconds()
-                if span<=0:return ga
-                f=(dt-a).total_seconds()/span
-                return ga+(gb-ga)*f
-        return None
-    rows=[]
-    for i,t in enumerate(t1):
-        dt=_meteoblue_time_jst(t)
-        if not dt or dt.strftime("%Y-%m-%d")!=date_text or not 6<=dt.hour<=15: continue
-        temp=val(d1,["temperature"],i); wind=val(d1,["windspeed","wind_speed"],i); rain=val(d1,["precipitation","precipitationamount"],i)
-        gust=val(d1,["gust","windgust","windgusts","wind_gust","wind_gusts"],i)
-        if gust is None: gust=interp_gust(dt)
-        if temp is None and wind is None and rain is None and gust is None: continue
-        rows.append({"hour":dt.hour,"wind":wind,"gust":gust,"rain":rain,"temp":temp})
-    if not rows:return None
-    winds=[x["wind"] for x in rows if _finite(x.get("wind"))]; gusts=[x["gust"] for x in rows if _finite(x.get("gust"))]; rains=[x["rain"] for x in rows if _finite(x.get("rain"))]; temps=[x["temp"] for x in rows if _finite(x.get("temp"))]
-    caution=sum(1 for x in rows if (_finite(x.get("wind")) and x["wind"]>=5) or (_finite(x.get("gust")) and x["gust"]>=12) or (_finite(x.get("rain")) and x["rain"]>=0.1))
-    severe=sum(1 for x in rows if (_finite(x.get("wind")) and x["wind"]>=9) or (_finite(x.get("gust")) and x["gust"]>=18) or (_finite(x.get("rain")) and x["rain"]>=1.5))
-    extreme=sum(1 for x in rows if (_finite(x.get("wind")) and x["wind"]>=15) or (_finite(x.get("gust")) and x["gust"]>=25) or (_finite(x.get("rain")) and x["rain"]>=6))
-    mw=max(winds) if winds else 0; mg=max(gusts) if gusts else None; mr=max(rains) if rains else None; mt=min(temps) if temps else None
-    bc_caution_hours=_national_bc_caution_hours(rows)
-    grade,summary=_national_grade(mw,mg or 0,mr or 0,0,mt or 0,None,caution_hours=caution,severe_hours=severe,extreme_hours=extreme,bc_caution_hours=bc_caution_hours)
-    return {"name":p["name"],"grade":grade,"summary":summary,"maxWind":round(mw,1),"maxGust":round(mg,1) if mg is not None else None,"maxRain":round(mr,1) if mr is not None else None,"minTemp":round(mt,1) if mt is not None else None,"cautionHours":caution,"bcCautionHours":bc_caution_hours,"lightRainOnlyHours":max(0,caution-bc_caution_hours),"severeHours":severe,"source":"meteoblue","_series":rows,"series":rows}
-
-
-def _national_fetch_meteoblue_detail(p: dict[str, Any], date_text: str) -> dict[str, Any] | None:
-    try:
-        target=datetime.strptime(date_text,"%Y-%m-%d").date(); today=(datetime.now(timezone.utc)+timedelta(hours=9)).date()
-        if target<today or target>today+timedelta(days=7): return None
-        payload=_national_request_meteoblue(p)
-        return _national_result_from_meteoblue(p,date_text,payload or {}) if payload else None
-    except Exception as exc:
-        app.logger.warning("national_meteoblue_detail_failed %s",type(exc).__name__)
-        return None
-
 def _national_grade_rank(g: str) -> int:
     return {"A":1,"B":2,"C":3,"D":4,"E":5}.get(str(g),0)
 
@@ -4495,44 +4362,26 @@ def _finite(v):
 
 
 def _national_merge_two_models(p: dict[str, Any], met: dict[str, Any] | None, gfs: dict[str, Any] | None, mb: dict[str, Any] | None = None) -> dict[str, Any] | None:
-    """Element-specific national integration.
-
-    Temperature: MET Norway is authoritative when available; direct GFS temperature
-    is excluded from the blended decision. Gust: MET Norway observed forecast value
-    first, meteoblue second; direct GFS gust is diagnostic only. Wind/rain: MET+GFS
-    center, with meteoblue used as a tie-breaker when the two differ materially.
-    """
-    if not met and not gfs and not mb: return None
+    """MET and GFS only. Legacy fourth argument is ignored. MET temperature/gust
+    remain authoritative; missing values stay unknown, not synthetic zero."""
+    if not met and not gfs: return None
     model_rows={}
-    for key,row in (("metno",met),("gfs",gfs),("meteoblue",mb)):
+    for key,row in (("metno",met),("gfs",gfs)):
         if row:
             model_rows[key]={int(x.get("hour")):x for x in (row.get("_series") or row.get("series") or []) if isinstance(x,dict) and _finite(x.get("hour"))}
     hours=sorted(set().union(*(set(v) for v in model_rows.values()))) if model_rows else []
     center=[]
-    mb_used=False
     for h in hours:
-        mr=model_rows.get("metno",{}).get(h); gr=model_rows.get("gfs",{}).get(h); br=model_rows.get("meteoblue",{}).get(h)
+        mr=model_rows.get("metno",{}).get(h); gr=model_rows.get("gfs",{}).get(h)
         mv=lambda r,k: float(r[k]) if r and _finite(r.get(k)) else None
-        mw,gw,bw=mv(mr,"wind"),mv(gr,"wind"),mv(br,"wind")
-        mrain,grain,brain=mv(mr,"rain"),mv(gr,"rain"),mv(br,"rain")
-        mt,bt=mv(mr,"temp"),mv(br,"temp")
-        mg,bg=mv(mr,"gust"),mv(br,"gust")
-        # wind: MET/GFS center; use MB as arbiter only on a material disagreement.
+        mw,gw=mv(mr,"wind"),mv(gr,"wind")
+        mrain,grain=mv(mr,"rain"),mv(gr,"rain")
         wg=[x for x in (mw,gw) if x is not None]
-        wind=sum(wg)/len(wg) if wg else bw
-        if mw is not None and gw is not None and abs(mw-gw)>=3.0 and bw is not None:
-            wind=sorted([mw,gw,bw])[1]; mb_used=True
-        # rain: missing is unknown, never 0. Use MB only when MET/GFS diverge materially.
         rg=[x for x in (mrain,grain) if x is not None]
-        rain=sum(rg)/len(rg) if rg else brain
-        if mrain is not None and grain is not None and abs(mrain-grain)>=0.7 and brain is not None:
-            rain=sorted([mrain,grain,brain])[1]; mb_used=True
-        # temperature: GFS excluded from the decision path.
-        temp=mt if mt is not None else bt
-        if mt is None and bt is not None: mb_used=True
-        # gust: direct GFS is excluded. MET first, meteoblue only if MET is absent.
-        gust=mg if mg is not None else bg
-        if mg is None and bg is not None: mb_used=True
+        wind=sum(wg)/len(wg) if wg else None
+        rain=sum(rg)/len(rg) if rg else None
+        temp=mv(mr,"temp")
+        gust=mv(mr,"gust")
         if wind is None and rain is None and temp is None and gust is None: continue
         center.append({"hour":h,"wind":wind,"gust":gust,"rain":rain,"temp":temp})
 
@@ -4540,16 +4389,12 @@ def _national_merge_two_models(p: dict[str, Any], met: dict[str, Any] | None, gf
         # Aggregate fallback; keep the same element policy.
         def pick(row,key):
             v=(row or {}).get(key); return float(v) if _finite(v) else None
-        mw,gw,bw=pick(met,"maxWind"),pick(gfs,"maxWind"),pick(mb,"maxWind")
-        wind_vals=[x for x in (mw,gw) if x is not None]; avg_w=sum(wind_vals)/len(wind_vals) if wind_vals else (bw or 0.0)
-        if mw is not None and gw is not None and abs(mw-gw)>=3 and bw is not None: avg_w=sorted([mw,gw,bw])[1]; mb_used=True
-        mr,gr,br=pick(met,"maxRain"),pick(gfs,"maxRain"),pick(mb,"maxRain")
-        rain_vals=[x for x in (mr,gr) if x is not None]; avg_r=sum(rain_vals)/len(rain_vals) if rain_vals else (br or 0.0)
-        if mr is not None and gr is not None and abs(mr-gr)>=0.7 and br is not None: avg_r=sorted([mr,gr,br])[1]; mb_used=True
+        mw,gw=pick(met,"maxWind"),pick(gfs,"maxWind")
+        wind_vals=[x for x in (mw,gw) if x is not None]; avg_w=sum(wind_vals)/len(wind_vals) if wind_vals else 0.0
+        mr,gr=pick(met,"maxRain"),pick(gfs,"maxRain")
+        rain_vals=[x for x in (mr,gr) if x is not None]; avg_r=sum(rain_vals)/len(rain_vals) if rain_vals else None
         avg_g=pick(met,"maxGust")
-        if avg_g is None: avg_g=pick(mb,"maxGust"); mb_used=mb_used or avg_g is not None
         avg_t=pick(met,"minTemp")
-        if avg_t is None: avg_t=pick(mb,"minTemp"); mb_used=mb_used or avg_t is not None
         caution=severe=extreme=bc_caution_hours=0
         base_grade,base_summary=_national_grade(avg_w,avg_g or 0,avg_r or 0,0,avg_t or 0,None)
         integration="aggregate-element-policy"
@@ -4572,7 +4417,7 @@ def _national_merge_two_models(p: dict[str, Any], met: dict[str, Any] | None, gf
     # can explain a D/E that is not visible in the integrated center series.
     rank=_national_grade_rank(base_grade)
     safety_floor_evidence=[]
-    model_labels={"metno":"MET Norway","gfs":"NOAA GFS","meteoblue":"meteoblue"}
+    model_labels={"metno":"MET Norway","gfs":"NOAA GFS"}
     for model_id,series in model_rows.items():
         rows=list(series.values())
         extreme_rows=[]; severe_rows=[]
@@ -4596,75 +4441,29 @@ def _national_merge_two_models(p: dict[str, Any], met: dict[str, Any] | None, gf
             safety_floor_evidence.append({"model":model_id,"modelLabel":model_labels.get(model_id,model_id),"grade":model_grade,"hours":extreme_rows or severe_rows})
     grade={1:"A",2:"B",3:"C",4:"D",5:"E"}.get(rank,base_grade)
     safety_floor_applied=_national_grade_rank(grade)>_national_grade_rank(base_grade)
-    grades={k:v.get("grade") for k,v in (("metno",met),("gfs",gfs),("meteoblue",mb)) if v}
+    grades={k:v.get("grade") for k,v in (("metno",met),("gfs",gfs)) if v}
     vals=list(grades.values()); ranks=[_national_grade_rank(x) for x in vals if _national_grade_rank(x)]
     diff=(max(ranks)-min(ranks)) if ranks else 0
     summary=base_summary
     if safety_floor_applied:
         summary=("単一モデルでも特に強い、または繰り返す危険条件が予測されています。中止・延期を検討してください。" if grade=="E" else "単一モデルで強い条件が予測されています。Dでも危険な時間帯があり、登山の安全を意味しません。計画見直しを検討してください。")
     if diff>=2: summary += " モデル差が大きいため、時間別グラフを確認してください。"
-    source="metno+gfs"+("+meteoblue" if mb else "")+"-element-policy"
+    source="metno+gfs-element-policy"
     public_series=[{k:v for k,v in row.items()} for row in center]
     return {"name":p["name"],"grade":grade,"summary":summary,
         "maxWind":round(avg_w,1),"maxGust":round(avg_g,1) if avg_g is not None else None,"maxRain":round(avg_r,1) if avg_r is not None else None,
         "maxCape":0,"minTemp":round(avg_t,1) if avg_t is not None else None,"minVisibility":None,"thunder":"–",
         "cautionHours":caution,"bcCautionHours":bc_caution_hours,"lightRainOnlyHours":max(0,caution-bc_caution_hours),"severeHours":severe,"source":source,"integration":integration,"_series":public_series,"series":public_series,
-        "modelGrades":grades,"modelAgreement":"high" if diff==0 else "medium" if diff==1 else "low","meteoblueUsed":bool(mb_used),
+        "modelGrades":grades,"modelAgreement":"high" if diff==0 else "medium" if diff==1 else "low",
         "safetyFloorVersion":"v1677-evidence-v1","safetyFloorApplied":bool(safety_floor_applied),
         "safetyFloorBaseGrade":base_grade,"safetyFloorGrade":grade if safety_floor_applied else None,
         "safetyFloorEvidence":safety_floor_evidence if safety_floor_applied else [],
-        "modelValues":{k:{"maxWind":v.get("maxWind"),"maxGust":v.get("maxGust"),"maxRain":v.get("maxRain"),"minTemp":v.get("minTemp")} for k,v in (("metno",met),("gfs",gfs),("meteoblue",mb)) if v}}
-
-def _national_meteoblue_candidate(met: dict[str, Any] | None, gfs: dict[str, Any] | None) -> bool:
-    """Use meteoblue only where it can materially improve the nationwide decision.
-
-    This keeps the free meteoblue quota under control: nationwide A-grade calm
-    points are not sprayed to meteoblue. We ask for MB when one direct model is
-    missing, MET has no gust on an already non-A point, or MET/GFS materially
-    disagree on hourly wind/rain. A tapped mountain detail still asks MB directly.
-    """
-    if not METEOBLUE_API_KEY:
-        return False
-    if not met or not gfs:
-        return bool(met or gfs)
-    provisional=_national_merge_two_models({"name":met.get("name") or gfs.get("name") or ""},met,gfs)
-    if met.get("maxGust") is None and _national_grade_rank((provisional or {}).get("grade"))>=2:
-        return True
-    mrows={int(x.get("hour")):x for x in (met.get("_series") or met.get("series") or []) if isinstance(x,dict) and _finite(x.get("hour"))}
-    grows={int(x.get("hour")):x for x in (gfs.get("_series") or gfs.get("series") or []) if isinstance(x,dict) and _finite(x.get("hour"))}
-    for h in set(mrows)&set(grows):
-        mr,gr=mrows[h],grows[h]
-        if _finite(mr.get("wind")) and _finite(gr.get("wind")) and abs(float(mr["wind"])-float(gr["wind"]))>=3.0:
-            return True
-        if _finite(mr.get("rain")) and _finite(gr.get("rain")) and abs(float(mr["rain"])-float(gr["rain"]))>=0.7:
-            return True
-    return False
-
-
-def _national_meteoblue_results(date_text: str, points: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
-    out={}
-    if not points or not METEOBLUE_API_KEY:
-        return out
-    def one(p):
-        try:
-            return p,_national_fetch_meteoblue_detail(p,date_text)
-        except Exception:
-            return p,None
-    # Small worker pool: meteoblue is a selective arbiter, not the 300-mountain
-    # primary transport. Shared 6-hour payload cache is reused across forecast days.
-    with ThreadPoolExecutor(max_workers=1,thread_name_prefix="traten-national-mb") as ex:
-        futures=[ex.submit(one,p) for p in points]
-        for fut in as_completed(futures):
-            p,result=fut.result()
-            if result:
-                out[p["name"]]=result
-    return out
-
+        "modelValues":{k:{"maxWind":v.get("maxWind"),"maxGust":v.get("maxGust"),"maxRain":v.get("maxRain"),"minTemp":v.get("minTemp")} for k,v in (("metno",met),("gfs",gfs)) if v}}
 
 def _national_fetch_shared(date_text, points, *, force_fetch=False, deadline=None):
     # V1.6.92: keep MET Norway + deterministic GFS as the base integration.
     # Ridge evidence order is JMA/GFS primary -> NOAA GEFS ensemble mean fallback -> A cap.
-    rows = {}; missing = []; warnings = []; metno = {}; gfs = {}; gefs = {}; mb = {}; jma = {}; stats = {}
+    rows = {}; missing = []; warnings = []; metno = {}; gfs = {}; gefs = {}; jma = {}; stats = {}
     for p0 in points:
         p=_national_with_resolved_elevation(p0)
         cached = _national_point_cache_get(date_text,p)
@@ -4688,7 +4487,7 @@ def _national_fetch_shared(date_text, points, *, force_fetch=False, deadline=Non
     if missing:
         fetched_at = time.time()
         # V1.6.104: MET Norway, deterministic GFS, and JMA MSM are independent
-        # base/ridge providers. Fetch them concurrently; GEFS and meteoblue remain
+        # base/ridge providers. Fetch them concurrently; GEFS remains
         # second-stage selective fallbacks after these three have completed.
         base_timings = {}
         def fetch_base(kind):
@@ -4731,16 +4530,8 @@ def _national_fetch_shared(date_text, points, *, force_fetch=False, deadline=Non
             except Exception as exc:
                 warnings.append("NOAA GEFS upper-air unavailable")
                 app.logger.warning("national_gefs_failed %s",type(exc).__name__)
-        mb_points=[p for p in missing if _national_meteoblue_candidate(metno.get(p["name"]),gfs.get(p["name"]))]
-        if mb_points:
-            try:
-                mb=_national_meteoblue_results(date_text,mb_points)
-            except Exception as exc:
-                warnings.append("meteoblue unavailable")
-                app.logger.warning("national_meteoblue_failed %s",type(exc).__name__)
-        app.logger.info("national_model_mix date=%s points=%s mb_candidates=%s mb_ok=%s",date_text,len(missing),len(mb_points),len(mb))
         for p in missing:
-            result = _national_merge_two_models(p,metno.get(p["name"]),gfs.get(p["name"]),mb.get(p["name"]))
+            result = _national_merge_two_models(p,metno.get(p["name"]),gfs.get(p["name"]))
             if result:
                 result=_national_apply_ridge_continuity(result,p,gfs.get(p["name"]),jma.get(p["name"]),gefs.get(p["name"]))
                 row = dict(result,_cache_meta=_national_meta(result,fetched_at=fetched_at))
@@ -4786,8 +4577,6 @@ def _national_response(data, state, *, warning=None, cached_count=None, newly_fe
             "missingCount":max(0,total-got),"remainingDueCount":max(0,total-fresh_count),"cacheHit":cc>0 and nf==0},
         "rateLimited":bool(data.get("rateLimited")),
         "dualModelCount":sum(str(r.get("source") or "").startswith("metno+gfs") for r in results),
-        "meteoblueFetchedCount":sum(bool((r.get("modelValues") or {}).get("meteoblue")) for r in results),
-        "meteoblueUsedCount":sum(bool(r.get("meteoblueUsed")) for r in results),
         "metnoOnlyCount":sum(r.get("source")=="metno" for r in results),
         "gfsOnlyCount":sum(r.get("source")=="gfs" for r in results)}
     if data.get("cacheReadError"):
@@ -6211,104 +6000,6 @@ def _diagnose_openmeteo(probes: list[dict[str, Any]]) -> dict[str, str]:
     return {"code": "mixed_or_unknown", "message": "結果が混在しています。各probeのstatus・error_type・body_headを確認してください。"}
 
 
-def _diagnose_meteoblue_probe(probe: dict[str, Any]) -> dict[str, str]:
-    status = probe.get("status")
-    body = str(probe.get("body_head") or "").lower()
-    if status == 200:
-        return {"code": "meteoblue_reachable", "message": "Renderからmeteoblueへの直接取得は成功しています。本体側のキャッシュ・時刻照合・429 cooldown状態を確認してください。"}
-    if status == 429:
-        if any(word in body for word in ("quota", "credit", "limit", "package", "subscription", "apikey", "api key")):
-            return {"code": "meteoblue_quota_or_plan_limit", "message": "meteoblueが429を返し、本文にもquota/plan/API key系の情報があります。APIキーまたは契約枠の制限が最有力です。"}
-        return {"code": "meteoblue_rate_limited", "message": "meteoblueが429を返しています。Retry-After・rate-limitヘッダー・body_headを確認してください。短時間制限またはAPIキー/契約枠制限の可能性があります。"}
-    if status in (401, 403):
-        return {"code": "meteoblue_auth_or_access_restricted", "message": "meteoblueが401/403を返しています。APIキー、許可パッケージ、送信元制限を確認してください。"}
-    if isinstance(status, int) and status >= 500:
-        return {"code": "meteoblue_upstream_error", "message": "meteoblueが5xxを返しています。上流側の一時障害の可能性があります。"}
-    if status is None:
-        return {"code": "meteoblue_network_error", "message": "meteoblueへの接続でHTTP応答前に例外が発生しています。Render側のDNS/外向き通信も候補です。"}
-    return {"code": "meteoblue_mixed_or_unknown", "message": "meteoblueの応答を取得しました。status・headers・body_headを確認してください。"}
-
-
-def _diagnostic_meteoblue_probe() -> dict[str, Any]:
-    """One uncached, un-retried request that bypasses the app cooldown."""
-    if not METEOBLUE_API_KEY:
-        return {"name": "meteoblue_operational_like", "ok": False, "status": None,
-                "error_type": "NotConfigured", "error": "METEOBLUE_API_KEY is not configured"}
-    lat, lon, altitude = 35.3606, 138.7274, 3776
-    params = {
-        "lat": f"{lat:.5f}", "lon": f"{lon:.5f}", "asl": str(altitude),
-        "apikey": METEOBLUE_API_KEY, "format": "json", "tz": "Asia/Tokyo",
-        "windspeed": "ms-1", "winddirection": "degree",
-        "precipitationamount": "mm", "temperature": "C",
-    }
-    endpoint = "/packages/basic-1h_clouds-3h_wind-3h_air-3h"
-    url = "https://my.meteoblue.com" + endpoint + "?" + urllib.parse.urlencode(params)
-    started = time.monotonic()
-    req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/json"})
-    try:
-        with urllib.request.urlopen(req, timeout=UPSTREAM_TIMEOUT) as resp:
-            body = resp.read(1200).decode("utf-8", errors="replace")
-            headers = resp.headers or {}
-            return {
-                "name": "meteoblue_operational_like", "ok": 200 <= int(resp.status) < 300,
-                "status": int(resp.status), "elapsed_ms": round((time.monotonic() - started) * 1000),
-                "host": "my.meteoblue.com", "path": endpoint,
-                "retry_after": headers.get("Retry-After"),
-                "rate_limit_limit": headers.get("X-RateLimit-Limit"),
-                "rate_limit_remaining": headers.get("X-RateLimit-Remaining"),
-                "rate_limit_reset": headers.get("X-RateLimit-Reset"),
-                "server": headers.get("Server"),
-                "body_head": body.replace(METEOBLUE_API_KEY, "***")[:800],
-            }
-    except urllib.error.HTTPError as exc:
-        try:
-            body = exc.read(1600).decode("utf-8", errors="replace")
-        except Exception:
-            body = ""
-        headers = exc.headers or {}
-        return {
-            "name": "meteoblue_operational_like", "ok": False, "status": int(exc.code),
-            "elapsed_ms": round((time.monotonic() - started) * 1000),
-            "host": "my.meteoblue.com", "path": endpoint,
-            "retry_after": headers.get("Retry-After"),
-            "rate_limit_limit": headers.get("X-RateLimit-Limit"),
-            "rate_limit_remaining": headers.get("X-RateLimit-Remaining"),
-            "rate_limit_reset": headers.get("X-RateLimit-Reset"),
-            "server": headers.get("Server"), "error_type": "HTTPError",
-            "body_head": body.replace(METEOBLUE_API_KEY, "***")[:800],
-        }
-    except Exception as exc:
-        return {
-            "name": "meteoblue_operational_like", "ok": False, "status": None,
-            "elapsed_ms": round((time.monotonic() - started) * 1000),
-            "host": "my.meteoblue.com", "path": endpoint,
-            "error_type": type(exc).__name__,
-            "error": str(exc).replace(METEOBLUE_API_KEY, "***")[:500],
-        }
-
-
-@app.get("/api/diag/meteoblue")
-def diagnostic_meteoblue():
-    if not _dashboard_auth_ok():
-        return _dashboard_unauthorized()
-    probe = _diagnostic_meteoblue_probe()
-    with _meteoblue_lock:
-        cooldown_remaining = max(0, int(math.ceil(_meteoblue_circuit_until - time.monotonic())))
-    payload = {
-        "ok": bool(probe.get("ok")), "version": APP_VERSION,
-        "server_time_utc": datetime.now(timezone.utc).isoformat(),
-        "test_point": {"name": "富士山", "lat": 35.3606, "lon": 138.7274, "altitude": 3776},
-        "configured": bool(METEOBLUE_API_KEY),
-        "package": "basic-1h_clouds-3h_wind-3h_air-3h",
-        "app_cooldown_remaining_seconds": cooldown_remaining,
-        "app_min_interval_seconds": METEOBLUE_MIN_INTERVAL,
-        "diagnosis": _diagnose_meteoblue_probe(probe), "probe": probe,
-        "note": "キャッシュ・通常リトライ・アプリ内429 cooldownを通さず、Render本番からmeteoblueへ直接1回だけ接続します。APIキーは応答に含めません。",
-    }
-    resp = jsonify(payload)
-    resp.headers["Cache-Control"] = "no-store"
-    return resp
-
 @app.get("/api/diag/open-meteo")
 def diagnostic_open_meteo():
     # Reuse the usage-dashboard Basic Auth so this endpoint cannot be abused to burn API quota.
@@ -6766,52 +6457,6 @@ def weathernews_link():
 def tenkijp_link():
     return _external_weather_response("tenkijp")
 
-
-
-@app.get("/api/meteoblue")
-def meteoblue_forecast():
-    """Server-side meteoblue proxy so the API key never reaches the browser."""
-    if not METEOBLUE_API_KEY:
-        return jsonify(error="meteoblue API key is not configured", configured=False), 503
-    try:
-        lat = float(request.args["lat"])
-        lon = float(request.args["lon"])
-        params = {
-            "lat": f"{lat:.5f}",
-            "lon": f"{lon:.5f}",
-            "apikey": METEOBLUE_API_KEY,
-            "format": "json",
-            "tz": "Asia/Tokyo",
-            "windspeed": "ms-1",
-            "winddirection": "degree",
-            "precipitationamount": "mm",
-            "temperature": "C",
-        }
-        asl = request.args.get("asl")
-        if asl not in (None, ""):
-            try: params["asl"] = str(round(float(asl)))
-            except (TypeError, ValueError): pass
-        url = "https://my.meteoblue.com/packages/basic-1h_clouds-3h_wind-3h_air-3h?" + urllib.parse.urlencode(params)
-        cache_key = "meteoblue:basic-1h_clouds-3h_wind-3h_air-3h:v1635:" + urllib.parse.urlencode({k:v for k,v in params.items() if k != "apikey"})
-        cached = _cache_get(cache_key)
-        if cached:
-            status, ctype, body = cached
-            return _bytes_response(status, ctype, body, cache_control="public, max-age=21600")
-        status, ctype, body = _meteoblue_upstream_fetch(url)
-        _cache_put(cache_key, status, ctype, body, ttl=21600)
-        return _bytes_response(status, ctype, body, cache_control="public, max-age=21600")
-    except MeteoblueCircuitOpen as exc:
-        return jsonify(error="meteoblue 429 cooldown active", retry_after_seconds=int(math.ceil(exc.retry_after)), cooldown=True), 429
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace")[:1200]
-        retry_after = None
-        try: retry_after = exc.headers.get("Retry-After") if exc.headers else None
-        except Exception: retry_after = None
-        return jsonify(error=f"meteoblue HTTP {exc.code}", detail=detail, retry_after=retry_after), exc.code
-    except (KeyError, ValueError) as exc:
-        return jsonify(error=f"meteoblue input error: {exc}"), 400
-    except Exception as exc:
-        return jsonify(error=f"meteoblue fetch failed: {exc}"), 502
 
 
 @app.get("/api/noaa-gfs")

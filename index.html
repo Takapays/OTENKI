@@ -520,11 +520,11 @@
     <div class="topbar-center">
       <h1>全国から探す。自分の山行を読む。</h1>
       <div class="topbar-badges topbar-version-only">
-        <span data-app-version>V1.6.122</span>
+        <span data-app-version>V1.6.123</span>
       </div>
     </div>
     <div class="mobile-topbar-copy">全国から探す。自分の山行を読む。</div>
-    <span class="mobile-topbar-version" data-app-version>V1.6.122</span>
+    <span class="mobile-topbar-version" data-app-version>V1.6.123</span>
     <button id="installAppBtn" class="mobile-install-app hidden" type="button" aria-label="トラテンをホーム画面に追加">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0-11-4 4m4-4 4 4"/><path d="M5 11v8h14v-8"/></svg>
       <span>ホーム画面に追加</span>
@@ -657,7 +657,7 @@
           <span class="horizon-chip caution"><b>8〜15日先</b><small>ECMWF / GFS中心 △</small></span>
           <span class="horizon-chip out"><b>16日以降</b><small>予報対象外</small></span>
         </div>
-        <div class="forecast-horizon-note">※Open-Meteo 429時は meteoblue複数モデル統合予報を軸に、MET Norway / NOAA GFSで補強します（429だけを理由に信頼度は下げません）</div>
+        <div class="forecast-horizon-note">※Open-Meteo取得困難時はMET Norway / NOAA GFSで継続し、取得モデル数と一致度に応じて信頼度を表示します。</div>
       </div>
 
       <div class="welcome-risk-grid">
@@ -878,7 +878,7 @@
     </a>
   </div>
 </footer>
-<script src="app.js?v=1.6.122" defer></script>
+<script src="app.js?v=1.6.123" defer></script>
 <script src="asama-route-v1578.js?v=1.6.49" defer></script>
 <script src="hyakumeizan-route-enrichment-v1579.js?v=1.6.49" defer></script>
 <script src="hyakumeizan-route-enrichment-v1580.js?v=1.6.49" defer></script>
